@@ -228,12 +228,50 @@ export const projectMemory = {
       provenance?: MemoryProvenance
     }
   ): Promise<void> {
-    await memoryService.log(projectPath, `${REMEMBER_ACTION_PREFIX}${args.type}`, {
-      content: args.content,
-      tags: args.tags ?? {},
-      source: args.source,
-      provenance: args.provenance ?? 'declared',
-    })
+    const tags = args.tags ?? {}
+    const provenance = args.provenance ?? 'declared'
+    const logResult = await memoryService.log(
+      projectPath,
+      `${REMEMBER_ACTION_PREFIX}${args.type}`,
+      {
+        content: args.content,
+        tags,
+        source: args.source,
+        provenance,
+      }
+    )
+
+    // Dual-write to the `memories` table so the FTS5 index (memories_fts)
+    // stays fresh. The trigger memories_ai keeps the FTS rows in sync.
+    // Best-effort: the audit-trail event already landed in `events`; if
+    // memories insert fails we just lose the FTS row for this entry.
+    if (logResult?.eventId != null) {
+      try {
+        const memId = `mem_${logResult.eventId}`
+        const now = new Date().toISOString()
+        const titleSrc = args.content.split('\n')[0] ?? args.content
+        const title = titleSrc.slice(0, 80)
+        prjctDb.run(
+          logResult.projectId,
+          `INSERT OR IGNORE INTO memories
+             (id, project_id, title, content, tags, type, provenance, user_triggered,
+              created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          memId,
+          logResult.projectId,
+          title,
+          args.content,
+          JSON.stringify(tags),
+          args.type,
+          provenance,
+          0,
+          now,
+          now
+        )
+      } catch {
+        // Non-critical — events row is the source of truth.
+      }
+    }
 
     // Phase 1.5 / B1: also publish to the sync queue so prjct-cloud
     // mirrors memories. memoryService.log writes to the local events
@@ -273,6 +311,74 @@ export const projectMemory = {
   },
 
   /**
+   * FTS5 BM25 search over the `memories` table. Returns the top-N entries
+   * ranked by relevance to the supplied keywords (with recency as the
+   * tie-breaker). Best-effort: empty array on any failure (FTS unavailable,
+   * malformed MATCH, etc.).
+   *
+   * The hook UserPromptSubmit calls this first for topical recall; if FTS
+   * misses (empty index, no matches), the caller falls back to `recall()`.
+   */
+  searchFts(projectId: string, keywords: string[], limit: number): MemoryEntry[] {
+    if (keywords.length === 0 || limit <= 0) return []
+    // Sanitize: keep only token-friendly chars, drop FTS5-reserved
+    // operators so a user prompt with literal "OR"/"AND"/"NEAR" doesn't
+    // hijack the MATCH parse. Trailing-* allows prefix matching.
+    const sanitized = keywords
+      .map((kw) => kw.replace(/[^a-z0-9-]/gi, ''))
+      .filter((kw) => kw.length >= 2)
+    if (sanitized.length === 0) return []
+    const matchExpr = sanitized.map((kw) => `"${kw}"*`).join(' OR ')
+
+    type FtsRow = {
+      id: string
+      title: string
+      content: string
+      tags: string | null
+      type: string | null
+      provenance: string | null
+      created_at: string
+    }
+    let rows: FtsRow[]
+    try {
+      rows = prjctDb.query<FtsRow>(
+        projectId,
+        `SELECT m.id, m.title, m.content, m.tags, m.type, m.provenance, m.created_at
+         FROM memories_fts ft
+         JOIN memories m ON m.rowid = ft.rowid
+         WHERE memories_fts MATCH ?
+           AND m.deleted_at IS NULL
+         ORDER BY bm25(memories_fts) ASC, m.created_at DESC
+         LIMIT ?`,
+        matchExpr,
+        limit
+      )
+    } catch {
+      return []
+    }
+
+    return rows.map((row) => {
+      let tags: Record<string, string> = {}
+      if (row.tags) {
+        try {
+          const parsed = JSON.parse(row.tags) as unknown
+          if (parsed && typeof parsed === 'object') tags = parsed as Record<string, string>
+        } catch {
+          // Comma-joined legacy form (migration 10 backfill). Best-effort.
+        }
+      }
+      return {
+        id: row.id,
+        type: row.type ?? 'fact',
+        content: row.content,
+        tags,
+        rememberedAt: row.created_at,
+        provenance: (row.provenance ?? 'declared') as MemoryProvenance,
+      }
+    })
+  },
+
+  /**
    * Fetch matching entries across memory sources, newest-first.
    * Returns an empty array on failure — callers treat recall as best-effort.
    */
@@ -283,23 +389,35 @@ export const projectMemory = {
     // enough for the common "filter by one type" case, cheap enough
     // otherwise.
     const overfetch = Math.max(limit * OVERFETCH_FACTOR, MIN_OVERFETCH)
-    const rows = prjctDb.query<EventRow>(
-      projectId,
-      'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC LIMIT ?',
-      `${REMEMBER_EVENT_PREFIX}%`,
-      overfetch
-    )
-    const shipped = prjctDb.query<ShippedRow>(
-      projectId,
-      'SELECT id, name, type, shipped_at, data FROM shipped_features ORDER BY shipped_at DESC LIMIT ?',
-      overfetch
-    )
+
+    // Memory entries live in two tables: `events` (user-captured via
+    // remember/capture) and `shipped_features` (auto-recorded ships).
+    // When the caller filtered by `types`, we can skip whichever source
+    // can never satisfy the filter — saves a query per recall.
+    const typesFilter = opts.types && opts.types.length > 0 ? new Set(opts.types) : null
+    const wantShipped = typesFilter ? typesFilter.has('shipped') : true
+    const wantEvents = typesFilter ? [...typesFilter].some((t) => t !== 'shipped') : true
+
+    const rows = wantEvents
+      ? prjctDb.query<EventRow>(
+          projectId,
+          'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC LIMIT ?',
+          `${REMEMBER_EVENT_PREFIX}%`,
+          overfetch
+        )
+      : []
+    const shipped = wantShipped
+      ? prjctDb.query<ShippedRow>(
+          projectId,
+          'SELECT id, name, type, shipped_at, data FROM shipped_features ORDER BY shipped_at DESC LIMIT ?',
+          overfetch
+        )
+      : []
 
     let entries: MemoryEntry[] = [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
 
-    if (opts.types && opts.types.length > 0) {
-      const allowed = new Set(opts.types)
-      entries = entries.filter((e) => allowed.has(e.type))
+    if (typesFilter) {
+      entries = entries.filter((e) => typesFilter.has(e.type))
     }
     if (opts.tags) {
       entries = entries.filter((e) => matchesTags(e, opts.tags ?? {}))

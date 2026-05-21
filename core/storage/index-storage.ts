@@ -370,10 +370,11 @@ class IndexStorage {
    * Read a document from the index_meta table.
    */
   private getIndexMeta<T>(projectId: string, key: string): T | null {
-    const db = prjctDb.getDb(projectId)
-    const row = db.prepare('SELECT data FROM index_meta WHERE key = ?').get(key) as {
-      data: string
-    } | null
+    const row = prjctDb.get<{ data: string }>(
+      projectId,
+      'SELECT data FROM index_meta WHERE key = ?',
+      key
+    )
     if (!row) return null
     return JSON.parse(row.data) as T
   }
@@ -382,13 +383,12 @@ class IndexStorage {
    * Write a document to the index_meta table.
    */
   private setIndexMeta<T>(projectId: string, key: string, data: T): void {
-    const db = prjctDb.getDb(projectId)
-    const json = JSON.stringify(data)
-    const now = new Date().toISOString()
-    db.prepare('INSERT OR REPLACE INTO index_meta (key, data, updated_at) VALUES (?, ?, ?)').run(
+    prjctDb.run(
+      projectId,
+      'INSERT OR REPLACE INTO index_meta (key, data, updated_at) VALUES (?, ?, ?)',
       key,
-      json,
-      now
+      JSON.stringify(data),
+      new Date().toISOString()
     )
   }
 }

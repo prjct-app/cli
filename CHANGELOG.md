@@ -84,7 +84,7 @@
 ## [2.23.18] - 2026-05-20
 
 ### Added
-- current work
+- Perf round 2 + LLM recall quality (FTS5 BM25, hot-path parallelization, camelCase tokenizer)
 
 ## [2.23.17] - 2026-05-20
 

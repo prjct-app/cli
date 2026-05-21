@@ -78,9 +78,14 @@ export async function safeRun(fn: () => Promise<void>): Promise<void> {
 }
 
 /**
- * Cheap keyword extraction — lowercase words ≥ 4 chars, unique, max 8.
- * Used by prompt / session hooks to score memory relevance without
- * pulling in a stemmer or embedding pipeline.
+ * Cheap keyword extraction — unique tokens ≥ 3 chars, max 8.
+ *
+ * Pre-splits camelCase / PascalCase so `setupOAuthCallback` yields
+ * `setup`, `oauth`, `callback` AND the compound dashed form, both
+ * useful as FTS5 match candidates. Stopwords trimmed to true noise
+ * (articles, demonstratives, pronouns) — coding-intent verbs like
+ * `need`/`want`/`should` stay, since "should we cache responses?"
+ * loses signal otherwise.
  */
 export function extractKeywords(text: string, maxCount = 8): string[] {
   const stopwords = new Set([
@@ -91,11 +96,7 @@ export function extractKeywords(text: string, maxCount = 8): string[] {
     'have',
     'your',
     'please',
-    'need',
-    'want',
     'would',
-    'should',
-    'could',
     'about',
     'there',
     'these',
@@ -112,13 +113,22 @@ export function extractKeywords(text: string, maxCount = 8): string[] {
     'them',
     'their',
   ])
+  // setupOAuthCallback → setup OAuth Callback → setup oauth callback,
+  // then tokenize on every non-word boundary (dash, space, punctuation).
+  // Yields atomic tokens ['setup', 'oauth', 'callback'] so an FTS5 MATCH
+  // can OR them and still find a memory entry that mentions any one.
+  const normalized = text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
   const seen = new Set<string>()
   const out: string[] = []
-  for (const word of text.toLowerCase().match(/[a-z0-9-]{4,}/g) ?? []) {
-    if (stopwords.has(word)) continue
-    if (seen.has(word)) continue
-    seen.add(word)
-    out.push(word)
+  for (const tok of normalized.split(/[^a-z0-9]+/)) {
+    if (tok.length < 3) continue
+    if (stopwords.has(tok)) continue
+    if (seen.has(tok)) continue
+    seen.add(tok)
+    out.push(tok)
     if (out.length >= maxCount) break
   }
   return out

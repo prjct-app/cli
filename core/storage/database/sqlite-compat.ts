@@ -20,6 +20,13 @@ export type SqliteBindings = string | number | bigint | Buffer | null | undefine
  */
 export interface SqliteRunResult {
   changes: number
+  /**
+   * Both bun:sqlite and better-sqlite3 expose the rowid of an `INSERT`
+   * here — bun returns `number`, better-sqlite3 returns `bigint`. Callers
+   * needing it should normalize via `Number(result.lastInsertRowid)` and
+   * tolerate `undefined` for non-INSERT statements.
+   */
+  lastInsertRowid?: number | bigint
 }
 
 /** Minimal prepared-statement interface shared by both drivers */
