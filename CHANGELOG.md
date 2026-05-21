@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.0] - 2026-05-21
+
+### Features
+
+- FTS5 BM25 recall + hot-path parallelization + smarter tokenizer (v2.23.18) (#375)
+
+
 ## [2.23.8] - 2026-05-19
 
 ### Bug Fixes
