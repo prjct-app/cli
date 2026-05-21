@@ -16,7 +16,6 @@ import branding from './branding'
 import { OUTPUT_LIMITS } from './constants'
 import { getError } from './error-messages'
 
-const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
 
 export const OUTPUT_TIERS: Record<OutputTier, TierConfig> = {

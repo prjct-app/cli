@@ -53,6 +53,11 @@ export async function removeFile(root: string, relPath: string): Promise<void> {
  * Safe because `_generated/` is 100% generator-owned — user notes live
  * above it at the vault root and in `captured/`.
  */
+// Matches iCloud Drive conflict copies: "memory 2", "tags 3", etc.
+// The generator never produces directories with this shape, so anything
+// that does is a stray we should drop on sight.
+const ICLOUD_CONFLICT_DIR = /^.+ \d+$/
+
 export async function sweepStaleFiles(root: string, keep: Manifest): Promise<number> {
   let removed = 0
   const walk = async (dir: string): Promise<void> => {
@@ -65,8 +70,16 @@ export async function sweepStaleFiles(root: string, keep: Manifest): Promise<num
     for (const entry of entries) {
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) {
+        if (ICLOUD_CONFLICT_DIR.test(entry.name)) {
+          try {
+            await fs.rm(full, { recursive: true, force: true })
+            removed++
+            continue
+          } catch {
+            // Fall through to a normal walk if rm fails.
+          }
+        }
         await walk(full)
-        // Prune empty directories — they accumulate after sweeps.
         try {
           const remaining = await fs.readdir(full)
           if (remaining.length === 0) await fs.rmdir(full)
@@ -75,11 +88,6 @@ export async function sweepStaleFiles(root: string, keep: Manifest): Promise<num
         }
         continue
       }
-      // `_generated/` is 100% generator-owned per the contract above.
-      // Anything inside that isn't in the manifest is cruft — including
-      // `.DS_Store`, stray `.json`, or copy-paste leftovers. Without
-      // this, Finder-created `.DS_Store` blocks the rmdir() that prunes
-      // empty " 2/" dirs (the regression behind mem_3247).
       const rel = path.relative(root, full)
       if (keep[rel]) continue
       if (SWEEP_PRESERVE.has(rel)) continue

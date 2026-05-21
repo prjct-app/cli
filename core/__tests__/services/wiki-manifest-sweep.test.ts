@@ -97,3 +97,34 @@ describe('sweepStaleFiles — manifest hits are kept', () => {
     expect(await exists('memory/learning.md')).toBe(true)
   })
 })
+
+describe('sweepStaleFiles — iCloud conflict directories', () => {
+  it('nukes a non-empty "memory 2" conflict dir even with iCloud cruft inside', async () => {
+    await touch('memory/decision.md', 'kept')
+    await touch('memory 2/decision.md', 'iCloud-conflict-copy')
+    await touch('memory 2/.icloud', '')
+    const removed = await sweepStaleFiles(tmpDir, { 'memory/decision.md': 'h1' })
+    expect(removed).toBeGreaterThanOrEqual(1)
+    expect(await exists('memory 2')).toBe(false)
+    expect(await exists('memory/decision.md')).toBe(true)
+  })
+
+  it('matches the full pattern family ("tags 3", "ships 10")', async () => {
+    await touch('index.md', 'kept')
+    await touch('tags 3/.DS_Store', '')
+    await touch('ships 10/old-ship.md', 'stale')
+    await sweepStaleFiles(tmpDir, { 'index.md': 'h1' })
+    expect(await exists('tags 3')).toBe(false)
+    expect(await exists('ships 10')).toBe(false)
+  })
+
+  it('does NOT nuke a regular dir whose name happens to start the same way', async () => {
+    await touch('memory/decision.md', 'kept')
+    await touch('memory-archive/keep.md', 'keep')
+    await sweepStaleFiles(tmpDir, {
+      'memory/decision.md': 'h1',
+      'memory-archive/keep.md': 'h2',
+    })
+    expect(await exists('memory-archive/keep.md')).toBe(true)
+  })
+})

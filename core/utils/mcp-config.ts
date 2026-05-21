@@ -2,9 +2,9 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage } from '../types/fs'
-import type { MCPServerConfig, ProviderMcpPath } from '../types/utils.js'
-import { dirExists, writeJson } from './file-helper'
-import { checkOAuthTokens, MCP_REMOTE_VERSION, scanTokenDirectories } from './mcp-config/tokens'
+import type { MCPServerConfig } from '../types/utils.js'
+import { writeJson } from './file-helper'
+import { MCP_REMOTE_VERSION } from './mcp-config/tokens'
 
 interface MCPConfig {
   mcpServers?: Record<string, MCPServerConfig>
@@ -60,130 +60,6 @@ export function getClaudeMcpConfigPath(): string {
   return path.join(os.homedir(), '.claude', 'mcp.json')
 }
 
-/**
- * Returns MCP config paths for all installed AI provider CLIs.
- * Claude: ~/.claude/mcp.json
- * Gemini: ~/.gemini/settings.json (mcpServers key merged in)
- */
-async function getActiveMcpConfigPaths(): Promise<ProviderMcpPath[]> {
-  if (process.env.PRJCT_TEST_MODE === '1') {
-    return [
-      {
-        provider: 'claude',
-        configPath: getClaudeMcpConfigPath(),
-        mergeIntoExisting: false,
-      },
-    ]
-  }
-
-  const homeDir = os.homedir()
-  const paths: ProviderMcpPath[] = []
-
-  const claudeDir = path.join(homeDir, '.claude')
-  if (await dirExists(claudeDir)) {
-    paths.push({
-      provider: 'claude',
-      configPath: path.join(claudeDir, 'mcp.json'),
-      mergeIntoExisting: false,
-    })
-  }
-
-  const geminiDir = path.join(homeDir, '.gemini')
-  if (await dirExists(geminiDir)) {
-    paths.push({
-      provider: 'gemini',
-      configPath: path.join(geminiDir, 'settings.json'),
-      mergeIntoExisting: true,
-    })
-  }
-
-  return paths
-}
-
-/**
- * Upsert MCP server in ALL active providers.
- * Returns results per provider.
- */
-async function _upsertMcpServerAll(
-  serverName: string,
-  serverConfig: MCPServerConfig
-): Promise<Array<{ provider: string; path: string; changed: boolean }>> {
-  const providerPaths = await getActiveMcpConfigPaths()
-  return Promise.all(
-    providerPaths.map(async (p) => {
-      const result = await upsertMcpServer(serverName, serverConfig, p.configPath)
-      return { provider: p.provider, ...result }
-    })
-  )
-}
-
-/**
- * Check if MCP server is configured in ANY active provider.
- */
-async function _hasMcpServerAny(serverName: string): Promise<{
-  configured: boolean
-  providers: Array<{ provider: string; configured: boolean; path: string }>
-}> {
-  const providerPaths = await getActiveMcpConfigPaths()
-  const results = await Promise.all(
-    providerPaths.map(async (p) => ({
-      provider: p.provider,
-      configured: await hasMcpServer(serverName, p.configPath),
-      path: p.configPath,
-    }))
-  )
-  return {
-    configured: results.some((r) => r.configured),
-    providers: results,
-  }
-}
-
-/**
- * Validate mcp.json entry for a provider against the expected preset.
- * Auto-fixes if malformed by re-writing from preset.
- */
-async function _validateMcpConfig(provider: 'jira' | 'linear'): Promise<{
-  valid: boolean
-  issues: string[]
-  autoFixed: boolean
-}> {
-  const issues: string[] = []
-  let autoFixed = false
-
-  const providerPaths = await getActiveMcpConfigPaths()
-  for (const p of providerPaths) {
-    const config = await readMcpConfig(p.configPath)
-    const entry = config.mcpServers?.[provider]
-
-    if (!entry) {
-      issues.push(`${p.provider}: no ${provider} entry in mcp.json`)
-      continue
-    }
-
-    const preset = MCP_SERVER_PRESETS[provider]
-
-    if (
-      entry.command !== preset.command ||
-      JSON.stringify(entry.args) !== JSON.stringify(preset.args)
-    ) {
-      issues.push(`${p.provider}: ${provider} config doesn't match preset (stale version?)`)
-
-      const nextServers = { ...(config.mcpServers || {}) }
-      nextServers[provider] = preset
-      config.mcpServers = nextServers
-      await writeMcpConfig(config, p.configPath)
-      autoFixed = true
-    }
-  }
-
-  return { valid: issues.length === 0, issues, autoFixed }
-}
-
-// Re-routed wrappers (keep underscore-prefixed names so any future callers
-// or call-sites in this module continue to compile).
-const _checkOAuthTokens = checkOAuthTokens
-const _scanTokenDirectories = scanTokenDirectories
-
 async function readMcpConfig(configPath = getClaudeMcpConfigPath()): Promise<MCPConfig> {
   try {
     const raw = await fs.readFile(configPath, 'utf-8')
@@ -226,10 +102,3 @@ export async function hasMcpServer(
   const config = await readMcpConfig(configPath)
   return Boolean(config.mcpServers?.[serverName])
 }
-
-// Suppress unused warnings — these are reserved for future callers.
-void _upsertMcpServerAll
-void _hasMcpServerAny
-void _validateMcpConfig
-void _checkOAuthTokens
-void _scanTokenDirectories

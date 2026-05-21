@@ -9,7 +9,7 @@
     "core/__tests__/**/*.test.ts"
   ],
   "project": ["core/**/*.ts", "bin/**/*.ts", "scripts/**/*.{js,ts}"],
-  "ignore": ["core/storage/migrate-json.ts", "core/types/**"],
+  "ignore": ["core/types/**"],
   "ignoreExportsUsedInFile": true,
   "rules": {
     "duplicates": "off",

@@ -98,18 +98,6 @@ async function resolveDeviceId(): Promise<string> {
   }
 }
 
-/**
- * Reset the device-id cache. Used by `auth-config.write` so the next
- * publish picks up a freshly-generated UUID without restarting the
- * process.
- */
-export function _resetPublishHelperCache(): void {
-  cachedDeviceId = null
-}
-
-/**
- * Build a SyncEvent and append it to the durable pending queue.
- */
 export async function publishCRUD(args: PublishCrudArgs): Promise<void> {
   try {
     const deviceId = await resolveDeviceId()

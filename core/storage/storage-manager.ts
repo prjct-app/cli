@@ -81,14 +81,6 @@ async function _resolveDeviceId(): Promise<string> {
   }
 }
 
-/**
- * Reset the cached device id. Called by `auth-config.write` (B6) so the
- * next publish picks up a freshly-generated UUID without restarting.
- */
-export function _resetStorageManagerDeviceCache(): void {
-  _cachedDeviceId = null
-}
-
 export abstract class StorageManager<T> {
   protected filename: string
   protected cache: TTLCache<T>
