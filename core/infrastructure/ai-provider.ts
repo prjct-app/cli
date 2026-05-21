@@ -448,21 +448,6 @@ export async function detectCodex(): Promise<CodexDetection> {
   }
 }
 
-// Provider Paths
-
-/**
- * Get full path to global settings file.
- * Returns null for project-level providers (Cursor) or providers
- * without a settings file.
- */
-function _getGlobalSettingsPath(provider: AIProviderName): string | null {
-  const config = Providers[provider]
-  if (!config.configDir || !config.settingsFile) {
-    return null // Cursor has no global settings
-  }
-  return path.join(config.configDir, config.settingsFile)
-}
-
 // Provider Selection (for setup)
 
 /**

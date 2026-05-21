@@ -41,6 +41,9 @@ jobs:
       - name: Type check
         run: bun run typecheck
 
+      - name: Knip (dead code detection)
+        run: bun run knip --include files,duplicates,unlisted,binaries,unresolved
+
   test:
     name: Tests
     runs-on: ubuntu-latest

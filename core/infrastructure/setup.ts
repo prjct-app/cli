@@ -37,7 +37,6 @@ import {
   detectAllProviders,
   detectAntigravity,
   detectCodex,
-  detectProvider,
   Providers,
   selectProvider,
 } from './ai-provider'
@@ -63,18 +62,6 @@ interface SetupResults {
   configAction: string | null
 }
 
-/**
- * Check if an AI CLI is installed
- */
-async function _hasAICLI(provider: AIProviderConfig): Promise<boolean> {
-  const detection = await detectProvider(provider.name)
-  return detection.installed
-}
-
-/**
- * Install AI CLI for the specified provider
- * PRJ-114: Enhanced with graceful degradation and alternative install suggestions
- */
 async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
   const packageName =
     provider.name === 'claude' ? '@anthropic-ai/claude-code' : '@google/gemini-cli'
@@ -140,7 +127,6 @@ async function run(): Promise<SetupResults> {
   // Step 0: Detect all available providers
   const detection = await detectAllProviders()
   const selection = await selectProvider()
-  const _primaryProvider = Providers[selection.provider]
 
   const results: SetupResults = {
     provider: selection.provider,
@@ -389,14 +375,6 @@ async function installAntigravitySkill(): Promise<{
     log.warn(`Antigravity skill warning: ${getErrorMessage(error)}`)
     return { success: false, action: null }
   }
-}
-
-/**
- * Check if Antigravity skill needs installation or update
- */
-async function _needsAntigravityInstallation(): Promise<boolean> {
-  const detection = await detectAntigravity()
-  return detection.installed && !detection.skillInstalled
 }
 
 // Codex Installation (Skills-based)

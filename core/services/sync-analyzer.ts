@@ -2,10 +2,8 @@
 
 import path from 'node:path'
 import { getErrorMessage } from '../errors'
-import type { ContextSources, SourceInfo } from '../types/citations'
 import type { GitData, ProjectCommands, ProjectStats } from '../types/project-sync'
 import type { StackDetection } from '../types/stack'
-import { defaultSources } from '../utils/citations'
 import { execAsync } from '../utils/exec'
 import { fileExists, readJson, walkDir } from '../utils/file-helper'
 import log from '../utils/logger'
@@ -230,52 +228,6 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
   }
 
   return commands
-}
-
-// SOURCE CITATIONS
-
-function _buildSources(stats: ProjectStats, commands: ProjectCommands): ContextSources {
-  const sources = defaultSources()
-
-  // Determine ecosystem source file
-  const ecosystemFiles: Record<string, string> = {
-    JavaScript: 'package.json',
-    Rust: 'Cargo.toml',
-    Go: 'go.mod',
-    Python: 'pyproject.toml',
-  }
-  const ecosystemFile = ecosystemFiles[stats.ecosystem] || 'filesystem'
-  const detected = (file: string): SourceInfo => ({ file, type: 'detected' })
-  const inferred = (file: string): SourceInfo => ({ file, type: 'inferred' })
-
-  sources.ecosystem = detected(ecosystemFile)
-  sources.name = detected(ecosystemFile)
-  sources.version = detected(ecosystemFile)
-  sources.languages = detected(ecosystemFile)
-  sources.frameworks = detected(ecosystemFile)
-
-  // Commands source is the lock file or ecosystem file
-  if (commands.install.startsWith('bun')) {
-    sources.commands = detected('bun.lockb')
-  } else if (commands.install.startsWith('pnpm')) {
-    sources.commands = detected('pnpm-lock.yaml')
-  } else if (commands.install === 'yarn') {
-    sources.commands = detected('yarn.lock')
-  } else if (commands.install.startsWith('cargo')) {
-    sources.commands = detected('Cargo.toml')
-  } else if (commands.install.startsWith('go')) {
-    sources.commands = detected('go.mod')
-  } else {
-    sources.commands = detected('package.json')
-  }
-
-  // Project type is inferred from file count + framework count
-  sources.projectType = inferred('file count + frameworks')
-
-  // Git is always from git
-  sources.git = detected('git')
-
-  return sources
 }
 
 // STACK DETECTION

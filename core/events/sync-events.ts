@@ -18,22 +18,9 @@
 
 import pathManager from '../infrastructure/path-manager'
 import { syncPendingStorage } from '../storage/sync-pending-storage'
-import type { SyncEvent, SyncEventType } from '../types/events'
+import type { SyncEvent } from '../types/events'
 import { getTimestamp } from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
-
-/**
- * Infer event type from path and action
- */
-function _inferEventType(pathArray: string[], action: 'write' | 'delete'): SyncEventType {
-  const entity = pathArray[0]
-
-  if (action === 'delete') {
-    return `${entity}.deleted` as SyncEventType
-  }
-
-  return `${entity}.updated` as SyncEventType
-}
 
 class SyncEventBus {
   /** Append an event to the durable pending queue. Concurrency-safe. */
