@@ -4,9 +4,7 @@ import { computeHashes, diffHashes } from '../../domain/file-hasher'
 import type { FileHash } from '../../types/domain.js'
 
 describe('file-hasher', () => {
-  // =========================================================================
   // diffHashes
-  // =========================================================================
 
   describe('diffHashes', () => {
     const makeHash = (filePath: string, hash: string): FileHash => ({
@@ -103,9 +101,7 @@ describe('file-hasher', () => {
     })
   })
 
-  // =========================================================================
   // computeHashes (integration — reads actual files)
-  // =========================================================================
 
   describe('computeHashes', () => {
     test('computes hashes for project files', async () => {

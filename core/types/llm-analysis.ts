@@ -8,9 +8,7 @@
  * Pipeline: CLI (collect) → LLM (analyze) → CLI (store)
  */
 
-// =============================================================================
 // LLM Analysis Result (what the LLM produces)
-// =============================================================================
 
 export interface LLMAnalysis {
   /** Schema version for forward compatibility */
@@ -125,9 +123,7 @@ export interface Convention {
   example?: string
 }
 
-// =============================================================================
 // Analysis Payload (what CLI sends to LLM)
-// =============================================================================
 
 export interface AnalysisPayload {
   /** Project metadata */

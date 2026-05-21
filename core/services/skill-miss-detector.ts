@@ -228,9 +228,7 @@ export async function detectSkillMisses(
   return { signalsRecorded: recorded, signalsSkipped: skipped }
 }
 
-// ============================================================================
 // Pure core — exported via _internal for unit tests (no DB / no fs).
-// ============================================================================
 
 /**
  * Given the session transcript text, the changed-file list, and candidate

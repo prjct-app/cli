@@ -31,9 +31,7 @@ import { prjctDb } from './database'
 
 // Note: fs, path, pathManager, isNotFoundError still needed for clearIndex, calculateChecksum, ensureIndexDir
 
-// ============================================================================
 // DEFAULTS
-// ============================================================================
 
 export const INDEX_VERSION = '1.0.0'
 
@@ -71,9 +69,7 @@ function getDefaultChecksums(): FileChecksums {
   }
 }
 
-// ============================================================================
 // INDEX STORAGE CLASS
-// ============================================================================
 
 class IndexStorage {
   /**
@@ -92,9 +88,7 @@ class IndexStorage {
     return indexPath
   }
 
-  // ==========================================================================
   // PROJECT INDEX
-  // ==========================================================================
 
   /**
    * Read the project index.
@@ -128,9 +122,7 @@ class IndexStorage {
     return index !== null && index.lastFullScan !== ''
   }
 
-  // ==========================================================================
   // FILE CHECKSUMS
-  // ==========================================================================
 
   /**
    * Read file checksums.
@@ -202,9 +194,7 @@ class IndexStorage {
     return { added, modified, deleted }
   }
 
-  // ==========================================================================
   // FILE SCORES
-  // ==========================================================================
 
   /**
    * Read file scores.
@@ -233,9 +223,7 @@ class IndexStorage {
     this.setIndexMeta(projectId, 'file-scores', data)
   }
 
-  // ==========================================================================
   // UTILITY METHODS
-  // ==========================================================================
 
   /**
    * Clear all index data for a project (SQLite + JSON files)
@@ -276,9 +264,7 @@ class IndexStorage {
     return (now.getTime() - lastScan.getTime()) / (1000 * 60 * 60)
   }
 
-  // ==========================================================================
   // DISCOVERED DOMAINS
-  // ==========================================================================
 
   /**
    * Read discovered domains for a project.
@@ -319,9 +305,7 @@ class IndexStorage {
     this.setIndexMeta(projectId, 'domains', domains)
   }
 
-  // ==========================================================================
   // CATEGORIES CACHE
-  // ==========================================================================
 
   /**
    * Read categories cache.
@@ -380,9 +364,7 @@ class IndexStorage {
     return cache.domainIndex[domain] || []
   }
 
-  // ==========================================================================
   // SQLite index_meta helpers
-  // ==========================================================================
 
   /**
    * Read a document from the index_meta table.

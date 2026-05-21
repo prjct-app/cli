@@ -17,9 +17,7 @@ import { formatMemoryMd, type MemoryType, projectMemory } from '../../memory/pro
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
-// =============================================================================
 // CLI Dispatcher
-// =============================================================================
 
 /**
  * Run a context subtool from CLI arguments.
@@ -75,9 +73,7 @@ export async function runContextTool(
   }
 }
 
-// =============================================================================
 // Tool Runners
-// =============================================================================
 
 async function runWikiTool(projectPath: string, args: string[] = []): Promise<ContextToolOutput> {
   const projectId = await configManager.getProjectId(projectPath)
@@ -207,9 +203,7 @@ async function runMemoryTool(
   }
 }
 
-// =============================================================================
 // Help Text
-// =============================================================================
 
 function getHelpText(): string {
   return `

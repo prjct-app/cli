@@ -8,9 +8,7 @@
 import type { ZoneTransition } from '../types/agentic/templates-orchestration'
 import { prjctDb } from './database'
 
-// =============================================================================
 // Types
-// =============================================================================
 
 interface ZoneEventRow {
   id: number
@@ -30,9 +28,7 @@ interface ContextHealthSummary {
   compactions: number
 }
 
-// =============================================================================
 // Context Zone Storage
-// =============================================================================
 
 class ContextZoneStorage {
   /**
@@ -141,9 +137,7 @@ class ContextZoneStorage {
   }
 }
 
-// =============================================================================
 // Singleton Export
-// =============================================================================
 
 export const contextZoneStorage = new ContextZoneStorage()
 export { ContextZoneStorage }

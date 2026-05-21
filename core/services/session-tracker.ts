@@ -18,9 +18,7 @@ import { formatDuration, getTimestamp } from '../utils/date-helper'
 const MAX_COMMAND_HISTORY = 50
 const MAX_FILE_HISTORY = 200
 
-// =============================================================================
 // SESSION TRACKER
-// =============================================================================
 
 class SessionTracker {
   /**
@@ -215,9 +213,7 @@ class SessionTracker {
   }
 }
 
-// =============================================================================
 // EXPORTS
-// =============================================================================
 
 export const sessionTracker = new SessionTracker()
 export default sessionTracker

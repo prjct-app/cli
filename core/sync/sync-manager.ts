@@ -46,9 +46,7 @@ export function _resetWarnDedupeForTest(): void {
   WARN_LOGGED.clear()
 }
 
-// ============================================
 // Event normalization (Phase 1.5 / B2)
-// ============================================
 
 interface NormalizedEvent {
   entityType: string
@@ -108,9 +106,7 @@ function normalizeEventShape(event: Record<string, unknown>): NormalizedEvent {
   }
 }
 
-// ============================================
 // Sync Manager
-// ============================================
 
 class SyncManager {
   /**

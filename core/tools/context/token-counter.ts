@@ -7,8 +7,6 @@
  * This is critical for the Value Dashboard to show REAL savings,
  * not estimated ones.
  *
- * @module context-tools/token-counter
- * @version 1.0.0
  */
 
 import { CHARS_PER_TOKEN } from '../../constants/token'
@@ -42,9 +40,7 @@ type ModelName = keyof typeof MODEL_PRICING
 // Default model for cost calculations
 const DEFAULT_MODEL: ModelName = 'claude-sonnet-4.5'
 
-// =============================================================================
 // Core Functions
-// =============================================================================
 
 /**
  * Count tokens in a text string
@@ -253,8 +249,6 @@ export function formatCompressionRate(rate: number): string {
   return `${Math.round(rate * 100)}%`
 }
 
-// =============================================================================
 // Exports
-// =============================================================================
 
 export { formatCostSaved }

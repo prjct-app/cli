@@ -209,9 +209,7 @@ export async function detectAndPersistPatterns(projectPath: string): Promise<Det
   return result
 }
 
-// =============================================================================
 // Hot file detection
-// =============================================================================
 
 /**
  * Walk `git log --name-only` for the last WINDOW_DAYS, count touches per
@@ -255,9 +253,7 @@ function isIgnored(file: string): boolean {
   return false
 }
 
-// =============================================================================
 // Recurring bug detection
-// =============================================================================
 
 interface RecurringBug {
   topic: string
@@ -318,9 +314,7 @@ function detectRecurringBugs(projectId: string): RecurringBug[] {
   }
 }
 
-// =============================================================================
 // Tech-debt growth detection
-// =============================================================================
 
 interface DebtSnapshot {
   totalCount: number
@@ -390,9 +384,7 @@ function collectPreviousDebtSnapshot(projectId: string): number {
   return 0
 }
 
-// =============================================================================
 // Dedup against previously persisted insights (per detector)
-// =============================================================================
 
 interface MemoryRow {
   data: string
@@ -481,9 +473,7 @@ function collectAlreadyMarkedRecurringBugs(projectId: string): Set<string> {
   return out
 }
 
-// =============================================================================
 // Test exports
-// =============================================================================
 
 export const _internal = {
   detectHotFiles,

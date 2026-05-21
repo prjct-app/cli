@@ -13,9 +13,7 @@ import { getTimeout } from '../utils/constants'
 import authConfig from './auth-config'
 import { mapCliEventsToWebFormat } from './event-mapper'
 
-// ============================================
 // Sync Client
-// ============================================
 
 class SyncClient {
   private retryConfig = {
@@ -169,9 +167,7 @@ class SyncClient {
     return await authConfig.hasAuth()
   }
 
-  // ============================================
   // Private helpers
-  // ============================================
 
   private async getAuthHeaders(): Promise<{ apiUrl: string; apiKey: string | null }> {
     const [apiUrl, apiKey] = await Promise.all([authConfig.getApiUrl(), authConfig.getApiKey()])

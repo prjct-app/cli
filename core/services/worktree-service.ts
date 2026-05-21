@@ -4,7 +4,6 @@
  * Creates, lists, and manages git worktrees so each parallel agent
  * operates in an isolated copy of the repo on its own branch.
  *
- * @module services/worktree-service
  */
 
 import fs from 'node:fs/promises'
@@ -12,9 +11,7 @@ import path from 'node:path'
 import { execAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 
-// =============================================================================
 // Types
-// =============================================================================
 
 interface WorktreeInfo {
   /** Absolute path to the worktree directory */
@@ -36,16 +33,12 @@ interface WorktreeCreateOptions {
   baseBranch?: string
 }
 
-// =============================================================================
 // Constants
-// =============================================================================
 
 /** Default directory for worktrees, relative to main worktree root */
 const WORKTREE_DIR = '.worktrees'
 
-// =============================================================================
 // WorktreeService
-// =============================================================================
 
 class WorktreeService {
   /**
@@ -234,9 +227,7 @@ class WorktreeService {
     return removed
   }
 
-  // =============================================================================
   // Private Helpers
-  // =============================================================================
 
   private parsePorcelainOutput(output: string, mainPath: string): WorktreeInfo[] {
     const worktrees: WorktreeInfo[] = []
@@ -282,9 +273,7 @@ class WorktreeService {
   }
 }
 
-// =============================================================================
 // Singleton Export
-// =============================================================================
 
 export const worktreeService = new WorktreeService()
 export default worktreeService

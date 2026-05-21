@@ -29,9 +29,7 @@ afterEach(async () => {
   }
 })
 
-// =============================================================================
 // PRJCT.md Discovery Tests (existing functionality)
-// =============================================================================
 
 describe('NestedContextResolver - PRJCT.md', () => {
   test('discovers root PRJCT.md', async () => {
@@ -60,9 +58,7 @@ describe('NestedContextResolver - PRJCT.md', () => {
   })
 })
 
-// =============================================================================
 // AGENTS.md Discovery Tests (new functionality)
-// =============================================================================
 
 describe('NestedContextResolver - AGENTS.md Discovery', () => {
   test('discovers root AGENTS.md', async () => {
@@ -211,9 +207,7 @@ Overrides parent frontend agent.
   })
 })
 
-// =============================================================================
 // AGENTS.md Hierarchy Tests
-// =============================================================================
 
 describe('NestedContextResolver - AGENTS.md Hierarchy', () => {
   test('discovers nested AGENTS.md in subdirectories', async () => {
@@ -370,9 +364,7 @@ Completely new frontend agent.
   })
 })
 
-// =============================================================================
 // Edge Cases
-// =============================================================================
 
 describe('NestedContextResolver - Edge Cases', () => {
   test('ignores node_modules directories', async () => {

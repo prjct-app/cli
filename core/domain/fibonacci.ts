@@ -8,17 +8,13 @@
 import { FIBONACCI_MINUTES_MAP, FIBONACCI_POINTS } from '../constants/algorithms'
 import type { FibonacciPoint } from '../types/domain.js'
 
-// =============================================================================
 // Validation
-// =============================================================================
 
 /** Check if a number is a valid Fibonacci point */
 export const isValidPoint = (n: number): n is FibonacciPoint =>
   FIBONACCI_POINTS.includes(n as FibonacciPoint)
 
-// =============================================================================
 // Points-to-Time Conversion
-// =============================================================================
 
 /** Get the time range for a given point value */
 export const pointsToMinutes = (
@@ -53,9 +49,7 @@ export const suggestFromHistory = async (
   _taskType: string
 ): Promise<{ points: FibonacciPoint; basedOn: number } | null> => null
 
-// =============================================================================
 // Helpers
-// =============================================================================
 
 /** Find the Fibonacci point whose typical time is closest to the given minutes */
 export const findClosestPoint = (minutes: number): FibonacciPoint => {

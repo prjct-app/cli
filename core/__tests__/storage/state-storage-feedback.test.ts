@@ -20,9 +20,7 @@ import { TaskFeedbackSchema } from '../../schemas/state'
 import { prjctDb } from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 let testProjectId: string
@@ -67,9 +65,7 @@ afterEach(async () => {
   }
 })
 
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 function createMockTask(
   overrides: Partial<CurrentTask> & Record<string, unknown> = {}
@@ -93,9 +89,7 @@ async function startAndCompleteWithFeedback(
   return await stateStorage.read(projectId)
 }
 
-// =============================================================================
 // Tests: TaskFeedback Schema Validation
-// =============================================================================
 
 describe('TaskFeedback Schema', () => {
   it('should validate a complete feedback object', () => {
@@ -146,9 +140,7 @@ describe('TaskFeedback Schema', () => {
   })
 })
 
-// =============================================================================
 // Tests: Feedback Persistence in Task History
-// =============================================================================
 
 describe('Feedback Persistence', () => {
   it('should store feedback in task history entry', async () => {
@@ -226,9 +218,7 @@ describe('Feedback Persistence', () => {
   })
 })
 
-// =============================================================================
 // Tests: Feedback Aggregation
-// =============================================================================
 
 describe('Feedback Aggregation', () => {
   it('should aggregate patterns from multiple tasks', async () => {
@@ -361,9 +351,7 @@ describe('Feedback Aggregation', () => {
   })
 })
 
-// =============================================================================
 // Tests: Mixed Feedback and Non-Feedback Tasks
-// =============================================================================
 
 describe('Mixed Tasks (with and without feedback)', () => {
   it('should handle mix of tasks with and without feedback', async () => {

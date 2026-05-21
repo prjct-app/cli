@@ -11,8 +11,6 @@
  *
  * This bridges the gap between TypeScript orchestration and Claude Code templates.
  *
- * @module commands/context
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -25,9 +23,7 @@ import type { CommandResult, ContextOutput } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { mdBadge, mdJoin, mdOutput, mdSection, mdStats, mdTaskHeader } from '../utils/md-formatter'
 
-// =============================================================================
 // Context Commands Class
-// =============================================================================
 
 export class ContextCommands {
   /**
@@ -194,9 +190,7 @@ export class ContextCommands {
   }
 }
 
-// =============================================================================
 // Exports
-// =============================================================================
 
 const contextCommands = new ContextCommands()
 export default contextCommands

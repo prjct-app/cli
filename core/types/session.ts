@@ -3,9 +3,7 @@
  * Types for session management and logging.
  */
 
-// =============================================================================
 // Core Session Types
-// =============================================================================
 
 /**
  * Session record with full tracking information.
@@ -45,9 +43,7 @@ export interface TimelineEvent {
   at: string
 }
 
-// =============================================================================
 // Session Log Types
-// =============================================================================
 
 /**
  * Entry in session log file.
@@ -96,9 +92,7 @@ export interface SessionInfo {
   day: string
 }
 
-// =============================================================================
 // Context Compaction Types
-// =============================================================================
 
 export interface ConversationTurn {
   role: 'user' | 'assistant' | 'system'

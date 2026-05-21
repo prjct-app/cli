@@ -18,9 +18,7 @@ import {
   safeParseAnalysis,
 } from '../../schemas/analysis'
 
-// =============================================================================
 // Schema Validation
-// =============================================================================
 
 describe('AnalysisStatusSchema', () => {
   it('should accept valid statuses', () => {
@@ -139,9 +137,7 @@ describe('parseAnalysis / safeParseAnalysis', () => {
   })
 })
 
-// =============================================================================
 // Staleness Detection (pure function tests)
-// =============================================================================
 
 describe('staleness detection', () => {
   // Test checkStaleness method from AnalysisStorage
@@ -174,9 +170,7 @@ describe('staleness detection', () => {
   })
 })
 
-// =============================================================================
 // Signature Computation (determinism test)
-// =============================================================================
 
 describe('signature computation', () => {
   it('should produce deterministic signatures for same input', () => {
@@ -229,9 +223,7 @@ describe('signature computation', () => {
   })
 })
 
-// =============================================================================
 // Backward Compatibility
-// =============================================================================
 
 describe('backward compatibility', () => {
   it('should parse old analysis.json without seal fields', () => {
@@ -277,9 +269,7 @@ describe('backward compatibility', () => {
   })
 })
 
-// =============================================================================
 // Semantic Verification (PRJ-270)
-// =============================================================================
 
 describe('semantic verification', () => {
   const { semanticVerify } = require('../../schemas/analysis')

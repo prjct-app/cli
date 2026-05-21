@@ -17,9 +17,7 @@ import type {
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 
-// ============================================================================
 // CONSTANTS
-// ============================================================================
 
 /** Changelog filenames in priority order */
 const CHANGELOG_FILES = ['CHANGELOG.md', 'HISTORY.md', 'NEWS.md', 'CHANGES.md'] as const
@@ -32,9 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 `
 
-// ============================================================================
 // CHANGELOG SERVICE
-// ============================================================================
 
 export class ChangelogService {
   private projectPath: string
@@ -116,9 +112,7 @@ export class ChangelogService {
     })
   }
 
-  // ==========================================================================
   // FORMAT DETECTION
-  // ==========================================================================
 
   /**
    * Detect whether a changelog follows Keep a Changelog format or generic markdown.
@@ -135,9 +129,7 @@ export class ChangelogService {
     return 'markdown'
   }
 
-  // ==========================================================================
   // ENTRY INSERTION
-  // ==========================================================================
 
   /**
    * Insert an entry in Keep a Changelog format.
@@ -240,9 +232,7 @@ export class ChangelogService {
     return `${entryText}\n\n${content}`
   }
 
-  // ==========================================================================
   // ENTRY FORMATTING
-  // ==========================================================================
 
   /**
    * Format an entry in Keep a Changelog style.

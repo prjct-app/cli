@@ -17,9 +17,7 @@ import { createStalenessChecker } from '../../services/staleness-checker'
 import { prjctDb } from '../../storage/database'
 import type { StalenessStatus } from '../../types/services.js'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 let testProjectId: string
@@ -46,9 +44,7 @@ describe('StalenessChecker', () => {
     }
   })
 
-  // ===========================================================================
   // No Sync History Tests
-  // ===========================================================================
 
   describe('no sync history', () => {
     it('should report stale when no project.json exists', async () => {
@@ -71,9 +67,7 @@ describe('StalenessChecker', () => {
     })
   })
 
-  // ===========================================================================
   // Status Formatting Tests
-  // ===========================================================================
 
   describe('formatStatus', () => {
     it('should format fresh status correctly', () => {
@@ -120,9 +114,7 @@ describe('StalenessChecker', () => {
     })
   })
 
-  // ===========================================================================
   // Warning Message Tests
-  // ===========================================================================
 
   describe('getWarning', () => {
     it('should return null for fresh status', () => {
@@ -179,9 +171,7 @@ describe('StalenessChecker', () => {
     })
   })
 
-  // ===========================================================================
   // Configuration Tests
-  // ===========================================================================
 
   describe('configuration', () => {
     it('should use default thresholds', () => {

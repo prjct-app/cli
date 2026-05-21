@@ -19,9 +19,7 @@ import type {
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
 
-// =============================================================================
 // Archival Policy Constants
-// =============================================================================
 
 export const ARCHIVE_POLICIES = {
   SHIPPED_RETENTION_DAYS: 90,
@@ -31,9 +29,7 @@ export const ARCHIVE_POLICIES = {
   MEMORY_MAX_ENTRIES: 500,
 } as const
 
-// =============================================================================
 // Archive Storage
-// =============================================================================
 
 class ArchiveStorage {
   /**

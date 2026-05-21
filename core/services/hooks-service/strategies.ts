@@ -12,9 +12,7 @@ import type { HookName, HookStrategy } from '../../types/services/extracted'
 import { fileExists } from '../../utils/file-helper'
 import { getPostCheckoutScript, getPostCommitScript } from './scripts'
 
-// ============================================================================
 // DETECTION
-// ============================================================================
 
 export async function detectHookManagers(projectPath: string): Promise<HookStrategy[]> {
   const detected: HookStrategy[] = []
@@ -46,9 +44,7 @@ export function selectStrategy(detected: HookStrategy[]): HookStrategy {
   return 'direct'
 }
 
-// ============================================================================
 // INSTALL
-// ============================================================================
 
 export async function installLefthook(projectPath: string, hooks: HookName[]): Promise<boolean> {
   const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))
@@ -133,9 +129,7 @@ export async function installDirect(projectPath: string, hooks: HookName[]): Pro
   return true
 }
 
-// ============================================================================
 // UNINSTALL
-// ============================================================================
 
 export async function uninstallLefthook(projectPath: string): Promise<boolean> {
   const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))

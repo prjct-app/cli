@@ -17,9 +17,7 @@ import pathManager from '../../infrastructure/path-manager'
 import { prjctDb } from '../../storage/database'
 import { StorageManager } from '../../storage/storage-manager'
 
-// =============================================================================
 // Test Implementation
-// =============================================================================
 
 interface TestData {
   value: string
@@ -44,9 +42,7 @@ class TestStorageManager extends StorageManager<TestData> {
   }
 }
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 let testProjectId: string
@@ -96,9 +92,7 @@ describe('StorageManager', () => {
     }
   })
 
-  // ===========================================================================
   // Read/Write Tests
-  // ===========================================================================
 
   describe('read/write', () => {
     it('should write and read JSON correctly', async () => {
@@ -154,9 +148,7 @@ describe('StorageManager', () => {
     })
   })
 
-  // ===========================================================================
   // Missing File Handling
-  // ===========================================================================
 
   describe('missing file handling', () => {
     it('should return default when file does not exist', async () => {
@@ -178,9 +170,7 @@ describe('StorageManager', () => {
     })
   })
 
-  // ===========================================================================
   // Directory Creation
-  // ===========================================================================
 
   describe('directory creation', () => {
     it('should create project directory for SQLite DB', async () => {
@@ -209,9 +199,7 @@ describe('StorageManager', () => {
     })
   })
 
-  // ===========================================================================
   // Cache Behavior
-  // ===========================================================================
 
   describe('cache behavior', () => {
     it('should cache read results', async () => {
@@ -283,9 +271,7 @@ describe('StorageManager', () => {
     })
   })
 
-  // ===========================================================================
   // State Consistency (Update Operations)
-  // ===========================================================================
 
   describe('state consistency', () => {
     it('should update data atomically with updater function', async () => {

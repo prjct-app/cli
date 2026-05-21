@@ -33,9 +33,7 @@ export interface LogLevel {
   error: 3
 }
 
-// =============================================================================
 // Date Helper Types
-// =============================================================================
 
 export interface DateComponents {
   year: string
@@ -43,9 +41,7 @@ export interface DateComponents {
   day: string
 }
 
-// =============================================================================
 // Cache Types
-// =============================================================================
 
 export interface CacheEntry<T> {
   data: T
@@ -65,9 +61,7 @@ export interface CacheStats {
   ttl: number
 }
 
-// =============================================================================
 // Project Commands Types
-// =============================================================================
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
 type DetectedStack = 'js' | 'python' | 'go' | 'rust' | 'dotnet' | 'java' | 'unknown'
@@ -87,15 +81,11 @@ export interface DetectedProjectCommands {
   changelogFile?: string
 }
 
-// =============================================================================
 // Runtime Types
-// =============================================================================
 
 export type Runtime = 'bun' | 'node'
 
-// =============================================================================
 // MCP Config Types
-// =============================================================================
 
 export interface MCPServerConfig {
   command: string
@@ -129,9 +119,7 @@ export interface TokenDirScan {
   expiresIn?: number
 }
 
-// =============================================================================
 // Constants Types
-// =============================================================================
 
 export type RoadmapStatusKey = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'
 
@@ -158,9 +146,7 @@ export type TimeoutKey =
   | 'NPM_INSTALL'
   | 'WORKFLOW_HOOK'
 
-// =============================================================================
 // Preserve Sections Types
-// =============================================================================
 
 export interface PreservedSection {
   id: string
@@ -169,9 +155,7 @@ export interface PreservedSection {
   endIndex: number
 }
 
-// =============================================================================
 // Retry Types
-// =============================================================================
 
 export interface RetryOptions {
   /** Maximum number of retry attempts (default: 3) */
@@ -191,9 +175,7 @@ export interface CircuitState {
   openedAt: number | null
 }
 
-// =============================================================================
 // Subtask Display Types
-// =============================================================================
 
 export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'blocked'
 

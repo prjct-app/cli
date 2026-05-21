@@ -271,9 +271,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   }
 }
 
-// =============================================================================
 // Helpers (unexported)
-// =============================================================================
 
 function parseTagPairs(args: string): Record<string, string> {
   const pairs = args

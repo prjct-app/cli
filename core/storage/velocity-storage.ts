@@ -12,18 +12,14 @@ import type { VelocityMetrics } from '../schemas/velocity'
 import { DEFAULT_VELOCITY_METRICS } from '../schemas/velocity'
 import { StorageManager } from './storage-manager'
 
-// =============================================================================
 // Types
-// =============================================================================
 
 interface VelocityStoreData {
   metrics: VelocityMetrics
   lastUpdated: string
 }
 
-// =============================================================================
 // Velocity Storage
-// =============================================================================
 
 class VelocityStorage extends StorageManager<VelocityStoreData> {
   constructor() {
@@ -41,9 +37,7 @@ class VelocityStorage extends StorageManager<VelocityStoreData> {
     return `velocity.${action}d`
   }
 
-  // ===========================================================================
   // Domain Methods
-  // ===========================================================================
 
   /**
    * Save computed velocity metrics.

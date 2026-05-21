@@ -5,13 +5,9 @@
  * These tools are designed for AI agents to efficiently explore
  * codebases WITHOUT consuming tokens for filtering.
  *
- * @module context-tools/types
- * @version 1.0.0
  */
 
-// =============================================================================
 // Token Measurement Types
-// =============================================================================
 
 /**
  * Cost savings breakdown by model
@@ -40,9 +36,7 @@ export interface TokenMetrics {
   }
 }
 
-// =============================================================================
 // Files Tool Types
-// =============================================================================
 
 /**
  * Relevance score reasons
@@ -76,9 +70,7 @@ export interface FilesToolOutput {
   }
 }
 
-// =============================================================================
 // Signatures Tool Types
-// =============================================================================
 
 /**
  * Code signature types
@@ -119,9 +111,7 @@ export interface SignaturesToolOutput {
   metrics: TokenMetrics
 }
 
-// =============================================================================
 // Imports Tool Types
-// =============================================================================
 
 /**
  * Import relationship
@@ -168,9 +158,7 @@ export interface ImportsToolOutput {
   }
 }
 
-// =============================================================================
 // Recent Tool Types
-// =============================================================================
 
 /**
  * Hot file from git analysis
@@ -197,9 +185,7 @@ export interface RecentToolOutput {
   }
 }
 
-// =============================================================================
 // Summary Tool Types
-// =============================================================================
 
 /**
  * Public API entry
@@ -222,9 +208,7 @@ export interface SummaryToolOutput {
   metrics: TokenMetrics
 }
 
-// =============================================================================
 // Context Tool Usage Tracking
-// =============================================================================
 
 /**
  * Tool usage record for metrics
@@ -238,9 +222,7 @@ export interface ContextToolUsage {
   duration: number // ms
 }
 
-// =============================================================================
 // Main Tool Result Type
-// =============================================================================
 
 /**
  * Union type for all tool outputs

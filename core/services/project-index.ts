@@ -43,9 +43,7 @@ class ProjectIndexer {
     private projectId: string
   ) {}
 
-  // ==========================================================================
   // MAIN METHODS
-  // ==========================================================================
 
   async fullScan(options: IndexOptions = {}): Promise<ScanResult> {
     const startTime = Date.now()
@@ -185,9 +183,7 @@ class ProjectIndexer {
     return { files: selectedFiles, estimatedTokens, originalTokens, compressionRate }
   }
 
-  // ==========================================================================
   // CHECKSUM TRACKING
-  // ==========================================================================
 
   private async detectFileChanges(): Promise<{
     added: string[]
@@ -220,9 +216,7 @@ class ProjectIndexer {
   }
 }
 
-// ==========================================================================
 // SCORING HELPERS
-// ==========================================================================
 
 function buildLanguageStats(files: FileStats[]): Record<string, LanguageStats> {
   const stats: Record<string, LanguageStats> = {}
@@ -271,9 +265,7 @@ function loadExistingFileStats(index: ProjectIndex): Map<string, FileStats> {
   return files
 }
 
-// ==========================================================================
 // FACTORY
-// ==========================================================================
 
 export function createProjectIndexer(projectPath: string, projectId: string): ProjectIndexer {
   return new ProjectIndexer(projectPath, projectId)

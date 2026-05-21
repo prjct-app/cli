@@ -93,9 +93,7 @@ function recallAll() {
   return projectMemory.recall(projectId, { limit: 100 })
 }
 
-// =============================================================================
 // 1. Frontmatter parsing — happy path
-// =============================================================================
 
 describe('Wiki Ingest — frontmatter parsing', () => {
   test('ingests a valid note with type + tags + body', async () => {
@@ -165,9 +163,7 @@ ${body}`
   })
 })
 
-// =============================================================================
 // 2. Validation failures — file stays in inbox
-// =============================================================================
 
 describe('Wiki Ingest — validation', () => {
   test('rejects type with disallowed characters (space) and leaves file in place', async () => {
@@ -230,9 +226,7 @@ type: learning
   })
 })
 
-// =============================================================================
 // 3. Secret scanning
-// =============================================================================
 
 describe('Wiki Ingest — secret scanning', () => {
   test('refuses note with AWS-key-shaped content by default', async () => {
@@ -269,9 +263,7 @@ The key was AKIAIOSFODNN7EXAMPLE — we rotated it.`
   })
 })
 
-// =============================================================================
 // 4. Move to _ingested/ + idempotency
-// =============================================================================
 
 describe('Wiki Ingest — archive + idempotency', () => {
   test('moves successfully ingested notes into _ingested/<timestamp>/', async () => {
@@ -312,9 +304,7 @@ ok`
   })
 })
 
-// =============================================================================
 // 5. ensureCapturedReadme
-// =============================================================================
 
 describe('ensureCapturedReadme', () => {
   test('creates README on first call', async () => {
@@ -335,7 +325,6 @@ describe('ensureCapturedReadme', () => {
   })
 })
 
-// =============================================================================
 // Security regression: ingested workflow rules must NOT be auto-executable.
 //
 // A malicious repo can commit `<vault>/workflows/*.md` with a shell hook.
@@ -344,7 +333,6 @@ describe('ensureCapturedReadme', () => {
 // clone-to-RCE on the next `prjct ship`/`task`. The trust boundary is the
 // ingest path itself: every rule it creates must be `imported` so the
 // workflow-engine approval gate refuses to run it.
-// =============================================================================
 
 describe('Wiki Ingest — workflow rule trust (security regression)', () => {
   test('rules ingested from vault markdown are marked `imported`, never `local`', async () => {

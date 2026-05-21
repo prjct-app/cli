@@ -12,8 +12,6 @@
  * Uses regex patterns for broad language support.
  * Falls back to full file if language not supported.
  *
- * @module context-tools/signatures-tool
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -22,9 +20,7 @@ import type { CodeSignature, SignaturesToolOutput, SignatureType } from '../../t
 import { isNotFoundError } from '../../types/fs'
 import { measureCompression, noCompression } from './token-counter'
 
-// =============================================================================
 // Language Support
-// =============================================================================
 
 type LanguageId =
   | 'typescript'
@@ -57,9 +53,7 @@ const EXTENSION_TO_LANGUAGE: Record<string, LanguageId> = {
   '.rb': 'ruby',
 }
 
-// =============================================================================
 // Extraction Patterns
-// =============================================================================
 
 interface ExtractionPattern {
   type: SignatureType
@@ -307,9 +301,7 @@ const LANGUAGE_PATTERNS: Record<LanguageId, ExtractionPattern[]> = {
   unknown: [],
 }
 
-// =============================================================================
 // Main Function
-// =============================================================================
 
 /**
  * Extract code signatures from a file
@@ -394,50 +386,7 @@ export async function extractSignatures(
   }
 }
 
-/**
- * Extract signatures from multiple files in a directory
- */
-async function _extractDirectorySignatures(
-  dirPath: string,
-  projectPath: string = process.cwd(),
-  options: { recursive?: boolean } = {}
-): Promise<SignaturesToolOutput[]> {
-  const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.join(projectPath, dirPath)
-
-  const results: SignaturesToolOutput[] = []
-
-  async function processDir(dir: string): Promise<void> {
-    const entries = await fs.readdir(dir, { withFileTypes: true })
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name)
-      const relativePath = path.relative(projectPath, fullPath)
-
-      if (entry.isDirectory()) {
-        // Skip common ignore patterns
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('.')) {
-          continue
-        }
-        if (options.recursive) {
-          await processDir(fullPath)
-        }
-      } else if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase()
-        if (EXTENSION_TO_LANGUAGE[ext]) {
-          const result = await extractSignatures(relativePath, projectPath)
-          results.push(result)
-        }
-      }
-    }
-  }
-
-  await processDir(absolutePath)
-  return results
-}
-
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 /**
  * Extract signatures from content using patterns

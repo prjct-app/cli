@@ -20,9 +20,7 @@ import type {
 } from '../schemas/performance'
 import prjctDb from '../storage/database'
 
-// =============================================================================
 // PERFORMANCE TRACKER
-// =============================================================================
 
 /** Max age for stale marks before cleanup (5 minutes in nanoseconds) */
 const STALE_MARK_NS = BigInt(5 * 60 * 1_000_000_000)
@@ -30,9 +28,7 @@ const STALE_MARK_NS = BigInt(5 * 60 * 1_000_000_000)
 class PerformanceTracker {
   private marks: Map<string, bigint> = new Map()
 
-  // ===========================================================================
   // Timing
-  // ===========================================================================
 
   /**
    * Mark the start of a timing measurement.
@@ -87,9 +83,7 @@ class PerformanceTracker {
     })
   }
 
-  // ===========================================================================
   // Memory
-  // ===========================================================================
 
   /**
    * Take a memory snapshot using process.memoryUsage()
@@ -129,9 +123,7 @@ class PerformanceTracker {
     return snapshot
   }
 
-  // ===========================================================================
   // Context Correctness
-  // ===========================================================================
 
   /**
    * Record whether a task received sync context
@@ -146,9 +138,7 @@ class PerformanceTracker {
     })
   }
 
-  // ===========================================================================
   // Subtask Handoff
-  // ===========================================================================
 
   /**
    * Record whether a subtask's output field was populated on completion
@@ -163,9 +153,7 @@ class PerformanceTracker {
     })
   }
 
-  // ===========================================================================
   // Report Generation
-  // ===========================================================================
 
   /**
    * Read all metrics for a project within a date range
@@ -293,9 +281,7 @@ class PerformanceTracker {
   }
 }
 
-// =============================================================================
 // EXPORTS
-// =============================================================================
 
 export const performanceTracker = new PerformanceTracker()
 export default performanceTracker

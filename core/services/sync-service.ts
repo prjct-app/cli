@@ -12,7 +12,6 @@
  *
  * Analysis/stats functions extracted to ./sync-analyzer.ts
  *
- * @version 2.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -54,9 +53,7 @@ import {
 import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-analyzer'
 import { syncVerifier } from './sync-verifier'
 
-// ============================================================================
 // PHASE TIMEOUT
-// ============================================================================
 
 const SYNC_PHASE_TIMEOUT_MS = Number(process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS) || 60_000
 
@@ -96,9 +93,7 @@ async function phase<T>(name: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-// ============================================================================
 // SYNC SERVICE
-// ============================================================================
 
 class SyncService {
   private projectPath: string
@@ -554,25 +549,15 @@ class SyncService {
     }
   }
 
-  // ==========================================================================
   // DIRECTORY SETUP
-  // ==========================================================================
 
-  // ==========================================================================
   // PROJECT.JSON UPDATE
-  // ==========================================================================
 
-  // ==========================================================================
   // STATE.JSON UPDATE
-  // ==========================================================================
 
-  // ==========================================================================
   // MEMORY LOGGING
-  // ==========================================================================
 
-  // ==========================================================================
   // METRICS RECORDING
-  // ==========================================================================
 
   /**
    * Record sync metrics for the value dashboard
@@ -581,18 +566,14 @@ class SyncService {
    * instead of estimates. filteredSize = agent context files that get
    * loaded into the AI conversation.
    */
-  // ==========================================================================
   // DRAFT ANALYSIS (PRJ-263)
-  // ==========================================================================
 
   /**
    * Save sync results as a draft analysis.
    * Preserves existing sealed analysis — only the draft is overwritten.
    * Incorporates task feedback from completed tasks (PRJ-272).
    */
-  // ==========================================================================
   // ARCHIVAL (PRJ-267)
-  // ==========================================================================
 
   private async getCliVersion(): Promise<string> {
     try {

@@ -14,9 +14,7 @@ import type { ValidationSchema } from '../types/storage/extended'
  * - JSON read/write patterns
  */
 
-// =============================================================================
 // Walk & Batch Utilities
-// =============================================================================
 
 interface WalkOptions {
   /** Skip files/dirs starting with '.' (default: false) */
@@ -83,9 +81,7 @@ export async function batchProcess<T, R>(
   return results
 }
 
-// =============================================================================
 // File Operations
-// =============================================================================
 
 interface ListFilesOptions {
   filesOnly?: boolean

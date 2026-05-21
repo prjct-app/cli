@@ -4,15 +4,11 @@
  * Provides exponential backoff retry logic with error classification and circuit breaker.
  * Used to make agent and tool operations resilient against transient failures.
  *
- * @module utils/retry
- * @version 1.0.0
  */
 
 import type { CircuitState, RetryOptions } from '../types/utils.js'
 
-// =============================================================================
 // Error Classification
-// =============================================================================
 
 /**
  * Node.js error codes that indicate transient failures worth retrying
@@ -83,9 +79,7 @@ export function isPermanentError(error: unknown): boolean {
   return !!(err.code && PERMANENT_ERROR_CODES.has(err.code))
 }
 
-// =============================================================================
 // Circuit Breaker
-// =============================================================================
 
 /**
  * Circuit breaker state registry (per operation ID)
@@ -142,9 +136,7 @@ function recordSuccess(operationId: string): void {
   circuitStates.delete(operationId)
 }
 
-// =============================================================================
 // Retry Policy
-// =============================================================================
 
 export class RetryPolicy {
   private options: Required<RetryOptions>
@@ -265,9 +257,7 @@ export class RetryPolicy {
   }
 }
 
-// =============================================================================
 // Exports
-// =============================================================================
 
 /**
  * Default retry policy for agent operations

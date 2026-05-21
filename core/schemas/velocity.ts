@@ -7,14 +7,11 @@
  * - Over/under estimation patterns
  * - Completion projections
  *
- * @version 1.0.0
  */
 
 import { z } from 'zod'
 
-// =============================================================================
 // Zod Schemas - Source of Truth
-// =============================================================================
 
 export const VelocityTrendSchema = z.enum(['improving', 'stable', 'declining'])
 
@@ -59,9 +56,7 @@ export const VelocityConfigSchema = z.object({
   accuracyTolerance: z.number().min(0).max(100).default(20), // ±% for "accurate" estimate
 })
 
-// =============================================================================
 // Inferred Types
-// =============================================================================
 
 export type VelocityTrend = z.infer<typeof VelocityTrendSchema>
 export type SprintVelocity = z.infer<typeof SprintVelocitySchema>
@@ -70,9 +65,7 @@ export type CompletionProjection = z.infer<typeof CompletionProjectionSchema>
 export type VelocityMetrics = z.infer<typeof VelocityMetricsSchema>
 export type VelocityConfig = z.input<typeof VelocityConfigSchema>
 
-// =============================================================================
 // Defaults
-// =============================================================================
 
 export const DEFAULT_VELOCITY_CONFIG: VelocityConfig = {
   sprintLengthDays: 7,
@@ -90,13 +83,3 @@ export const DEFAULT_VELOCITY_METRICS: VelocityMetrics = {
   underEstimated: [],
   lastUpdated: '',
 }
-
-// =============================================================================
-// Validation Helpers
-// =============================================================================
-
-const _parseVelocityMetrics = (data: unknown): VelocityMetrics => VelocityMetricsSchema.parse(data)
-
-const _safeParseVelocityMetrics = (data: unknown) => VelocityMetricsSchema.safeParse(data)
-
-const _parseVelocityConfig = (data: unknown) => VelocityConfigSchema.parse(data)

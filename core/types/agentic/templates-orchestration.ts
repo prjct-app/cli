@@ -6,9 +6,7 @@
 
 import type { Frontmatter, SmartContextProjectState } from '../agentic'
 
-// =============================================================================
 // Template Loader Types
-// =============================================================================
 
 export interface ParsedTemplate {
   frontmatter: Frontmatter
@@ -16,9 +14,7 @@ export interface ParsedTemplate {
   raw?: string
 }
 
-// =============================================================================
 // Skill Loader Types
-// =============================================================================
 
 export interface FormattedSkill {
   id?: string
@@ -36,9 +32,7 @@ export interface SkillContext {
   timestamp?: string
 }
 
-// =============================================================================
 // Chain of Thought Types
-// =============================================================================
 
 export interface ChainOfThoughtContext {
   projectPath?: string
@@ -70,9 +64,7 @@ export interface ChainOfThoughtResult {
   thinkBlock: string | null
 }
 
-// =============================================================================
 // Learned Patterns Type
-// =============================================================================
 
 export interface LearnedPatterns {
   commit_footer?: string | null
@@ -82,9 +74,7 @@ export interface LearnedPatterns {
   [key: string]: string | null | undefined
 }
 
-// =============================================================================
 // Orchestrator Types
-// =============================================================================
 
 /**
  * Subtask for task fragmentation
@@ -165,9 +155,7 @@ export interface OrchestratorContext {
   rpiContext?: RpiContext | null
 }
 
-// =============================================================================
 // Context Health (Dex Horthy context management)
-// =============================================================================
 
 /** Context zone based on usage percentage of input budget */
 export type ContextZone = 'smart' | 'warning' | 'dumb'
@@ -190,9 +178,7 @@ export interface ZoneTransition {
   action: string | null
 }
 
-// =============================================================================
 // RPI Flow (Research → Plan → Implement)
-// =============================================================================
 
 /** Current phase of the RPI flow */
 export type RpiPhase = 'research' | 'plan' | 'implement'
@@ -234,9 +220,7 @@ export interface SealedAnalysisContext {
   commitHash?: string
 }
 
-// =============================================================================
 // Response Validator Types
-// =============================================================================
 
 export interface ValidationSuccess<T> {
   success: true
@@ -254,9 +238,7 @@ export interface ValidationFailure {
 
 export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure
 
-// =============================================================================
 // Token Budget Types
-// =============================================================================
 
 /** Budget category identifiers ordered by priority */
 export type BudgetCategory = 'state' | 'injection' | 'files'
@@ -279,31 +261,23 @@ export interface BudgetUsage {
   remaining: number
 }
 
-// =============================================================================
 // Agentic Services Types
-// =============================================================================
 
 /**
  * Re-exported from core/agentic/services.ts.
  * Import the actual `AgenticServices` from there for its `typeof` members.
  */
 
-// =============================================================================
 // Hook Types
-// =============================================================================
 
 export type HookPoint = string
 
-// =============================================================================
 // Context Builder Convenience Aliases
-// =============================================================================
 
 // Note: Paths, Context, State are re-exports of ContextPaths, ProjectContext,
 // ContextState from core/types/core and core/types/agentic respectively.
 
-// =============================================================================
 // Anti-Hallucination Types
-// =============================================================================
 
 export interface ProjectGroundTruth {
   /** Project root path */
@@ -332,9 +306,7 @@ export interface ProjectGroundTruth {
   analysisPackageManager?: string
 }
 
-// =============================================================================
 // Environment Block Types
-// =============================================================================
 
 export interface EnvironmentBlockInput {
   /** Project display name */
@@ -357,18 +329,14 @@ export interface EnvironmentBlockInput {
   provider?: string
 }
 
-// =============================================================================
 // Prompt Builder Types (Section Priority)
-// =============================================================================
 
 /**
  * Prompt section priorities for budget trimming.
  */
 export type SectionPriority = 'critical' | 'important' | 'optional'
 
-// =============================================================================
 // Injection Validator Types
-// =============================================================================
 
 /** Configurable token budgets per injection section */
 export interface InjectionBudgets {
@@ -382,9 +350,7 @@ export interface InjectionBudgets {
   totalPrompt: number
 }
 
-// =============================================================================
 // Template Executor Types
-// =============================================================================
 
 export interface TemplateExecutionContext {
   projectPath: string
@@ -414,8 +380,6 @@ export interface AgenticPromptInfo {
   requiresOrchestration: boolean
 }
 
-// =============================================================================
 // Smart Context Types
-// =============================================================================
 
 export type ProjectState = SmartContextProjectState

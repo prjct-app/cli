@@ -6,7 +6,6 @@
  * Stores system-wide state like MCP health status that isn't
  * tied to a specific project.
  *
- * @version 1.0.0
  */
 
 import fs from 'node:fs'
@@ -14,9 +13,7 @@ import path from 'node:path'
 import type { McpHealthRow, McpHealthStatus } from '../types/storage/extended'
 import { openDatabase, type SqliteDatabase } from './database/sqlite-compat'
 
-// =============================================================================
 // System Database
-// =============================================================================
 
 class SystemDatabase {
   private db: SqliteDatabase | null = null
@@ -97,9 +94,7 @@ class SystemDatabase {
     }
   }
 
-  // ===========================================================================
   // MCP Health
-  // ===========================================================================
 
   getMcpHealth(provider: string): McpHealthRow | null {
     const db = this.getDb()
@@ -141,9 +136,7 @@ class SystemDatabase {
   }
 }
 
-// =============================================================================
 // Singleton Export
-// =============================================================================
 
 export const systemDb = new SystemDatabase()
 export default systemDb

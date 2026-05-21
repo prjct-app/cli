@@ -3,9 +3,7 @@
  * Types for the lightweight Pub/Sub system.
  */
 
-// =============================================================================
 // Event Types Constant
-// =============================================================================
 
 /**
  * Event Types - All events that can be emitted
@@ -48,9 +46,7 @@ export const EventTypes = {
   ALL: '*',
 } as const
 
-// =============================================================================
 // Bus Types
-// =============================================================================
 
 /**
  * Event type union derived from EventTypes
@@ -67,9 +63,7 @@ export interface EventData {
   [key: string]: unknown
 }
 
-// =============================================================================
 // Typed Event Payloads
-// =============================================================================
 
 export interface SessionStartedPayload {
   sessionId: string

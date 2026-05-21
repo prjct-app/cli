@@ -3,9 +3,7 @@
  * Types for data persistence layer.
  */
 
-// =============================================================================
 // Project JSON Types (project.json)
-// =============================================================================
 
 export interface ProjectJson {
   projectId: string
@@ -44,9 +42,7 @@ export interface ProjectJson {
   }
 }
 
-// =============================================================================
 // State JSON Types (state.json)
-// =============================================================================
 
 export interface StateTask {
   id: string
@@ -92,9 +88,7 @@ export interface StateJson {
   }
 }
 
-// =============================================================================
 // Queue JSON Types (queue.json)
-// =============================================================================
 
 export interface QueueTask {
   id: string
@@ -124,9 +118,7 @@ export interface QueueJson {
   lastUpdated?: string
 }
 
-// =============================================================================
 // Roadmap JSON Types (roadmap.json)
-// =============================================================================
 
 export interface RoadmapJson {
   features: unknown[]
@@ -134,9 +126,7 @@ export interface RoadmapJson {
   lastUpdated: string
 }
 
-// =============================================================================
 // Shipped Storage Types
-// =============================================================================
 
 /**
  * Shipped feature record (simple version used by shipped-storage.ts)
@@ -200,9 +190,7 @@ export interface ShippedJson {
   lastUpdated: string
 }
 
-// =============================================================================
 // Ideas Storage Types
-// =============================================================================
 
 export type IdeaStatus = 'pending' | 'converted' | 'completed' | 'archived' | 'dormant'
 export type IdeaPriority = 'low' | 'medium' | 'high'
@@ -263,9 +251,7 @@ export interface IdeasJson {
   lastUpdated: string
 }
 
-// =============================================================================
 // Metrics Storage Types
-// =============================================================================
 
 /**
  * Daily stats for trend analysis

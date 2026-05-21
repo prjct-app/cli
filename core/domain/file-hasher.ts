@@ -7,8 +7,6 @@
  *
  * Uses Bun.hash (xxHash) for speed — <100ms for 500 files.
  *
- * @module domain/file-hasher
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -17,9 +15,7 @@ import prjctDb from '../storage/database'
 import type { FileDiff, FileHash } from '../types/domain.js'
 import { batchProcess, walkDir } from '../utils/file-helper'
 
-// =============================================================================
 // Hashing
-// =============================================================================
 
 /**
  * Compute a fast hash of file content using Bun.hash (xxHash64).
@@ -74,9 +70,7 @@ export async function computeHashes(projectPath: string): Promise<Map<string, Fi
   return hashes
 }
 
-// =============================================================================
 // Diff Detection
-// =============================================================================
 
 /**
  * Compare current file hashes against stored registry.
@@ -111,9 +105,7 @@ export function diffHashes(
   return { added, modified, deleted, unchanged }
 }
 
-// =============================================================================
 // SQLite Persistence (uses index_checksums table)
-// =============================================================================
 
 /**
  * Save file hashes to SQLite index_checksums table.
@@ -166,9 +158,7 @@ function loadHashes(projectId: string): Map<string, FileHash> {
   return hashes
 }
 
-// =============================================================================
 // High-level API
-// =============================================================================
 
 /**
  * Compute file hashes and diff against stored registry.

@@ -9,9 +9,7 @@ import type { SyncDiff } from './diff'
 import type { StackDetection } from './stack'
 import type { VerificationReport } from './sync-verifier'
 
-// =============================================================================
 // Git & Project Data
-// =============================================================================
 
 export interface GitData {
   branch: string
@@ -46,9 +44,7 @@ export interface ProjectCommands {
   format: string
 }
 
-// =============================================================================
 // Sync Metrics & Options
-// =============================================================================
 
 export interface SyncMetrics {
   duration: number
@@ -100,9 +96,7 @@ export interface SyncAnalysisSummary {
   criticalAntiPatterns: number
 }
 
-// =============================================================================
 // Sync Result & Context Generator Config
-// =============================================================================
 
 export interface IncrementalInfo {
   /** Whether this was an incremental sync (vs full) */

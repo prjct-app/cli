@@ -5,15 +5,12 @@
  * Queue is now separate in queue.json.
  *
  * Uses Zod for runtime validation and TypeScript type inference.
- * @version 2.0.0
  */
 
 import { z } from 'zod'
 import { ModelMetadataSchema } from './model'
 
-// =============================================================================
 // Zod Schemas - Source of Truth
-// =============================================================================
 
 export const PrioritySchema = z.enum(['low', 'medium', 'high', 'critical'])
 export const TaskTypeSchema = z.enum(['feature', 'bug', 'improvement', 'chore'])
@@ -216,9 +213,7 @@ export const QueueJsonSchema = z.object({
   lastUpdated: z.string(),
 })
 
-// =============================================================================
 // Inferred Types - Backward Compatible
-// =============================================================================
 
 export type Priority = z.infer<typeof PrioritySchema>
 export type TaskType = z.infer<typeof TaskTypeSchema>
@@ -236,9 +231,7 @@ export type StateJson = z.infer<typeof StateJsonSchema>
 export type QueueTask = z.infer<typeof QueueTaskSchema>
 export type QueueJson = z.infer<typeof QueueJsonSchema>
 
-// =============================================================================
 // Validation Helpers
-// =============================================================================
 
 /** Validate subtask completion data — returns errors or null */
 export const validateSubtaskCompletion = (

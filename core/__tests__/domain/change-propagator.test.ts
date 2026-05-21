@@ -3,9 +3,7 @@ import { affectedDomains, propagateChanges } from '../../domain/change-propagato
 import type { FileDiff } from '../../types/domain.js'
 
 describe('change-propagator', () => {
-  // =========================================================================
   // propagateChanges
-  // =========================================================================
 
   describe('propagateChanges', () => {
     test('returns direct changes when no import graph exists', () => {
@@ -41,9 +39,7 @@ describe('change-propagator', () => {
     })
   })
 
-  // =========================================================================
   // affectedDomains
-  // =========================================================================
 
   describe('affectedDomains', () => {
     test('detects frontend files', () => {

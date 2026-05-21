@@ -16,9 +16,7 @@ import path from 'node:path'
 import { z } from 'zod'
 import { safeRead } from '../../storage/safe-reader'
 
-// =============================================================================
 // Test Schema
-// =============================================================================
 
 const TestSchema = z.object({
   name: z.string(),
@@ -28,9 +26,7 @@ const TestSchema = z.object({
 
 type TestData = z.infer<typeof TestSchema>
 
-// =============================================================================
 // Setup
-// =============================================================================
 
 let tmpDir: string
 
@@ -42,9 +38,7 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true })
 })
 
-// =============================================================================
 // Tests
-// =============================================================================
 
 describe('safeRead', () => {
   describe('valid data', () => {

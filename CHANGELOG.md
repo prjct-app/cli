@@ -81,6 +81,16 @@
 
 ## [Unreleased]
 
+## [2.23.18] - 2026-05-20
+
+### Added
+- current work
+
+## [2.23.17] - 2026-05-20
+
+### Added
+- Deep cleanup: legacy/dead code + verbose comments cut
+
 ## [2.23.16] - 2026-05-20
 
 ### Added

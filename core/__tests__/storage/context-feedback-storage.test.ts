@@ -17,9 +17,7 @@ import pathManager from '../../infrastructure/path-manager'
 import { contextFeedbackStorage } from '../../storage/context-feedback-storage'
 import { prjctDb } from '../../storage/database'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string
 let testProjectId: string
@@ -48,9 +46,7 @@ describe('Context Feedback Storage', () => {
     }
   })
 
-  // ===========================================================================
   // Recording Suggestions
-  // ===========================================================================
 
   it('should record suggestions and persist to DB', () => {
     contextFeedbackStorage.recordSuggestions(
@@ -72,9 +68,7 @@ describe('Context Feedback Storage', () => {
     expect(JSON.parse(row!.suggested_files)).toEqual(['src/auth/login.ts', 'src/models/user.ts'])
   })
 
-  // ===========================================================================
   // Completing Feedback
-  // ===========================================================================
 
   it('should calculate precision and recall correctly', () => {
     // Suggested 2 files, only 1 was actually used, but user also used 1 extra
@@ -130,9 +124,7 @@ describe('Context Feedback Storage', () => {
     expect(row!.recall).toBe(1)
   })
 
-  // ===========================================================================
   // Historical Boosts
-  // ===========================================================================
 
   it('should return positive scores for previously-relevant files', () => {
     // Record a completed task where auth files were actually used

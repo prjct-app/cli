@@ -10,8 +10,6 @@
  * Score = 1 / (depth + 1) for each reachable file.
  * Direct imports get 0.5, 2nd-level imports get 0.33.
  *
- * @module domain/import-graph
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -74,9 +72,7 @@ async function resolveImport(
   return null
 }
 
-// =============================================================================
 // Graph Building
-// =============================================================================
 
 /**
  * Build the import graph for a project.
@@ -128,9 +124,7 @@ export async function buildGraph(projectPath: string): Promise<ImportGraph> {
   }
 }
 
-// =============================================================================
 // Graph Scoring
-// =============================================================================
 
 /**
  * Given a set of seed files (e.g., from BM25), follow import chains
@@ -207,9 +201,7 @@ export function scoreFromSeeds(
     .sort((a, b) => b.score - a.score)
 }
 
-// =============================================================================
 // SQLite Persistence
-// =============================================================================
 
 const INDEX_KEY = 'import-graph'
 
@@ -242,9 +234,7 @@ export function loadGraph(projectId: string): ImportGraph | null {
   return graph
 }
 
-// =============================================================================
 // High-level API
-// =============================================================================
 
 /**
  * Build and persist the import graph for a project.

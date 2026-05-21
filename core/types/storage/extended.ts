@@ -4,9 +4,7 @@
  * Split out of storage.ts to keep each file under 500 LOC.
  */
 
-// =============================================================================
 // Archive Storage Types (from archive-storage.ts)
-// =============================================================================
 
 export type ArchiveEntityType = 'shipped' | 'idea' | 'queue_task' | 'paused_task' | 'memory_entry'
 
@@ -37,9 +35,7 @@ export interface ArchiveStats {
   total: number
 }
 
-// =============================================================================
 // Custom Workflow Storage Types (from custom-workflow-storage.ts)
-// =============================================================================
 
 export interface CustomWorkflow {
   id: number
@@ -52,9 +48,7 @@ export interface CustomWorkflow {
   metadata: Record<string, unknown> | null
 }
 
-// =============================================================================
 // Database Types (from database.ts)
-// =============================================================================
 
 import type { SqliteDatabase } from '../../storage/database/sqlite-compat'
 
@@ -70,9 +64,7 @@ export interface MigrationRecord {
   applied_at: string
 }
 
-// =============================================================================
 // Workflow Rule Storage Types (from workflow-rule-storage.ts)
-// =============================================================================
 
 export interface WorkflowRule {
   id: number
@@ -106,9 +98,7 @@ export interface WorkflowRule {
   trustSource: 'local' | 'imported'
 }
 
-// =============================================================================
 // Safe Reader Types (from safe-reader.ts)
-// =============================================================================
 
 import type { ZodError } from 'zod'
 
@@ -120,9 +110,7 @@ export interface ValidationSchema {
   safeParse(data: unknown): { success: boolean; error?: ZodError }
 }
 
-// =============================================================================
 // Migrate JSON Types (from migrate-json.ts)
-// =============================================================================
 
 export interface MigrationResult {
   success: boolean
@@ -133,9 +121,7 @@ export interface MigrationResult {
   duration: number
 }
 
-// =============================================================================
 // System Database Types (from system-database.ts)
-// =============================================================================
 
 export interface McpHealthRow {
   provider: string
@@ -156,9 +142,7 @@ export interface McpHealthStatus {
   oauthValid?: boolean
 }
 
-// =============================================================================
 // Index Storage Types (from index-storage.ts)
-// =============================================================================
 
 export interface LanguageStats {
   count: number // Number of files

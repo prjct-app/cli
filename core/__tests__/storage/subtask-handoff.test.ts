@@ -16,9 +16,7 @@ import {
   validateSubtaskCompletion,
 } from '../../schemas/state'
 
-// =============================================================================
 // SubtaskSummarySchema — outputForNextAgent is now required
-// =============================================================================
 
 describe('SubtaskSummarySchema', () => {
   const validSummary = {
@@ -63,9 +61,7 @@ describe('SubtaskSummarySchema', () => {
   })
 })
 
-// =============================================================================
 // SubtaskCompletionDataSchema — validates completion requirements
-// =============================================================================
 
 describe('SubtaskCompletionDataSchema', () => {
   const validCompletion = {
@@ -106,9 +102,7 @@ describe('SubtaskCompletionDataSchema', () => {
   })
 })
 
-// =============================================================================
 // validateSubtaskCompletion helper
-// =============================================================================
 
 describe('validateSubtaskCompletion', () => {
   const validData = {
@@ -159,9 +153,7 @@ describe('validateSubtaskCompletion', () => {
   })
 })
 
-// =============================================================================
 // Backward Compatibility
-// =============================================================================
 
 describe('backward compatibility', () => {
   it('should parse old SubtaskSchema without summary or output', () => {

@@ -6,7 +6,6 @@
  * - Production: reads from dist/templates.json (single bundled file)
  * - Development: reads from templates/commands/ (individual files)
  *
- * @module agentic/template-loader
  */
 
 import fsSync from 'node:fs'

@@ -6,7 +6,6 @@
  *
  * Config location: ~/.prjct-cli/config/installed-editors.json
  *
- * @version 0.6.0
  */
 
 import fs from 'node:fs/promises'

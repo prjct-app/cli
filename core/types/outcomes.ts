@@ -3,9 +3,7 @@
  * Types for recording and analyzing execution results.
  */
 
-// =============================================================================
 // Quality Types
-// =============================================================================
 
 /**
  * Quality score for task completion.
@@ -13,9 +11,7 @@
  */
 export type QualityScore = 1 | 2 | 3 | 4 | 5
 
-// =============================================================================
 // Outcome Types
-// =============================================================================
 
 /**
  * Outcome of a command or task execution.
@@ -145,9 +141,7 @@ export interface OutcomeFilter {
  */
 export type OutcomeInput = Omit<Outcome, 'id'>
 
-// =============================================================================
 // Analyzer Types
-// =============================================================================
 
 /**
  * Pattern detected from outcomes.

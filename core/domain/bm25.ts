@@ -10,8 +10,6 @@
  *
  * Zero API calls — pure math on filesystem data.
  *
- * @module domain/bm25
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -104,9 +102,7 @@ const STOP_WORDS = new Set([
   'array',
 ])
 
-// =============================================================================
 // Tokenization
-// =============================================================================
 
 /**
  * Split camelCase/PascalCase identifiers into words.
@@ -235,9 +231,7 @@ export function tokenizeQuery(query: string): string[] {
     .filter((t) => t.length > 1 && !STOP_WORDS.has(t) && /^[a-z][a-z0-9]*$/.test(t))
 }
 
-// =============================================================================
 // Index Building
-// =============================================================================
 
 /**
  * Build a BM25 index for all files in a project.
@@ -292,9 +286,7 @@ export async function buildIndex(projectPath: string): Promise<BM25Index> {
   }
 }
 
-// =============================================================================
 // BM25 Scoring
-// =============================================================================
 
 /**
  * Calculate IDF (Inverse Document Frequency) for a term.
@@ -341,9 +333,7 @@ export function score(query: string, index: BM25Index): BM25Score[] {
     .sort((a, b) => b.score - a.score)
 }
 
-// =============================================================================
 // SQLite Persistence
-// =============================================================================
 
 const INDEX_KEY = 'bm25-index'
 
@@ -408,9 +398,7 @@ export function loadIndex(projectId: string): BM25Index | null {
   return index
 }
 
-// =============================================================================
 // High-level API
-// =============================================================================
 
 /**
  * Build and persist a BM25 index for a project.

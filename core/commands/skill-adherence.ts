@@ -114,9 +114,7 @@ export class SkillAdherenceCommands extends PrjctCommandsBase {
   }
 }
 
-// ============================================================================
 // Window parsing — same grammar as `prjct retro`.
-// ============================================================================
 
 interface ParsedWindow {
   label: string
@@ -137,9 +135,7 @@ function firstLine(content: string): string {
   return line.replace(/^\[skill-miss\]\s*/, '').trim()
 }
 
-// ============================================================================
 // Output formatters
-// ============================================================================
 
 function formatText(
   label: string,

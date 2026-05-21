@@ -34,9 +34,7 @@ import { prjctDb } from '../../storage/database'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import type { LLMAnalysis, LLMPattern } from '../../types/llm-analysis'
 
-// =============================================================================
 // Sandbox
-// =============================================================================
 
 let tmpRoot: string
 let projectRoot: string
@@ -85,9 +83,7 @@ afterEach(async () => {
   await fs.rm(tmpRoot, { recursive: true, force: true })
 })
 
-// =============================================================================
 // Helpers
-// =============================================================================
 
 function makeAnalysis(opts: {
   analyzedAt: string
@@ -137,9 +133,7 @@ function appendMemoryEvent(type: string, content: string): void {
   })
 }
 
-// =============================================================================
 // A. Manifest-based file diff
-// =============================================================================
 
 describe('Wiki Generator — manifest incrementality', () => {
   it('A.1 first regen writes every file; skips none', async () => {
@@ -249,9 +243,7 @@ describe('Wiki Generator — manifest incrementality', () => {
   })
 })
 
-// =============================================================================
 // B. Concept-level historical preservation
-// =============================================================================
 
 describe('Wiki Generator — concept history', () => {
   it('B.1 keeps firstSeen, advances lastSeen, grows seenIn across re-saves', async () => {

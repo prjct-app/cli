@@ -12,9 +12,7 @@ import pathManager from '../../infrastructure/path-manager'
 import { contextZoneStorage } from '../../storage/context-zone-storage'
 import { prjctDb } from '../../storage/database'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string
 let testProjectId: string
@@ -43,9 +41,7 @@ describe('Context Zone Storage', () => {
     }
   })
 
-  // ===========================================================================
   // Zone Transitions
-  // ===========================================================================
 
   it('should record and retrieve zone transitions', () => {
     contextZoneStorage.recordTransition(testProjectId, {
@@ -79,9 +75,7 @@ describe('Context Zone Storage', () => {
     expect(limited).toHaveLength(3)
   })
 
-  // ===========================================================================
   // Compaction Events
-  // ===========================================================================
 
   it('should record compaction events', () => {
     contextZoneStorage.recordCompaction(testProjectId, 'truth_snapshot', 50, 12)
@@ -91,9 +85,7 @@ describe('Context Zone Storage', () => {
     expect(summary.compactions).toBe(1)
   })
 
-  // ===========================================================================
   // Summary
-  // ===========================================================================
 
   it('should return 100% smart when no transitions exist', () => {
     const summary = contextZoneStorage.getSummary(testProjectId)

@@ -14,9 +14,7 @@ import path from 'node:path'
 import type { StackDetection, StackPackageJson } from '../types/stack'
 import { fileExists } from '../utils/file-helper'
 
-// ============================================================================
 // STACK DETECTOR
-// ============================================================================
 
 export class StackDetector {
   private projectPath: string
@@ -59,9 +57,7 @@ export class StackDetector {
     return stack
   }
 
-  // ==========================================================================
   // DETECTION METHODS
-  // ==========================================================================
 
   /**
    * Detect frontend frameworks and type (web/mobile/both)
@@ -195,9 +191,7 @@ export class StackDetector {
     if (deps.gatsby) stack.frameworks.push('Gatsby')
   }
 
-  // ==========================================================================
   // HELPERS
-  // ==========================================================================
 
   /**
    * Read and parse package.json

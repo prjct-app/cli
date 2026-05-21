@@ -9,9 +9,7 @@
 
 import { z } from 'zod'
 
-// =============================================================================
 // Metric Schemas
-// =============================================================================
 
 export const MetricNameSchema = z.enum([
   'startup_time',
@@ -74,9 +72,7 @@ export const PerformanceEntrySchema = z.union([
   AnalysisStateSchema,
 ])
 
-// =============================================================================
 // Report Schemas
-// =============================================================================
 
 const MetricSummarySchema = z.object({
   avg: z.number(),
@@ -113,9 +109,7 @@ export const PerformanceReportSchema = z.object({
   commandDurations: z.record(z.string(), MetricSummarySchema).optional(),
 })
 
-// =============================================================================
 // Inferred Types
-// =============================================================================
 
 export type MetricName = z.infer<typeof MetricNameSchema>
 export type MemorySnapshot = z.infer<typeof MemorySnapshotSchema>

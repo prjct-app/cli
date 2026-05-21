@@ -11,9 +11,7 @@
 import type { AnalysisSchema } from '../schemas/analysis'
 import type { AnalysisDiff, AnalysisDiffItem } from '../types/services/extracted'
 
-// =============================================================================
 // Diff Logic
-// =============================================================================
 
 /**
  * Compute diff between two analysis objects.
@@ -94,9 +92,7 @@ export function generateAnalysisDiff(before: AnalysisSchema, after: AnalysisSche
   }
 }
 
-// =============================================================================
 // Formatting
-// =============================================================================
 
 /**
  * Format analysis diff as markdown (for --md output).
@@ -166,9 +162,7 @@ export function formatAnalysisDiffText(diff: AnalysisDiff): string {
   return lines.join('\n')
 }
 
-// =============================================================================
 // Helpers
-// =============================================================================
 
 function diffStringArray(
   label: string,

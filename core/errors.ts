@@ -4,7 +4,6 @@
  * Base error class with specific subclasses for different error domains.
  * Enables typed error handling and better error messages.
  *
- * @module core/errors
  */
 
 /**

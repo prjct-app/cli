@@ -3,9 +3,7 @@
  * Types for onboarding wizard and outcome learning.
  */
 
-// =============================================================================
 // Onboarding Types
-// =============================================================================
 
 export type ProjectType =
   | 'web-app'
@@ -46,9 +44,7 @@ export interface WizardStep {
   run: () => Promise<boolean>
 }
 
-// =============================================================================
 // Outcome Learner Types
-// =============================================================================
 
 /** A pattern extracted from outcome analysis */
 export interface OutcomeLearnerExtractedPattern {

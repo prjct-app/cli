@@ -64,9 +64,7 @@ export class ReviewRiskCommands extends PrjctCommandsBase {
   }
 }
 
-// ============================================================================
 // Changeset computation — committed range vs merge-base with default branch.
-// ============================================================================
 
 async function git(projectPath: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync('git', args, { cwd: projectPath })
@@ -138,9 +136,7 @@ function geometryOf(tier: Tier): Geometry {
   return 'split'
 }
 
-// ============================================================================
 // Output
-// ============================================================================
 
 function suggestion(geometry: Geometry, cs: Changeset): string {
   if (geometry === 'direct') return 'Small + low-risk — fine to land directly or as one tiny PR.'
