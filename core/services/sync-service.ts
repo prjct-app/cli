@@ -217,31 +217,38 @@ class SyncService {
       // pre-v2.19.7 `.prjct/CHECKPOINTS.md` and `.prjct/team.json`,
       // migrate into kv_store, emit one-shot inbox warnings on
       // post-migration hand-edits. mtime-cached so re-syncs are silent.
-      await phase('legacy-crew-sweep', async () => {
-        try {
-          const { legacyCrewSweep } = await import('./legacy-crew-sweep')
-          const result = await legacyCrewSweep(this.projectPath, this.projectId!)
-          if (
-            result.checkpointsMigrated ||
-            result.teamMigrated ||
-            result.checkpointsHandEditWarned ||
-            result.teamHandEditWarned ||
-            result.errors.length > 0
-          ) {
-            log.info('Legacy crew sweep ran', {
-              checkpointsMigrated: result.checkpointsMigrated,
-              teamMigrated: result.teamMigrated,
-              checkpointsHandEditWarned: result.checkpointsHandEditWarned,
-              teamHandEditWarned: result.teamHandEditWarned,
-              errors: result.errors.length,
+      //
+      // Deprecation track: pre-v2.19.7 was ~12 months ago — every active
+      // install migrated long ago. Set PRJCT_SKIP_CREW_SWEEP=1 to skip this
+      // phase entirely (mirrors PRJCT_SKIP_JSON_MIGRATION). v3.0 removes
+      // the sweep file along with migrate-json.
+      if (process.env.PRJCT_SKIP_CREW_SWEEP !== '1') {
+        await phase('legacy-crew-sweep', async () => {
+          try {
+            const { legacyCrewSweep } = await import('./legacy-crew-sweep')
+            const result = await legacyCrewSweep(this.projectPath, this.projectId!)
+            if (
+              result.checkpointsMigrated ||
+              result.teamMigrated ||
+              result.checkpointsHandEditWarned ||
+              result.teamHandEditWarned ||
+              result.errors.length > 0
+            ) {
+              log.info('Legacy crew sweep ran', {
+                checkpointsMigrated: result.checkpointsMigrated,
+                teamMigrated: result.teamMigrated,
+                checkpointsHandEditWarned: result.checkpointsHandEditWarned,
+                teamHandEditWarned: result.teamHandEditWarned,
+                errors: result.errors.length,
+              })
+            }
+          } catch (error) {
+            log.debug('Legacy crew sweep failed (non-critical)', {
+              error: getErrorMessage(error),
             })
           }
-        } catch (error) {
-          log.debug('Legacy crew sweep failed (non-critical)', {
-            error: getErrorMessage(error),
-          })
-        }
-      })
+        })
+      }
 
       // 3. Gather all data IN PARALLEL (30-50% speedup)
       // These operations are independent and can run concurrently
