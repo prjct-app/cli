@@ -3,7 +3,7 @@
  * before touching anything. Pure read-only operations.
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getProviderPaths } from '../../infrastructure/command-installer'
@@ -73,7 +73,10 @@ export function detectInstallation(): InstallationInfo {
   const info: InstallationInfo = { homebrew: false, npm: false }
 
   try {
-    const result = execSync('brew list prjct-cli 2>/dev/null', { encoding: 'utf-8' })
+    const result = execFileSync('brew', ['list', 'prjct-cli'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
     if (result) {
       info.homebrew = true
       info.homebrewFormula = 'prjct-cli'
@@ -83,7 +86,10 @@ export function detectInstallation(): InstallationInfo {
   }
 
   try {
-    const result = execSync('npm list -g prjct-cli --depth=0 2>/dev/null', { encoding: 'utf-8' })
+    const result = execFileSync('npm', ['list', '-g', 'prjct-cli', '--depth=0'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
     if (result.includes('prjct-cli')) info.npm = true
   } catch {
     // Not installed via npm
