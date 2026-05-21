@@ -81,6 +81,11 @@
 
 ## [Unreleased]
 
+## [2.23.15] - 2026-05-20
+
+### Added
+- Audit followups 2: regression tests para prompt-injection, exec hardening defense-in-depth, legacy-crew-sweep env gate
+
 ## [2.23.14] - 2026-05-20
 
 ### Added
