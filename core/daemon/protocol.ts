@@ -36,8 +36,3 @@ export const MAX_BUFFER_SIZE = 1024 * 1024
 export function encodeMessage(msg: DaemonRequest | DaemonResponse): Buffer {
   return Buffer.from(`${JSON.stringify(msg)}\n`)
 }
-
-/** Decode a message received from socket */
-function _decodeMessage(data: string): DaemonRequest | DaemonResponse {
-  return JSON.parse(data.trim())
-}

@@ -80,13 +80,6 @@ export function setQuietMode(enabled: boolean): void {
 }
 
 /**
- * Check if quiet mode is enabled
- */
-function _isQuietMode(): boolean {
-  return quietMode
-}
-
-/**
  * Truncate string to max chars (uses tier config if no max specified)
  */
 const truncate = (s: string | undefined | null, max?: number): string => {

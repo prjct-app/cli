@@ -11,7 +11,6 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import readline from 'node:readline'
 import chalk from 'chalk'
 import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
@@ -52,16 +51,6 @@ interface ProviderOption {
   displayName: string
   installed: boolean
   selected: boolean
-}
-
-/**
- * Create readline interface for user input
- */
-function _createReadline(): readline.Interface {
-  return readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  })
 }
 
 /**

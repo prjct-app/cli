@@ -1,6 +1,3 @@
-/** Domain classification cache TTL */
-const _CLASSIFICATION_CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
-
 /** Context7 verification cache TTL */
 export const CONTEXT7_VERIFY_TTL_MS = 5 * 60 * 1000 // 5 minutes
 

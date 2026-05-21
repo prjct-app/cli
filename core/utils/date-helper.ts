@@ -179,21 +179,6 @@ export function toRelative(date: string | Date): string {
  * Parse a duration string like "2h 30m" or "45s" to minutes.
  * Supports: "2h", "30m", "1h 30m", "2h30m", "90m", "45s" (rounds up to 1m)
  */
-/**
- * Parse a variance string like "+30m" or "-2h" to signed minutes.
- * "+30m" -> 30, "-15m" -> -15, "+2h" -> 120, "-1h" -> -60
- */
-function _parseVarianceMinutes(variance: string): number {
-  const match = variance.match(/^([+-])(\d+)([mh])$/)
-  if (!match) return 0
-
-  const sign = match[1] === '-' ? -1 : 1
-  const value = Number.parseInt(match[2], 10)
-  const unit = match[3]
-
-  return sign * (unit === 'h' ? value * 60 : value)
-}
-
 export function parseDurationMinutes(duration: string): number {
   let minutes = 0
 

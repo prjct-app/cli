@@ -17,9 +17,8 @@
  *   shipped       — auto-recorded when a task ships
  *
  * Storage: reuses the events table via memoryService (type prefix
- * `remember.<type>`) for user-captured entries, plus `shipped_features` for
- * auto-recorded ships. No schema migration — PR 4 can add a dedicated table
- * later if volume demands it.
+ * `remember.<type>`) for user-captured entries, plus `shipped_features`
+ * for auto-recorded ships.
  */
 
 import { memoryService } from '../services/memory-service'
@@ -28,16 +27,8 @@ import { escapeMarkdownInline } from '../utils/prompt-injection'
 import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
 /**
- * Base memory types — the ones we ship on every project regardless of
- * which pack is active. Additional types come from `packs/*` manifests
- * (e.g. `insight`, `okr`, `stakeholder`). Users can also save to any
- * type they invent — `MemoryType` is intentionally just `string` so
- * the API stays open. See `isKnownMemoryType()` when you need to check
- * whether a string matches a base type.
- *
- * Rationale: imposing a rigid ontology would be harness. Tags + types
- * are freeform; Claude (and the human) decide what makes sense for
- * this project.
+ * Base memory types. Additional types come from `packs/*` manifests;
+ * user-invented types persist as freeform strings (`MemoryType = string`).
  */
 export const BASE_MEMORY_TYPES = [
   // Code-centric (always useful — kept from v1 for continuity)
@@ -67,19 +58,8 @@ export const BASE_MEMORY_TYPES = [
 /** @deprecated use BASE_MEMORY_TYPES. Kept as alias for backward compat. */
 export const MEMORY_TYPES = BASE_MEMORY_TYPES
 
-type BaseMemoryType = (typeof BASE_MEMORY_TYPES)[number]
-
-/**
- * Freeform memory type — any non-empty string. Base types are listed
- * in `BASE_MEMORY_TYPES` for discovery/validation; user-defined types
- * like `recipe` or `workout` persist without special handling.
- */
+/** Freeform memory type — any non-empty string. */
 export type MemoryType = string
-
-/** True when the given value matches a base (well-known) memory type. */
-function _isKnownMemoryType(value: string): value is BaseMemoryType {
-  return (BASE_MEMORY_TYPES as readonly string[]).includes(value)
-}
 
 /**
  * Where an entry came from. Lets Claude calibrate trust:
@@ -162,8 +142,8 @@ function rowToEntry(row: EventRow): MemoryEntry {
     provenance?: MemoryProvenance
   }>(row.data, {})
   // Entries written via `prjct remember` default to `declared` — the user
-  // (or Claude) explicitly captured them. PR 4 work can override when
-  // auto-capturing from pattern extraction, etc.
+  // (or Claude) explicitly captured them. Auto-capture flows can override
+  // by setting `provenance` explicitly.
   return {
     id: `mem_${row.id}`,
     type,

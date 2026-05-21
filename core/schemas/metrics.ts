@@ -5,14 +5,11 @@
  * Tracks token savings, sync performance, and usage trends.
  *
  * Uses Zod for runtime validation and TypeScript type inference.
- * @version 1.0.0
  */
 
 import { z } from 'zod'
 
-// =============================================================================
 // Zod Schemas - Source of Truth
-// =============================================================================
 
 /**
  * Daily stats for trend analysis
@@ -59,27 +56,11 @@ export const MetricsJsonSchema = z.object({
   lastUpdated: z.string(), // ISO8601
 })
 
-// =============================================================================
 // Inferred Types
-// =============================================================================
 
 export type DailyStats = z.infer<typeof DailyStatsSchema>
 export type AgentUsage = z.infer<typeof AgentUsageSchema>
 export type MetricsJson = z.infer<typeof MetricsJsonSchema>
-
-// =============================================================================
-// Validation Helpers
-// =============================================================================
-
-/** Parse and validate metrics.json content */
-const _parseMetrics = (data: unknown): MetricsJson => MetricsJsonSchema.parse(data)
-
-/** Safe parse with error result */
-const _safeParseMetrics = (data: unknown) => MetricsJsonSchema.safeParse(data)
-
-// =============================================================================
-// Defaults
-// =============================================================================
 
 export const DEFAULT_METRICS: MetricsJson = {
   totalTokensSaved: 0,
@@ -94,9 +75,7 @@ export const DEFAULT_METRICS: MetricsJson = {
   lastUpdated: '',
 }
 
-// =============================================================================
 // Cost Calculation Constants (January 2026 Pricing)
-// =============================================================================
 
 /**
  * Token costs per 1000 tokens (INPUT pricing)

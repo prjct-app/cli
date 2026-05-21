@@ -11,14 +11,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import type { LocalConfig, ProjectPersona } from '../types/config'
-import {
-  aggregateHookSignals,
-  aggregateMemoryTypes,
-  aggregateSlots,
-  getPackManifest,
-  PACK_MANIFESTS,
-  type PackManifest,
-} from './manifests'
+import { getPackManifest, PACK_MANIFESTS, type PackManifest } from './manifests'
 
 interface ActivatedPackSummary {
   name: string
@@ -149,23 +142,6 @@ export async function listActivePacks(projectPath: string): Promise<ActivatedPac
     })
   }
   return summaries
-}
-
-/** Compute the effective memory types + slots + signals for a project. */
-async function _effectiveProjectSurface(projectPath: string): Promise<{
-  packs: string[]
-  memoryTypes: string[]
-  slots: ReturnType<typeof aggregateSlots>
-  hookSignals: ReturnType<typeof aggregateHookSignals>
-}> {
-  const config = await configManager.readConfig(projectPath)
-  const packs = config?.persona?.packs ?? []
-  return {
-    packs,
-    memoryTypes: aggregateMemoryTypes(packs),
-    slots: aggregateSlots(packs),
-    hookSignals: aggregateHookSignals(packs),
-  }
 }
 
 function applyPersonaSuggestion(persona: ProjectPersona, activatedPackNames: string[]): void {
