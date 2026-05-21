@@ -257,11 +257,16 @@ jobs:
             RANGE="HEAD"
           fi
 
-          # Categorize commits
+          # Categorize commits. The release gate (above) only fires on
+          # feat/fix/perf/refactor/BREAKING — but a release that's triggered
+          # by, say, a fix often also ships chore/build/ci commits that
+          # landed since the last tag. Without a Maintenance bucket those
+          # silently vanish from the changelog.
           FEATURES=$(git log $RANGE --pretty=format:"- %s" --grep="^feat" 2>/dev/null | sed 's/^- feat[^:]*: /- /' || echo "")
           FIXES=$(git log $RANGE --pretty=format:"- %s" --grep="^fix" 2>/dev/null | sed 's/^- fix[^:]*: /- /' || echo "")
           PERF=$(git log $RANGE --pretty=format:"- %s" --grep="^perf" 2>/dev/null | sed 's/^- perf[^:]*: /- /' || echo "")
           REFACTOR=$(git log $RANGE --pretty=format:"- %s" --grep="^refactor" 2>/dev/null | sed 's/^- refactor[^:]*: /- /' || echo "")
+          MAINTENANCE=$(git log $RANGE --pretty=format:"- %s" --grep="^chore\|^build\|^ci" 2>/dev/null | sed -E 's/^- (chore|build|ci)[^:]*: /- /' || echo "")
 
           if [ -n "$FEATURES" ]; then
             ENTRY+="### Features"$'\n\n'"$FEATURES"$'\n\n'
@@ -277,6 +282,10 @@ jobs:
 
           if [ -n "$REFACTOR" ]; then
             ENTRY+="### Refactoring"$'\n\n'"$REFACTOR"$'\n\n'
+          fi
+
+          if [ -n "$MAINTENANCE" ]; then
+            ENTRY+="### Maintenance"$'\n\n'"$MAINTENANCE"$'\n\n'
           fi
 
           # Save for release notes
