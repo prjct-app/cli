@@ -1,0 +1,5 @@
+[test]
+# Global test isolation: reset module-level singletons (circuit breakers)
+# before every test so one suite's failures can't cascade into another.
+# See core/__tests__/_setup/reset-singletons.ts for the rationale.
+preload = ["./core/__tests__/_setup/reset-singletons.ts"]
