@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.0] - 2026-05-29
+
+### Features
+
+- reinforcement loop — recall gets smarter with use (#386)
+
+
 ## [2.28.0] - 2026-05-29
 
 ### Features
