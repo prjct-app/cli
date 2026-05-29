@@ -708,4 +708,25 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 22,
+    name: 'memory-embeddings-store',
+    up: (db: SqliteDatabase) => {
+      // Optional semantic-search layer (phase 3). One row per embedded
+      // memory entry; the vector is a packed Float32 BLOB. Off by default —
+      // populated only when the project opts into an embeddings provider
+      // (`config.embeddings`). `model` + `dims` are stored so a model change
+      // can invalidate stale vectors. Keyed by the same `mem_<id>` the rest
+      // of the memory layer uses.
+      db.run(`
+        CREATE TABLE IF NOT EXISTS memory_embeddings (
+          memory_id   TEXT PRIMARY KEY,
+          vector      BLOB NOT NULL,
+          model       TEXT NOT NULL,
+          dims        INTEGER NOT NULL,
+          created_at  TEXT NOT NULL
+        )
+      `)
+    },
+  },
 ]
