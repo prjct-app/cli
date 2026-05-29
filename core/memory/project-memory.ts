@@ -310,6 +310,19 @@ export const projectMemory = {
       }
     }
 
+    // Reinforcement loop: credit the entries this new one references — they
+    // just proved load-bearing (the project is building on them). Feeds the
+    // usefulness ranking so proven knowledge surfaces first over time.
+    // Best-effort; dynamic import avoids a static service cycle.
+    if (logResult?.projectId) {
+      try {
+        const { usefulnessService } = await import('../services/usefulness')
+        usefulnessService.recordReferences(logResult.projectId, args.content, tags)
+      } catch {
+        /* never block a capture on reinforcement bookkeeping */
+      }
+    }
+
     // Phase 1.5 / B1: also publish to the sync queue so prjct-cloud
     // mirrors memories. memoryService.log writes to the local events
     // table, but it doesn't enqueue a SyncEvent for push — that's
