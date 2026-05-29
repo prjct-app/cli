@@ -158,6 +158,22 @@ describe('spec draft|new|create alias stripping', () => {
     expect(result.success).toBe(true)
   })
 
+  test('`breakdown` routes as a subverb, NOT a draft title (regression: was missing from knownSubverbs)', async () => {
+    // The bug: `breakdown` had a `case` in the switch but was absent from
+    // `knownSubverbs` in BOTH routers, so `prjct spec breakdown <id>` fell
+    // through to the bare-title path and silently created a spec titled
+    // "breakdown <id>" instead of breaking the spec down. Guard: the result
+    // must NOT be a draft whose title is the literal "breakdown ...".
+    const result = await executeCommand(commands, {
+      id: 't',
+      command: 'spec',
+      args: ['breakdown', 'spec_nonexistent'],
+      options: { md: true },
+      cwd: projectPath,
+    })
+    expect((result as { title?: string }).title).not.toBe('breakdown spec_nonexistent')
+  })
+
   test('non-alias unknown first token still falls through to bare-title (back-compat)', async () => {
     // `prjct spec "fix the thing"` — first word "fix" isn't a subverb, so
     // the entire string remains the title. This guards the existing

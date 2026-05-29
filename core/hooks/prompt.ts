@@ -19,18 +19,23 @@ import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
+import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { runHook } from './_runner'
 import { extractKeywords, safeTruncate } from './_shared'
 
-const MAX_CHARS = 1800
-const MAX_ENTRIES = 4
+const MAX_CHARS = 2200
+// Raised from 4: with BM25 ranking, more candidate slots means the genuinely
+// relevant entry (which may be older than 3 unrelated recent ones) makes it
+// into the rendered set. The MEMORY_BUDGET truncation below is the real token
+// guard, so this is bounded — it improves recall odds, not worst-case cost.
+const MAX_ENTRIES = 8
 // Per-block budgets — added up they exceed MAX_CHARS, but blocks rarely
 // hit their ceiling simultaneously. Truncating per-block keeps a long
 // project-state block from starving the (usually higher-signal) memory
 // block; the joined output is also re-clamped to MAX_CHARS as a hard cap.
-const MEMORY_BUDGET = 1100
+const MEMORY_BUDGET = 1400
 const SIGNALS_BUDGET = 350
 const STATE_BUDGET = 600
 
@@ -43,8 +48,12 @@ interface HookInput {
  * Exported for tests + for callers that want the string without the
  * hook envelope.
  */
-async function buildPromptContext(projectPath: string, prompt: string): Promise<string | null> {
-  const config = await configManager.readConfig(projectPath)
+async function buildPromptContext(
+  projectPath: string,
+  prompt: string,
+  preloaded?: LocalConfig | null
+): Promise<string | null> {
+  const config = preloaded !== undefined ? preloaded : await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 
   const keywords = extractKeywords(prompt)
@@ -112,8 +121,11 @@ function renderMemoryBlock(matches: MemoryEntry[], keywords: string[]): string {
  * Returns null when there's nothing useful to say (no project, no
  * git repo) so the caller can skip injection entirely.
  */
-export async function buildProjectState(projectPath: string): Promise<string | null> {
-  const config = await configManager.readConfig(projectPath)
+export async function buildProjectState(
+  projectPath: string,
+  preloaded?: LocalConfig | null
+): Promise<string | null> {
+  const config = preloaded !== undefined ? preloaded : await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 
   const lines: string[] = ['# prjct: project state']
@@ -246,8 +258,11 @@ async function captureGit(projectPath: string): Promise<GitSnapshot> {
 const FRICTION_BUDGET = 3
 const SKILL_MISS_BUDGET = 2
 
-export async function buildImprovementSignals(projectPath: string): Promise<string | null> {
-  const config = await configManager.readConfig(projectPath)
+export async function buildImprovementSignals(
+  projectPath: string,
+  preloaded?: LocalConfig | null
+): Promise<string | null> {
+  const config = preloaded !== undefined ? preloaded : await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 
   let signals: MemoryEntry[] = []
@@ -324,13 +339,17 @@ export function runPromptHook(projectPath: string = process.cwd()): Promise<void
     build: async (input, p) => {
       const prompt = (input.prompt ?? '').trim()
       if (!prompt) return null
+      // Read config ONCE and fan it out — the three builders previously each
+      // called configManager.readConfig(p), i.e. 3 disk reads + 3 JSONC parses
+      // of the same file on every prompt turn. readConfig is uncached.
+      const config = await configManager.readConfig(p)
       // Three pass: state (for intent disambiguation) + memory (for topical
       // recall) + improvement signals (proactive UX nudges from prior
       // sessions). All independent, each silently null'd on failure.
       const [state, memory, signals] = await Promise.all([
-        buildProjectState(p),
-        buildPromptContext(p, prompt),
-        buildImprovementSignals(p),
+        buildProjectState(p, config),
+        buildPromptContext(p, prompt, config),
+        buildImprovementSignals(p, config),
       ])
       // Per-block budgets first (each builder already trims to its own
       // ceiling; this is a defense-in-depth re-clamp), then MAX_CHARS as
