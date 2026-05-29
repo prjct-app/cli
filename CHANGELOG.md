@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.0] - 2026-05-29
+
+### Features
+
+- optional semantic search via embeddings (phase 3 — complete) (#385)
+
+
 ## [2.27.0] - 2026-05-29
 
 ### Features
