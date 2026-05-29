@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.2] - 2026-05-29
+
+### Performance
+
+- retrieval quality + robustness hardening (phases 1/2/4) (#379)
+
+
 ## [2.24.1] - 2026-05-21
 
 ### Bug Fixes
