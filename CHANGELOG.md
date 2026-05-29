@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.3] - 2026-05-29
+
+### Performance
+
+- hook hot-path benchmark (phase 0 instrumentation) (#380)
+
+
 ## [2.24.2] - 2026-05-29
 
 ### Performance
