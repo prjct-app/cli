@@ -12,6 +12,7 @@ import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import { isRemovedVerb, REMOVED_VERBS } from './commands/removed-verbs'
+import { routeSpec } from './commands/route-spec'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
 import configManager from './infrastructure/config-manager'
 import performanceTracker from './infrastructure/performance-tracker'
@@ -191,7 +192,13 @@ async function main(): Promise<void> {
         // SDD: spec verb. The CLI uses `prjct spec ...`, but Claude
         // typically calls `prjct spec list/show/audit/...` via subcommand
         // syntax — `parsedArgs[0]` carries the subverb when present.
-        spec: (p) => routeSpec(commands, p, options),
+        spec: (p) =>
+          routeSpec(
+            commands,
+            (p ?? '').trim().split(/\s+/).filter(Boolean),
+            options,
+            process.cwd()
+          ),
         'audit-spec': (p) =>
           p
             ? commands.specAudit(p, process.cwd(), { md })
@@ -327,95 +334,6 @@ async function main(): Promise<void> {
  * Bare `prjct spec "<title>"` falls through to the default `draft` action.
  * `param` is the joined positional args (subverb + spec id when present).
  */
-async function routeSpec(
-  commands: PrjctCommands,
-  param: string | null,
-  options: Record<string, string | boolean>
-): Promise<CommandResult> {
-  const md = options.md === true
-  const tokens = (param ?? '').trim().split(/\s+/).filter(Boolean)
-  const sub = tokens[0]
-  const rest = tokens.slice(1).join(' ') || null
-
-  // No arg or first token isn't a known subverb → treat the whole thing
-  // as a draft title (matches `prjct spec "rate limiting"` ergonomics).
-  const knownSubverbs = new Set([
-    'list',
-    'show',
-    'update',
-    'set-status',
-    'record-review',
-    'link-task',
-    'ship',
-    'audit',
-    'inventory',
-  ])
-  // Friendly aliases: there is no `draft` subverb — `prjct spec "<title>"`
-  // IS the draft action — but agents/users routinely type
-  // `prjct spec draft "x"` (and `new`/`create`). Strip the leading word so
-  // the title doesn't get polluted with literal "draft x".
-  const draftAliases = new Set(['draft', 'new', 'create'])
-  if (sub && draftAliases.has(sub)) {
-    return commands.spec(rest, process.cwd(), {
-      md,
-      goal: options.goal ? String(options.goal) : undefined,
-      tags: options.tags ? String(options.tags) : undefined,
-    })
-  }
-  if (!sub || !knownSubverbs.has(sub)) {
-    return commands.spec(param, process.cwd(), {
-      md,
-      goal: options.goal ? String(options.goal) : undefined,
-      tags: options.tags ? String(options.tags) : undefined,
-    })
-  }
-
-  const cwd = process.cwd()
-  switch (sub) {
-    case 'list':
-      return commands.specList(cwd, {
-        md,
-        status: options.status ? String(options.status) : undefined,
-      })
-    case 'show':
-      return commands.specShow(rest, cwd, { md })
-    case 'update':
-      return commands.specUpdate(rest, cwd, {
-        md,
-        json: options.json ? String(options.json) : undefined,
-      })
-    case 'set-status':
-      return commands.specSetStatus(rest, cwd, {
-        md,
-        status: options.status ? String(options.status) : undefined,
-      })
-    case 'record-review':
-      return commands.specRecordReview(rest, cwd, {
-        md,
-        reviewer: options.reviewer ? String(options.reviewer) : undefined,
-        verdict: options.verdict ? String(options.verdict) : undefined,
-        notes: options.notes ? String(options.notes) : undefined,
-      })
-    case 'link-task':
-      return commands.specLinkTask(rest, cwd, {
-        md,
-        taskId: options['task-id'] ? String(options['task-id']) : undefined,
-      })
-    case 'ship':
-      return commands.specShip(rest, cwd, {
-        md,
-        pr: options.pr ? String(options.pr) : undefined,
-      })
-    case 'audit':
-      return commands.specAudit(rest, cwd, { md })
-    case 'breakdown':
-      return commands.specBreakdown(rest, cwd, { md, force: options.force === true })
-    case 'inventory':
-      return commands.specInventory(cwd, { md, json: options.json === true })
-    default:
-      return { success: false, message: `unknown spec subverb: ${sub}` }
-  }
-}
 
 /**
  * Validate that required params are provided

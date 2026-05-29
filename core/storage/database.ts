@@ -84,7 +84,7 @@ class PrjctDatabase {
     db.run('PRAGMA temp_store = MEMORY')
     db.run('PRAGMA mmap_size = 33554432') // 32MB mmap
 
-    this.runMigrations(db)
+    this.runMigrations(db, dbPath)
 
     this.connections.set(projectId, db)
     this.touchAccessOrder(projectId)
@@ -349,7 +349,7 @@ class PrjctDatabase {
 
   // Migration System
 
-  private runMigrations(db: SqliteDatabase): void {
+  private runMigrations(db: SqliteDatabase, dbPath?: string): void {
     db.run(`
       CREATE TABLE IF NOT EXISTS _migrations (
         version     INTEGER PRIMARY KEY,
@@ -364,9 +364,34 @@ class PrjctDatabase {
       )
     )
 
-    for (const migration of migrations) {
-      if (applied.has(migration.version)) continue
+    const pending = migrations.filter((m) => !applied.has(m.version))
+    if (pending.length === 0) return
 
+    // Backup BEFORE mutating an existing, non-fresh DB. A migration that
+    // throws mid-flight rolls back its own transaction, but a large
+    // data-backfill (e.g. migrations 10/21) can leave partial state that
+    // makes the retry fail too — a boot loop on a DB with no recovery path.
+    // A pre-migration snapshot gives the user (and `prjct doctor`) something
+    // to restore. Skip for a brand-new DB (applied.size === 0): nothing to
+    // lose, and the backup would just be an empty file.
+    //
+    // VACUUM INTO produces a single, fully-consistent copy regardless of WAL
+    // checkpoint state and works across both better-sqlite3 and bun:sqlite.
+    // Best-effort: a failed backup must NOT block migrations — that would
+    // make the app unusable to protect a safety net that's only a nicety.
+    if (dbPath && applied.size > 0) {
+      try {
+        const backupPath = `${dbPath}.pre-migrate.bak`
+        if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { force: true })
+        db.prepare('VACUUM INTO ?').run(backupPath)
+      } catch (err) {
+        console.warn(
+          `prjct: pre-migration backup failed (continuing): ${(err as Error)?.message ?? err}`
+        )
+      }
+    }
+
+    for (const migration of pending) {
       runImmediate(db, () => {
         migration.up(db)
         db.prepare('INSERT INTO _migrations (version, name, applied_at) VALUES (?, ?, ?)').run(

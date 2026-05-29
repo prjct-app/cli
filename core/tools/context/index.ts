@@ -13,7 +13,12 @@
  */
 
 import configManager from '../../infrastructure/config-manager'
-import { formatMemoryMd, type MemoryType, projectMemory } from '../../memory/project-memory'
+import {
+  formatMemoryMd,
+  type MemoryEntry,
+  type MemoryType,
+  projectMemory,
+} from '../../memory/project-memory'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -192,7 +197,32 @@ async function runMemoryTool(
   const LEARNINGS_TYPES: MemoryType[] = ['learning', 'anti-pattern', 'gotcha']
   const types = opts.kind === 'learnings' ? LEARNINGS_TYPES : undefined
 
-  const entries = projectMemory.recall(projectId, { topic, types, limit: 30 })
+  // FTS5 BM25 first when a topic is present (relevance beats recency), then
+  // backfill with the recency + substring `recall()` so a fresh/unindexed DB
+  // or a cross-vocabulary topic still returns something. This mirrors the
+  // UserPromptSubmit hook's dual-path: previously this CLI/MCP path used
+  // `recall()` only, ignoring the BM25 index entirely — so on-demand lookups
+  // (the path Claude actually uses) were strictly worse than the hook's.
+  const LIMIT = 30
+  let entries: MemoryEntry[] = []
+  if (topic) {
+    const keywords = topic.split(/\s+/).filter(Boolean)
+    try {
+      const fts = projectMemory.searchFts(projectId, keywords, LIMIT)
+      entries = types ? fts.filter((e) => types.includes(e.type as MemoryType)) : fts
+    } catch {
+      entries = []
+    }
+  }
+  if (entries.length < LIMIT) {
+    const seen = new Set(entries.map((e) => e.id))
+    const pool = projectMemory.recall(projectId, { topic, types, limit: LIMIT })
+    for (const e of pool) {
+      if (seen.has(e.id)) continue
+      entries.push(e)
+      if (entries.length >= LIMIT) break
+    }
+  }
   return {
     tool: opts.kind,
     result: {

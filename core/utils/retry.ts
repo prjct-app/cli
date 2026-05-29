@@ -136,6 +136,20 @@ function recordSuccess(operationId: string): void {
   circuitStates.delete(operationId)
 }
 
+/**
+ * Clear ALL circuit-breaker state. Intended for test isolation: the
+ * `circuitStates` map is a module-level singleton shared across every
+ * RetryPolicy instance, so without a reset between tests one suite's
+ * failures (e.g. `agent-initialization` failing because no agent is
+ * installed on a CI runner) accumulate past the threshold and open the
+ * breaker, cascading "circuit breaker is open" into every later test that
+ * touches the same operation. A global test `beforeEach` calls this so each
+ * test starts with a clean breaker — making the suite order-independent.
+ */
+export function resetCircuitBreakers(): void {
+  circuitStates.clear()
+}
+
 // Retry Policy
 
 export class RetryPolicy {
