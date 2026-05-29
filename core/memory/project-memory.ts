@@ -103,6 +103,15 @@ interface RecallOpts {
    * `gstack-learnings-search` (garrytan/gstack).
    */
   dedupeByKey?: boolean
+
+  /**
+   * Drop entries the author explicitly marked obsolete — an entry tagged
+   * `supersedes:mem_X` / `duplicates:mem_X` retires X, and an entry tagged
+   * `superseded-by:…` retires itself. Author-declared compaction, not a
+   * heuristic. Default: true. Set false for the link/index layer, which
+   * must keep retired entries resolvable so their wikilinks don't rot.
+   */
+  pruneSuperseded?: boolean
 }
 
 const DEFAULT_RECALL_LIMIT = 25
@@ -210,6 +219,34 @@ function dedupeLatestByKey(entries: MemoryEntry[]): MemoryEntry[] {
     out.push(entry)
   }
   return out
+}
+
+const MEM_REF_RE = /\bmem[_-](\d+)\b/g
+
+/**
+ * Collect the ids that the author has explicitly declared obsolete, from
+ * the relationships present in `entries`:
+ *   - an entry tagged `supersedes:mem_X` (or `duplicates:mem_X`) marks X dead
+ *     — the newer/canonical entry replaces it;
+ *   - an entry tagged `superseded-by:…` marks ITSELF dead — it points forward
+ *     to its replacement.
+ *
+ * This is author-declared compaction, not a heuristic: nothing is pruned
+ * unless someone wrote the relationship down. Scoped to the supplied window
+ * (no extra query on the recall hot path); the superseding entry is almost
+ * always newer than — and thus recalled alongside — the one it replaces.
+ */
+function collectSupersededIds(entries: MemoryEntry[]): Set<string> {
+  const dead = new Set<string>()
+  for (const entry of entries) {
+    if (entry.tags['superseded-by']) dead.add(entry.id)
+    for (const key of ['supersedes', 'duplicates']) {
+      const v = entry.tags[key]
+      if (!v) continue
+      for (const m of String(v).matchAll(MEM_REF_RE)) dead.add(`mem_${m[1]}`)
+    }
+  }
+  return dead
 }
 
 export const projectMemory = {
@@ -434,6 +471,15 @@ export const projectMemory = {
     // sort so the first match per group is the newest.
     if (opts.dedupeByKey !== false) {
       entries = dedupeLatestByKey(entries)
+    }
+
+    // Author-declared compaction: drop entries explicitly retired via
+    // supersedes / superseded-by / duplicates. Runs before the slice so a
+    // retired entry never consumes a result slot. Opt out (link/index layer)
+    // to keep retired entries resolvable.
+    if (opts.pruneSuperseded !== false) {
+      const dead = collectSupersededIds(entries)
+      if (dead.size > 0) entries = entries.filter((e) => !dead.has(e.id))
     }
 
     return entries.slice(0, limit)
