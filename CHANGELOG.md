@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.27.0] - 2026-05-29
+
+### Features
+
+- author-declared compaction in recall (phase 3) (#384)
+
+
 ## [2.26.0] - 2026-05-29
 
 ### Features
