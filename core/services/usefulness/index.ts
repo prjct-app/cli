@@ -1,0 +1,161 @@
+/**
+ * Memory reinforcement ledger — "prjct gets smarter the more it's used."
+ *
+ * Recall already ranks by relevance (BM25 / semantic) and recency. What it
+ * lacked was a memory of WHICH knowledge actually pays off. This service
+ * accumulates a per-entry `usefulness` score from deterministic usage
+ * signals and feeds it back into the ranking:
+ *
+ *   - reference  — a newly captured entry cites an older `mem_N`
+ *                  (resolves / relates / supersedes / inline mention). The
+ *                  cited entry is load-bearing knowledge the project keeps
+ *                  building on → strong positive signal.
+ *   - fetch      — an entry was pulled by id on purpose
+ *                  (`prjct context memory mem_N`) → weaker positive signal.
+ *
+ * Scores TIME-DECAY (half-life): knowledge that stops being used fades from
+ * the ranking boost on its own, so the system tracks what is useful NOW, not
+ * what was useful once. That decay is how it "learns from" disuse — the
+ * negative half of the loop — without ever deleting anything.
+ *
+ * Best-effort throughout: a failure here must never break a capture or a
+ * recall. Time is injectable so tests are deterministic.
+ */
+
+import type { MemoryEntry } from '../../memory/project-memory'
+import prjctDb from '../../storage/database'
+
+/** Days for a usefulness contribution to halve. ~6 weeks: a decision cited
+ *  last month still counts, one cited last year barely does. */
+const HALF_LIFE_DAYS = 45
+const REF_WEIGHT = 1.0
+const FETCH_WEIGHT = 0.4
+const MS_PER_DAY = 86_400_000
+
+/** Tag keys whose values name a related entry (mirrors expandWithLinks). */
+const REL_KEYS = ['resolves', 'relates', 'supersedes', 'superseded-by', 'duplicates', 'spec']
+const MEM_REF_RE = /\bmem[_-](\d+)\b/g
+
+/** Collect the `mem_N` ids a new entry points at (relationship tags + inline). */
+export function extractRefIds(content: string, tags: Record<string, string>): string[] {
+  const ids = new Set<string>()
+  for (const key of REL_KEYS) {
+    const v = tags[key]
+    if (!v) continue
+    for (const m of String(v).matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
+  }
+  for (const m of content.matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
+  return [...ids]
+}
+
+interface UsefulnessRow {
+  memory_id: string
+  score: number
+  last_used_at: string
+}
+
+function bump(
+  projectId: string,
+  memoryId: string,
+  weight: number,
+  column: 'ref_count' | 'fetch_count',
+  nowIso: string
+): void {
+  prjctDb.run(
+    projectId,
+    `INSERT INTO memory_usefulness (memory_id, score, ${column}, last_used_at)
+     VALUES (?, ?, 1, ?)
+     ON CONFLICT(memory_id) DO UPDATE SET
+       score = score + ?, ${column} = ${column} + 1, last_used_at = excluded.last_used_at`,
+    memoryId,
+    weight,
+    nowIso,
+    weight
+  )
+}
+
+export const usefulnessService = {
+  /** Credit every entry that `content`/`tags` reference (a capture happened). */
+  recordReferences(
+    projectId: string,
+    content: string,
+    tags: Record<string, string>,
+    nowIso: string = new Date().toISOString()
+  ): void {
+    try {
+      for (const id of extractRefIds(content, tags)) {
+        bump(projectId, id, REF_WEIGHT, 'ref_count', nowIso)
+      }
+    } catch {
+      /* best-effort — never block a capture */
+    }
+  },
+
+  /** Credit an entry pulled deliberately by id. */
+  recordFetch(
+    projectId: string,
+    memoryId: string,
+    nowIso: string = new Date().toISOString()
+  ): void {
+    try {
+      bump(projectId, memoryId, FETCH_WEIGHT, 'fetch_count', nowIso)
+    } catch {
+      /* best-effort */
+    }
+  },
+
+  /**
+   * Current time-decayed usefulness per memory id. A score recorded `age`
+   * days ago is worth `score * 0.5^(age / HALF_LIFE_DAYS)` today.
+   */
+  decayedScores(projectId: string, nowMs: number = Date.now()): Map<string, number> {
+    const out = new Map<string, number>()
+    let rows: UsefulnessRow[]
+    try {
+      rows = prjctDb.query<UsefulnessRow>(
+        projectId,
+        'SELECT memory_id, score, last_used_at FROM memory_usefulness'
+      )
+    } catch {
+      return out
+    }
+    for (const r of rows) {
+      const last = Date.parse(r.last_used_at)
+      const factor = Number.isNaN(last)
+        ? 1
+        : 0.5 ** (Math.max(0, nowMs - last) / MS_PER_DAY / HALF_LIFE_DAYS)
+      out.set(r.memory_id, r.score * factor)
+    }
+    return out
+  },
+
+  /**
+   * Re-rank a relevance-ordered list with a BOUNDED usefulness boost: a
+   * proven-useful entry can climb a few slots, but relevance still leads
+   * (the boost only reorders near-equals). Stable for entries with no score.
+   * Returns a new array; never throws.
+   */
+  rerank(projectId: string, entries: MemoryEntry[], nowMs: number = Date.now()): MemoryEntry[] {
+    if (entries.length < 2) return entries
+    let scores: Map<string, number>
+    try {
+      scores = this.decayedScores(projectId, nowMs)
+    } catch {
+      return entries
+    }
+    if (scores.size === 0) return entries
+
+    const max = Math.max(1, ...scores.values())
+    // Max slots a maximally-useful entry may climb. Small so relevance leads.
+    const BOOST = 4
+    const n = entries.length
+    const ranked = entries.map((entry, i) => {
+      const norm = (scores.get(entry.id) ?? 0) / max // 0..1
+      // Higher rankScore = earlier. Relevance contributes (n - i); usefulness
+      // adds up to BOOST. Index keeps the sort stable on ties.
+      return { entry, i, rankScore: n - i + BOOST * norm }
+    })
+    ranked.sort((a, b) => b.rankScore - a.rankScore || a.i - b.i)
+    return ranked.map((r) => r.entry)
+  },
+}

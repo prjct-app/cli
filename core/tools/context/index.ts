@@ -20,6 +20,7 @@ import {
   projectMemory,
 } from '../../memory/project-memory'
 import { embeddingService } from '../../services/embeddings'
+import { usefulnessService } from '../../services/usefulness'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -181,6 +182,8 @@ async function runMemoryTool(
 
   if (idArg) {
     const entry = projectMemory.getById(projectId, idArg)
+    // Deliberate by-id pull = a usefulness signal; reinforce it.
+    if (entry) usefulnessService.recordFetch(projectId, entry.id)
     // Resolving one entry by id is exactly when its relationships matter
     // most ("show me mem_3209" → also show what it resolves / supersedes).
     const linked = entry ? projectMemory.expandWithLinks(projectId, [entry], 5) : []
@@ -248,6 +251,14 @@ async function runMemoryTool(
     } catch {
       /* best-effort — lexical results stand */
     }
+  }
+
+  // Reinforcement: nudge proven-useful entries up (bounded — relevance still
+  // leads). This is how recall gets smarter with use: knowledge the project
+  // keeps referencing / pulling rises over time; unused knowledge decays out
+  // of the boost on its own.
+  if (entries.length > 1) {
+    entries = usefulnessService.rerank(projectId, entries)
   }
 
   // One hop of relationship-graph traversal: append entries the results

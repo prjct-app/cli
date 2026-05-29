@@ -729,4 +729,27 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 23,
+    name: 'memory-usefulness-ledger',
+    up: (db: SqliteDatabase) => {
+      // Reinforcement ledger: prjct gets smarter with use by tracking which
+      // memory entries actually prove useful. A row accumulates a decayed
+      // `score` from real usage signals — `ref_count` (a later entry cited
+      // this one: load-bearing knowledge) and `fetch_count` (it was pulled by
+      // id on purpose). `last_used_at` drives time-decay at read time, so
+      // knowledge that stops being used fades from the ranking boost on its
+      // own. Recall blends this score so proven-useful entries surface first.
+      // Keyed by the same `mem_<id>` as the rest of the memory layer.
+      db.run(`
+        CREATE TABLE IF NOT EXISTS memory_usefulness (
+          memory_id    TEXT PRIMARY KEY,
+          score        REAL NOT NULL DEFAULT 0,
+          ref_count    INTEGER NOT NULL DEFAULT 0,
+          fetch_count  INTEGER NOT NULL DEFAULT 0,
+          last_used_at TEXT NOT NULL
+        )
+      `)
+    },
+  },
 ]
