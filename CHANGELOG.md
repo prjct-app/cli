@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.26.0] - 2026-05-29
+
+### Features
+
+- traverse the relationship graph on recall (phase 3) (#383)
+
+
 ## [2.25.0] - 2026-05-29
 
 ### Features
