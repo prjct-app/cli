@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.25.0] - 2026-05-29
+
+### Features
+
+- parallel executor fan-out + reconcile skill-vs-crew (#382)
+
+### Performance
+
+- serve hooks from the warm daemon (~9x faster per hook) (#381)
+
+
 ## [2.24.3] - 2026-05-29
 
 ### Performance
