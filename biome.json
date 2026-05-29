@@ -16,7 +16,8 @@
       "!**/*.min.js",
       "!**/bun.lock",
       "!web",
-      "!.worktrees"
+      "!.worktrees",
+      "!**/.claude/worktrees"
     ]
   },
   "formatter": {

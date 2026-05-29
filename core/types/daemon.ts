@@ -19,6 +19,9 @@ export interface DaemonRequest {
   cwd: string
   /** Process start time (nanoseconds) for startup metrics */
   perfStartNs?: string
+  /** Raw stdin payload, forwarded for `hook` commands (the Claude Code
+   *  event JSON the hook would otherwise read from its own stdin). */
+  stdin?: string
 }
 
 /** Response sent from daemon to CLI client */

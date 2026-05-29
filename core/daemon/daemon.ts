@@ -17,6 +17,8 @@ import { createServer as createNetServer } from 'node:net'
 import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
+import type { HookIo } from '../hooks/_runner'
+import { getHookRunner } from '../hooks/registry'
 import prjctDb from '../storage/database'
 import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
 import { executeCommand } from './dispatch'
@@ -286,6 +288,8 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
 
   if (request.command === 'daemon') return handleDaemonCommand(request)
 
+  if (request.command === 'hook') return handleHookRequest(request)
+
   if (request.command === '__ping') {
     return {
       id: request.id,
@@ -327,6 +331,57 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
       stderr: (err as Error).message,
     }
   }
+}
+
+/**
+ * Serve a Claude Code hook from the warm daemon instead of a cold spawn.
+ *
+ * The hook runner is given a `HookIo` bridge: its event payload comes from
+ * the forwarded stdin, its emitted JSON is captured into `stdout` (returned
+ * verbatim to the client, which writes it raw — byte-identical to the cold
+ * path), and its `afterEmit` side-effects (vault regen, transcript ingest)
+ * are DETACHED via setImmediate so they neither delay the response nor block
+ * the daemon's serialized request chain. The runner is fail-soft by
+ * contract; the outer guard is belt-and-suspenders so a hook can never take
+ * the daemon down.
+ */
+async function handleHookRequest(request: DaemonRequest): Promise<DaemonResponse> {
+  const runner = getHookRunner(request.args[0])
+  if (!runner) {
+    return { id: request.id, success: true, exitCode: 0, stdout: '{}\n' }
+  }
+
+  let input: unknown = {}
+  if (request.stdin) {
+    try {
+      input = JSON.parse(request.stdin)
+    } catch {
+      input = {}
+    }
+  }
+
+  let captured = ''
+  const io: HookIo = {
+    input,
+    sink: (chunk) => {
+      captured += chunk
+    },
+    detachAfterEmit: (fn) => {
+      setImmediate(() => {
+        fn().catch(() => {
+          /* detached side-effects are best-effort; the next hook recovers */
+        })
+      })
+    },
+  }
+
+  try {
+    await runner(request.cwd, io)
+  } catch {
+    /* runner is fail-soft; guard anyway so the daemon never crashes */
+  }
+
+  return { id: request.id, success: true, exitCode: 0, stdout: captured || '{}\n' }
 }
 
 function handleDaemonCommand(request: DaemonRequest): DaemonResponse {

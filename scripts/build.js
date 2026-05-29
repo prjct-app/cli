@@ -189,7 +189,26 @@ const cmd=args.find(a=>!a.startsWith("-"));
 const skip=new Set(["daemon","stop","restart","start","setup","update","upgrade","dev","web","serve","context","hooks","doctor","uninstall","watch","help","-h","--help","version","-v","--version","claude","hook","seed","install","crew","mcp","prefs","retro","health","skill-adherence","review-risk","context-save","context-restore","spec","audit-spec"]);
 function refuse(m){console.error("prjct: daemon dropped the request ("+m+"). Retry: prjct "+args.join(" "));process.exit(1)}
 function isSafeRetry(e){const c=e&&e.code||"",m=e&&e.message||"";return c==="ECONNREFUSED"||c==="ENOENT"||m.includes("ECONNREFUSED")||m.includes("ENOENT")}
-if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
+// Hook fast path: forward the event (stdin) to the warm daemon and write its
+// response raw. Hooks must never disturb the host session, so ANY failure
+// (connect error, timeout, closed socket) degrades to the empty no-op {} and
+// exit 0 — the same fail-soft contract the in-process hook runner honors.
+let hookDone=false;
+function sendHook(sub,data){
+  if(hookDone)return;hookDone=true;
+  const msg=JSON.stringify({id:randomUUID(),command:"hook",args:sub?[sub]:[],options:{},cwd:process.cwd(),stdin:data})+"\\n";
+  const sock=connect(sockPath);let buf="",done=false;
+  const soft=()=>{if(!done){done=true;clearTimeout(t);sock.destroy();process.stdout.write("{}\\n");process.exit(0)}};
+  const t=setTimeout(soft,5000);
+  sock.on("connect",()=>sock.write(msg));
+  sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));done=true;clearTimeout(t);sock.end();if(r.stdout)process.stdout.write(r.stdout);process.exit(r.exitCode!=null?r.exitCode:0)}});
+  sock.on("error",soft);
+  sock.on("close",soft);
+}
+if(cmd==="hook"&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
+  const sub=args[1];
+  if(process.stdin.isTTY){sendHook(sub,"")}else{let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>sendHook(sub,d));process.stdin.on("error",()=>sendHook(sub,d));setTimeout(()=>sendHook(sub,d),1000)}
+}else if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
   const cArgs=[],cOpts={};
   for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
   const msg=JSON.stringify({id:randomUUID(),command:cmd,args:cArgs,options:cOpts,cwd:process.cwd()})+"\\n";

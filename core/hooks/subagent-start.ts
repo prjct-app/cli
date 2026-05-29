@@ -8,13 +8,19 @@
  * WHAT (role, MCPs, recent memory), never CÓMO.
  */
 
-import { runHook } from './_runner'
+import { type HookIo, runHook } from './_runner'
 import { buildSessionContext } from './session-start'
 
-export function runSubagentStartHook(projectPath: string = process.cwd()): Promise<void> {
-  return runHook({
-    event: 'SubagentStart',
-    projectPath,
-    build: (_input, p) => buildSessionContext(p),
-  })
+export function runSubagentStartHook(
+  projectPath: string = process.cwd(),
+  io?: HookIo
+): Promise<void> {
+  return runHook(
+    {
+      event: 'SubagentStart',
+      projectPath,
+      build: (_input, p) => buildSessionContext(p),
+    },
+    io
+  )
 }

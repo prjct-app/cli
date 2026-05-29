@@ -22,7 +22,7 @@ import { stateStorage } from '../storage/state-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
-import { runHook } from './_runner'
+import { type HookIo, runHook } from './_runner'
 import { extractKeywords, safeTruncate } from './_shared'
 
 const MAX_CHARS = 2200
@@ -332,35 +332,38 @@ function formatRelative(isoTimestamp: string): string {
   return `${Math.floor(days / 30)}mo ago`
 }
 
-export function runPromptHook(projectPath: string = process.cwd()): Promise<void> {
-  return runHook<HookInput>({
-    event: 'UserPromptSubmit',
-    projectPath,
-    build: async (input, p) => {
-      const prompt = (input.prompt ?? '').trim()
-      if (!prompt) return null
-      // Read config ONCE and fan it out — the three builders previously each
-      // called configManager.readConfig(p), i.e. 3 disk reads + 3 JSONC parses
-      // of the same file on every prompt turn. readConfig is uncached.
-      const config = await configManager.readConfig(p)
-      // Three pass: state (for intent disambiguation) + memory (for topical
-      // recall) + improvement signals (proactive UX nudges from prior
-      // sessions). All independent, each silently null'd on failure.
-      const [state, memory, signals] = await Promise.all([
-        buildProjectState(p, config),
-        buildPromptContext(p, prompt, config),
-        buildImprovementSignals(p, config),
-      ])
-      // Per-block budgets first (each builder already trims to its own
-      // ceiling; this is a defense-in-depth re-clamp), then MAX_CHARS as
-      // a hard cap on the joined output.
-      const blocks = [
-        state ? safeTruncate(state, STATE_BUDGET) : null,
-        signals ? safeTruncate(signals, SIGNALS_BUDGET) : null,
-        memory ? safeTruncate(memory, MEMORY_BUDGET) : null,
-      ].filter((b): b is string => Boolean(b))
-      if (blocks.length === 0) return null
-      return safeTruncate(blocks.join('\n\n'), MAX_CHARS)
+export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo): Promise<void> {
+  return runHook<HookInput>(
+    {
+      event: 'UserPromptSubmit',
+      projectPath,
+      build: async (input, p) => {
+        const prompt = (input.prompt ?? '').trim()
+        if (!prompt) return null
+        // Read config ONCE and fan it out — the three builders previously each
+        // called configManager.readConfig(p), i.e. 3 disk reads + 3 JSONC parses
+        // of the same file on every prompt turn. readConfig is uncached.
+        const config = await configManager.readConfig(p)
+        // Three pass: state (for intent disambiguation) + memory (for topical
+        // recall) + improvement signals (proactive UX nudges from prior
+        // sessions). All independent, each silently null'd on failure.
+        const [state, memory, signals] = await Promise.all([
+          buildProjectState(p, config),
+          buildPromptContext(p, prompt, config),
+          buildImprovementSignals(p, config),
+        ])
+        // Per-block budgets first (each builder already trims to its own
+        // ceiling; this is a defense-in-depth re-clamp), then MAX_CHARS as
+        // a hard cap on the joined output.
+        const blocks = [
+          state ? safeTruncate(state, STATE_BUDGET) : null,
+          signals ? safeTruncate(signals, SIGNALS_BUDGET) : null,
+          memory ? safeTruncate(memory, MEMORY_BUDGET) : null,
+        ].filter((b): b is string => Boolean(b))
+        if (blocks.length === 0) return null
+        return safeTruncate(blocks.join('\n\n'), MAX_CHARS)
+      },
     },
-  })
+    io
+  )
 }

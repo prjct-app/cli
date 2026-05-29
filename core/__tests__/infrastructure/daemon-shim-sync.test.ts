@@ -76,10 +76,20 @@ describe('daemon-shim ↔ bin/prjct.ts sync', () => {
 describe('daemon-shim fallback policy', () => {
   const buildSrc = fs.readFileSync(path.join(ROOT, 'scripts/build.js'), 'utf-8')
 
-  test('timeout is 30s, matching core/daemon/client.ts sendRequest', () => {
+  test('generic-path timeout is 30s; any short timeout is fail-soft, never re-imports core', () => {
+    // The generic command path keeps the 30s timeout matching sendRequest.
     expect(buildSrc).toContain('30000)')
-    // 5000 was the old hair-trigger timeout that caused the double-fire.
-    expect(buildSrc).not.toMatch(/setTimeout\([^)]*,\s*5000\)/)
+    // A 5s timeout used to be a hair-trigger that fell through to a core
+    // re-import, double-running mutating commands like `ship`. The hook fast
+    // path reintroduces a short (5s) timeout ON PURPOSE — a hook must never
+    // freeze the agent turn — but it is fail-soft: every 5s timeout routes to
+    // `soft`, which writes the empty no-op `{}` and exits 0. It must NEVER
+    // call fallback() (which re-imports core and could double-run).
+    const fiveSecTimeouts = buildSrc.match(/setTimeout\([^,]*,\s*5000\)/g) ?? []
+    for (const t of fiveSecTimeouts) {
+      expect(t).toContain('soft')
+      expect(t).not.toContain('fallback')
+    }
   })
 
   test('socket error path checks ECONNREFUSED / ENOENT before fallback', () => {

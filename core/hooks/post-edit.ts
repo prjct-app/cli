@@ -10,7 +10,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import { memoryService } from '../services/memory-service'
-import { runHook } from './_runner'
+import { type HookIo, runHook } from './_runner'
 
 interface EditOrWriteToolInput {
   file_path?: string
@@ -21,26 +21,29 @@ interface HookInput {
   tool_input?: EditOrWriteToolInput
 }
 
-export function runPostEditHook(projectPath: string = process.cwd()): Promise<void> {
-  return runHook<HookInput>({
-    event: 'PostToolUse',
-    projectPath,
-    afterEmit: async (input, p) => {
-      const file = input.tool_input?.file_path
-      if (!file) return
-      const config = await configManager.readConfig(p)
-      if (!config?.projectId) return
-      // Event-sourced — downstream hooks/workflows can query via
-      // `memoryService.getRecent()` filtering on `post_edit`. Fire and
-      // forget; any failure is non-critical.
-      try {
-        await memoryService.log(p, 'post_edit', {
-          file,
-          tool: input.tool_name ?? 'unknown',
-        })
-      } catch {
-        /* swallow — hook must never surface errors */
-      }
+export function runPostEditHook(projectPath: string = process.cwd(), io?: HookIo): Promise<void> {
+  return runHook<HookInput>(
+    {
+      event: 'PostToolUse',
+      projectPath,
+      afterEmit: async (input, p) => {
+        const file = input.tool_input?.file_path
+        if (!file) return
+        const config = await configManager.readConfig(p)
+        if (!config?.projectId) return
+        // Event-sourced — downstream hooks/workflows can query via
+        // `memoryService.getRecent()` filtering on `post_edit`. Fire and
+        // forget; any failure is non-critical.
+        try {
+          await memoryService.log(p, 'post_edit', {
+            file,
+            tool: input.tool_name ?? 'unknown',
+          })
+        } catch {
+          /* swallow — hook must never surface errors */
+        }
+      },
     },
-  })
+    io
+  )
 }
