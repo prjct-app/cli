@@ -18,6 +18,7 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { embeddingService } from '../services/embeddings'
 import { detectFriction } from '../services/friction-detector'
 import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
@@ -111,6 +112,19 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
             await detectSkillMisses(p, input.transcript_path, input.session_id ?? null)
           } catch {
             /* silent best-effort — must never block session end */
+          }
+        }
+
+        // Semantic index maintenance (opt-in): when an embeddings provider is
+        // configured, embed memory entries written this session so semantic
+        // recall stays current. Best-effort and — in daemon mode — detached,
+        // so the network round-trip never blocks session end. No-op (and no
+        // network) when embeddings are disabled or the index is current.
+        if (embeddingService.isEnabled(config)) {
+          try {
+            await embeddingService.backfill(p, config, new Date().toISOString())
+          } catch {
+            /* never block session end on index maintenance */
           }
         }
 

@@ -19,6 +19,7 @@ import {
   type MemoryType,
   projectMemory,
 } from '../../memory/project-memory'
+import { embeddingService } from '../../services/embeddings'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -227,6 +228,28 @@ async function runMemoryTool(
       if (entries.length >= LIMIT) break
     }
   }
+  // Semantic layer (opt-in): when the project configured an embeddings
+  // provider, blend cosine-ranked matches AHEAD of the lexical results so a
+  // cross-vocabulary hit ("oauth" → an entry about "authentication") surfaces
+  // that BM25 would miss. Disabled by default → this whole block is a no-op
+  // and recall stays pure lexical. Best-effort: any failure leaves the BM25
+  // results standing.
+  if (topic) {
+    try {
+      const config = await configManager.readConfig(projectPath)
+      if (config && embeddingService.isEnabled(config)) {
+        const semantic = await embeddingService.semanticSearch(projectId, topic, config, 10)
+        if (semantic.length > 0) {
+          const seen = new Set(entries.map((e) => e.id))
+          const fresh = semantic.filter((e) => !seen.has(e.id))
+          entries = [...fresh, ...entries].slice(0, LIMIT)
+        }
+      }
+    } catch {
+      /* best-effort — lexical results stand */
+    }
+  }
+
   // One hop of relationship-graph traversal: append entries the results
   // resolve / relate to / supersede so a recall carries its own context
   // instead of dangling `mem_N` pointers the agent must chase manually.

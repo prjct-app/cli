@@ -73,6 +73,28 @@ export interface LocalConfig {
    * reverts to the pre-2.2.0 behaviour.
    */
   vaultPath?: string
+
+  /**
+   * Optional semantic-search layer (phase 3). OFF unless `provider` is set —
+   * recall stays pure BM25/keyword by default, zero new dependencies.
+   *
+   * When enabled, memory entries are embedded and the vectors stored locally
+   * in SQLite (`memory_embeddings`); similarity is in-process cosine, so
+   * there is NO vector-DB / native dependency. `provider` is an
+   * OpenAI-compatible `/embeddings` HTTP endpoint — works with OpenAI,
+   * Ollama (`http://localhost:11434/v1`), LM Studio, or any compatible
+   * server. The API key (if the endpoint needs one) comes from the
+   * `PRJCT_EMBEDDINGS_API_KEY` env var, never from this file.
+   */
+  embeddings?: {
+    provider?: 'openai-compatible'
+    /** Base URL of the embeddings endpoint, e.g. https://api.openai.com/v1 */
+    baseUrl?: string
+    /** Model id, e.g. "text-embedding-3-small" or "nomic-embed-text". */
+    model?: string
+    /** Expected vector dimensionality (used to invalidate stale vectors). */
+    dims?: number
+  }
 }
 
 /**
