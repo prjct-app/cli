@@ -35,6 +35,26 @@ if (_fastCommand === '__internal-auto-update') {
   process.exit(0)
 }
 
+// Read all of stdin (the hook event JSON) as a string, with a timeout
+// safety net. Used only on the hook fast path to forward the event to the
+// daemon. Returns whatever arrived if stdin never closes.
+async function readAllStdin(timeoutMs: number): Promise<string> {
+  if (process.stdin.isTTY) return ''
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = []
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      resolve(Buffer.concat(chunks).toString('utf-8'))
+    }
+    process.stdin.on('data', (c: Buffer) => chunks.push(Buffer.from(c)))
+    process.stdin.on('end', finish)
+    process.stdin.on('error', finish)
+    setTimeout(finish, timeoutMs)
+  })
+}
+
 // Commands that bin/prjct.ts handles directly (NOT routed through daemon).
 // Note: mcp must stay here because its interactive multi-select needs TTY on
 // stdin/stdout — the detached daemon process has no TTY and would silently
@@ -195,6 +215,72 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has
   }
   _fastCommand = 'capture'
   _fastArgs = ['capture', description, ...flags]
+}
+
+// === HOOK FAST PATH (daemon-served) ===
+// Hooks fire on session-start + every prompt + every stop. A cold spawn
+// costs ~300ms (bun) to ~950ms (node) in process + module load alone; the
+// warm daemon answers in ~5-20ms. Forward the event (read from stdin) to the
+// daemon and write its response raw (byte-identical to the cold path). If the
+// daemon isn't reachable, run the SAME hook in-process here using the stdin we
+// already read (so it's never read twice), preserving the fail-soft contract.
+// `hook` stays in `_binCommands` so the GTD auto-route + generic daemon block
+// skip it; PRJCT_NO_DAEMON=1 also skips this and falls through to main().
+if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
+  const fs = await import('node:fs')
+  const { DAEMON_PATHS } = await import('../core/daemon/protocol')
+  if (fs.existsSync(DAEMON_PATHS.socket())) {
+    const subcommand = _fastArgs[1]
+    const stdinPayload = await readAllStdin(1000)
+    try {
+      const { sendRequest } = await import('../core/daemon/client')
+      const crypto = await import('node:crypto')
+      const response = await sendRequest({
+        id: crypto.randomUUID(),
+        command: 'hook',
+        args: subcommand ? [subcommand] : [],
+        options: {},
+        cwd: process.cwd(),
+        stdin: stdinPayload,
+      })
+      if (response.stdout) process.stdout.write(response.stdout)
+      process.exit(response.exitCode ?? 0)
+    } catch {
+      // Daemon unreachable mid-request. stdin is already consumed, so we
+      // can't fall through to main()'s stdin-reading handler — run the hook
+      // in-process right here with the payload we captured. Mirrors the cold
+      // path: emit, then await afterEmit before exit.
+      try {
+        const { getHookRunner } = await import('../core/hooks/registry')
+        const runner = getHookRunner(subcommand)
+        if (!runner) {
+          process.stdout.write('{}\n')
+          process.exit(0)
+        }
+        let input: unknown = {}
+        try {
+          input = stdinPayload ? JSON.parse(stdinPayload) : {}
+        } catch {
+          input = {}
+        }
+        const pending: Array<() => Promise<void>> = []
+        await runner(process.cwd(), {
+          input,
+          sink: (chunk: string) => {
+            process.stdout.write(chunk)
+          },
+          detachAfterEmit: (fn: () => Promise<void>) => {
+            pending.push(fn)
+          },
+        })
+        for (const fn of pending) await fn().catch(() => undefined)
+        process.exit(0)
+      } catch {
+        process.stdout.write('{}\n')
+        process.exit(0)
+      }
+    }
+  }
 }
 
 if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEMON !== '1') {

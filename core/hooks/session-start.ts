@@ -35,7 +35,7 @@ import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'
-import { runHook } from './_runner'
+import { type HookIo, runHook } from './_runner'
 
 interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact'
@@ -85,41 +85,47 @@ function formatPersona(persona: ProjectPersona): string {
  * Top-level entry — read stdin, emit JSON, exit.
  * Never throws; hook failures must not break the host session.
  */
-export function runSessionStartHook(projectPath: string = process.cwd()): Promise<void> {
+export function runSessionStartHook(
+  projectPath: string = process.cwd(),
+  io?: HookIo
+): Promise<void> {
   // Captured by the build closure so afterEmit can reuse it without a
   // second disk read on the hot path that fires on every session start.
   let cachedConfig: LocalConfig | null = null
 
-  return runHook<HookInput>({
-    event: 'SessionStart',
-    projectPath,
-    build: async (_input, p) => {
-      cachedConfig = await configManager.readConfig(p).catch(() => null)
-      return buildSessionContext(p, cachedConfig)
-    },
-    afterEmit: async (_input, p) => {
-      // Refresh the Obsidian vault from DB so the files Claude may Read
-      // reflect current project state. Best-effort; errors are swallowed.
-      if (cachedConfig?.projectId) {
-        await regenerateWikiDeferred(p, cachedConfig.projectId).catch(() => undefined)
-      }
+  return runHook<HookInput>(
+    {
+      event: 'SessionStart',
+      projectPath,
+      build: async (_input, p) => {
+        cachedConfig = await configManager.readConfig(p).catch(() => null)
+        return buildSessionContext(p, cachedConfig)
+      },
+      afterEmit: async (_input, p) => {
+        // Refresh the Obsidian vault from DB so the files Claude may Read
+        // reflect current project state. Best-effort; errors are swallowed.
+        if (cachedConfig?.projectId) {
+          await regenerateWikiDeferred(p, cachedConfig.projectId).catch(() => undefined)
+        }
 
-      // Self-heal hooks + global CLAUDE.md when the binary moved past the
-      // last sync. Catches machines where postinstall is disabled by
-      // security policy. Hot path is one fs read of the stamp file.
-      if (!isSyncCurrent(VERSION)) {
-        await runSelfHeal(VERSION).catch(() => undefined)
-      }
+        // Self-heal hooks + global CLAUDE.md when the binary moved past the
+        // last sync. Catches machines where postinstall is disabled by
+        // security policy. Hot path is one fs read of the stamp file.
+        if (!isSyncCurrent(VERSION)) {
+          await runSelfHeal(VERSION).catch(() => undefined)
+        }
 
-      // M5: opt-in silent auto-update. No-op unless the user has opted
-      // in via `prjct config set auto-update on`. Throttled to 1/hour
-      // and runs detached so the session never waits.
-      try {
-        const { maybeAutoUpdate } = await import('../services/auto-updater')
-        maybeAutoUpdate(VERSION)
-      } catch {
-        // never block the session on update mechanics
-      }
+        // M5: opt-in silent auto-update. No-op unless the user has opted
+        // in via `prjct config set auto-update on`. Throttled to 1/hour
+        // and runs detached so the session never waits.
+        try {
+          const { maybeAutoUpdate } = await import('../services/auto-updater')
+          maybeAutoUpdate(VERSION)
+        } catch {
+          // never block the session on update mechanics
+        }
+      },
     },
-  })
+    io
+  )
 }
