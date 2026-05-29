@@ -467,6 +467,49 @@ export const projectMemory = {
   },
 
   /**
+   * Follow each seed entry's cross-references ONE hop and return the linked
+   * entries (deduped against the seed, capped).
+   *
+   * The relationship graph already exists as text — a decision captured with
+   * `--tags resolves:mem_2609` (or an inline `mem_2609` mention) renders as a
+   * wikilink in the vault — but no RETRIEVAL path ever traversed it. So
+   * recalling "the decision that resolved X" left X itself (the superseded
+   * decision, the bug it fixed, the spec it implements) invisible to the
+   * agent unless it manually looked it up. This surfaces those one hop out so
+   * a single recall carries its own context. Bounded by `cap` so a densely
+   * linked entry can't balloon the injected context.
+   */
+  expandWithLinks(projectId: string, seed: MemoryEntry[], cap = 5): MemoryEntry[] {
+    if (seed.length === 0 || cap <= 0) return []
+    const refRe = /\bmem[_-](\d+)\b/g
+    // Tag keys whose values name a related entry. Kept explicit (not "any
+    // tag") so an arbitrary `mem_N`-looking tag value can't pull noise.
+    const relKeys = ['resolves', 'relates', 'supersedes', 'superseded-by', 'duplicates', 'spec']
+    const seen = new Set(seed.map((e) => e.id))
+    const linked: MemoryEntry[] = []
+
+    for (const entry of seed) {
+      if (linked.length >= cap) break
+      const refs = new Set<string>()
+      for (const key of relKeys) {
+        const v = entry.tags?.[key]
+        if (!v) continue
+        for (const m of String(v).matchAll(refRe)) refs.add(`mem_${m[1]}`)
+      }
+      for (const m of entry.content.matchAll(refRe)) refs.add(`mem_${m[1]}`)
+
+      for (const ref of refs) {
+        if (linked.length >= cap) break
+        if (seen.has(ref)) continue
+        seen.add(ref)
+        const e = projectMemory.getById(projectId, ref)
+        if (e) linked.push(e)
+      }
+    }
+    return linked
+  },
+
+  /**
    * EVERY entry — no limit, no topic/type filter, no latest-winner
    * dedupe. The vault link layer needs this: `recall()` collapses
    * `(type, key)` duplicates and caps results, so an older entry that

@@ -180,13 +180,17 @@ async function runMemoryTool(
 
   if (idArg) {
     const entry = projectMemory.getById(projectId, idArg)
+    // Resolving one entry by id is exactly when its relationships matter
+    // most ("show me mem_3209" → also show what it resolves / supersedes).
+    const linked = entry ? projectMemory.expandWithLinks(projectId, [entry], 5) : []
+    const resolved = entry ? [entry, ...linked] : []
     return {
       tool: opts.kind,
       result: {
         markdown: entry
-          ? formatMemoryMd([entry])
+          ? formatMemoryMd(resolved)
           : `> No memory entry with id \`${idArg}\` (it may have aged out or never existed).`,
-        entryCount: entry ? 1 : 0,
+        entryCount: resolved.length,
         topic: idArg,
       },
     }
@@ -222,6 +226,13 @@ async function runMemoryTool(
       entries.push(e)
       if (entries.length >= LIMIT) break
     }
+  }
+  // One hop of relationship-graph traversal: append entries the results
+  // resolve / relate to / supersede so a recall carries its own context
+  // instead of dangling `mem_N` pointers the agent must chase manually.
+  if (entries.length > 0) {
+    const linked = projectMemory.expandWithLinks(projectId, entries, 5)
+    if (linked.length > 0) entries = entries.concat(linked)
   }
   return {
     tool: opts.kind,
