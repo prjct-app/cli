@@ -81,4 +81,41 @@ describe('skill generation invariants — the SSOT the SKILL.md twin is built fr
     expect(skill).toContain("point, don't carry")
     expect(skill).toContain('prjct spec show <id> --md')
   })
+
+  it('documents parallel implementer fan-out with disjoint scope', () => {
+    const skill = buildPrjctSkill(emptySkillContext())
+    expect(skill).toContain('Fan out implementers')
+    expect(skill).toContain('DISJOINT files')
+    // Sequential fallback must be present so the reader never parallelizes
+    // two implementers onto the same file.
+    expect(skill).toMatch(/do NOT parallelize/i)
+  })
+
+  it('reconciles crew mode so the leader, not the main session, owns code work', () => {
+    const skill = buildPrjctSkill(emptySkillContext())
+    expect(skill).toContain('Crew mode reconciliation')
+    expect(skill).toContain('.claude/agents/leader.md')
+  })
+})
+
+describe('crew leader template — parallel executor fan-out', () => {
+  const read = (f: string) => fs.readFileSync(path.join(CREW_AGENTS_DIR, f), 'utf-8')
+
+  it('leader documents fanning out N implementers over disjoint scope', () => {
+    const leader = read('leader.md')
+    expect(leader).toContain('disjoint files')
+    expect(leader).toContain('IN THE SAME MESSAGE')
+    expect(leader).toMatch(/Partition rule/i)
+  })
+
+  it('leader keeps a sequential fallback when scopes cannot be partitioned', () => {
+    const leader = read('leader.md')
+    expect(leader).toMatch(/do NOT parallelize/i)
+  })
+
+  it('leader reviews the combined diff with a single reviewer after fan-out', () => {
+    const leader = read('leader.md')
+    expect(leader).toContain('over the **combined** diff')
+    expect(leader).toMatch(/do not spawn a reviewer per implementer/i)
+  })
 })

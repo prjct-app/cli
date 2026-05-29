@@ -13,7 +13,6 @@
 
 - retrieval quality + robustness hardening (phases 1/2/4) (#379)
 
-
 ## [2.24.1] - 2026-05-21
 
 ### Bug Fixes
@@ -24,13 +23,11 @@
 
 - dead _-prefixed defs round 2 + iCloud conflict-dir sweep + knip in CI (#376)
 
-
 ## [2.24.0] - 2026-05-21
 
 ### Features
 
 - FTS5 BM25 recall + hot-path parallelization + smarter tokenizer (v2.23.18) (#375)
-
 
 ## [2.23.8] - 2026-05-19
 
@@ -112,6 +109,11 @@
 - gate workflow rules ingested from repo markdown (close clone-to-RCE) (#345)
 
 ## [Unreleased]
+
+## [2.24.3] - 2026-05-30
+
+### Added
+- current work
 
 ## [2.23.18] - 2026-05-20
 
