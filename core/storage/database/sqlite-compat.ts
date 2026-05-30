@@ -1,9 +1,25 @@
 /**
- * SQLite Compatibility Layer (bun:sqlite + better-sqlite3)
+ * SQLite Compatibility Layer (bun:sqlite + node:sqlite)
  *
- * Both drivers share most of the API; we just patch `run` onto
- * better-sqlite3 (which uses `exec` for raw SQL) so callers can stay
- * runtime-agnostic.
+ * prjct ships ZERO native dependencies. Both supported runtimes provide a
+ * built-in synchronous SQLite driver:
+ *   - Bun  → `bun:sqlite`   (always present in the Bun runtime)
+ *   - Node → `node:sqlite`  (built in since Node 22.5; behind
+ *                            `--experimental-sqlite` on 22.5–23.x, unflagged on
+ *                            24+). The `bin/prjct` launcher exports that flag so
+ *                            the CLI, daemon, and hooks all have it on Node 22.x.
+ *
+ * Neither needs compilation, a postinstall step, or `node-gyp` — which is
+ * exactly why we dropped `better-sqlite3`: a native addon means a postinstall
+ * rebuild, and postinstall scripts are a supply-chain liability (blocked by
+ * `--ignore-scripts`, npm/corporate policy, locked-down CI). See
+ * [[decision_drop_better_sqlite3]].
+ *
+ * The two built-in drivers share most of their surface. The only real gap is
+ * `Database.transaction()`: bun:sqlite has it, node:sqlite does NOT — so we
+ * shim it for the Node path (BEGIN/COMMIT/ROLLBACK with SAVEPOINT nesting and
+ * the `.deferred`/`.immediate`/`.exclusive` variants better-sqlite3 callers
+ * relied on).
  */
 
 import { isBun } from '../../utils/runtime'
@@ -13,18 +29,17 @@ export type SqliteBindings = string | number | bigint | Buffer | null | undefine
 
 /**
  * Result of executing a prepared statement that mutates rows.
- * Both bun:sqlite and better-sqlite3 return this shape natively from
- * `Statement.run(...)`; the wrapper previously discarded it. Required
- * by the optimistic-CAS path in spec-storage (`UPDATE … WHERE updated_at=?`
- * only succeeds when `changes === 1`).
+ * Both bun:sqlite and node:sqlite return this shape natively from
+ * `Statement.run(...)`. Required by the optimistic-CAS path in spec-storage
+ * (`UPDATE … WHERE updated_at=?` only succeeds when `changes === 1`).
  */
 export interface SqliteRunResult {
   changes: number
   /**
-   * Both bun:sqlite and better-sqlite3 expose the rowid of an `INSERT`
-   * here — bun returns `number`, better-sqlite3 returns `bigint`. Callers
-   * needing it should normalize via `Number(result.lastInsertRowid)` and
-   * tolerate `undefined` for non-INSERT statements.
+   * Both bun:sqlite and node:sqlite expose the rowid of an `INSERT` here —
+   * bun returns `number`, node returns `number` (or `bigint` for values past
+   * 2^53). Callers needing it should normalize via `Number(...)` and tolerate
+   * `undefined` for non-INSERT statements.
    */
   lastInsertRowid?: number | bigint
 }
@@ -37,10 +52,10 @@ export interface SqliteStatement {
 }
 
 /**
- * A transaction wrapper. Both bun:sqlite and better-sqlite3 return a callable
- * that ALSO carries `.deferred`/`.immediate`/`.exclusive` variants. Default
- * (calling it directly) is DEFERRED — the write lock is only taken at the
- * first write, so two concurrent writers can both enter and then collide,
+ * A transaction wrapper. Both bun:sqlite and the node:sqlite shim return a
+ * callable that ALSO carries `.deferred`/`.immediate`/`.exclusive` variants.
+ * Default (calling it directly) is DEFERRED — the write lock is only taken at
+ * the first write, so two concurrent writers can both enter and then collide,
  * aborting one MID-transaction on SQLITE_BUSY. `.immediate` takes the write
  * lock up front: contention fails fast/predictably (or waits out
  * busy_timeout), never mid-write.
@@ -52,7 +67,7 @@ export interface SqliteTransaction<T> {
   exclusive: (...args: SqliteDatabase[]) => T
 }
 
-/** Minimal database interface shared by bun:sqlite and better-sqlite3 */
+/** Minimal database interface shared by bun:sqlite and node:sqlite */
 export interface SqliteDatabase {
   prepare(sql: string): SqliteStatement
   run(sql: string): void
@@ -61,8 +76,8 @@ export interface SqliteDatabase {
 }
 
 /**
- * Open a SQLite database using the runtime-appropriate driver.
- * bun:sqlite on Bun, better-sqlite3 on Node.js.
+ * Open a SQLite database using the runtime-appropriate built-in driver.
+ * bun:sqlite on Bun, node:sqlite on Node.js.
  *
  * Every connection is opened with the correctness PRAGMAs baked in:
  *   - journal_mode = WAL       — concurrent reads + single writer
@@ -86,10 +101,95 @@ function openRaw(dbPath: string): SqliteDatabase {
     const { Database } = require('bun:sqlite')
     return new Database(dbPath, { create: true }) as SqliteDatabase
   }
-  const BetterSqlite3 = require('better-sqlite3')
-  const db = new BetterSqlite3(dbPath)
-  // better-sqlite3 uses exec() for raw SQL; bun:sqlite uses run()
-  const origExec = db.exec.bind(db)
-  db.run = (sql: string) => origExec(sql)
-  return db as SqliteDatabase
+  // node:sqlite — built into Node, no native addon, no postinstall.
+  let DatabaseSync: new (path: string) => NodeSqliteDatabase
+  try {
+    ;({ DatabaseSync } = require('node:sqlite'))
+  } catch (err) {
+    // Node < 22.5 (no node:sqlite at all), or 22.5–23.x launched WITHOUT
+    // `--experimental-sqlite`. The bin/prjct shim sets that flag; a bare
+    // `node dist/bin/prjct.mjs` won't. Fail with an actionable message
+    // instead of a cryptic ERR_UNKNOWN_BUILTIN_MODULE.
+    throw new Error(
+      'prjct needs SQLite: run on Bun, or Node >=22.5 with --experimental-sqlite ' +
+        '(the `prjct` launcher sets this automatically — invoke `prjct`, not ' +
+        `\`node dist/bin/prjct.mjs\` directly). Underlying error: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+    )
+  }
+  const raw = new DatabaseSync(dbPath)
+  return adaptNodeSqlite(raw)
+}
+
+/**
+ * Wrap a node:sqlite `DatabaseSync` in the runtime-agnostic interface.
+ * `prepare`/`get`/`all`/`run` map straight through (node:sqlite's
+ * `StatementSync` already returns `{ changes, lastInsertRowid }` from `run`).
+ * Raw SQL uses `exec`. The only thing we synthesize is `transaction`.
+ */
+function adaptNodeSqlite(raw: NodeSqliteDatabase): SqliteDatabase {
+  // Per-connection transaction state (node:sqlite exposes none of its own).
+  let txDepth = 0
+  let savepointSeq = 0
+
+  const wrapper: SqliteDatabase = {
+    prepare: (sql: string) => raw.prepare(sql) as unknown as SqliteStatement,
+    run: (sql: string) => {
+      raw.exec(sql)
+    },
+    close: () => raw.close(),
+    transaction: <T>(fn: (...args: SqliteDatabase[]) => T): SqliteTransaction<T> => {
+      // One runner per BEGIN mode. Nesting an active transaction switches to a
+      // SAVEPOINT (mirrors better-sqlite3) so callers can compose freely.
+      const make =
+        (begin: string) =>
+        (...args: SqliteDatabase[]): T => {
+          if (txDepth > 0) {
+            const sp = `prjct_sp_${++savepointSeq}`
+            raw.exec(`SAVEPOINT ${sp}`)
+            txDepth++
+            try {
+              const result = fn(...(args.length ? args : [wrapper]))
+              raw.exec(`RELEASE ${sp}`)
+              return result
+            } catch (err) {
+              raw.exec(`ROLLBACK TO ${sp}`)
+              raw.exec(`RELEASE ${sp}`)
+              throw err
+            } finally {
+              txDepth--
+            }
+          }
+          raw.exec(begin)
+          txDepth++
+          try {
+            const result = fn(...(args.length ? args : [wrapper]))
+            raw.exec('COMMIT')
+            return result
+          } catch (err) {
+            raw.exec('ROLLBACK')
+            throw err
+          } finally {
+            txDepth--
+          }
+        }
+
+      // Default call == DEFERRED (driver default), matching better-sqlite3.
+      const txn = make('BEGIN') as SqliteTransaction<T>
+      txn.deferred = make('BEGIN DEFERRED')
+      txn.immediate = make('BEGIN IMMEDIATE')
+      txn.exclusive = make('BEGIN EXCLUSIVE')
+      return txn
+    },
+  }
+
+  return wrapper
+}
+
+/** Minimal shape of node:sqlite's `DatabaseSync` we depend on. */
+interface NodeSqliteDatabase {
+  prepare(sql: string): unknown
+  exec(sql: string): void
+  close(): void
 }

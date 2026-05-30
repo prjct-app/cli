@@ -125,7 +125,7 @@ export async function publishCRUD(args: PublishCrudArgs): Promise<void> {
 
 /**
  * Synchronous fire-and-forget variant. Most storage methods are
- * synchronous (better-sqlite3) — they call this and don't block on
+ * synchronous (node:sqlite / bun:sqlite) — they call this and don't block on
  * the queue insert. The promise is intentionally not awaited.
  */
 export function publishCRUDSync(args: PublishCrudArgs): void {

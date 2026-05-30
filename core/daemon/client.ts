@@ -8,7 +8,6 @@
  * Falls back to direct execution if the daemon is not running.
  */
 
-import { execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { connect } from 'node:net'
@@ -16,29 +15,6 @@ import path from 'node:path'
 import type { DaemonRequest, DaemonResponse, DaemonStatus } from '../types/daemon'
 import { isBunAvailable } from '../utils/runtime'
 import { DAEMON_PATHS, encodeMessage } from './protocol'
-
-function packageRoot(): string {
-  try {
-    return path.dirname(require.resolve('prjct-cli/package.json'))
-  } catch {
-    return path.resolve(__dirname, '..', '..')
-  }
-}
-
-function repairNativeDependencies(): void {
-  const root = packageRoot()
-  const script = path.join(root, 'scripts', 'ensure-native-deps.js')
-  try {
-    if (!fs.existsSync(script)) return
-    execFileSync(process.execPath, [script], {
-      cwd: root,
-      stdio: 'ignore',
-      timeout: 120000,
-    })
-  } catch {
-    // Best effort. If repair fails, daemon startup below will fail normally.
-  }
-}
 
 /**
  * Check if the daemon is running (socket file exists + responds to ping)
@@ -302,8 +278,6 @@ export async function spawnDaemon(): Promise<boolean> {
   } else {
     return false
   }
-
-  repairNativeDependencies()
 
   const runDir = DAEMON_PATHS.runDir()
   fs.mkdirSync(runDir, { recursive: true })
