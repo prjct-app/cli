@@ -61,6 +61,11 @@ export function extractRefIds(content: string, tags: Record<string, string>): st
     for (const m of String(v).matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
   }
   for (const m of content.matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
+  // A correction naturally NAMES the entry it corrects (inline or in the
+  // tag), which would otherwise credit a positive reference that cancels the
+  // penalty. An entry you're marking WRONG must not also be rewarded — drop
+  // any id this same entry corrects/contradicts from the positive set.
+  for (const cid of extractCorrectionIds(tags)) ids.delete(cid)
   return [...ids]
 }
 
