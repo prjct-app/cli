@@ -1,26 +1,30 @@
 /**
- * Wiki Ingest — pull user-authored markdown from the Obsidian vault
- * (`.prjct/wiki/captured/*.md`) into project memory.
+ * Wiki Ingest — pull user-dropped files from the Obsidian vault
+ * (`.prjct/wiki/captured/`) into project memory, the INPUT half of the
+ * bidirectional vault.
  *
  * The user opens `.prjct/wiki/` as an Obsidian vault. The `_generated/`
  * subdir is read-only (we rewrite it). The `captured/` dropzone is
- * user-writable: drop a note with frontmatter, run `prjct context wiki
- * sync`, and each note becomes a `projectMemory.remember()` entry.
+ * user-writable. Drop a file, run `prjct context wiki sync` (or let the Stop
+ * hook do it), and it becomes memory — which the embeddings backfill then
+ * vectorizes into the DB. Two shapes:
  *
- * Frontmatter example:
+ *   1. Structured memory — a markdown file WITH frontmatter → one atomic,
+ *      typed entry. A bad/missing `type` fails loud (file stays for a retry).
  *
- *   ---
- *   type: learning
- *   tags:
- *     domain: auth
- *     priority: high
- *   ---
+ *        ---
+ *        type: learning
+ *        tags: { domain: auth }
+ *        ---
+ *        Body becomes the memory content.
  *
- *   Body becomes the memory content.
+ *   2. Raw document — any other supported text file (`.txt`, `.json`, `.csv`,
+ *      a frontmatter-less `.md`, …) → a `source` entry, chunked when long so
+ *      recall surfaces the relevant passage. Binary formats (pdf/images) are
+ *      a future extractor step that feeds text through this same pipeline.
  *
- * Processed notes are moved to `captured/_ingested/<yyyymmdd-hhmmss>/`
- * so the inbox stays clean. Failures leave the note in place with the
- * error returned in the result so the user can fix and retry.
+ * Processed files move to `captured/_ingested/<yyyymmdd-hhmmss>/` so the inbox
+ * stays clean. Failures leave the file in place with the error in the result.
  */
 
 import fs from 'node:fs/promises'
@@ -37,6 +41,35 @@ const CAPTURED_SUBDIR = 'captured'
 const WORKFLOWS_SUBDIR = 'workflows'
 const INGESTED_SUBDIR = '_ingested'
 const README_FILENAME = 'README.md'
+
+/**
+ * Text formats we ingest directly (no dependency, no extraction step). Binary
+ * formats (pdf, images, docx) plug in later as `extractors` that turn bytes
+ * into text fed through this same pipeline — keeping that out of here is what
+ * keeps the ingest dependency-free today.
+ */
+const TEXT_EXTENSIONS = new Set([
+  '.md',
+  '.markdown',
+  '.mdx',
+  '.txt',
+  '.text',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.csv',
+  '.tsv',
+  '.log',
+  '.rst',
+  '.org',
+])
+const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdx'])
+/** A frontmatter-less drop is a raw document; it lands as this memory type. */
+const DEFAULT_DOC_TYPE: MemoryType = 'source'
+/** Below this, a document is one memory; above it, it is chunked so recall
+ *  surfaces the relevant passage instead of a wall of text. */
+const SINGLE_CHUNK_LIMIT = 2200
+const CHUNK_TARGET = 1500
 
 async function resolveCapturedRoot(projectPath: string): Promise<string> {
   return path.join(await resolveVaultRoot(projectPath), CAPTURED_SUBDIR)
@@ -78,13 +111,16 @@ export async function ingestCapturedNotes(
     const relName = path.basename(absPath)
     try {
       const raw = await fs.readFile(absPath, 'utf-8')
-      const parsed = parseNote(raw)
-      if (!parsed.ok) {
-        result.skipped.push({ file: relName, reason: parsed.error })
+      const built = buildEntries(relName, raw)
+      if (!built.ok) {
+        result.skipped.push({ file: relName, reason: built.error })
         continue
       }
 
-      const secretHits = scanForSecrets(parsed.note.content)
+      // Scan the whole document once (cheaper than per-chunk, and a secret
+      // split across a chunk boundary still gets caught on the joined text).
+      const fullText = built.entries.map((e) => e.content).join('\n')
+      const secretHits = scanForSecrets(fullText)
       if (secretHits.length > 0 && !opts.force) {
         result.skipped.push({
           file: relName,
@@ -93,7 +129,7 @@ export async function ingestCapturedNotes(
         continue
       }
 
-      const injectionHits = scanForPromptInjection(parsed.note.content)
+      const injectionHits = scanForPromptInjection(fullText)
       if (injectionHits.length > 0 && !opts.force) {
         result.skipped.push({
           file: relName,
@@ -102,14 +138,16 @@ export async function ingestCapturedNotes(
         continue
       }
 
-      await projectMemory.remember(projectPath, {
-        type: parsed.note.type,
-        content: parsed.note.content,
-        tags: parsed.note.tags,
-      })
+      for (const entry of built.entries) {
+        await projectMemory.remember(projectPath, {
+          type: entry.type,
+          content: entry.content,
+          tags: entry.tags,
+        })
+      }
 
       await moveToArchive(absPath, archiveRoot, relName)
-      result.ingested++
+      result.ingested += built.entries.length
     } catch (error) {
       result.errors.push({
         file: relName,
@@ -119,6 +157,89 @@ export async function ingestCapturedNotes(
   }
 
   return result
+}
+
+type BuildResult = { ok: true; entries: ParsedNote[] } | { ok: false; error: string }
+
+/**
+ * Turn one captured file into the memory entries it should become:
+ *   - a markdown file WITH frontmatter → one atomic, typed entry (the user is
+ *     authoring a structured memory; a bad/absent `type` fails loud);
+ *   - anything else (a frontmatter-less drop, a `.txt`/`.json`/`.csv`/… file)
+ *     → a raw `source` document, chunked so recall surfaces the right passage.
+ *
+ * Raw documents keep their original language (unlike agent-authored memory,
+ * which is English by convention) — translating user-dropped content would
+ * need a model; the local embedder still indexes it lexically.
+ */
+function buildEntries(relName: string, raw: string): BuildResult {
+  const ext = path.extname(relName).toLowerCase()
+  const isMarkdown = MARKDOWN_EXTENSIONS.has(ext)
+  const hasFrontmatter = /^---\s*\r?\n/.test(raw)
+
+  if (isMarkdown && hasFrontmatter) {
+    const parsed = parseNote(raw)
+    return parsed.ok ? { ok: true, entries: [parsed.note] } : { ok: false, error: parsed.error }
+  }
+
+  const text = raw.trim()
+  if (!text) return { ok: false, error: 'empty file' }
+
+  const baseTags: Record<string, string> = { file: relName, origin: 'ingest' }
+  const chunks = chunkText(text)
+  if (chunks.length === 1) {
+    return { ok: true, entries: [{ type: DEFAULT_DOC_TYPE, tags: baseTags, content: chunks[0]! }] }
+  }
+  const docSlug = slugifyName(relName)
+  return {
+    ok: true,
+    entries: chunks.map((content, i) => ({
+      type: DEFAULT_DOC_TYPE,
+      tags: { ...baseTags, doc: docSlug, part: `${i + 1}/${chunks.length}` },
+      content,
+    })),
+  }
+}
+
+/**
+ * Split a long document into recall-sized chunks on blank-line (paragraph)
+ * boundaries, greedily packing toward CHUNK_TARGET. A single paragraph larger
+ * than the limit is hard-split so one runaway block can't defeat chunking.
+ */
+function chunkText(text: string): string[] {
+  if (text.length <= SINGLE_CHUNK_LIMIT) return [text]
+  const paras = text.split(/\r?\n\s*\r?\n/)
+  const chunks: string[] = []
+  let cur = ''
+  const flush = () => {
+    if (cur.trim()) chunks.push(cur.trim())
+    cur = ''
+  }
+  for (const raw of paras) {
+    const para = raw.trim()
+    if (!para) continue
+    if (para.length > SINGLE_CHUNK_LIMIT) {
+      flush()
+      for (let i = 0; i < para.length; i += CHUNK_TARGET)
+        chunks.push(para.slice(i, i + CHUNK_TARGET))
+      continue
+    }
+    if (cur && cur.length + para.length + 2 > CHUNK_TARGET) flush()
+    cur = cur ? `${cur}\n\n${para}` : para
+  }
+  flush()
+  return chunks.length > 0 ? chunks : [text]
+}
+
+/** Filename → a stable slug used to group a document's chunks (`doc:` tag). */
+function slugifyName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/\.[^.]+$/, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'doc'
+  )
 }
 
 /**
@@ -139,11 +260,14 @@ export async function ensureCapturedReadme(projectPath: string): Promise<void> {
 
 const CAPTURED_README_BODY = `# Captured notes (Obsidian dropzone)
 
-Drop a markdown note here, run \`prjct context wiki sync\`, and each note
-becomes a project-memory entry. Processed notes move to \`_ingested/\` so
-this folder stays your inbox.
+Drop a file here, run \`prjct context wiki sync\`, and it becomes project
+memory — searchable and vectorized into the DB. Processed files move to
+\`_ingested/\` so this folder stays your inbox.
 
-## Format
+## Two ways to drop
+
+**1. Structured memory** — a markdown file WITH frontmatter becomes one typed
+entry:
 
 \`\`\`markdown
 ---
@@ -153,18 +277,27 @@ tags:
   priority: high
 ---
 
-Body becomes the memory content. Multi-line is fine — everything below
-the frontmatter is preserved verbatim.
+Body becomes the memory content. Multi-line is fine.
 \`\`\`
 
-## Valid types
+**2. Raw document** — any text file with NO frontmatter (\`.txt\`, \`.md\`,
+\`.json\`, \`.yaml\`, \`.csv\`, \`.log\`, …) is ingested as a \`source\`. Long
+documents are auto-chunked so recall surfaces the relevant passage.
+
+## Valid types (for structured notes)
 
 ${MEMORY_TYPES.map((t) => `- \`${t}\``).join('\n')}
 
 ## Notes
 
-- \`type\` is required. If missing, the note is skipped.
+- Structured notes need a valid \`type\`; a bad/missing type is skipped (the
+  file stays here so you can fix it). Files with no frontmatter are NOT
+  skipped — they ingest as raw documents.
 - \`tags\` is optional — a flat \`key: value\` map.
+- Supported text formats: \`.md .markdown .mdx .txt .text .json .yaml .yml
+  .csv .tsv .log .rst .org\`. (Binary formats like PDF/images are not yet
+  extracted.)
+- Raw documents keep their original language; agent-authored memory is English.
 - Secret-like content (API keys, JWTs) is refused unless you pass
   \`--force\` to \`prjct context wiki sync\`.
 - Files already in \`_ingested/\` are ignored.
@@ -184,7 +317,7 @@ async function listNoteFiles(capturedRoot: string): Promise<string[]> {
     if (name.startsWith('.')) continue
     if (name === INGESTED_SUBDIR) continue
     if (name === README_FILENAME) continue
-    if (!name.toLowerCase().endsWith('.md')) continue
+    if (!TEXT_EXTENSIONS.has(path.extname(name).toLowerCase())) continue
     files.push(path.join(capturedRoot, name))
   }
   return files
