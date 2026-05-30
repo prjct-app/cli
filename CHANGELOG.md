@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.30.0] - 2026-05-30
+
+### Features
+
+- ship-success attribution — strongest reinforcement signal (#387)
+
+
 ## [2.29.0] - 2026-05-29
 
 ### Features
