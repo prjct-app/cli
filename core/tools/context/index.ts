@@ -21,6 +21,7 @@ import {
 } from '../../memory/project-memory'
 import { embeddingService } from '../../services/embeddings'
 import { usefulnessService } from '../../services/usefulness'
+import { stateStorage } from '../../storage/state-storage'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -268,6 +269,24 @@ async function runMemoryTool(
     const linked = projectMemory.expandWithLinks(projectId, entries, 5)
     if (linked.length > 0) entries = entries.concat(linked)
   }
+
+  // Ship-success attribution: note that these entries were surfaced during the
+  // active task. If that task reaches a successful `prjct ship`, each earns the
+  // strong ship-credit (see usefulnessService.creditShippedTask). No active
+  // task → nothing recorded.
+  try {
+    const task = await stateStorage.getCurrentTask(projectId)
+    if (task?.id) {
+      usefulnessService.recordSurfaced(
+        projectId,
+        entries.map((e) => e.id),
+        task.id
+      )
+    }
+  } catch {
+    /* best-effort — attribution telemetry must never break a recall */
+  }
+
   return {
     tool: opts.kind,
     result: {

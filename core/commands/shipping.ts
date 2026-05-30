@@ -255,6 +255,19 @@ export class ShippingCommands extends PrjctCommandsBase {
         showNextSteps('ship')
       }
 
+      // Ship-success reinforcement: every memory surfaced during this task
+      // just fed work that actually shipped — give it the strong usefulness
+      // credit so it ranks higher in future recall. Best-effort; a completed
+      // ship must never fail on reinforcement bookkeeping.
+      if (currentTask?.id) {
+        try {
+          const { usefulnessService } = await import('../services/usefulness')
+          usefulnessService.creditShippedTask(projectId, currentTask.id)
+        } catch {
+          /* best-effort */
+        }
+      }
+
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {
       out.fail(getErrorMessage(error))

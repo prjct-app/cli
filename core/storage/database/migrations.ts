@@ -752,4 +752,25 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 24,
+    name: 'memory-surface-log',
+    up: (db: SqliteDatabase) => {
+      // Ship-success attribution: which memory entries were SURFACED during a
+      // task. `context memory` records the entries it shows here, keyed by the
+      // active task; when that task reaches a successful `prjct ship`, every
+      // surfaced entry gets a strong usefulness boost — "knowledge that fed
+      // work which actually shipped." Rows are deleted once credited, so this
+      // stays a small, transient working set. (memory_id, task_id) is unique
+      // so a memory is recorded at most once per task.
+      db.run(`
+        CREATE TABLE IF NOT EXISTS memory_surface_log (
+          memory_id   TEXT NOT NULL,
+          task_id     TEXT NOT NULL,
+          created_at  TEXT NOT NULL,
+          PRIMARY KEY (memory_id, task_id)
+        )
+      `)
+    },
+  },
 ]
