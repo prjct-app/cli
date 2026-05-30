@@ -24,8 +24,10 @@ import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
 import { detectSkillMisses } from '../services/skill-miss-detector'
 import { ingestTranscript } from '../services/transcript-learner'
+import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
+import { stateStorage } from '../storage/state-storage'
 import { type HookIo, runHook } from './_runner'
 
 interface HookInput {
@@ -95,7 +97,20 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // here, only signal extraction.
         if (input.transcript_path) {
           try {
-            await detectFriction(p, input.transcript_path, input.session_id ?? null)
+            const friction = await detectFriction(
+              p,
+              input.transcript_path,
+              input.session_id ?? null
+            )
+            // AUTOMATIC negative reinforcement (no command): if the user
+            // pushed back this session, demote the memories that were in
+            // context for the active task. prjct learns from mistakes on its
+            // own — the explicit `corrects:` tag is now an optional override,
+            // not a requirement.
+            if (friction.signalsRecorded > 0) {
+              const task = await stateStorage.getCurrentTask(config.projectId)
+              if (task?.id) usefulnessService.penalizeSurfaced(config.projectId, task.id)
+            }
           } catch {
             /* same contract as transcript-learner — silent best-effort */
           }
