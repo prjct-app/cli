@@ -195,6 +195,17 @@ describe('usefulnessService — negative signal (corrections)', () => {
     expect(s.get('mem_42')).toBeCloseTo(-2.5, 5) // corrected
   })
 
+  it('does NOT credit an inline reference to an id the same entry corrects', () => {
+    // Real-world shape found in live testing: a correction names the entry it
+    // corrects in its own text ("mem_70 was wrong"). The inline mention must
+    // not earn a +1.0 reference that cancels the -2.5 penalty.
+    const corrector = 'REINFORCE: mem_70 turned out wrong'
+    usefulnessService.recordReferences(projectId, corrector, { corrects: 'mem_70' }, T0_ISO)
+    usefulnessService.recordCorrection(projectId, { corrects: 'mem_70' }, T0_ISO)
+    // Pure -2.5, NOT -2.5 + 1.0.
+    expect(usefulnessService.decayedScores(projectId, T0).get('mem_70')).toBeCloseTo(-2.5, 5)
+  })
+
   it('a correction can flip a previously-useful entry net-negative', () => {
     usefulnessService.recordReferences(projectId, 'mem_43', {}, T0_ISO) // +1.0
     usefulnessService.recordCorrection(projectId, { corrects: 'mem_43' }, T0_ISO) // -2.5
