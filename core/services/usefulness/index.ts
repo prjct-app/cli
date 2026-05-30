@@ -30,6 +30,9 @@ import prjctDb from '../../storage/database'
 const HALF_LIFE_DAYS = 45
 const REF_WEIGHT = 1.0
 const FETCH_WEIGHT = 0.4
+/** Strongest signal: this entry was surfaced during work that actually
+ *  shipped. A real outcome, not just a citation. */
+const SHIP_WEIGHT = 2.5
 const MS_PER_DAY = 86_400_000
 
 /** Tag keys whose values name a related entry (mirrors expandWithLinks). */
@@ -101,6 +104,71 @@ export const usefulnessService = {
       bump(projectId, memoryId, FETCH_WEIGHT, 'fetch_count', nowIso)
     } catch {
       /* best-effort */
+    }
+  },
+
+  /**
+   * Note that `memoryIds` were surfaced during `taskId`. Kept in a transient
+   * log; credited (or dropped) when the task ships (or is abandoned). At most
+   * one row per (memory, task).
+   */
+  recordSurfaced(
+    projectId: string,
+    memoryIds: string[],
+    taskId: string,
+    nowIso: string = new Date().toISOString()
+  ): void {
+    if (!taskId || memoryIds.length === 0) return
+    try {
+      for (const id of memoryIds) {
+        prjctDb.run(
+          projectId,
+          `INSERT OR IGNORE INTO memory_surface_log (memory_id, task_id, created_at)
+           VALUES (?, ?, ?)`,
+          id,
+          taskId,
+          nowIso
+        )
+      }
+    } catch {
+      /* best-effort — surfacing telemetry must never break a recall */
+    }
+  },
+
+  /**
+   * A task shipped successfully: credit every entry surfaced during it with
+   * the strong ship-success weight, then clear the task's surface rows.
+   * Returns how many entries were credited. Best-effort.
+   */
+  creditShippedTask(
+    projectId: string,
+    taskId: string,
+    nowIso: string = new Date().toISOString()
+  ): number {
+    if (!taskId) return 0
+    try {
+      const rows = prjctDb.query<{ memory_id: string }>(
+        projectId,
+        'SELECT memory_id FROM memory_surface_log WHERE task_id = ?',
+        taskId
+      )
+      for (const r of rows) {
+        prjctDb.run(
+          projectId,
+          `INSERT INTO memory_usefulness (memory_id, score, last_used_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(memory_id) DO UPDATE SET
+             score = score + ?, last_used_at = excluded.last_used_at`,
+          r.memory_id,
+          SHIP_WEIGHT,
+          nowIso,
+          SHIP_WEIGHT
+        )
+      }
+      prjctDb.run(projectId, 'DELETE FROM memory_surface_log WHERE task_id = ?', taskId)
+      return rows.length
+    } catch {
+      return 0
     }
   },
 

@@ -117,3 +117,43 @@ describe('usefulnessService.rerank', () => {
     expect(reranked[0]?.id).toBe('mem_0')
   })
 })
+
+describe('usefulnessService — ship-success attribution', () => {
+  it('credits surfaced entries on ship and clears the log', () => {
+    usefulnessService.recordSurfaced(projectId, ['mem_10', 'mem_11'], 'task-1', T0_ISO)
+    const credited = usefulnessService.creditShippedTask(projectId, 'task-1', T0_ISO)
+    expect(credited).toBe(2)
+
+    const scores = usefulnessService.decayedScores(projectId, T0)
+    // Ship credit (2.5) is the strongest signal — stronger than a reference.
+    expect(scores.get('mem_10')).toBeCloseTo(2.5, 5)
+    expect(scores.get('mem_11')).toBeCloseTo(2.5, 5)
+
+    // Log cleared → a second credit finds nothing.
+    expect(usefulnessService.creditShippedTask(projectId, 'task-1', T0_ISO)).toBe(0)
+  })
+
+  it('only credits the shipped task, leaving other tasks pending', () => {
+    usefulnessService.recordSurfaced(projectId, ['mem_20'], 'task-a', T0_ISO)
+    usefulnessService.recordSurfaced(projectId, ['mem_21'], 'task-b', T0_ISO)
+    usefulnessService.creditShippedTask(projectId, 'task-a', T0_ISO)
+
+    const scores = usefulnessService.decayedScores(projectId, T0)
+    expect(scores.get('mem_20')).toBeCloseTo(2.5, 5)
+    expect(scores.has('mem_21')).toBe(false) // task-b never shipped → no credit yet
+    // task-b's surface row survives for a later ship.
+    expect(usefulnessService.creditShippedTask(projectId, 'task-b', T0_ISO)).toBe(1)
+  })
+
+  it('adds ship credit on top of an existing usefulness score', () => {
+    usefulnessService.recordFetch(projectId, 'mem_30', T0_ISO) // 0.4
+    usefulnessService.recordSurfaced(projectId, ['mem_30'], 'task-x', T0_ISO)
+    usefulnessService.creditShippedTask(projectId, 'task-x', T0_ISO)
+    expect(usefulnessService.decayedScores(projectId, T0).get('mem_30')).toBeCloseTo(2.9, 5)
+  })
+
+  it('is a no-op for an empty task id or no surfaced rows', () => {
+    expect(usefulnessService.creditShippedTask(projectId, '', T0_ISO)).toBe(0)
+    expect(usefulnessService.creditShippedTask(projectId, 'never-surfaced', T0_ISO)).toBe(0)
+  })
+})
