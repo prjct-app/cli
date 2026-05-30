@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.32.1] - 2026-05-30
+
+### Bug Fixes
+
+- a correction must not credit its own inline reference (#390)
+
+
 ## [2.32.0] - 2026-05-30
 
 ### Features
