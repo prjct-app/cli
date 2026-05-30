@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.31.0] - 2026-05-30
+
+### Features
+
+- negative reinforcement — learn from mistakes too (#388)
+
+
 ## [2.30.0] - 2026-05-30
 
 ### Features
