@@ -6,13 +6,11 @@
 
 - a correction must not credit its own inline reference (#390)
 
-
 ## [2.32.0] - 2026-05-30
 
 ### Features
 
 - learn from mistakes automatically — no command needed (#389)
-
 
 ## [2.31.0] - 2026-05-30
 
@@ -20,13 +18,11 @@
 
 - negative reinforcement — learn from mistakes too (#388)
 
-
 ## [2.30.0] - 2026-05-30
 
 ### Features
 
 - ship-success attribution — strongest reinforcement signal (#387)
-
 
 ## [2.29.0] - 2026-05-29
 
@@ -34,13 +30,11 @@
 
 - reinforcement loop — recall gets smarter with use (#386)
 
-
 ## [2.28.0] - 2026-05-29
 
 ### Features
 
 - optional semantic search via embeddings (phase 3 — complete) (#385)
-
 
 ## [2.27.0] - 2026-05-29
 
@@ -48,13 +42,11 @@
 
 - author-declared compaction in recall (phase 3) (#384)
 
-
 ## [2.26.0] - 2026-05-29
 
 ### Features
 
 - traverse the relationship graph on recall (phase 3) (#383)
-
 
 ## [2.25.0] - 2026-05-29
 
@@ -66,13 +58,11 @@
 
 - serve hooks from the warm daemon (~9x faster per hook) (#381)
 
-
 ## [2.24.3] - 2026-05-29
 
 ### Performance
 
 - hook hot-path benchmark (phase 0 instrumentation) (#380)
-
 
 ## [2.24.2] - 2026-05-29
 
@@ -176,6 +166,11 @@
 - gate workflow rules ingested from repo markdown (close clone-to-RCE) (#345)
 
 ## [Unreleased]
+
+## [2.32.2] - 2026-05-30
+
+### Added
+- current work
 
 ## [2.24.3] - 2026-05-30
 

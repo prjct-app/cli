@@ -7,8 +7,6 @@
  * touched.
  */
 
-import { execFileSync } from 'node:child_process'
-import path from 'node:path'
 import {
   status as hookStatus,
   install as installHooks,
@@ -22,28 +20,6 @@ import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
-function packageRoot(): string {
-  try {
-    return path.dirname(require.resolve('prjct-cli/package.json'))
-  } catch {
-    return path.resolve(__dirname, '..', '..')
-  }
-}
-
-function ensureNativeDependencies(): boolean {
-  const script = path.join(packageRoot(), 'scripts', 'ensure-native-deps.js')
-  try {
-    execFileSync(process.execPath, [script], {
-      cwd: packageRoot(),
-      stdio: 'inherit',
-      timeout: 120000,
-    })
-    return true
-  } catch {
-    return false
-  }
-}
-
 export class InstallCommands extends PrjctCommandsBase {
   /**
    * /p:install — install the prjct hook pack into `~/.claude/settings.json`.
@@ -54,7 +30,6 @@ export class InstallCommands extends PrjctCommandsBase {
     options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const nativeReady = ensureNativeDependencies()
       const result = await installHooks()
       const total = PRJCT_HOOKS.length
       const msg = `installed ${result.hooksWritten} new, ${result.alreadyPresent} already present (total ${total} hooks)`
@@ -68,7 +43,6 @@ export class InstallCommands extends PrjctCommandsBase {
             `- new: ${result.hooksWritten}`,
             `- already present: ${result.alreadyPresent}`,
             `- total expected: ${total}`,
-            `- native dependencies: ${nativeReady ? 'ready' : 'repair deferred'}`,
             ``,
             `> Only \`_prjctManaged: true\` entries were touched. Your other hooks are untouched.`,
           ].join('\n')
@@ -76,8 +50,6 @@ export class InstallCommands extends PrjctCommandsBase {
       } else {
         out.done(msg)
         out.info(`settings: ${result.settingsPath}`)
-        if (!nativeReady)
-          out.warn('SQLite native dependency repair deferred; daemon startup will retry.')
       }
       return { success: true, hooksWritten: result.hooksWritten }
     } catch (error) {

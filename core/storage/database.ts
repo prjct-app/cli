@@ -1,6 +1,6 @@
 /**
  * SQLite Database Manager. One DB per project (`prjct.db`) in WAL mode.
- * Uses `bun:sqlite` on Bun, `better-sqlite3` on Node. Document-style
+ * Uses `bun:sqlite` on Bun, `node:sqlite` on Node. Document-style
  * `kv_store` + normalized tables for indexed reads + append-only `events`.
  */
 
@@ -376,7 +376,7 @@ class PrjctDatabase {
     // lose, and the backup would just be an empty file.
     //
     // VACUUM INTO produces a single, fully-consistent copy regardless of WAL
-    // checkpoint state and works across both better-sqlite3 and bun:sqlite.
+    // checkpoint state and works across both node:sqlite and bun:sqlite.
     // Best-effort: a failed backup must NOT block migrations — that would
     // make the app unusable to protect a safety net that's only a nicety.
     if (dbPath && applied.size > 0) {

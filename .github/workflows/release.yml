@@ -376,17 +376,28 @@ jobs:
           git tag -a "$TAG" -m "Release $TAG"
 
       - name: Push changes
+        id: push
         if: ${{ !inputs.dry_run }}
         run: |
-          git push origin main
-          git push origin ${{ steps.version.outputs.tag }}
+          # A concurrent release run can still win the race to `main` even
+          # after the debounce gate — the 90s window can't cover every
+          # interleaving. When it does, this push is rejected non-fast-forward.
+          # That is NOT a failure: the surviving run releases the whole burst.
+          # Detect it and exit cleanly so superseded runs stop showing up red.
+          if git push origin main; then
+            echo "Pushed release commit to main."
+            git push origin ${{ steps.version.outputs.tag }}
+          else
+            echo "::notice title=Superseded release::main advanced during this run — a concurrent release won the race; skipping publish cleanly (the burst ships from the surviving run)."
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upgrade npm (trusted publishing requires >=11.5.1)
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
         run: npm install -g npm@latest
 
       - name: Publish to npm (OIDC trusted publisher)
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
         # No token: the OIDC ID-token from `id-token: write` is sent by the
         # npm CLI and validated against the package's Trusted Publisher
         # configuration. `--provenance` attaches a signed attestation.
@@ -394,13 +405,14 @@ jobs:
           npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}"
 
       - name: Verify npm publication
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
         run: |
           sleep 15
           npm view prjct-cli@${{ steps.version.outputs.new }} version
           echo "✅ Published prjct-cli@${{ steps.version.outputs.new }}"
 
       - name: Create tarball
+        if: ${{ steps.push.outputs.superseded != 'true' }}
         run: |
           VERSION=${{ steps.version.outputs.new }}
           # Ignore "file changed as we read it" warning
@@ -424,7 +436,7 @@ jobs:
       # in at build time solves this. Without --define every binary
       # reports v0.0.0 with a noisy ENOENT log on first invocation.
       - name: Build standalone binaries
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
         run: |
           mkdir -p dist-binaries
           VERSION=${{ steps.version.outputs.new }}
@@ -442,7 +454,7 @@ jobs:
           ./dist-binaries/prjct-linux-x64 -v | head -1
 
       - name: Create GitHub Release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -489,7 +501,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.current }} → ${{ steps.version.outputs.new }} (${{ steps.version.outputs.bump }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
+          if [ "${{ steps.push.outputs.superseded }}" == "true" ]; then
+            echo "↩️ **Superseded** — main advanced mid-run; a concurrent release shipped this burst. No-op (this is expected, not a failure)." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ inputs.dry_run }}" == "true" ]; then
             echo "⚠️ **Dry run** - no changes published" >> $GITHUB_STEP_SUMMARY
           else
             echo "✅ Published to npm with provenance" >> $GITHUB_STEP_SUMMARY

@@ -9,7 +9,7 @@
  *                            SQLITE_BUSY when the daemon holds an overlapping
  *                            connection
  *
- * A raw `new Database(...)` / `require('bun:sqlite')` / `require('better-sqlite3')`
+ * A raw `new Database(...)` / `require('bun:sqlite')` / `require('node:sqlite')`
  * anywhere else opens a connection WITHOUT those pragmas, silently
  * reintroducing the HIGH-severity daemon-vs-CLI write-lock contention bug.
  * This test fails fast if any file under core/ or bin/ acquires a SQLite
@@ -40,8 +40,10 @@ const ALLOWLIST = new Set(
  */
 const FORBIDDEN: Array<{ label: string; re: RegExp }> = [
   { label: "require('bun:sqlite')", re: /require\(\s*['"]bun:sqlite['"]\s*\)/ },
+  { label: "require('node:sqlite')", re: /require\(\s*['"]node:sqlite['"]\s*\)/ },
   { label: "require('better-sqlite3')", re: /require\(\s*['"]better-sqlite3['"]\s*\)/ },
   { label: "import from 'bun:sqlite'", re: /from\s+['"]bun:sqlite['"]/ },
+  { label: "import from 'node:sqlite'", re: /from\s+['"]node:sqlite['"]/ },
   { label: "import from 'better-sqlite3'", re: /from\s+['"]better-sqlite3['"]/ },
   { label: 'new Database(', re: /\bnew\s+Database\s*\(/ },
 ]
