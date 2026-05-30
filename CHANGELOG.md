@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.32.0] - 2026-05-30
+
+### Features
+
+- learn from mistakes automatically — no command needed (#389)
+
+
 ## [2.31.0] - 2026-05-30
 
 ### Features
