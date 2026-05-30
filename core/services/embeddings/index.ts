@@ -1,18 +1,20 @@
 /**
- * Optional semantic-search layer (phase 3).
+ * Semantic-search layer.
  *
  * Design constraints that shaped this:
- *   - OFF by default. With no `config.embeddings.provider`, every export
- *     here is inert and recall stays pure BM25/keyword — zero new runtime
- *     dependencies, zero network, zero behavior change.
+ *   - ON by default, universally, with ZERO new dependency. The default
+ *     provider is a pure-JS local embedder (feature-hashed character n-grams,
+ *     see LocalSubwordEmbeddingProvider) — no model download, no native addon,
+ *     no API key, no network. So "vectorized to the DB" is true for every user
+ *     out of the box, not just those who configured an endpoint.
+ *   - AUTO-UPGRADE: when a project configures an OpenAI-compatible endpoint
+ *     (OpenAI, Ollama at `http://localhost:11434/v1`, LM Studio, …) that real
+ *     model takes over — higher quality, same pipeline. The local embedder is
+ *     the floor, not the ceiling.
  *   - NO vector database / native dependency. Vectors are packed Float32
- *     BLOBs in SQLite (`memory_embeddings`) and ranked with in-process
- *     cosine. For a project's hundreds–thousands of memory entries this is
- *     trivially fast and keeps prjct's fragile native-dep story unchanged.
- *   - Provider is an OpenAI-compatible `/embeddings` HTTP endpoint (OpenAI,
- *     Ollama, LM Studio, …) called with plain `fetch` — no SDK in the
- *     bundle. The API key, when needed, comes from the environment, never
- *     from committed config.
+ *     BLOBs in SQLite (`memory_embeddings`) and ranked with in-process cosine.
+ *     For a project's hundreds–thousands of entries this is trivially fast and
+ *     keeps prjct's zero-native-dep story intact.
  *
  * The provider is injectable so tests run fully offline against a fake.
  */
@@ -24,6 +26,12 @@ import type { LocalConfig } from '../../types/config'
 /** Produces one vector per input string, order-preserving. */
 export interface EmbeddingProvider {
   readonly model: string
+  /**
+   * True for providers that compute in-process with no network/cost, so the
+   * caller may embed inline (e.g. on every capture) instead of deferring to a
+   * batched backfill. Remote/HTTP providers leave this falsy.
+   */
+  readonly isLocal?: boolean
   embed(texts: string[]): Promise<number[][]>
 }
 
@@ -71,6 +79,91 @@ export class HttpEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
+// Local default provider — zero-dependency subword embedding.
+
+/** Model tag stamped on locally-computed vectors. Bump the suffix to
+ *  invalidate every local vector if the algorithm below changes. */
+export const LOCAL_EMBEDDING_MODEL = 'local-subword-v1'
+const LOCAL_DIM = 256
+const MAX_TOKENS = 800 // cap work on pathologically long entries
+
+/** FNV-1a 32-bit — small, fast, well-distributed string hash. */
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
+}
+
+/** Character n-grams of `s` for n in [min,max]; falls back to the whole
+ *  string when it is shorter than `min`. */
+function charNGrams(s: string, min: number, max: number): string[] {
+  const grams: string[] = []
+  if (s.length < min) {
+    grams.push(s)
+    return grams
+  }
+  for (let n = min; n <= max; n++) {
+    for (let i = 0; i + n <= s.length; i++) grams.push(s.slice(i, i + n))
+  }
+  return grams
+}
+
+/**
+ * Embed one string into an L2-normalized LOCAL_DIM vector via the hashing
+ * trick over boundary-wrapped character n-grams (n=3..5) plus the whole token.
+ * Memory content is English by convention (see the skill's CONTENT LANGUAGE
+ * rule), which keeps semantics clean; the tokenizer stays Unicode-safe so code
+ * identifiers (file paths, function names) and any stray non-English token
+ * still contribute. A signed hash spreads collisions across buckets.
+ */
+function embedLocal(text: string): number[] {
+  const acc = new Float64Array(LOCAL_DIM)
+  const tokens = (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).slice(0, MAX_TOKENS)
+  for (const tok of tokens) {
+    const grams = charNGrams(`<${tok}>`, 3, 5)
+    grams.push(tok) // whole-token feature in addition to its n-grams
+    for (const g of grams) {
+      const h = fnv1a(g)
+      const bucket = h % LOCAL_DIM
+      const sign = h & 0x10000 ? 1 : -1 // sign bit independent of the bucket bits
+      acc[bucket] += sign
+    }
+  }
+  let norm = 0
+  for (let i = 0; i < LOCAL_DIM; i++) norm += acc[i] * acc[i]
+  norm = Math.sqrt(norm) || 1
+  const out = new Array<number>(LOCAL_DIM)
+  for (let i = 0; i < LOCAL_DIM; i++) out[i] = acc[i] / norm
+  return out
+}
+
+/**
+ * The always-available default provider. Pure-JS, deterministic, no network.
+ * Captures morphological / substring similarity (auth≈authentication,
+ * sqlite≈SQLite) that exact-token BM25 misses, and yields a continuous score
+ * for ranking + the vector substrate the bidirectional-vault pipeline needs.
+ * NOT deep synonymy — that is what the HTTP auto-upgrade buys.
+ */
+export class LocalSubwordEmbeddingProvider implements EmbeddingProvider {
+  readonly model = LOCAL_EMBEDDING_MODEL
+  readonly isLocal = true
+  async embed(texts: string[]): Promise<number[][]> {
+    return texts.map((t) => embedLocal(t))
+  }
+}
+
+/**
+ * The provider actually used at runtime: a configured HTTP endpoint when the
+ * project opted into one, otherwise the local default. Unlike `resolveProvider`
+ * this NEVER returns null — semantic search is on for everyone.
+ */
+export function resolveActiveProvider(config: LocalConfig | null | undefined): EmbeddingProvider {
+  return resolveProvider(config) ?? new LocalSubwordEmbeddingProvider()
+}
+
 // Vector <-> BLOB packing (Float32 little-endian).
 
 function packVector(v: number[]): Buffer {
@@ -104,9 +197,13 @@ interface EmbeddingRow {
 }
 
 export const embeddingService = {
-  /** True when this project has opted into a provider. */
-  isEnabled(config: LocalConfig | null | undefined): boolean {
-    return resolveProvider(config) !== null
+  /**
+   * Always true now: the local default provider makes semantic search
+   * available to every project. Kept as a method so callers read intent
+   * ("is semantic available?") and so a future kill-switch has one home.
+   */
+  isEnabled(_config: LocalConfig | null | undefined): boolean {
+    return true
   },
 
   /** Store one entry's vector (upsert). */
@@ -157,8 +254,7 @@ export const embeddingService = {
     nowIso: string,
     opts: { provider?: EmbeddingProvider; batchSize?: number } = {}
   ): Promise<{ embedded: number; skipped: number; total: number }> {
-    const provider = opts.provider ?? resolveProvider(config)
-    if (!provider) return { embedded: 0, skipped: 0, total: 0 }
+    const provider = opts.provider ?? resolveActiveProvider(config)
     const batchSize = opts.batchSize ?? 64
     const all = projectMemory.allEntriesForIndex(projectId)
     const have = this.embeddedIds(projectId, provider.model)
@@ -195,8 +291,8 @@ export const embeddingService = {
     limit = 10,
     provider?: EmbeddingProvider
   ): Promise<MemoryEntry[]> {
-    const p = provider ?? resolveProvider(config)
-    if (!p || !query.trim()) return []
+    const p = provider ?? resolveActiveProvider(config)
+    if (!query.trim()) return []
     let qv: number[] | undefined
     try {
       ;[qv] = await p.embed([query])

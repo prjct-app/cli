@@ -167,6 +167,11 @@
 
 ## [Unreleased]
 
+## [2.32.4] - 2026-05-31
+
+### Added
+- embeddings ON por defecto (local subword, universal, cero-dep) + auto-upgrade + convención de contenido en inglés (RAG #2)
+
 ## [2.32.3] - 2026-05-30
 
 ### Added
