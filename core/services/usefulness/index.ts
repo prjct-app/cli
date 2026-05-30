@@ -38,6 +38,11 @@ const SHIP_WEIGHT = 2.5
  *  sinks in recall — but is never deleted (the record + the correction's
  *  context stay resolvable). Magnitude mirrors a ship credit, inverted. */
 const CORRECTION_WEIGHT = -2.5
+/** AUTOMATIC negative: the user pushed back (friction) while these memories
+ *  were in context. Smaller than an explicit correction — attribution is
+ *  fuzzy (the friction may be unrelated) — but it needs NO command, so prjct
+ *  learns from mistakes on its own. Bounded by decay + the rerank cap. */
+const FRICTION_WEIGHT = -0.5
 const MS_PER_DAY = 86_400_000
 
 /** Tag keys whose values name a related entry (mirrors expandWithLinks). */
@@ -185,6 +190,33 @@ export const usefulnessService = {
       }
     } catch {
       /* best-effort — surfacing telemetry must never break a recall */
+    }
+  },
+
+  /**
+   * AUTOMATIC negative reinforcement: the active task hit user friction this
+   * session, so gently demote the entries surfaced during it. Unlike
+   * `creditShippedTask`, this does NOT clear the surface rows — the task is
+   * still in flight and may yet ship. Returns how many entries were nudged.
+   * Best-effort. No command required — this is what makes prjct learn from
+   * mistakes on its own.
+   */
+  penalizeSurfaced(
+    projectId: string,
+    taskId: string,
+    nowIso: string = new Date().toISOString()
+  ): number {
+    if (!taskId) return 0
+    try {
+      const rows = prjctDb.query<{ memory_id: string }>(
+        projectId,
+        'SELECT memory_id FROM memory_surface_log WHERE task_id = ?',
+        taskId
+      )
+      for (const r of rows) addScore(projectId, r.memory_id, FRICTION_WEIGHT, nowIso)
+      return rows.length
+    } catch {
+      return 0
     }
   },
 

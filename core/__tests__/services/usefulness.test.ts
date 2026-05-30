@@ -158,6 +158,28 @@ describe('usefulnessService — ship-success attribution', () => {
   })
 })
 
+describe('usefulnessService — automatic friction penalty (no command)', () => {
+  it('demotes surfaced entries on friction but keeps the rows (task still open)', () => {
+    usefulnessService.recordSurfaced(projectId, ['mem_60', 'mem_61'], 'task-f', T0_ISO)
+    const nudged = usefulnessService.penalizeSurfaced(projectId, 'task-f', T0_ISO)
+    expect(nudged).toBe(2)
+
+    const scores = usefulnessService.decayedScores(projectId, T0)
+    expect(scores.get('mem_60')).toBeCloseTo(-0.5, 5)
+    expect(scores.get('mem_61')).toBeCloseTo(-0.5, 5)
+
+    // Rows are NOT cleared — a later ship can still credit the same task.
+    const credited = usefulnessService.creditShippedTask(projectId, 'task-f', T0_ISO)
+    expect(credited).toBe(2)
+    // Net per entry: -0.5 (friction) + 2.5 (ship) = 2.0.
+    expect(usefulnessService.decayedScores(projectId, T0).get('mem_60')).toBeCloseTo(2.0, 5)
+  })
+
+  it('is a no-op for an empty task id', () => {
+    expect(usefulnessService.penalizeSurfaced(projectId, '', T0_ISO)).toBe(0)
+  })
+})
+
 describe('usefulnessService — negative signal (corrections)', () => {
   it('a `corrects:` tag drives the marked entry NEGATIVE', () => {
     usefulnessService.recordCorrection(projectId, { corrects: 'mem_40' }, T0_ISO)
