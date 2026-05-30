@@ -141,6 +141,8 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     'The user does NOT type prjct commands. You do. On every turn, ask: "what is the user trying to accomplish?" Match the answer to one of the verbs below. If multiple match, pick the most specific and surface the rest as alternatives. Bilingual (es/en) — the verbs are language-agnostic, the intent isn\'t.',
     '',
+    "**CONTENT LANGUAGE — author every stored memory in ENGLISH**, regardless of the conversation language. When you `capture`/`remember`, translate the intent into a clean English entry (the user may speak Spanish; the persisted knowledge is English). Reason: LLMs comprehend English better and embeddings/vectorization stay high-quality and noise-free in one canonical language (mixed-language content produces cross-language retrieval noise). The verbs and the user's intent are bilingual; the knowledge you write down is not.",
+    '',
     "These are *signals*, not phrase templates. Read them as descriptions of moments in the user's flow.",
     '',
     '### `task` — "I\'m starting a piece of work" (THE DEFAULT — try this first)',

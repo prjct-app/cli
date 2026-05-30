@@ -130,17 +130,16 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           }
         }
 
-        // Semantic index maintenance (opt-in): when an embeddings provider is
-        // configured, embed memory entries written this session so semantic
-        // recall stays current. Best-effort and — in daemon mode — detached,
-        // so the network round-trip never blocks session end. No-op (and no
-        // network) when embeddings are disabled or the index is current.
-        if (embeddingService.isEnabled(config)) {
-          try {
-            await embeddingService.backfill(p, config, new Date().toISOString())
-          } catch {
-            /* never block session end on index maintenance */
-          }
+        // Semantic index maintenance: embed memory entries written this
+        // session so semantic recall stays current. The default provider is
+        // the in-process local embedder (no network, no key), so this runs for
+        // every project; a configured HTTP endpoint transparently takes over.
+        // Best-effort, idempotent (only un-embedded entries are touched), and
+        // must never block session end.
+        try {
+          await embeddingService.backfill(p, config, new Date().toISOString())
+        } catch {
+          /* never block session end on index maintenance */
         }
 
         await regenerateWikiDeferred(p, config.projectId).catch(() => undefined)

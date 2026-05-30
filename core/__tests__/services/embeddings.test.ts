@@ -1,9 +1,11 @@
 /**
- * Optional semantic-search layer — offline tests against a fake provider.
+ * Semantic-search layer — offline tests.
  *
- * Pins: disabled-by-default (no provider → inert), cosine math, store +
- * cosine-ranked semanticSearch, and backfill idempotency. No network: the
- * provider is injected, so these never touch a real embeddings endpoint.
+ * Pins: provider resolution (explicit endpoint vs the always-on local
+ * default), the local subword embedder (determinism, normalization,
+ * morphological ranking, end-to-end), cosine math, cosine-ranked
+ * semanticSearch, and backfill idempotency. No network: the HTTP path uses an
+ * injected fake; the local path is pure-JS.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
@@ -16,6 +18,9 @@ import {
   cosineSimilarity,
   type EmbeddingProvider,
   embeddingService,
+  LOCAL_EMBEDDING_MODEL,
+  LocalSubwordEmbeddingProvider,
+  resolveActiveProvider,
   resolveProvider,
 } from '../../services/embeddings'
 import prjctDb from '../../storage/database'
@@ -72,8 +77,8 @@ afterEach(async () => {
   await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
 })
 
-describe('embeddings — disabled by default', () => {
-  it('resolveProvider is null without config / provider / model', () => {
+describe('embeddings — provider resolution', () => {
+  it('resolveProvider (explicit only) is null without config / provider / model', () => {
     expect(resolveProvider(null)).toBeNull()
     expect(resolveProvider({ projectId: 'x', dataPath: '' } as LocalConfig)).toBeNull()
     expect(
@@ -81,17 +86,65 @@ describe('embeddings — disabled by default', () => {
     ).toBeNull()
   })
 
-  it('isEnabled false without a provider; true when configured', () => {
-    expect(embeddingService.isEnabled(null)).toBe(false)
+  it('resolveActiveProvider falls back to the local default (never null)', () => {
+    expect(resolveActiveProvider(null)).toBeInstanceOf(LocalSubwordEmbeddingProvider)
+    expect(resolveActiveProvider(null).model).toBe(LOCAL_EMBEDDING_MODEL)
+    // An explicit endpoint upgrades over the local default.
+    expect(resolveActiveProvider(enabledConfig).model).toBe('fake-1')
+  })
+
+  it('isEnabled is always true (semantic on for everyone)', () => {
+    expect(embeddingService.isEnabled(null)).toBe(true)
     expect(embeddingService.isEnabled(enabledConfig)).toBe(true)
   })
 
-  it('semanticSearch returns [] when disabled', async () => {
+  it('semanticSearch returns [] when nothing is embedded yet (lexical fallback)', async () => {
     const out = await embeddingService.semanticSearch(projectId, 'anything', {
       projectId: 'x',
       dataPath: '',
     } as LocalConfig)
     expect(out).toHaveLength(0)
+  })
+})
+
+describe('LocalSubwordEmbeddingProvider', () => {
+  const local = new LocalSubwordEmbeddingProvider()
+
+  it('produces a deterministic, L2-normalized 256-dim vector', async () => {
+    const [a] = await local.embed(['authentication flow'])
+    const [b] = await local.embed(['authentication flow'])
+    expect(a).toHaveLength(256)
+    expect(a).toEqual(b!) // deterministic
+    const norm = Math.sqrt(a!.reduce((s, x) => s + x * x, 0))
+    expect(norm).toBeCloseTo(1, 5)
+  })
+
+  it('scores morphologically-related text above unrelated text', async () => {
+    const [q] = await local.embed(['authentication'])
+    const [near] = await local.embed(['authenticate the user'])
+    const [far] = await local.embed(['banana pricing spreadsheet'])
+    expect(cosineSimilarity(q!, near!)).toBeGreaterThan(cosineSimilarity(q!, far!))
+  })
+
+  it('end-to-end: backfill + semanticSearch with the local default ranks the related entry first', async () => {
+    const target = write('decision', 'migrate the sqlite database schema with a new migration')
+    write('decision', 'style the react frontend button component')
+
+    // No provider passed → uses the local default via resolveActiveProvider.
+    const r = await embeddingService.backfill(
+      projectId,
+      { projectId, dataPath: '' } as LocalConfig,
+      NOW
+    )
+    expect(r.embedded).toBe(2)
+
+    const hits = await embeddingService.semanticSearch(
+      projectId,
+      'database migrations',
+      { projectId, dataPath: '' } as LocalConfig,
+      5
+    )
+    expect(hits[0]?.id).toBe(target)
   })
 })
 
