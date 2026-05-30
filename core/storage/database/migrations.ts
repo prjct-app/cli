@@ -6,6 +6,7 @@
  * migration with the next sequential version number.
  */
 
+import { memoryFingerprint } from '../../memory/content-fingerprint'
 import type { Migration } from '../../types/storage/extended'
 import { INITIAL_SCHEMA_SQL } from './initial-schema.sql'
 import type { SqliteDatabase } from './sqlite-compat'
@@ -771,6 +772,85 @@ export const migrations: Migration[] = [
           PRIMARY KEY (memory_id, task_id)
         )
       `)
+    },
+  },
+  {
+    version: 25,
+    name: 'memory-dedup-content-hash',
+    up: (db: SqliteDatabase) => {
+      // Backfill `memories.content_hash` and purge historical verbatim
+      // duplicates from BOTH memory tables.
+      //
+      // Until now nothing populated `memories.content_hash`, and a
+      // friction-detector key bug (a 64-char hash compared against a 12-char
+      // stored key — they never matched) re-recorded the same user-pushback
+      // every session, leaving 5-9 identical copies per signal. Those dups
+      // dilute `searchFts` (reads `memories`) and the vault index (reads
+      // `events`), and waste slots in the fixed-size recall-injection budget.
+      //
+      // Going forward `projectMemory.remember()` dedups on `content_hash`
+      // before writing; this migration heals what already landed and seeds the
+      // hash on every existing row so that guard recognizes them. Idempotent —
+      // safe to re-run (NULL backfill only, keep-earliest is deterministic).
+      const numOf = (id: string): number => Number(String(id).replace(/^mem[_-]/i, '')) || 0
+
+      // 1) Backfill content_hash wherever it's missing.
+      const memAll = db.prepare('SELECT id, content, content_hash FROM memories').all() as Array<{
+        id: string
+        content: string
+        content_hash: string | null
+      }>
+      const setHash = db.prepare('UPDATE memories SET content_hash = ? WHERE id = ?')
+      for (const r of memAll) {
+        if (!r.content_hash) setHash.run(memoryFingerprint(r.content ?? ''), r.id)
+      }
+
+      // 2) Soft-delete duplicate `memories` rows: keep the earliest (smallest
+      //    mem_<id>) per (type, content_hash); mark the rest deleted so
+      //    searchFts — which filters `deleted_at IS NULL` — stops returning
+      //    them. Soft, not hard: the row stays resolvable by id.
+      const memLive = db
+        .prepare('SELECT id, type, content_hash FROM memories WHERE deleted_at IS NULL')
+        .all() as Array<{ id: string; type: string | null; content_hash: string | null }>
+      const canonicalMem = new Map<string, number>() // group key -> min numeric id
+      for (const r of memLive) {
+        if (!r.content_hash) continue
+        const k = `${r.type ?? ''}::${r.content_hash}`
+        const n = numOf(r.id)
+        const cur = canonicalMem.get(k)
+        if (cur === undefined || n < cur) canonicalMem.set(k, n)
+      }
+      const nowIso = new Date().toISOString()
+      const softDelete = db.prepare('UPDATE memories SET deleted_at = ? WHERE id = ?')
+      for (const r of memLive) {
+        if (!r.content_hash) continue
+        const k = `${r.type ?? ''}::${r.content_hash}`
+        if (canonicalMem.get(k) !== numOf(r.id)) softDelete.run(nowIso, r.id)
+      }
+
+      // 3) Hard-delete duplicate remember-events: keep the earliest per
+      //    (type, normalized content). `events` feeds recall() and the vault
+      //    index (allEntriesForIndex), neither of which dedups non-keyed
+      //    entries — so the dup rows (and the vault files they spawn) only
+      //    disappear when the rows do. These are verbatim duplicate signals
+      //    with no audit value. ORDER BY id ASC ⇒ first seen = earliest = kept.
+      const evRows = db
+        .prepare(
+          `SELECT id, type, json_extract(data, '$.content') AS content
+             FROM events WHERE type LIKE 'memory.remember.%' ORDER BY id ASC`
+        )
+        .all() as Array<{ id: number; type: string; content: string | null }>
+      const seenEv = new Set<string>()
+      const delEv = db.prepare('DELETE FROM events WHERE id = ?')
+      for (const r of evRows) {
+        if (r.content == null) continue
+        const k = `${r.type}::${memoryFingerprint(r.content)}`
+        if (seenEv.has(k)) {
+          delEv.run(r.id)
+          continue
+        }
+        seenEv.add(k)
+      }
     },
   },
 ]

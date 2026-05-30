@@ -167,6 +167,11 @@
 
 ## [Unreleased]
 
+## [2.32.3] - 2026-05-30
+
+### Added
+- memory dedup en capture + heal histórico (RAG #1): content-fingerprint, dedup net en remember(), fix friction-detector 64-vs-12, migración v25 backfill+purga
+
 ## [2.32.2] - 2026-05-30
 
 ### Added

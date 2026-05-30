@@ -24,6 +24,7 @@
 import { memoryService } from '../services/memory-service'
 import prjctDb from '../storage/database'
 import { escapeMarkdownInline } from '../utils/prompt-injection'
+import { memoryFingerprint } from './content-fingerprint'
 import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
 /**
@@ -267,6 +268,31 @@ export const projectMemory = {
   ): Promise<void> {
     const tags = args.tags ?? {}
     const provenance = args.provenance ?? 'declared'
+    const contentHash = memoryFingerprint(args.content)
+
+    // Dedup net: a verbatim re-capture of the same (type, content) adds no
+    // knowledge — it only dilutes recall and burns slots in the fixed-size
+    // injection budget. Skip it. This is the universal guard behind EVERY
+    // capture path (manual `remember`, the friction / skill-miss detectors,
+    // wiki-ingest), so a single detector re-firing each session can't spam the
+    // store. Best-effort: any lookup failure falls through to a normal write —
+    // a dedup miss is cheaper than a dropped capture.
+    try {
+      const { default: cfgMgr } = await import('../infrastructure/config-manager')
+      const dedupProjectId = (await cfgMgr.readConfig(projectPath))?.projectId
+      if (dedupProjectId) {
+        const dup = prjctDb.get<{ id: string }>(
+          dedupProjectId,
+          'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
+          contentHash,
+          args.type
+        )
+        if (dup) return
+      }
+    } catch {
+      /* fall through — never block a capture on the dedup check */
+    }
+
     const logResult = await memoryService.log(
       projectPath,
       `${REMEMBER_ACTION_PREFIX}${args.type}`,
@@ -291,9 +317,9 @@ export const projectMemory = {
         prjctDb.run(
           logResult.projectId,
           `INSERT OR IGNORE INTO memories
-             (id, project_id, title, content, tags, type, provenance, user_triggered,
-              created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (id, project_id, title, content, tags, type, provenance, content_hash,
+              user_triggered, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           memId,
           logResult.projectId,
           title,
@@ -301,6 +327,7 @@ export const projectMemory = {
           JSON.stringify(tags),
           args.type,
           provenance,
+          contentHash,
           0,
           now,
           now
