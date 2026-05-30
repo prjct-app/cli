@@ -318,6 +318,9 @@ export const projectMemory = {
       try {
         const { usefulnessService } = await import('../services/usefulness')
         usefulnessService.recordReferences(logResult.projectId, args.content, tags)
+        // Negative half of the loop: an entry tagged corrects:/contradicts:
+        // marks the referenced one as a mistake → demote it in recall.
+        usefulnessService.recordCorrection(logResult.projectId, tags)
       } catch {
         /* never block a capture on reinforcement bookkeeping */
       }

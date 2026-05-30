@@ -157,3 +157,34 @@ describe('usefulnessService — ship-success attribution', () => {
     expect(usefulnessService.creditShippedTask(projectId, 'never-surfaced', T0_ISO)).toBe(0)
   })
 })
+
+describe('usefulnessService — negative signal (corrections)', () => {
+  it('a `corrects:` tag drives the marked entry NEGATIVE', () => {
+    usefulnessService.recordCorrection(projectId, { corrects: 'mem_40' }, T0_ISO)
+    expect(usefulnessService.decayedScores(projectId, T0).get('mem_40')).toBeCloseTo(-2.5, 5)
+  })
+
+  it('`contradicts:` works the same and only acts on explicit tags', () => {
+    // Inline mention in CONTENT must NOT penalize — corrections are tags-only.
+    usefulnessService.recordReferences(projectId, 'builds on mem_41', {}, T0_ISO) // +1.0
+    usefulnessService.recordCorrection(projectId, { contradicts: 'mem_42' }, T0_ISO)
+    const s = usefulnessService.decayedScores(projectId, T0)
+    expect(s.get('mem_41')).toBeCloseTo(1.0, 5) // referenced, not corrected
+    expect(s.get('mem_42')).toBeCloseTo(-2.5, 5) // corrected
+  })
+
+  it('a correction can flip a previously-useful entry net-negative', () => {
+    usefulnessService.recordReferences(projectId, 'mem_43', {}, T0_ISO) // +1.0
+    usefulnessService.recordCorrection(projectId, { corrects: 'mem_43' }, T0_ISO) // -2.5
+    expect(usefulnessService.decayedScores(projectId, T0).get('mem_43')).toBeCloseTo(-1.5, 5)
+  })
+
+  it('rerank SINKS a corrected entry below its relevance position', () => {
+    usefulnessService.recordCorrection(projectId, { corrects: 'mem_50' }, T0_ISO)
+    // mem_50 leads on relevance but is a known mistake; mem_51/52 are neutral.
+    const ordered = [fakeEntry('mem_50'), fakeEntry('mem_51'), fakeEntry('mem_52')]
+    const reranked = usefulnessService.rerank(projectId, ordered, T0)
+    expect(reranked[0]?.id).not.toBe('mem_50')
+    expect(reranked.at(-1)?.id).toBe('mem_50')
+  })
+})
