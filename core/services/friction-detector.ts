@@ -108,8 +108,12 @@ export async function detectFriction(
   let recorded = 0
   let skipped = 0
   for (const signal of signals.slice(0, MAX_SIGNALS_PER_SESSION)) {
-    const hash = hashSignal(signal.excerpt)
-    if (existing.has(hash)) {
+    // `existing` holds the 12-char keys stored on prior signals (see
+    // projectMemoryHashes), so the comparison unit MUST be the same 12-char
+    // slice — comparing the full 64-char hash here silently never matched,
+    // re-recording the same pushback every session (the 5-9× dup bloat).
+    const dedupKey = hashSignal(signal.excerpt).slice(0, 12)
+    if (existing.has(dedupKey)) {
       skipped++
       continue
     }
@@ -121,7 +125,7 @@ export async function detectFriction(
           source: SOURCE_TAG,
           category: signal.category,
           ...(sessionId ? { session: sessionId } : {}),
-          key: hash.slice(0, 12), // dedup key for the (type, key) latest-winner rule
+          key: dedupKey, // dedup key for the (type, key) latest-winner rule
         },
         provenance: 'extracted',
       })
