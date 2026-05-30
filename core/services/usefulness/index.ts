@@ -33,10 +33,18 @@ const FETCH_WEIGHT = 0.4
 /** Strongest signal: this entry was surfaced during work that actually
  *  shipped. A real outcome, not just a citation. */
 const SHIP_WEIGHT = 2.5
+/** Negative signal: a later entry declared this one WRONG (`corrects:` /
+ *  `contradicts:`). The project learned this knowledge was a mistake, so it
+ *  sinks in recall — but is never deleted (the record + the correction's
+ *  context stay resolvable). Magnitude mirrors a ship credit, inverted. */
+const CORRECTION_WEIGHT = -2.5
 const MS_PER_DAY = 86_400_000
 
 /** Tag keys whose values name a related entry (mirrors expandWithLinks). */
 const REL_KEYS = ['resolves', 'relates', 'supersedes', 'superseded-by', 'duplicates', 'spec']
+/** Tag keys that mark the referenced entry as an ERROR. Tags ONLY (never
+ *  inline content) so a passing `mem_N` mention can't accidentally demote. */
+const CORRECTION_KEYS = ['corrects', 'contradicts']
 const MEM_REF_RE = /\bmem[_-](\d+)\b/g
 
 /** Collect the `mem_N` ids a new entry points at (relationship tags + inline). */
@@ -48,6 +56,17 @@ export function extractRefIds(content: string, tags: Record<string, string>): st
     for (const m of String(v).matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
   }
   for (const m of content.matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
+  return [...ids]
+}
+
+/** Collect the `mem_N` ids a new entry marks as WRONG (correction tags only). */
+export function extractCorrectionIds(tags: Record<string, string>): string[] {
+  const ids = new Set<string>()
+  for (const key of CORRECTION_KEYS) {
+    const v = tags[key]
+    if (!v) continue
+    for (const m of String(v).matchAll(MEM_REF_RE)) ids.add(`mem_${m[1]}`)
+  }
   return [...ids]
 }
 
@@ -77,6 +96,21 @@ function bump(
   )
 }
 
+/** Adjust only the score (no count column) by `delta`, which may be negative. */
+function addScore(projectId: string, memoryId: string, delta: number, nowIso: string): void {
+  prjctDb.run(
+    projectId,
+    `INSERT INTO memory_usefulness (memory_id, score, last_used_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(memory_id) DO UPDATE SET
+       score = score + ?, last_used_at = excluded.last_used_at`,
+    memoryId,
+    delta,
+    nowIso,
+    delta
+  )
+}
+
 export const usefulnessService = {
   /** Credit every entry that `content`/`tags` reference (a capture happened). */
   recordReferences(
@@ -88,6 +122,25 @@ export const usefulnessService = {
     try {
       for (const id of extractRefIds(content, tags)) {
         bump(projectId, id, REF_WEIGHT, 'ref_count', nowIso)
+      }
+    } catch {
+      /* best-effort — never block a capture */
+    }
+  },
+
+  /**
+   * Penalize entries a new capture marks WRONG via `corrects:` / `contradicts:`
+   * tags — the negative half of the loop. Demotes them in recall without
+   * deleting them. Best-effort.
+   */
+  recordCorrection(
+    projectId: string,
+    tags: Record<string, string>,
+    nowIso: string = new Date().toISOString()
+  ): void {
+    try {
+      for (const id of extractCorrectionIds(tags)) {
+        addScore(projectId, id, CORRECTION_WEIGHT, nowIso)
       }
     } catch {
       /* best-effort — never block a capture */
@@ -153,17 +206,7 @@ export const usefulnessService = {
         taskId
       )
       for (const r of rows) {
-        prjctDb.run(
-          projectId,
-          `INSERT INTO memory_usefulness (memory_id, score, last_used_at)
-           VALUES (?, ?, ?)
-           ON CONFLICT(memory_id) DO UPDATE SET
-             score = score + ?, last_used_at = excluded.last_used_at`,
-          r.memory_id,
-          SHIP_WEIGHT,
-          nowIso,
-          SHIP_WEIGHT
-        )
+        addScore(projectId, r.memory_id, SHIP_WEIGHT, nowIso)
       }
       prjctDb.run(projectId, 'DELETE FROM memory_surface_log WHERE task_id = ?', taskId)
       return rows.length
