@@ -167,6 +167,11 @@
 
 ## [Unreleased]
 
+## [2.32.5] - 2026-05-31
+
+### Added
+- ingest pipeline: multi-format text drops + chunking (bidirectional vault INPUT, auto-vectorized)
+
 ## [2.32.4] - 2026-05-31
 
 ### Added

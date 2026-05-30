@@ -188,13 +188,16 @@ content`
     expect(recallAll()).toHaveLength(0)
   })
 
-  test('skips note without frontmatter', async () => {
+  test('frontmatter-less markdown ingests as a raw `source` document', async () => {
     await dropNote('no-frontmatter.md', 'just a body, no metadata.\n')
     const result = await ingestCapturedNotes(projectPath)
-    expect(result.ingested).toBe(0)
-    expect(result.skipped).toHaveLength(1)
-    expect(result.skipped[0].reason).toContain('no frontmatter')
-    expect(recallAll()).toHaveLength(0)
+    expect(result.ingested).toBe(1)
+    expect(result.skipped).toEqual([])
+    const [entry] = recallAll()
+    expect(entry.type).toBe('source')
+    expect(entry.content).toBe('just a body, no metadata.')
+    expect(entry.tags.file).toBe('no-frontmatter.md')
+    expect(entry.tags.origin).toBe('ingest')
   })
 
   test('skips note missing type even when frontmatter exists', async () => {
@@ -223,6 +226,63 @@ type: learning
     const result = await ingestCapturedNotes(projectPath)
     expect(result.ingested).toBe(0)
     expect(result.skipped[0].reason).toContain('body is empty')
+  })
+})
+
+// 2b. Multi-format raw documents + chunking
+
+describe('Wiki Ingest — raw documents', () => {
+  test('ingests a non-markdown text file (.txt) as a `source`', async () => {
+    await dropNote('meeting-notes.txt', 'Decided to defer the migration to Q3.')
+    const result = await ingestCapturedNotes(projectPath)
+    expect(result.ingested).toBe(1)
+    const [entry] = recallAll()
+    expect(entry.type).toBe('source')
+    expect(entry.content).toContain('defer the migration')
+    expect(entry.tags.file).toBe('meeting-notes.txt')
+  })
+
+  test('ingests .json / .csv / .yaml drops', async () => {
+    await dropNote('data.json', '{"key": "value", "n": 1}')
+    await dropNote('rows.csv', 'a,b,c\n1,2,3')
+    await dropNote('conf.yaml', 'feature: enabled\nlimit: 10')
+    const result = await ingestCapturedNotes(projectPath)
+    expect(result.ingested).toBe(3)
+    expect(recallAll()).toHaveLength(3)
+    expect(recallAll().every((e) => e.type === 'source')).toBe(true)
+  })
+
+  test('ignores unsupported (binary) extensions', async () => {
+    await dropNote('diagram.png', 'not-really-an-image-but-wrong-ext')
+    const result = await ingestCapturedNotes(projectPath)
+    expect(result.ingested).toBe(0)
+    expect(result.skipped).toEqual([])
+    expect(recallAll()).toHaveLength(0)
+  })
+
+  test('chunks a large document into multiple `source` entries tagged with part + doc', async () => {
+    // ~12 paragraphs of ~400 chars → several chunks past the 2200 limit.
+    const para = 'x'.repeat(380)
+    const big = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ${para}`).join('\n\n')
+    await dropNote('long-doc.txt', big)
+
+    const result = await ingestCapturedNotes(projectPath)
+    expect(result.ingested).toBeGreaterThan(1)
+
+    const entries = recallAll()
+    expect(entries.length).toBe(result.ingested)
+    expect(entries.every((e) => e.type === 'source')).toBe(true)
+    // Every chunk shares the doc slug and carries an `i/n` part tag.
+    expect(entries.every((e) => e.tags.doc === 'long-doc')).toBe(true)
+    expect(entries.every((e) => /^\d+\/\d+$/.test(e.tags.part ?? ''))).toBe(true)
+  })
+
+  test('a short document stays a single un-chunked entry (no part tag)', async () => {
+    await dropNote('short.txt', 'one small thought')
+    await ingestCapturedNotes(projectPath)
+    const [entry] = recallAll()
+    expect(entry.tags.part).toBeUndefined()
+    expect(entry.tags.doc).toBeUndefined()
   })
 })
 
