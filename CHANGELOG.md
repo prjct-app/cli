@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.37.0] - 2026-06-01
+
+Context-efficiency, part 2: cut the Claude skill's always-on footprint by 73%.
+
+### Changed
+- **Claude skill split into a lean core + pull-on-demand `workflows.md`.** The SKILL.md body stays in the model's context for the whole session ("every line is a recurring token cost"). It was ~9.3k tokens of always-on context. Now the core is ~2.5k tokens (use-when, project context, TRIAGE gate, a compact intent→verb→tier table, routing tiers, gotchas) and the heavy methodology (quality workflows, subagent dispatch + model policy, decision-brief, prefs, builder ethos) lives in `workflows.md`, written next to SKILL.md and read only when the agent actually runs one of those workflows. Same pull-not-push rule as the rest of the runtime; behavior preserved.
+
 ## [2.36.0] - 2026-06-01
 
 Context-efficiency pivot (push → pull): stop filling the agent's context window, fix Codex, expose anticipation on demand.

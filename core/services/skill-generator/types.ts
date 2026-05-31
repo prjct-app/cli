@@ -59,4 +59,12 @@ export interface SkillDefinition {
   condition: (ctx: ConditionContext) => boolean
   /** Generate the skill body content */
   body: (ctx: SkillContext) => string
+  /**
+   * Optional deep-methodology reference written next to SKILL.md and pulled
+   * on demand (progressive disclosure) — keeps heavy material out of the
+   * always-in-context body. Requires `referenceFile`.
+   */
+  reference?: () => string
+  /** Filename for `reference` content within the skill dir (e.g. `workflows.md`). */
+  referenceFile?: string
 }
