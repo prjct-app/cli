@@ -98,12 +98,15 @@ export const EXTRACTABLE_EXTENSIONS: Set<string> = new Set(
  *  nothing — so the user knows which tool unlocks the format. */
 export function extractHint(ext: string): string {
   const e = ext.toLowerCase()
-  if (e === '.pdf')
+  // Membership tests against the extractor sets — the single source of truth
+  // for which format each tool owns, so the hint can't drift from reality.
+  if (pdftotextExtractor.exts.has(e)) {
     return 'install poppler (`brew install poppler`) for PDF text, or convert it to .txt'
-  if (['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp'].includes(e)) {
+  }
+  if (tesseractExtractor.exts.has(e)) {
     return 'install tesseract (`brew install tesseract`) for image OCR, or add a sidecar .txt note'
   }
-  if (['.docx', '.doc', '.rtf', '.odt', '.pages', '.html', '.htm', '.webarchive'].includes(e)) {
+  if (textutilExtractor.exts.has(e)) {
     return 'rich-doc extraction needs macOS `textutil`; on other platforms convert to .txt/.md'
   }
   return 'convert it to a supported text format (.txt/.md)'

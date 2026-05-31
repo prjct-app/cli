@@ -2,8 +2,53 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { bumpPatch, VersionService } from '../../services/version-service'
+import {
+  bumpMajor,
+  bumpMinor,
+  bumpPatch,
+  bumpVersion,
+  inferBumpLevel,
+  VersionService,
+} from '../../services/version-service'
 import { execFileAsync } from '../../utils/exec'
+
+describe('bumpMinor / bumpMajor', () => {
+  it('bumpMinor resets patch and drops pre-release', () => {
+    expect(bumpMinor('2.32.8')).toBe('2.33.0')
+    expect(bumpMinor('1.0.5')).toBe('1.1.0')
+    expect(bumpMinor('2.0.0-alpha.3')).toBe('2.1.0')
+  })
+  it('bumpMajor resets minor+patch', () => {
+    expect(bumpMajor('2.32.8')).toBe('3.0.0')
+    expect(bumpMajor('0.9.9')).toBe('1.0.0')
+  })
+  it('bumpVersion dispatches by level', () => {
+    expect(bumpVersion('2.32.8', 'patch')).toBe('2.32.9')
+    expect(bumpVersion('2.32.8', 'minor')).toBe('2.33.0')
+    expect(bumpVersion('2.32.8', 'major')).toBe('3.0.0')
+  })
+})
+
+describe('inferBumpLevel', () => {
+  it('treats a described feature ship as minor', () => {
+    expect(inferBumpLevel('embeddings BYOT support')).toBe('minor')
+    expect(inferBumpLevel('feat: add semantic search')).toBe('minor')
+  })
+  it('defaults to patch with no description (conservative)', () => {
+    expect(inferBumpLevel(undefined)).toBe('patch')
+    expect(inferBumpLevel('')).toBe('patch')
+  })
+  it('treats fix/chore/docs-class prefixes as patch', () => {
+    expect(inferBumpLevel('fix: dedup key bug')).toBe('patch')
+    expect(inferBumpLevel('chore: bump deps')).toBe('patch')
+    expect(inferBumpLevel('docs(readme): update')).toBe('patch')
+    expect(inferBumpLevel('refactor: extract helper')).toBe('patch')
+  })
+  it('treats `!` or BREAKING CHANGE as major', () => {
+    expect(inferBumpLevel('feat!: drop node 18')).toBe('major')
+    expect(inferBumpLevel('feat: x\n\nBREAKING CHANGE: removed API')).toBe('major')
+  })
+})
 
 describe('bumpPatch', () => {
   it('bumps stable patch', () => {

@@ -270,6 +270,16 @@ export const projectMemory = {
     const provenance = args.provenance ?? 'declared'
     const contentHash = memoryFingerprint(args.content)
 
+    // Resolve the project once and reuse it for both the dedup guard and the
+    // sync publish below (each used to read + parse the config independently).
+    let projectId: string | undefined
+    try {
+      const { default: configManager } = await import('../infrastructure/config-manager')
+      projectId = (await configManager.readConfig(projectPath))?.projectId
+    } catch {
+      /* config unreadable — dedup + sync are best-effort; the local write proceeds */
+    }
+
     // Dedup net: a verbatim re-capture of the same (type, content) adds no
     // knowledge — it only dilutes recall and burns slots in the fixed-size
     // injection budget. Skip it. This is the universal guard behind EVERY
@@ -277,20 +287,18 @@ export const projectMemory = {
     // wiki-ingest), so a single detector re-firing each session can't spam the
     // store. Best-effort: any lookup failure falls through to a normal write —
     // a dedup miss is cheaper than a dropped capture.
-    try {
-      const { default: cfgMgr } = await import('../infrastructure/config-manager')
-      const dedupProjectId = (await cfgMgr.readConfig(projectPath))?.projectId
-      if (dedupProjectId) {
+    if (projectId) {
+      try {
         const dup = prjctDb.get<{ id: string }>(
-          dedupProjectId,
+          projectId,
           'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
           contentHash,
           args.type
         )
         if (dup) return
+      } catch {
+        /* fall through — never block a capture on the dedup check */
       }
-    } catch {
-      /* fall through — never block a capture on the dedup check */
     }
 
     const logResult = await memoryService.log(
@@ -358,11 +366,8 @@ export const projectMemory = {
     // table, but it doesn't enqueue a SyncEvent for push — that's
     // what this call does. Best-effort; a sync queue write must not
     // fail the local memory write.
+    if (!projectId) return
     try {
-      const { default: configManager } = await import('../infrastructure/config-manager')
-      const cfg = await configManager.readConfig(projectPath)
-      const projectId = cfg?.projectId
-      if (!projectId) return
       const { publishCRUD } = await import('../sync/publish-helper')
       const entityId =
         args.tags?.spec_id ??

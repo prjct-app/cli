@@ -11,12 +11,12 @@
  */
 
 import { deriveTitle, type MemoryEntry } from '../../memory/project-memory'
+import { truncate } from './_shared'
 
 const MAX_PER_SECTION = 20
 
 function teaser(content: string): string {
-  const flat = content.replace(/\s+/g, ' ').trim()
-  return flat.length > 200 ? `${flat.slice(0, 199)}…` : flat
+  return truncate(content.replace(/\s+/g, ' ').trim(), 200)
 }
 
 function bullet(entry: MemoryEntry): string {

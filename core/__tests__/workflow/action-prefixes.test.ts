@@ -136,7 +136,8 @@ describe('action prefix: changelog:add', () => {
 
     expect(result.success).toBe(true)
     const changelog = await fs.readFile(path.join(projectPath, 'CHANGELOG.md'), 'utf-8')
-    expect(changelog).toContain('1.0.1')
+    // A described feature ("flux capacitor", no fix/chore prefix) bumps MINOR.
+    expect(changelog).toContain('1.1.0')
     expect(changelog).toContain('flux capacitor')
   })
 })

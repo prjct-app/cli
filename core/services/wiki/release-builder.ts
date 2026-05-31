@@ -10,7 +10,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { ReleaseEntry } from './_shared'
+import { type ReleaseEntry, truncate } from './_shared'
 
 export function parseChangelog(raw: string): ReleaseEntry[] {
   const out: ReleaseEntry[] = []
@@ -47,10 +47,7 @@ export function parseChangelog(raw: string): ReleaseEntry[] {
 function firstMeaningfulLine(body: string): string {
   for (const raw of body.split('\n')) {
     const t = raw.replace(/^[-*#>\s]+/, '').trim()
-    if (t) {
-      const clean = t.replace(/\|/g, '\\|')
-      return clean.length > 80 ? `${clean.slice(0, 79)}…` : clean
-    }
+    if (t) return truncate(t.replace(/\|/g, '\\|'), 80)
   }
   return '—'
 }

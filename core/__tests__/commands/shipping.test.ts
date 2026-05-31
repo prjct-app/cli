@@ -159,7 +159,8 @@ describe('ship() — workflow-first', () => {
     expect(actions).toContain('git:push')
 
     const pkg = JSON.parse(await fs.readFile(path.join(projectPath, 'package.json'), 'utf-8'))
-    expect(pkg.version).toBe('0.5.1')
+    // "first ship" is a described feature (no fix/chore prefix) → MINOR bump.
+    expect(pkg.version).toBe('0.6.0')
   })
 
   test('seed-code-workflow on a non-code project returns a helpful error', async () => {

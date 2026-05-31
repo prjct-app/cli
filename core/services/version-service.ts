@@ -64,7 +64,7 @@ export class VersionService {
    * retry" failure mode where a partial ship rerun creates v+2 instead
    * of completing the original v+1.
    */
-  async bump(): Promise<string> {
+  async bump(level: BumpLevel = 'patch'): Promise<string> {
     const info = await this.detect()
 
     // Idempotency check: only consult git when the version source is a
@@ -74,13 +74,16 @@ export class VersionService {
       const headVersion = await this.readVersionFromGitHead(info.file, info.format)
       if (headVersion && this.isAheadOf(info.current, headVersion)) {
         // Working tree was already bumped (likely by a prior failed
-        // ship); reuse it instead of bumping again.
+        // ship, or a manual pre-bump); reuse it instead of bumping again.
         return info.current
       }
     }
 
-    await this.writeVersion(info)
-    return info.next
+    // `detect()` precomputes a patch bump; override with the requested level
+    // (feat ships → minor, etc.) computed from the current version.
+    const next = bumpVersion(info.current, level)
+    await this.writeVersion({ ...info, next })
+    return next
   }
 
   /**
@@ -342,6 +345,46 @@ export function bumpPatch(version: string): string {
   }
 
   return `${major}.${minor}.${Number(patch) + 1}`
+}
+
+export type BumpLevel = 'patch' | 'minor' | 'major'
+
+/** Minor bump: "2.32.8" -> "2.33.0" (resets patch, drops any pre-release). */
+export function bumpMinor(version: string): string {
+  const m = version.match(/^(\d+)\.(\d+)\.(\d+)/)
+  if (!m) return version
+  return `${m[1]}.${Number(m[2]) + 1}.0`
+}
+
+/** Major bump: "2.32.8" -> "3.0.0" (resets minor+patch, drops any pre-release). */
+export function bumpMajor(version: string): string {
+  const m = version.match(/^(\d+)\.(\d+)\.(\d+)/)
+  if (!m) return version
+  return `${Number(m[1]) + 1}.0.0`
+}
+
+/** Bump `version` by the given level. */
+export function bumpVersion(version: string, level: BumpLevel): string {
+  if (level === 'major') return bumpMajor(version)
+  if (level === 'minor') return bumpMinor(version)
+  return bumpPatch(version)
+}
+
+/**
+ * Infer the semver bump level from a conventional-commit-style description.
+ * A ship is a feature by default → MINOR; explicit non-feature prefixes
+ * (fix/chore/docs/refactor/perf/style/test/build/ci/revert) → PATCH; a `!`
+ * marker or "BREAKING CHANGE" → MAJOR. This is what lets `feat:` ships bump
+ * minor instead of every ship defaulting to patch.
+ */
+export function inferBumpLevel(description: string | undefined): BumpLevel {
+  const d = (description ?? '').toLowerCase().trim()
+  if (!d) return 'patch' // no signal → conservative default
+  if (/^[a-z]+(\([^)]*\))?!:/.test(d) || d.includes('breaking change')) return 'major'
+  if (/^(fix|chore|docs|refactor|perf|style|test|build|ci|revert)(\([^)]*\))?:/.test(d)) {
+    return 'patch'
+  }
+  return 'minor'
 }
 
 /**

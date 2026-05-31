@@ -84,6 +84,12 @@ export function sha256(body: string): string {
   return crypto.createHash('sha256').update(body).digest('hex').slice(0, 16)
 }
 
+/** Truncate to at most `max` chars, appending an ellipsis when shortened.
+ *  The result (including the ellipsis) never exceeds `max`. */
+export function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value
+}
+
 export function chunkEntries<T>(entries: T[], size = CHUNK_SIZE): T[][] {
   if (entries.length <= size) return [entries]
   const out: T[][] = []

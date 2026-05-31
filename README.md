@@ -69,13 +69,12 @@ check, logs to `~/.prjct-cli/state/auto-update.log`).
 
 Full install + upgrade paths: [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
 
-### Native dependency repair
+### Zero native dependencies
 
-prjct-cli uses SQLite for local project memory. On Node installs, that requires the
-`better-sqlite3` native binding. The package install, `prjct install`, and
-daemon startup all verify the binding and retry `npm rebuild better-sqlite3`
-when needed. If a locked-down sandbox blocks the rebuild, install still
-continues and the daemon retries the repair the next time it starts.
+prjct-cli uses SQLite for local project memory through the runtime's **built-in**
+driver — `bun:sqlite` on Bun, `node:sqlite` on Node (≥22.5). No native addon, no
+`node-gyp`, no postinstall script. It installs cleanly under `--ignore-scripts`
+and locked-down CI, which closes the supply-chain surface a native rebuild opens.
 
 ## What you get
 
@@ -202,6 +201,7 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct status <value>` | Inline status change on the active task (`done`, `paused`, `active`, …). |
 | `prjct tag <k:v>` | Tag the active task (`type:bug`, `domain:auth`, …). |
 | `prjct remember <type> "<content>"` | Persist a memory entry (decision, learning, gotcha, …). |
+| `prjct embeddings <set\|status\|test\|clear>` | Configure the global BYOT embeddings provider (one secure key, all projects). |
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
@@ -302,24 +302,40 @@ prjct capture "check why webhook retries on 502"
 prjct context memory "auth refresh"
 ```
 
-Memory is FTS5-backed (SQLite) and persona-filtered. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `~/Documents/prjct/<slug>/_generated/`.
+Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `~/Documents/prjct/<slug>/_generated/`.
 
 > SQLite is the source of truth. The export is a snapshot — never hand-edit `_generated/`; if data is missing, fix the pipeline.
 
-### Capture from any markdown editor
+### Semantic recall (embeddings)
 
-Drop a markdown file into `~/Documents/prjct/<slug>/captured/` with a YAML frontmatter:
+On by default for **every** project — no setup, no key, no native dependency. A built-in pure-JS embedder (feature-hashed character n-grams) vectorizes memory into SQLite so recall catches morphological / cross-vocabulary matches BM25 misses (`auth`≈`authentication`).
+
+Want higher quality? Bring your own key once, globally:
+
+```bash
+prjct embeddings set --key sk-...      # stored in the macOS Keychain (else a 0600 file), never in config
+prjct embeddings test                  # validate connectivity
+prjct embeddings status                # show provider + key location
+```
+
+One key applies to every project (OpenAI-compatible — OpenAI, Ollama at `http://localhost:11434/v1`, LM Studio, …). Without it, the local embedder is used. Each project re-vectorizes on its next session.
+
+### Drop files into the vault (bidirectional)
+
+Drop a file into `~/Documents/prjct/<slug>/captured/` — it becomes memory, vectorized into the DB. Two shapes:
 
 ```markdown
 ---
 type: learning
-tags:
-  domain: auth
+tags: { domain: auth }
 ---
 JWT refresh rotation needs the prior token's `iat` to detect replay.
 ```
 
-The Stop hook (or `prjct context wiki sync`) ingests it into SQLite, then moves it to `captured/_ingested/<timestamp>/`. Works from Obsidian, vim, iA Writer, or anything that writes a `.md` file. Frontmatter is scanned for secrets before ingest.
+- **Structured** — a markdown file WITH frontmatter → one typed entry.
+- **Raw document** — any text file with no frontmatter (`.txt`, `.json`, `.csv`, `.md`, …) → a `source` entry, auto-chunked when long. Binary/rich docs (`.pdf`, `.docx`, `.rtf`, images) are extracted via tools you already have — `textutil` (macOS), `pdftotext` (poppler), `tesseract` (OCR) — with zero bundled dependency; without the tool the file waits for a re-sync after you install it.
+
+The Stop hook (or `prjct context wiki sync`) ingests, vectorizes, then moves the file to `captured/_ingested/<timestamp>/`. Content is scanned for secrets and prompt-injection before ingest.
 
 ### Why a markdown export?
 
@@ -351,6 +367,7 @@ Bring your own MCP — prjct-cli doesn't duplicate trackers.
 | Variable | Default | Description |
 |---|---|---|
 | `PRJCT_CLI_HOME` | `~/.prjct-cli` | Override global storage |
+| `PRJCT_EMBEDDINGS_API_KEY` | — | Embeddings API key (overrides `prjct embeddings set`; prefer the keychain-backed command) |
 | `PRJCT_DEBUG` | — | Enable debug logging (`1`, `true`, log level) |
 | `PRJCT_NO_DAEMON` | — | Force non-daemon path (debugging) |
 | `DEBUG` | — | Fallback debug flag |
