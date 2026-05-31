@@ -27,7 +27,7 @@ import chalk from 'chalk'
 import { STATUS_CHANGE_ACTION, TAG_EVENT_TYPE } from '../memory/events'
 import { ChangelogService } from '../services/changelog-service'
 import { memoryService } from '../services/memory-service'
-import { VersionService } from '../services/version-service'
+import { inferBumpLevel, VersionService } from '../services/version-service'
 import { getGitBranch } from '../session/git-helpers'
 import prjctDb from '../storage/database'
 import { stateStorage } from '../storage/state-storage'
@@ -186,7 +186,11 @@ async function buildPersonaInstruction(projectPath: string): Promise<string> {
 
 async function runVersionBump(projectPath: string, runCtx: WorkflowRunContext): Promise<void> {
   const service = new VersionService(projectPath)
-  const next = await service.bump()
+  // A ship is a feature by default → minor; a `fix:`/`chore:`-prefixed feature
+  // name → patch; `!`/"BREAKING CHANGE" → major. Previously every ship bumped
+  // patch regardless, so feature releases landed as 2.32.x instead of 2.33.0.
+  const level = inferBumpLevel(typeof runCtx.feature === 'string' ? runCtx.feature : undefined)
+  const next = await service.bump(level)
   runCtx.version = next
 }
 

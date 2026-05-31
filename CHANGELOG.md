@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased]
+
+## [2.33.0] - 2026-05-31
+
+A project-memory RAG overhaul — recall that never bloats, never guesses on vocabulary, ingests your documents, and a vault that is synthesis rather than a mirror. Consolidates 2.32.3–2.32.8.
+
+### Added
+
+- Semantic recall **on by default** for every project — a zero-dependency local embedder (feature-hashed character n-grams) vectorizes memory into SQLite, catching morphological / cross-vocabulary matches BM25 misses.
+- Global **BYOT embeddings**: `prjct embeddings set|status|test|clear` — bring one API key, stored in the macOS Keychain (else a 0600 file), used by every project. OpenAI-compatible (OpenAI, Ollama, LM Studio).
+- **Bidirectional vault ingest**: drop text files (`.txt/.json/.csv/.md`, auto-chunked) or binary/rich docs (`.pdf/.docx/.rtf`/images, extracted via `textutil`/`pdftotext`/`tesseract` with zero bundled dependency) into `captured/` — they become vectorized memory.
+- `architecture.md` is now synthesized for **every** project (from decisions + gotchas), not only when an LLM analysis exists.
+
+### Changed
+
+- Capture **dedups** on `(type, content)` — a verbatim re-capture is skipped, so detectors firing each session can't bloat the store.
+- Memory content is authored in **English** by convention, for cleaner embeddings and better LLM comprehension.
+- Vault sprawl cut ~46%: a single `releases/index.md` rollup (was one file per version), and opaque machine tag-pages (hash/session/…) dropped.
+- `prjct ship` infers the semver bump from the change — `feat` → minor, `fix`/`chore` → patch, breaking → major — instead of always bumping patch.
+
+### Fixed
+
+- friction-detector cross-session dedup compared a 64-char hash to a 12-char key, re-recording the same pushback every session. Migration v25 backfills `content_hash` and purges historical duplicates from both memory tables.
+
 ## [2.32.1] - 2026-05-30
 
 ### Bug Fixes
@@ -164,8 +188,6 @@
 - route all remaining os.homedir()/.prjct-cli sites through pathManager (#344)
 - optimistic CAS on StorageManager.update() — close the lost-update data race (#346)
 - gate workflow rules ingested from repo markdown (close clone-to-RCE) (#345)
-
-## [Unreleased]
 
 ## [2.32.8] - 2026-05-31
 

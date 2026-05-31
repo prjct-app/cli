@@ -18,6 +18,7 @@ import {
   type ConceptRecord,
   conceptKey,
   slugify,
+  truncate,
 } from './_shared'
 
 /**
@@ -185,7 +186,7 @@ function buildHistoryFile(entries: ArchiveEntry[], concepts: Map<string, Concept
 
   const linkFor = (kind: ConceptKind, name: string): string => {
     const rec = concepts.get(conceptKey(kind, name))
-    const display = name.length > 80 ? `${name.slice(0, 77)}…` : name
+    const display = truncate(name, 80)
     if (!rec) return `"${display}"`
     const folder = CONCEPT_FOLDERS[rec.kind]
     return `[${display}](${folder}/${rec.slug}.md)`
