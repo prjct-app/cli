@@ -18,6 +18,7 @@ import { CaptureCommands } from './capture'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ConfigCommands } from './config'
 import { ContextCommands } from './context'
+import { EmbeddingsCommands } from './embeddings'
 import { InstallCommands } from './install'
 import { McpCommands } from './mcp'
 import { PlanningCommands } from './planning'
@@ -51,6 +52,7 @@ const groupInstances: Record<CommandRoutingGroup, object> = {
   uninstall: new UninstallCommands(),
   update: new UpdateCommands(),
   spec: new SpecCommands(),
+  embeddings: new EmbeddingsCommands(),
 }
 
 function registerCategories(): void {

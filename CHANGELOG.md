@@ -167,6 +167,11 @@
 
 ## [Unreleased]
 
+## [2.32.8] - 2026-05-31
+
+### Added
+- global BYOT embeddings: one securely-stored API key (Keychain) for all projects + prjct embeddings command
+
 ## [2.32.7] - 2026-05-31
 
 ### Added

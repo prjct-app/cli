@@ -460,6 +460,29 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'embeddings',
+    group: 'core',
+    routing: { group: 'embeddings', method: 'embeddings' },
+    description:
+      'Configure the GLOBAL semantic-embeddings provider (BYOT) — one API key, stored securely, used by every project.',
+    usage: {
+      claude: '/p:embeddings status',
+      terminal:
+        'prjct embeddings <set|status|test|clear> [--key <K>] [--model <M>] [--base-url <U>]',
+    },
+    params: '[set|status|test|clear]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'BYOT: bring your own embedding API key (OpenAI-compatible)',
+      'Key stored in the macOS Keychain (else a 0600 file), never in config',
+      'Global — applies to all projects; per-project config still overrides',
+      'Without a key, recall uses the always-on local subword embedder',
+      'Validate with: prjct embeddings test',
+    ],
+  },
+  {
     name: 'config',
     group: 'core',
     routing: { group: 'config', method: 'config' },

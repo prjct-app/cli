@@ -22,6 +22,20 @@
 import { type MemoryEntry, projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 import type { LocalConfig } from '../../types/config'
+import { resolveGlobalEmbeddings } from './global'
+import { getEmbeddingsKey } from './secure-key'
+
+// Global BYOT config surface — re-exported so callers use one import path.
+export {
+  clearGlobalEmbeddings,
+  DEFAULT_EMBEDDINGS_BASE_URL,
+  DEFAULT_EMBEDDINGS_MODEL,
+  resolveGlobalEmbeddings,
+  setGlobalEmbeddings,
+} from './global'
+/** Env var holding the bearer token for the embeddings endpoint (if any).
+ *  Re-exported from secure-key so existing importers keep working. */
+export { EMBEDDINGS_API_KEY_ENV } from './secure-key'
 
 /** Produces one vector per input string, order-preserving. */
 export interface EmbeddingProvider {
@@ -34,9 +48,6 @@ export interface EmbeddingProvider {
   readonly isLocal?: boolean
   embed(texts: string[]): Promise<number[][]>
 }
-
-/** Env var holding the bearer token for the embeddings endpoint (if any). */
-export const EMBEDDINGS_API_KEY_ENV = 'PRJCT_EMBEDDINGS_API_KEY'
 
 /**
  * Resolve a provider from config, or null when embeddings are disabled.
@@ -62,7 +73,7 @@ export class HttpEmbeddingProvider implements EmbeddingProvider {
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return []
     const url = `${this.baseUrl.replace(/\/$/, '')}/embeddings`
-    const key = process.env[EMBEDDINGS_API_KEY_ENV]
+    const key = await getEmbeddingsKey()
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -156,12 +167,20 @@ export class LocalSubwordEmbeddingProvider implements EmbeddingProvider {
 }
 
 /**
- * The provider actually used at runtime: a configured HTTP endpoint when the
- * project opted into one, otherwise the local default. Unlike `resolveProvider`
- * this NEVER returns null — semantic search is on for everyone.
+ * The provider actually used at runtime, in precedence order:
+ *   1. a per-project endpoint (`config.embeddings`) — explicit override;
+ *   2. the GLOBAL BYOT endpoint (`prjct embeddings set`) — one key, all
+ *      projects, the real-model upgrade;
+ *   3. the in-process local subword embedder — the always-available default.
+ * Unlike `resolveProvider` this NEVER returns null — semantic search is on for
+ * everyone.
  */
 export function resolveActiveProvider(config: LocalConfig | null | undefined): EmbeddingProvider {
-  return resolveProvider(config) ?? new LocalSubwordEmbeddingProvider()
+  const explicit = resolveProvider(config)
+  if (explicit) return explicit
+  const global = resolveGlobalEmbeddings()
+  if (global) return new HttpEmbeddingProvider(global.baseUrl, global.model)
+  return new LocalSubwordEmbeddingProvider()
 }
 
 // Vector <-> BLOB packing (Float32 little-endian).

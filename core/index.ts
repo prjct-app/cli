@@ -264,6 +264,14 @@ async function main(): Promise<void> {
           }),
         // Per-project MCP scoping
         mcp: (p) => commands.mcp(p, process.cwd(), { md }),
+        // Global BYOT embeddings config
+        embeddings: (p) =>
+          commands.embeddings(p, process.cwd(), {
+            md,
+            key: options.key ? String(options.key) : undefined,
+            model: options.model ? String(options.model) : undefined,
+            baseUrl: options['base-url'] ? String(options['base-url']) : undefined,
+          }),
       }
 
       const handler = standardCommands[commandName]
