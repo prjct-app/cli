@@ -43,6 +43,7 @@ import type { Manifest } from './wiki/_shared'
 import { sha256, slugify } from './wiki/_shared'
 import { buildArchitectureBaseline } from './wiki/architecture-builder'
 import { buildAnalysisArchiveFiles, collectConcepts } from './wiki/concept-builder'
+import { buildDeveloperProfile } from './wiki/developer-profile-builder'
 import { computeRegenFingerprint, FINGERPRINT_FILE } from './wiki/fingerprint'
 import { buildIndexFile } from './wiki/index-builder'
 import {
@@ -212,6 +213,11 @@ export async function generateWiki(
   const archBody =
     (llmAnalysis ? buildArchitectureFile(llmAnalysis) : null) ?? buildArchitectureBaseline(declared)
   if (archBody) files.set('architecture.md', archBody)
+
+  // developer.md: the "know the developer" half of the model — preferences +
+  // friction synthesized so an agent acts as the developer would (RAG north star).
+  const devBody = buildDeveloperProfile(declared)
+  if (devBody) files.set('developer.md', devBody)
 
   // tech-debt / insights remain LLM-only — a deterministic baseline would be
   // too thin to be worth a page.

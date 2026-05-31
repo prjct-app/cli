@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-05-31
+
+### Added
+- RAG reorientation pillars 1+2: selective memory (embed only model-building knowledge, prune noise) + developer profile (developer.md from feedback+friction so the LLM acts as the dev)
+
 ## [2.33.0] - 2026-05-31
 
 A project-memory RAG overhaul — recall that never bloats, never guesses on vocabulary, ingests your documents, and a vault that is synthesis rather than a mirror. Consolidates 2.32.3–2.32.8.

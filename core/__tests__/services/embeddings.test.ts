@@ -13,7 +13,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { projectMemory } from '../../memory/project-memory'
+import { isModelMemory, projectMemory } from '../../memory/project-memory'
 import {
   cosineSimilarity,
   type EmbeddingProvider,
@@ -104,6 +104,41 @@ describe('embeddings — provider resolution', () => {
       dataPath: '',
     } as LocalConfig)
     expect(out).toHaveLength(0)
+  })
+})
+
+describe('isModelMemory — selectivity predicate', () => {
+  it('excludes raw friction signals and hot-file churn, keeps real knowledge', () => {
+    expect(isModelMemory({ type: 'decision', tags: {} })).toBe(true)
+    expect(isModelMemory({ type: 'gotcha', tags: {} })).toBe(true)
+    expect(isModelMemory({ type: 'feedback', tags: {} })).toBe(true)
+    expect(isModelMemory({ type: 'improvement-signal', tags: {} })).toBe(false)
+    expect(isModelMemory({ type: 'learning', tags: { pattern: 'hot-file' } })).toBe(false)
+    // a recurring-bug pattern learning is signal, not noise
+    expect(isModelMemory({ type: 'learning', tags: { pattern: 'recurring-bug' } })).toBe(true)
+  })
+})
+
+describe('embeddings — backfill is selective (model memory only)', () => {
+  it('embeds only model memories and prunes noise vectors', async () => {
+    const decision = write('decision', 'we chose sqlite for local-first storage')
+    write('improvement-signal', '[negation] pushback', { source: 'friction-detector' })
+    write('learning', 'bin/prjct.ts — 5 touches in 7 days', { pattern: 'hot-file' })
+
+    const r = await embeddingService.backfill(
+      projectId,
+      { projectId, dataPath: '' } as LocalConfig,
+      NOW
+    )
+    // total/embedded count only the model-worthy entry (the decision).
+    expect(r.total).toBe(1)
+    expect(r.embedded).toBe(1)
+
+    const rows = prjctDb.query<{ memory_id: string }>(
+      projectId,
+      'SELECT memory_id FROM memory_embeddings'
+    )
+    expect(rows.map((row) => row.memory_id)).toEqual([decision])
   })
 })
 

@@ -19,7 +19,7 @@
  * The provider is injectable so tests run fully offline against a fake.
  */
 
-import { type MemoryEntry, projectMemory } from '../../memory/project-memory'
+import { isModelMemory, type MemoryEntry, projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 import type { LocalConfig } from '../../types/config'
 import { resolveGlobalEmbeddings } from './global'
@@ -276,8 +276,19 @@ export const embeddingService = {
     const provider = opts.provider ?? resolveActiveProvider(config)
     const batchSize = opts.batchSize ?? 64
     const all = projectMemory.allEntriesForIndex(projectId)
+
+    // Selectivity (RAG north star): embed only entries that MODEL the
+    // project/developer, never bulk-vectorize telemetry noise. Prune any noise
+    // vectors a prior (indiscriminate) backfill stored, so semantic recall
+    // stops surfacing hot-file churn / raw friction.
+    const model = all.filter((e) => isModelMemory(e))
+    this.pruneNonModelVectors(
+      projectId,
+      all.filter((e) => !isModelMemory(e)).map((e) => e.id)
+    )
+
     const have = this.embeddedIds(projectId, provider.model)
-    const todo = all.filter((e) => !have.has(e.id) && e.content.trim().length > 0)
+    const todo = model.filter((e) => !have.has(e.id) && e.content.trim().length > 0)
 
     let embedded = 0
     for (let i = 0; i < todo.length; i += batchSize) {
@@ -295,7 +306,23 @@ export const embeddingService = {
         // Skip this batch; the next backfill retries it.
       }
     }
-    return { embedded, skipped: all.length - todo.length, total: all.length }
+    return { embedded, skipped: model.length - todo.length, total: model.length }
+  },
+
+  /** Delete stored vectors for entries that are no longer model-worthy
+   *  (e.g. noise embedded by an older indiscriminate backfill). Best-effort. */
+  pruneNonModelVectors(projectId: string, noiseIds: string[]): void {
+    if (noiseIds.length === 0) return
+    try {
+      const placeholders = noiseIds.map(() => '?').join(',')
+      prjctDb.run(
+        projectId,
+        `DELETE FROM memory_embeddings WHERE memory_id IN (${placeholders})`,
+        ...noiseIds
+      )
+    } catch {
+      /* best-effort — a stale noise vector is harmless until the next run */
+    }
   },
 
   /**

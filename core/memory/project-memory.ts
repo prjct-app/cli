@@ -84,6 +84,25 @@ export interface MemoryEntry {
   provenance: MemoryProvenance
 }
 
+/**
+ * Is this entry knowledge that MODELS the project/developer — worth embedding
+ * for semantic recall — or auto-generated telemetry that is noise?
+ *
+ * Per the RAG north star, the point is a model that anticipates, not bulk
+ * vectorization. Two classes of high-volume / low-signal noise are excluded:
+ *   - `improvement-signal` — raw friction / skill-miss captures. They feed the
+ *     DEVELOPER PROFILE (synthesized separately), not semantic recall, where
+ *     near-duplicate pushbacks would only dilute results.
+ *   - `pattern: hot-file` — "file changed N times this week" churn counters.
+ * Everything else (decisions, gotchas, learnings, facts, feedback, recurring
+ * bug patterns, ingested sources, specs) builds the model and is embedded.
+ */
+export function isModelMemory(entry: Pick<MemoryEntry, 'type' | 'tags'>): boolean {
+  if (entry.type === 'improvement-signal') return false
+  if (entry.tags?.pattern === 'hot-file') return false
+  return true
+}
+
 interface RecallOpts {
   /** Fuzzy-match against content + tag values */
   topic?: string
