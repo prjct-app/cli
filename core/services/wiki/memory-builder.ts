@@ -316,19 +316,46 @@ export function buildMemoryFiles(
   return files
 }
 
+/**
+ * Tag keys that are machine bookkeeping, not browsable categories — their
+ * values are opaque hashes / uuids / counters that spawned hundreds of vault
+ * pages nobody reads (tags/key/<hash>.md, tags/session/<uuid>.md, …). We skip
+ * generating pages for them; the entries are still reachable via memory/<type>
+ * and search. Human dimensions (topic, type, pr, file, domain, …) still get
+ * pages.
+ */
+const NOISE_TAG_KEYS = new Set([
+  'key',
+  'hash',
+  'content-hash',
+  'content_hash',
+  'session',
+  'window-days',
+  'window_days',
+  'touches',
+  'occurrences',
+  'phrase',
+  'slug',
+  'spec-id',
+  'spec_id',
+  'kind',
+])
+
 export function buildTagFiles(
   entries: MemoryEntry[],
   allEntries: MemoryEntry[] = entries
 ): Map<string, string> {
   // One page per distinct tag pair (`tags/<key>/<value>.md`) + an index
   // per tag key (`tags/<key>.md`). Relation tags are excluded — they're
-  // graph edges, not categories (Defect C).
+  // graph edges, not categories (Defect C). Opaque machine keys (NOISE_TAG_KEYS)
+  // are skipped so the vault stays browsable signal, not hash sprawl.
   const files = new Map<string, string>()
   const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
   const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
   const byPair = groupByTagPair(entries)
 
   for (const [key, byValue] of byPair) {
+    if (NOISE_TAG_KEYS.has(key)) continue
     const keySlug = slugify(key)
     const indexLines = [`# Tag: ${key}`, '']
     const sortedValues = [...byValue.entries()].sort((a, b) => a[0].localeCompare(b[0]))

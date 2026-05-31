@@ -41,6 +41,7 @@ import type { WorkflowRule } from '../types/storage/extended'
 import { ensureObsidianVault } from './obsidian-vault'
 import type { Manifest } from './wiki/_shared'
 import { sha256, slugify } from './wiki/_shared'
+import { buildArchitectureBaseline } from './wiki/architecture-builder'
 import { buildAnalysisArchiveFiles, collectConcepts } from './wiki/concept-builder'
 import { computeRegenFingerprint, FINGERPRINT_FILE } from './wiki/fingerprint'
 import { buildIndexFile } from './wiki/index-builder'
@@ -204,13 +205,17 @@ export async function generateWiki(
   const patternsBody = buildPatternsFile(patterns, antiPatterns)
   if (patternsBody) files.set('patterns.md', patternsBody)
 
-  // LLM-only sections: architecture, tech debt, risks, refactors, conventions,
-  // project insights. Each lands in its own markdown file so the vault stays
-  // browsable and agents can fetch them individually.
-  if (llmAnalysis) {
-    const archBody = buildArchitectureFile(llmAnalysis)
-    if (archBody) files.set('architecture.md', archBody)
+  // architecture.md: prefer the rich LLM analysis when present, otherwise
+  // synthesize a baseline from declared memory (decisions + gotchas) so the
+  // "read architecture.md first" contract holds for EVERY project, not just
+  // ones that ran an LLM analysis.
+  const archBody =
+    (llmAnalysis ? buildArchitectureFile(llmAnalysis) : null) ?? buildArchitectureBaseline(declared)
+  if (archBody) files.set('architecture.md', archBody)
 
+  // tech-debt / insights remain LLM-only — a deterministic baseline would be
+  // too thin to be worth a page.
+  if (llmAnalysis) {
     const debtBody = buildTechDebtFile(llmAnalysis)
     if (debtBody) files.set('tech-debt.md', debtBody)
 
