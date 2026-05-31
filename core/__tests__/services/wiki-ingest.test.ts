@@ -252,8 +252,10 @@ describe('Wiki Ingest — raw documents', () => {
     expect(recallAll().every((e) => e.type === 'source')).toBe(true)
   })
 
-  test('ignores unsupported (binary) extensions', async () => {
-    await dropNote('diagram.png', 'not-really-an-image-but-wrong-ext')
+  test('ignores extensions that are neither text nor extractable', async () => {
+    // .zip is not in the text allowlist nor handled by any extractor → it is
+    // never even listed, so no ingest, no skip entry, no noise.
+    await dropNote('archive.zip', 'PK binary junk')
     const result = await ingestCapturedNotes(projectPath)
     expect(result.ingested).toBe(0)
     expect(result.skipped).toEqual([])
@@ -283,6 +285,21 @@ describe('Wiki Ingest — raw documents', () => {
     const [entry] = recallAll()
     expect(entry.tags.part).toBeUndefined()
     expect(entry.tags.doc).toBeUndefined()
+  })
+
+  test('a binary drop with no available extractor is skipped with an actionable hint (never lost)', async () => {
+    // `.pdf` is in the dropzone allowlist but needs poppler. Whether or not
+    // this machine has pdftotext, the file must be ACCOUNTED FOR — ingested or
+    // skipped-with-reason, never silently dropped or crashed.
+    const filePath = await dropNote('scan.pdf', '%PDF-1.4 not real pdf bytes')
+    const result = await ingestCapturedNotes(projectPath)
+    expect(result.errors).toEqual([])
+    expect(result.ingested + result.skipped.length).toBe(1)
+    if (result.skipped.length === 1) {
+      expect(result.skipped[0].reason).toMatch(/extract|poppler/i)
+      // Left in the inbox so a re-sync after installing the tool picks it up.
+      await expect(fs.stat(filePath)).resolves.toBeTruthy()
+    }
   })
 })
 

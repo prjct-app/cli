@@ -167,6 +167,11 @@
 
 ## [Unreleased]
 
+## [2.32.6] - 2026-05-31
+
+### Added
+- binary ingest extractors: zero-dep auto-detect (textutil/pdftotext/tesseract) for PDF/Office/images
+
 ## [2.32.5] - 2026-05-31
 
 ### Added
