@@ -555,11 +555,11 @@ export const projectMemory = {
   /**
    * Anticipation lookup (RAG north star, pillar 3): the PREVENTIVE memories
    * recorded against a specific file — gotchas, anti-patterns, recurring-bug
-   * patterns. Surfaced right before the file is edited so the trap is seen
-   * before it's stepped in, not after.
+   * patterns. Pulled on demand before editing — via `prjct guard <file>` or
+   * the `prjct_guard` MCP tool — so the trap is seen before it's stepped in.
    *
    * Deliberately strict: only the "you'll break something" types, so the
-   * pre-edit warning fires rarely and never becomes noise. Plain decisions /
+   * result is empty for most files and never becomes noise. Plain decisions /
    * learnings about the file are NOT included here.
    *
    * Matches the stored `file` tag (repo-relative) against the edited path by

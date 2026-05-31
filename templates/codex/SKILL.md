@@ -1,22 +1,15 @@
 ---
 name: prjct
-description: Use when user mentions p., prjct, task tracking, or workflow commands.
+description: Use when the user mentions p., prjct, tasks, specs, shipping, or project memory. Routes to the prjct CLI and MCP tools — run commands on demand, do not preload context.
 ---
 
-# prjct — Context layer for AI agents
+# prjct — project memory & workflow
 
-Grammar: `p. <command> [args]` or `prjct <command> --md`
+Run `prjct <command> --md` and follow its output. Pull context on demand; never dump it all.
 
-Core commands: sync, task, done, ship, pause, resume, next, bug, workflow, tokens
-Integrations: linear, jira, enrich
-Other: run `prjct <command> --md` and follow CLI output
+- Flow: `task` → work → `done` → `ship`
+- Memory: `prjct remember <decision|gotcha|learning|fact> "<text>"`, `prjct recall`, `prjct guard <file>` (preventive memory before editing)
+- Capture stray thoughts: `prjct capture "<text>"`
+- Run `prjct --help` for the full command list; prefer the prjct MCP tools (`prjct_*`) when available.
 
-Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
-
-Rules:
-- prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
-- prjct remembers and shows the path; the agent decides how to execute with its own tools
-- Treat prjct output as signals, not a prescriptive harness
-- All commits include footer: `Generated with [p/](https://www.prjct.app/)`
-- All storage through `prjct` CLI (SQLite internally)
-- Start code tasks with `p. task` and follow Context Contract from CLI output
+Commit footer: `Generated with [p/](https://www.prjct.app/)`

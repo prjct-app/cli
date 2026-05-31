@@ -16,7 +16,6 @@ import type { HookIo } from './_runner'
 import { runCwdChangedHook } from './cwd-changed'
 import { runPostEditHook } from './post-edit'
 import { runPreCommitHook } from './pre-commit'
-import { runPreEditHook } from './pre-edit'
 import { runPromptHook } from './prompt'
 import { runSessionStartHook } from './session-start'
 import { runStopHook } from './stop'
@@ -30,7 +29,6 @@ export const HOOK_RUNNERS: Record<string, HookRunner> = {
   'session-start': runSessionStartHook,
   prompt: runPromptHook,
   'pre-commit': runPreCommitHook,
-  'pre-edit': runPreEditHook,
   'post-edit': runPostEditHook,
   stop: runStopHook,
   'subagent-start': runSubagentStartHook,

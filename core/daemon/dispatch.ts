@@ -120,6 +120,11 @@ export async function executeCommand(
       })
     case 'config':
       return commands.config(param, request.cwd, { md })
+    case 'guard':
+      return commands.guard(param, request.cwd, {
+        md,
+        limit: opts.limit ? Number(opts.limit) : undefined,
+      })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

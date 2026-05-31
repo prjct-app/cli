@@ -22,6 +22,7 @@ import { CaptureCommands } from './capture'
 import { ConfigCommands } from './config'
 import { ContextCommands } from './context'
 import { EmbeddingsCommands } from './embeddings'
+import { GuardCommands } from './guard'
 import { InstallCommands } from './install'
 import { McpCommands } from './mcp'
 import { PlanningCommands } from './planning'
@@ -55,6 +56,7 @@ class PrjctCommands {
   private teamCmds: TeamCommands
   private configCmds: ConfigCommands
   private embeddingsCmds: EmbeddingsCommands
+  private guardCmds: GuardCommands
   private specCmds: SpecCommands
 
   // Shared state
@@ -79,6 +81,7 @@ class PrjctCommands {
     this.teamCmds = new TeamCommands()
     this.configCmds = new ConfigCommands()
     this.embeddingsCmds = new EmbeddingsCommands()
+    this.guardCmds = new GuardCommands()
     this.specCmds = new SpecCommands()
 
     this.agent = null
@@ -258,6 +261,14 @@ class PrjctCommands {
     options: MdOption & { key?: string; model?: string; baseUrl?: string } = {}
   ): Promise<CommandResult> {
     return this.embeddingsCmds.embeddings(input, projectPath, options)
+  }
+
+  async guard(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption & { limit?: number } = {}
+  ): Promise<CommandResult> {
+    return this.guardCmds.guard(input, projectPath, options)
   }
 
   // ========== Auth Commands ==========

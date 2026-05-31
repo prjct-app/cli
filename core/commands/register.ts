@@ -19,6 +19,7 @@ import { CATEGORIES, COMMANDS } from './command-data'
 import { ConfigCommands } from './config'
 import { ContextCommands } from './context'
 import { EmbeddingsCommands } from './embeddings'
+import { GuardCommands } from './guard'
 import { InstallCommands } from './install'
 import { McpCommands } from './mcp'
 import { PlanningCommands } from './planning'
@@ -53,6 +54,7 @@ const groupInstances: Record<CommandRoutingGroup, object> = {
   update: new UpdateCommands(),
   spec: new SpecCommands(),
   embeddings: new EmbeddingsCommands(),
+  guard: new GuardCommands(),
 }
 
 function registerCategories(): void {

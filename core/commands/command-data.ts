@@ -483,6 +483,28 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'guard',
+    group: 'core',
+    routing: { group: 'guard', method: 'guard' },
+    description:
+      'Surface preventive memory (gotchas, anti-patterns, recurring-bugs) recorded against a file BEFORE you edit it — anticipation, provider-agnostic.',
+    usage: {
+      claude: '/p:guard <file>',
+      terminal: 'prjct guard <file>',
+    },
+    params: '<file>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Pillar 3 (anticipation): see the trap before you step in it',
+      'Pull, not push — also exposed as the prjct_guard MCP tool for Claude + Codex',
+      'Strict: only gotchas / anti-patterns / recurring-bugs — never plain decisions, so no noise',
+      'Quiet by design: "clear to edit" when nothing preventive matches',
+      'Matches absolute or repo-relative paths by exact / suffix / basename',
+    ],
+  },
+  {
     name: 'config',
     group: 'core',
     routing: { group: 'config', method: 'config' },

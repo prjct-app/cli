@@ -32,7 +32,8 @@ export class InstallCommands extends PrjctCommandsBase {
     try {
       const result = await installHooks()
       const total = PRJCT_HOOKS.length
-      const msg = `installed ${result.hooksWritten} new, ${result.alreadyPresent} already present (total ${total} hooks)`
+      const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
+      const msg = `installed ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
       if (options.md) {
         console.log(
           [
@@ -42,6 +43,7 @@ export class InstallCommands extends PrjctCommandsBase {
             ``,
             `- new: ${result.hooksWritten}`,
             `- already present: ${result.alreadyPresent}`,
+            `- retired removed: ${result.hooksPruned}`,
             `- total expected: ${total}`,
             ``,
             `> Only \`_prjctManaged: true\` entries were touched. Your other hooks are untouched.`,

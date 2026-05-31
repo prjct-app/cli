@@ -50,6 +50,68 @@ describe('settings-installer', () => {
     const second = await install()
     expect(second.hooksWritten).toBe(0)
     expect(second.alreadyPresent).toBe(PRJCT_HOOKS.length)
+    expect(second.hooksPruned).toBe(0)
+  })
+
+  test('install prunes a retired managed hook (e.g. pre-edit) from existing settings', async () => {
+    const settingsPath = path.join(home, '.claude', 'settings.json')
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true })
+    // Simulate a settings file from an older prjct that installed `pre-edit`.
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: 'Edit|Write',
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'command -v prjct >/dev/null 2>&1 && prjct hook pre-edit || exit 0',
+                  _prjctManaged: true,
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+
+    const result = await install()
+    expect(result.hooksPruned).toBe(1)
+
+    const parsed = JSON.parse(await fs.readFile(settingsPath, 'utf-8'))
+    const commands = JSON.stringify(parsed.hooks)
+    expect(commands).not.toContain('hook pre-edit')
+    // The retired-hook's now-empty Edit|Write block under PreToolUse is gone,
+    // but the current pre-commit PreToolUse hook is present.
+    expect(commands).toContain('hook pre-commit')
+  })
+
+  test('prune leaves foreign (non-prjct) hooks with unknown subcommands untouched', async () => {
+    const settingsPath = path.join(home, '.claude', 'settings.json')
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true })
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: 'Edit|Write',
+              hooks: [
+                // Looks like a `hook X` command but is NOT prjct-managed.
+                { type: 'command', command: 'othertool hook pre-edit' },
+              ],
+            },
+          ],
+        },
+      })
+    )
+
+    const result = await install()
+    expect(result.hooksPruned).toBe(0)
+    const parsed = JSON.parse(await fs.readFile(settingsPath, 'utf-8'))
+    expect(JSON.stringify(parsed.hooks)).toContain('othertool hook pre-edit')
   })
 
   test('install preserves foreign (non-prjct) hooks under the same event', async () => {
