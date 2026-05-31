@@ -35,6 +35,7 @@ import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { WorkflowRule } from '../types/storage/extended'
 import { scanForPromptInjection } from '../utils/prompt-injection'
 import { scanForSecrets } from '../utils/secret-scanner'
+import { EXTRACTABLE_EXTENSIONS, extractHint, extractText } from './ingest-extractors'
 import { resolveVaultRoot } from './wiki-migration'
 
 const CAPTURED_SUBDIR = 'captured'
@@ -110,8 +111,22 @@ export async function ingestCapturedNotes(
   for (const absPath of files) {
     const relName = path.basename(absPath)
     try {
-      const raw = await fs.readFile(absPath, 'utf-8')
-      const built = buildEntries(relName, raw)
+      const ext = path.extname(relName).toLowerCase()
+      let built: BuildResult
+      if (TEXT_EXTENSIONS.has(ext)) {
+        built = buildEntries(relName, await fs.readFile(absPath, 'utf-8'))
+      } else {
+        // Binary / rich document → external extractor (textutil / pdftotext /
+        // tesseract) IF the user has one. Absent → skip with an install hint;
+        // the file stays in the inbox so a re-sync after install picks it up.
+        const extracted = await extractText(absPath)
+        built = extracted
+          ? {
+              ok: true,
+              entries: buildDocEntries(relName, extracted.text, { extracted: extracted.tool }),
+            }
+          : { ok: false, error: `no text extracted from ${ext} — ${extractHint(ext)}` }
+      }
       if (!built.ok) {
         result.skipped.push({ file: relName, reason: built.error })
         continue
@@ -184,21 +199,30 @@ function buildEntries(relName: string, raw: string): BuildResult {
 
   const text = raw.trim()
   if (!text) return { ok: false, error: 'empty file' }
+  return { ok: true, entries: buildDocEntries(relName, text) }
+}
 
-  const baseTags: Record<string, string> = { file: relName, origin: 'ingest' }
-  const chunks = chunkText(text)
+/**
+ * A raw document (frontmatter-less text, or text extracted from a binary) →
+ * `source` memory entries, chunked when long. `extraTags` carries provenance
+ * like `extracted: pdftotext`. Callers guarantee non-empty text.
+ */
+function buildDocEntries(
+  relName: string,
+  text: string,
+  extraTags: Record<string, string> = {}
+): ParsedNote[] {
+  const baseTags: Record<string, string> = { file: relName, origin: 'ingest', ...extraTags }
+  const chunks = chunkText(text.trim())
   if (chunks.length === 1) {
-    return { ok: true, entries: [{ type: DEFAULT_DOC_TYPE, tags: baseTags, content: chunks[0]! }] }
+    return [{ type: DEFAULT_DOC_TYPE, tags: baseTags, content: chunks[0]! }]
   }
   const docSlug = slugifyName(relName)
-  return {
-    ok: true,
-    entries: chunks.map((content, i) => ({
-      type: DEFAULT_DOC_TYPE,
-      tags: { ...baseTags, doc: docSlug, part: `${i + 1}/${chunks.length}` },
-      content,
-    })),
-  }
+  return chunks.map((content, i) => ({
+    type: DEFAULT_DOC_TYPE,
+    tags: { ...baseTags, doc: docSlug, part: `${i + 1}/${chunks.length}` },
+    content,
+  }))
 }
 
 /**
@@ -295,8 +319,12 @@ ${MEMORY_TYPES.map((t) => `- \`${t}\``).join('\n')}
   skipped — they ingest as raw documents.
 - \`tags\` is optional — a flat \`key: value\` map.
 - Supported text formats: \`.md .markdown .mdx .txt .text .json .yaml .yml
-  .csv .tsv .log .rst .org\`. (Binary formats like PDF/images are not yet
-  extracted.)
+  .csv .tsv .log .rst .org\`.
+- Binary / rich docs are extracted via tools you already have (zero bundled
+  dependency): \`.docx/.doc/.rtf/.html/.pages\` → \`textutil\` (macOS);
+  \`.pdf\` → \`pdftotext\` (\`brew install poppler\`); images → \`tesseract\`
+  (\`brew install tesseract\`). Without the tool, the file is left here with a
+  hint so a re-sync after install picks it up.
 - Raw documents keep their original language; agent-authored memory is English.
 - Secret-like content (API keys, JWTs) is refused unless you pass
   \`--force\` to \`prjct context wiki sync\`.
@@ -317,7 +345,8 @@ async function listNoteFiles(capturedRoot: string): Promise<string[]> {
     if (name.startsWith('.')) continue
     if (name === INGESTED_SUBDIR) continue
     if (name === README_FILENAME) continue
-    if (!TEXT_EXTENSIONS.has(path.extname(name).toLowerCase())) continue
+    const fileExt = path.extname(name).toLowerCase()
+    if (!TEXT_EXTENSIONS.has(fileExt) && !EXTRACTABLE_EXTENSIONS.has(fileExt)) continue
     files.push(path.join(capturedRoot, name))
   }
   return files
