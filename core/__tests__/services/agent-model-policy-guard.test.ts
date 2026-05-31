@@ -15,7 +15,11 @@
 import { describe, expect, it } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildPrjctSkill, emptySkillContext } from '../../services/skill-generator/prjct-skill-body'
+import {
+  buildPrjctSkill,
+  buildPrjctSkillReference,
+  emptySkillContext,
+} from '../../services/skill-generator/prjct-skill-body'
 
 const CREW_AGENTS_DIR = path.join(__dirname, '../../../templates/crew/agents')
 
@@ -66,35 +70,48 @@ describe('crew agent frontmatter — every role pins a model (no parent-max inhe
 describe('skill generation invariants — the SSOT the SKILL.md twin is built from', () => {
   it('is deterministic (pure function, no hidden state)', () => {
     expect(buildPrjctSkill(emptySkillContext())).toBe(buildPrjctSkill(emptySkillContext()))
+    expect(buildPrjctSkillReference()).toBe(buildPrjctSkillReference())
   })
 
-  it('carries the per-role model policy and all three tiers', () => {
-    const skill = buildPrjctSkill(emptySkillContext())
-    expect(skill).toContain('Model policy (perf')
-    expect(skill).toContain('model: "opus"')
-    expect(skill).toContain('model: "sonnet"')
-    expect(skill).toContain('model: "haiku"')
+  // The heavy methodology (model policy, point-don't-carry, fan-out, crew
+  // reconciliation) moved out of the always-in-context SKILL.md body into
+  // the pulled-on-demand `workflows.md` reference (2.37 context-efficiency
+  // pivot). It still ships on disk next to SKILL.md, so these guards now
+  // protect the reference twin.
+  it('reference carries the per-role model policy and all three tiers', () => {
+    const ref = buildPrjctSkillReference()
+    expect(ref).toContain('Model policy (perf')
+    expect(ref).toContain('model: "opus"')
+    expect(ref).toContain('model: "sonnet"')
+    expect(ref).toContain('model: "haiku"')
   })
 
-  it('carries the point-dont-carry persistence MUST', () => {
-    const skill = buildPrjctSkill(emptySkillContext())
-    expect(skill).toContain("point, don't carry")
-    expect(skill).toContain('prjct spec show <id> --md')
+  it('reference carries the point-dont-carry persistence MUST', () => {
+    const ref = buildPrjctSkillReference()
+    expect(ref).toContain("point, don't carry")
+    expect(ref).toContain('prjct spec show <id> --md')
   })
 
-  it('documents parallel implementer fan-out with disjoint scope', () => {
-    const skill = buildPrjctSkill(emptySkillContext())
-    expect(skill).toContain('Fan out implementers')
-    expect(skill).toContain('DISJOINT files')
+  it('reference documents parallel implementer fan-out with disjoint scope', () => {
+    const ref = buildPrjctSkillReference()
+    expect(ref).toContain('Fan out implementers')
+    expect(ref).toContain('DISJOINT files')
     // Sequential fallback must be present so the reader never parallelizes
     // two implementers onto the same file.
-    expect(skill).toMatch(/do NOT parallelize/i)
+    expect(ref).toMatch(/do NOT parallelize/i)
   })
 
-  it('reconciles crew mode so the leader, not the main session, owns code work', () => {
+  it('reference reconciles crew mode so the leader, not the main session, owns code work', () => {
+    const ref = buildPrjctSkillReference()
+    expect(ref).toContain('Crew mode reconciliation')
+    expect(ref).toContain('.claude/agents/leader.md')
+  })
+
+  it('the lean SKILL.md body points at the reference instead of inlining it', () => {
     const skill = buildPrjctSkill(emptySkillContext())
-    expect(skill).toContain('Crew mode reconciliation')
-    expect(skill).toContain('.claude/agents/leader.md')
+    expect(skill).toContain('workflows.md')
+    // The heavy methodology must NOT sit in the always-in-context body.
+    expect(skill).not.toContain('Model policy (perf')
   })
 })
 

@@ -25,8 +25,10 @@ import type { SkillGenerationResult } from '../types/services.js'
 import log from '../utils/logger'
 import {
   buildPrjctSkillBody,
+  buildPrjctSkillReference,
   PRJCT_SKILL_ALLOWED_TOOLS,
   PRJCT_SKILL_DESCRIPTION,
+  PRJCT_SKILL_REFERENCE_FILE,
 } from './skill-generator/prjct-skill-body'
 import type { ConditionContext, SkillContext, SkillDefinition } from './skill-generator/types'
 
@@ -46,6 +48,8 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
     allowedTools: [...PRJCT_SKILL_ALLOWED_TOOLS],
     condition: () => true,
     body: (ctx) => buildPrjctSkillBody(ctx),
+    reference: () => buildPrjctSkillReference(),
+    referenceFile: PRJCT_SKILL_REFERENCE_FILE,
   },
 ]
 
@@ -143,6 +147,12 @@ class SkillGenerator {
 
         await fs.mkdir(skillDir, { recursive: true })
         await fs.writeFile(skillPath, content, 'utf-8')
+
+        // Deep-methodology reference (progressive disclosure): written next
+        // to SKILL.md and pulled on demand so it never sits in context.
+        if (def.reference && def.referenceFile) {
+          await fs.writeFile(path.join(skillDir, def.referenceFile), def.reference(), 'utf-8')
+        }
 
         result.generated.push({ name: def.name, path: skillPath })
       } catch (error) {

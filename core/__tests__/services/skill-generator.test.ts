@@ -309,164 +309,178 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
   })
 
-  // gstack-inspired patterns. Heavy reviews must instruct the agent to
-  // dispatch a subagent so the parent's context window doesn't fill with
-  // file reads. The audit orchestrator must demand parallel dispatch.
-  describe('subagent + orchestrator patterns', () => {
-    it('declares the subagent dispatch section with general-purpose type', async () => {
+  // Context-efficiency pivot (2.37): the heavy methodology (subagent
+  // dispatch, audit orchestrator, decision-brief, builder ethos, quality
+  // workflows) moved OUT of the always-in-context SKILL.md body into the
+  // pulled-on-demand `workflows.md` reference written next to it. These
+  // tests assert it ships on disk in the reference, and that the lean
+  // SKILL.md points to it without inlining it.
+  describe('deep-methodology reference (workflows.md)', () => {
+    async function readReference(): Promise<string> {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const dir = path.dirname(result.generated[0].path)
+      return fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
+    }
+
+    it('writes workflows.md next to SKILL.md', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const dir = path.dirname(result.generated[0].path)
+      const exists = await fs
+        .access(path.join(dir, 'workflows.md'))
+        .then(() => true)
+        .catch(() => false)
+      expect(exists).toBe(true)
+    })
+
+    it('keeps SKILL.md lean — points at the reference, does not inline it', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('### Subagent dispatch')
-      expect(content).toContain('subagent_type: "general-purpose"')
-      expect(content).toContain('context-rot defense')
+      expect(content).toContain('workflows.md')
+      // Heavy methodology must NOT sit in the always-in-context body.
+      expect(content).not.toContain('### Subagent dispatch')
+      expect(content).not.toContain('## Quality workflows')
+      expect(content).not.toContain('## Builder ethos')
+    })
+
+    it('declares the subagent dispatch section with general-purpose type', async () => {
+      const ref = await readReference()
+      expect(ref).toContain('### Subagent dispatch')
+      expect(ref).toContain('subagent_type: "general-purpose"')
+      expect(ref).toContain('context-rot defense')
     })
 
     it('instructs review/security/investigate to dispatch as subagents', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // Each heavy workflow must mention dispatching when scope is non-trivial.
-      const reviewSection = content.split('### `review`')[1]?.split('### `qa`')[0] ?? ''
+      const ref = await readReference()
+      const reviewSection = ref.split('### `review`')[1]?.split('### `qa`')[0] ?? ''
       expect(reviewSection).toContain('Dispatch as subagent')
-      const securitySection =
-        content.split('### `security`')[1]?.split('### `investigate`')[0] ?? ''
+      const securitySection = ref.split('### `security`')[1]?.split('### `investigate`')[0] ?? ''
       expect(securitySection).toContain('Dispatch as subagent')
-      const investigateSection = content.split('### `investigate`')[1]?.split('### `ship`')[0] ?? ''
+      const investigateSection = ref.split('### `investigate`')[1]?.split('### `ship`')[0] ?? ''
       expect(investigateSection).toContain('Dispatch the trace+hypothesis phase as a subagent')
     })
 
     it('exposes the audit orchestrator with parallel dispatch instructions', async () => {
+      const ref = await readReference()
+      expect(ref).toContain('### `audit`')
+      expect(ref).toContain('IN PARALLEL')
+      expect(ref).toMatch(/Subagent A.*review/)
+      expect(ref).toMatch(/Subagent B.*security/)
+      expect(ref).toMatch(/Subagent C.*investigate/)
+    })
+
+    it('the skill description scopes heavy reviews to when the diff/scope warrants', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('### `audit`')
-      expect(content).toContain('IN PARALLEL')
-      // The three sub-workflows the orchestrator runs.
-      expect(content).toMatch(/Subagent A.*review/)
-      expect(content).toMatch(/Subagent B.*security/)
-      expect(content).toMatch(/Subagent C.*investigate/)
-      // The skill description must advertise the heavy-review workflows —
-      // and (regression: perf-degradation from over-dispatch) scope them to
-      // "only when the diff/scope warrants", not unconditionally.
       expect(content).toMatch(/heavy reviews \(audit\/review\/security\/investigate\)/i)
       expect(content).toMatch(/parallel subagents ONLY when the diff\/scope warrants/i)
     })
 
     it('teaches the decision-brief format for non-trivial AskUserQuestion calls', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('### Decision-brief format')
-      expect(content).toContain('ELI10:')
-      expect(content).toContain('Stakes if we pick wrong')
-      expect(content).toContain('Recommendation:')
+      const ref = await readReference()
+      expect(ref).toContain('### Decision-brief format')
+      expect(ref).toContain('ELI10:')
+      expect(ref).toContain('Stakes if we pick wrong')
+      expect(ref).toContain('Recommendation:')
     })
 
-    // Builder ethos — three condensed principles adapted from gstack's
-    // ETHOS.md. They sit ABOVE Quality workflows so the model reads them
-    // before any methodology kicks in.
-    it('embeds the three builder-ethos principles', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('## Builder ethos')
-      expect(content).toContain('### Boil the Lake')
-      expect(content).toContain('### Search before building')
-      expect(content).toContain('### User sovereignty')
-    })
-
-    it('places ethos before Quality workflows so it primes the model', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const ethosIdx = content.indexOf('## Builder ethos')
-      const qualityIdx = content.indexOf('## Quality workflows')
+    it('embeds the three builder-ethos principles before quality workflows', async () => {
+      const ref = await readReference()
+      expect(ref).toContain('## Builder ethos')
+      expect(ref).toContain('### Boil the Lake')
+      expect(ref).toContain('### Search before building')
+      expect(ref).toContain('### User sovereignty')
+      const ethosIdx = ref.indexOf('## Builder ethos')
+      const qualityIdx = ref.indexOf('## Quality workflows')
       expect(ethosIdx).toBeGreaterThan(0)
       expect(qualityIdx).toBeGreaterThan(ethosIdx)
     })
 
     it('includes user-sovereignty anti-patterns the model must refuse', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // Specific anti-patterns from gstack's ETHOS that prevent
-      // overconfident auto-action.
-      expect(content).toMatch(/outside voice is right.*Present it\. Ask\./)
-      expect(content).toContain('Agreement is signal, not proof')
+      const ref = await readReference()
+      expect(ref).toMatch(/outside voice is right.*Present it\. Ask\./)
+      expect(ref).toContain('Agreement is signal, not proof')
     })
   })
 
-  // Verb intent map — the LLM is the intent engine. Skill body must
-  // describe each verb in terms of the user's GOAL, not phrase patterns.
+  // Verb intent map — the LLM is the intent engine. The lean SKILL.md
+  // carries a compact intent→verb→tier TABLE (the per-verb prose moved to
+  // the reference) so routing stays in context without the bulk.
   describe('verb intent map (UX phase 1)', () => {
-    it('declares the verb intent map with goal-based signal descriptions', async () => {
+    it('declares the verb intent map as a compact intent→verb→tier table', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       expect(content).toContain('## Verb intent map')
-      expect(content).toContain("recognize the user's goal, then act")
-      // Every routine verb gets its own intent description.
-      expect(content).toMatch(/### `task` — "I'm starting a piece of work"/)
+      expect(content).toContain('you run the verb, the user never types it')
+      expect(content).toContain('| Intent / signal | Verb | Tier |')
       // Regression lock (recurring [Triage before spec] / [Right-size
-      // ceremony]): the triage gate must be prominent and `task` (the
-      // default) must precede `spec`/`audit-spec` in the verb map, so the
-      // orchestrator doesn't funnel every action through specs+reviewers.
+      // ceremony]): the triage gate is prominent and `task` (the default)
+      // precedes `spec`/`audit-spec` in the verb table.
       expect(content).toContain('## TRIAGE FIRST')
-      expect(content.indexOf('### `task`')).toBeLessThan(content.indexOf('### `spec`'))
-      expect(content.indexOf('### `task`')).toBeLessThan(content.indexOf('### `audit-spec`'))
-      expect(content).toContain('### `capture` — "save this thought, don\'t decide anything yet"')
-      expect(content).toContain('### `remember decision`')
-      expect(content).toContain('### `remember learning`')
-      expect(content).toContain('### `remember gotcha`')
-      expect(content).toContain('### `ship`')
-      expect(content).toContain('### `health`')
-      expect(content).toContain('### `retro`')
-      expect(content).toContain('### `context-save`')
+      const verbMap = content.split('## Verb intent map')[1]?.split('## Routing')[0] ?? ''
+      expect(verbMap.indexOf('`prjct task')).toBeGreaterThan(-1)
+      expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct spec'))
+      expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct audit-spec'))
+      // Routine verbs present in the table.
+      expect(verbMap).toContain('`prjct capture')
+      expect(verbMap).toContain('`prjct remember decision')
+      expect(verbMap).toContain('`prjct remember learning')
+      expect(verbMap).toContain('`prjct remember gotcha')
+      expect(verbMap).toContain('`prjct ship`')
+      expect(verbMap).toContain('`prjct health --md`')
+      expect(verbMap).toContain('`prjct retro 7d --md`')
+      expect(verbMap).toContain('`prjct context-save`')
     })
 
     it('explicitly tells the model NOT to make the user type commands', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('The user does NOT type prjct commands. You do.')
+      expect(content).toContain('you run the verb, the user never types it')
       // Skill description carries the same contract.
       const description = content.split('description:')[1]?.split('\n')[0] ?? ''
       expect(description).toMatch(/never make the user type commands/i)
     })
   })
 
-  // Suggest vs auto-execute protocol — three tiers based on blast radius.
-  describe('suggest vs auto-execute protocol (UX phase 2)', () => {
-    it('declares the three-tier protocol with verbs grouped by blast radius', async () => {
+  // Routing protocol — three tiers based on blast radius (condensed from
+  // the old per-tier sections into a tight list in the lean body).
+  describe('routing protocol (UX phase 2)', () => {
+    it('declares the three-tier routing protocol by blast radius', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('## Suggest vs auto-execute')
-      expect(content).toContain('### Tier 1 — auto-execute')
-      expect(content).toContain('### Tier 2 — suggest-and-confirm')
-      expect(content).toContain('### Tier 3 — decision-brief')
+      expect(content).toContain('## Routing')
+      expect(content).toContain('Tier 1 — auto-execute')
+      expect(content).toContain('Tier 2 — suggest-and-confirm')
+      expect(content).toContain('Tier 3 — decision-brief')
     })
 
-    it('groups capture / tag / remember / context-save / health / retro into Tier 1', async () => {
+    it('groups capture / tag / remember / guard / context-save / health / retro into Tier 1', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const tier1 = content.split('### Tier 1')[1]?.split('### Tier 2')[0] ?? ''
+      const tier1 = content.split('Tier 1 — auto-execute')[1]?.split('Tier 2 —')[0] ?? ''
       expect(tier1).toContain('`capture`')
       expect(tier1).toContain('`tag`')
       expect(tier1).toContain('`remember <type>`')
+      expect(tier1).toContain('`guard`')
       expect(tier1).toContain('`context-save`')
       expect(tier1).toContain('`health`')
       expect(tier1).toContain('`retro`')
     })
 
-    it('groups ship / task / status / audit into Tier 2 (suggest-and-confirm)', async () => {
+    it('groups task / ship / status / audit into Tier 2 (suggest-and-confirm)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const tier2 = content.split('### Tier 2')[1]?.split('### Tier 3')[0] ?? ''
+      const tier2 = content.split('Tier 2 — suggest-and-confirm')[1]?.split('Tier 3 —')[0] ?? ''
       expect(tier2).toContain('`task`')
       expect(tier2).toContain('`ship`')
-      expect(tier2).toContain('`status done | paused`')
+      expect(tier2).toContain('`status done|paused`')
       expect(tier2).toContain('`audit`')
     })
 
-    it('lists the routing anti-patterns the model must refuse', async () => {
+    it('refuses pausing on routine captures and shipping without a surfaced plan', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // Asking permission for routine captures is the explicit failure mode.
-      expect(content).toContain('Anti-patterns to refuse')
-      expect(content).toMatch(/"Do you want me to capture that\?".*just capture it/)
-      expect(content).toMatch(/Running `ship` without surfacing the plan first/)
+      expect(content).toMatch(/Do NOT ask "want me to save that\?"/)
+      expect(content).toMatch(/Never run `ship` without surfacing the plan first/)
     })
   })
 })
