@@ -491,3 +491,69 @@ describe('projectMemory.searchFts — BM25 relevance over recency', () => {
     expect(hits.some((e) => e.id === 'mem_stripe')).toBe(true)
   })
 })
+
+describe('projectMemory.recallForFile — anticipation (pre-edit)', () => {
+  it('surfaces a gotcha tagged against the exact repo-relative file', async () => {
+    await writeMemoryEntry({
+      type: 'gotcha',
+      content: 'stale daemon caches old hook code; stop it before testing',
+      tags: { file: 'core/daemon/daemon.ts' },
+    })
+    const hits = projectMemory.recallForFile(projectId, 'core/daemon/daemon.ts')
+    expect(hits.length).toBe(1)
+    expect(hits[0]?.type).toBe('gotcha')
+  })
+
+  it('matches an absolute editor path by basename/suffix against the stored file tag', async () => {
+    await writeMemoryEntry({
+      type: 'gotcha',
+      content: 'params metadata must use [..] not <..> or registry treats it as required',
+      tags: { file: 'core/commands/embeddings.ts' },
+    })
+    const hits = projectMemory.recallForFile(
+      projectId,
+      '/Users/JJ/Apps/prjct-cli/core/commands/embeddings.ts'
+    )
+    expect(hits.length).toBe(1)
+  })
+
+  it('includes recurring-bug pattern entries, not just gotchas', async () => {
+    await writeMemoryEntry({
+      type: 'learning',
+      content: 'friction-detector compared 64-char hash vs 12-char key — never matched',
+      tags: { file: 'core/services/friction-detector.ts', pattern: 'recurring-bug' },
+    })
+    const hits = projectMemory.recallForFile(projectId, 'core/services/friction-detector.ts')
+    expect(hits.length).toBe(1)
+    expect(hits[0]?.tags?.pattern).toBe('recurring-bug')
+  })
+
+  it('excludes plain decisions/learnings about the file (strict, no noise)', async () => {
+    await writeMemoryEntry({
+      type: 'decision',
+      content: 'we keep the dispatcher registry as the single source of truth',
+      tags: { file: 'core/hooks/registry.ts' },
+    })
+    const hits = projectMemory.recallForFile(projectId, 'core/hooks/registry.ts')
+    expect(hits).toEqual([])
+  })
+
+  it('returns an empty array when no memory targets the file', () => {
+    expect(projectMemory.recallForFile(projectId, 'core/some/untouched-file.ts')).toEqual([])
+  })
+
+  it('returns an empty array for an empty file path', () => {
+    expect(projectMemory.recallForFile(projectId, '')).toEqual([])
+  })
+
+  it('caps results at the requested limit', async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeMemoryEntry({
+        type: 'gotcha',
+        content: `trap number ${i} on the hot file`,
+        tags: { file: 'core/hot.ts' },
+      })
+    }
+    expect(projectMemory.recallForFile(projectId, 'core/hot.ts', 2).length).toBe(2)
+  })
+})

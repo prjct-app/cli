@@ -553,6 +553,40 @@ export const projectMemory = {
   },
 
   /**
+   * Anticipation lookup (RAG north star, pillar 3): the PREVENTIVE memories
+   * recorded against a specific file — gotchas, anti-patterns, recurring-bug
+   * patterns. Surfaced right before the file is edited so the trap is seen
+   * before it's stepped in, not after.
+   *
+   * Deliberately strict: only the "you'll break something" types, so the
+   * pre-edit warning fires rarely and never becomes noise. Plain decisions /
+   * learnings about the file are NOT included here.
+   *
+   * Matches the stored `file` tag (repo-relative) against the edited path by
+   * exact / suffix / basename so an absolute path from the editor still hits.
+   */
+  recallForFile(projectId: string, filePath: string, limit = 3): MemoryEntry[] {
+    if (!filePath) return []
+    const base = filePath.split('/').pop() ?? filePath
+    const isPreventive = (e: MemoryEntry) =>
+      e.type === 'gotcha' || e.type === 'anti-pattern' || e.tags?.pattern === 'recurring-bug'
+    let pool: MemoryEntry[]
+    try {
+      pool = this.recall(projectId, { limit: 500 })
+    } catch {
+      return []
+    }
+    const matches = pool.filter((e) => {
+      const f = e.tags?.file
+      if (!f) return false
+      const fileMatch =
+        filePath === f || filePath.endsWith(`/${f}`) || (f.split('/').pop() ?? f) === base
+      return fileMatch && isPreventive(e)
+    })
+    return matches.slice(0, limit)
+  },
+
+  /**
    * Resolve a single memory entry by its `mem_<rowid>` id (or a bare
    * numeric id). This is the legibility fix: every `mem_NNNN` reference
    * the topical-memory injection / a memory body cites (`relates=mem_X`,

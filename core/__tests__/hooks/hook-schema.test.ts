@@ -2,10 +2,11 @@
  * Claude Code hook response schema guard.
  *
  * Every hook emits JSON that Claude Code validates. The schema is strict:
- * `hookSpecificOutput.additionalContext` is only valid for SessionStart,
- * UserPromptSubmit, and PostToolUse. Emitting it on Stop / PreToolUse /
+ * `hookSpecificOutput.additionalContext` is valid for SessionStart,
+ * UserPromptSubmit, PreToolUse, and PostToolUse. Emitting it on Stop /
  * SubagentStart / CwdChanged triggers a visible "The hook's output was …
- * Expected schema: …" error to the user every turn.
+ * Expected schema: …" error to the user every turn, so those fall back
+ * to the universal top-level `systemMessage` channel.
  *
  * `buildHookOutput` is the single routing point, so this test pins its
  * behavior per event. If someone adds a new event or forgets to widen
@@ -49,10 +50,10 @@ describe('buildHookOutput routes per Claude Code schema', () => {
     expect(out.hookSpecificOutput).toBeUndefined()
   })
 
-  test('PreToolUse falls back to systemMessage — additionalContext not in its schema', () => {
-    const out = buildHookOutput('PreToolUse', 'nudge')
-    expect(out.systemMessage).toBe('nudge')
-    expect(out.hookSpecificOutput).toBeUndefined()
+  test('PreToolUse uses hookSpecificOutput.additionalContext', () => {
+    const out = buildHookOutput('PreToolUse', 'ctx')
+    expect(out.hookSpecificOutput?.additionalContext).toBe('ctx')
+    expect(out.systemMessage).toBeUndefined()
   })
 
   test('SubagentStart falls back to systemMessage', () => {

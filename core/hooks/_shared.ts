@@ -15,14 +15,14 @@
 
 interface HookOutput {
   /** Top-level informational message. Accepted by every Claude Code hook
-   *  event — the only safe channel for Stop, SubagentStart, CwdChanged,
-   *  and PreToolUse since their response schemas reject
+   *  event — the only safe channel for Stop, SubagentStart, and
+   *  CwdChanged since their response schemas reject
    *  `hookSpecificOutput.additionalContext`. */
   systemMessage?: string
-  /** Only valid for SessionStart, UserPromptSubmit, and PostToolUse.
-   *  Injects context into the model's turn (stronger than a user-facing
-   *  system message). Emitting this on any other event triggers a
-   *  schema validation error in Claude Code. */
+  /** Valid for SessionStart, UserPromptSubmit, PreToolUse, and
+   *  PostToolUse. Injects context into the model's turn (stronger than a
+   *  user-facing system message). Emitting this on any other event
+   *  triggers a schema validation error in Claude Code. */
   hookSpecificOutput?: {
     hookEventName: string
     additionalContext?: string
@@ -30,7 +30,12 @@ interface HookOutput {
 }
 
 /** Events whose response schema accepts `hookSpecificOutput.additionalContext`. */
-const ADDITIONAL_CONTEXT_EVENTS = new Set(['SessionStart', 'UserPromptSubmit', 'PostToolUse'])
+const ADDITIONAL_CONTEXT_EVENTS = new Set([
+  'SessionStart',
+  'UserPromptSubmit',
+  'PreToolUse',
+  'PostToolUse',
+])
 
 export async function readStdinSafe<T = Record<string, unknown>>(): Promise<T> {
   if (process.stdin.isTTY) return {} as T

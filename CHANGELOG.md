@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.35.0] - 2026-05-31
+
+### Added
+- feat: pillar 3 anticipation — PreToolUse(Edit|Write) hook surfaces a file's gotchas/anti-patterns/recurring-bugs before you edit it, so traps are prevented not repeated
+
 ## [2.34.0] - 2026-05-31
 
 ### Added

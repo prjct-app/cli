@@ -814,6 +814,11 @@ async function main(): Promise<void> {
           await runPreCommitHook(projectPath)
           break
         }
+        case 'pre-edit': {
+          const { runPreEditHook } = await import('../core/hooks/pre-edit')
+          await runPreEditHook(projectPath)
+          break
+        }
         case 'post-edit': {
           const { runPostEditHook } = await import('../core/hooks/post-edit')
           await runPostEditHook(projectPath)
