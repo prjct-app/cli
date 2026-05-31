@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.36.0] - 2026-06-01
+
+### Added
+- feat: prjct guard <file> — provider-agnostic anticipation primitive exposing a file's preventive memory (gotchas/anti-patterns/recurring-bugs) so Codex and any non-Claude agent get pillar 3, plus Codex SKILL.md now instructs guarding before edits
+
 ## [2.35.0] - 2026-05-31
 
 ### Added

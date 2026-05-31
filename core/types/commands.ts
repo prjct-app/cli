@@ -346,6 +346,7 @@ export type CommandRoutingGroup =
   | 'update'
   | 'spec'
   | 'embeddings'
+  | 'guard'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */

@@ -272,6 +272,12 @@ async function main(): Promise<void> {
             model: options.model ? String(options.model) : undefined,
             baseUrl: options['base-url'] ? String(options['base-url']) : undefined,
           }),
+        // Anticipation primitive (provider-agnostic; Codex/others call directly)
+        guard: (p) =>
+          commands.guard(p, process.cwd(), {
+            md,
+            limit: options.limit ? Number(options.limit) : undefined,
+          }),
       }
 
       const handler = standardCommands[commandName]
