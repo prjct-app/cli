@@ -345,6 +345,7 @@ export type CommandRoutingGroup =
   | 'uninstall'
   | 'update'
   | 'spec'
+  | 'embeddings'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */
