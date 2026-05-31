@@ -39,7 +39,6 @@ export const PRJCT_HOOKS = [
     subcommand: 'pre-commit',
     ifClause: 'Bash(git commit *)',
   },
-  { event: 'PreToolUse', matcher: 'Edit|Write', subcommand: 'pre-edit' },
   { event: 'PostToolUse', matcher: 'Edit|Write', subcommand: 'post-edit' },
   { event: 'Stop', matcher: '', subcommand: 'stop' },
   { event: 'SubagentStart', matcher: '', subcommand: 'subagent-start' },
@@ -70,6 +69,43 @@ interface InstallResult {
   settingsPath: string
   hooksWritten: number
   alreadyPresent: number
+  /** Managed entries removed because their subcommand left PRJCT_HOOKS. */
+  hooksPruned: number
+}
+
+/** Subcommand of a hook command string, e.g. `… prjct hook pre-edit …` → `pre-edit`. */
+function subcommandOf(entry: HookEntry): string | null {
+  const m = entry.command?.match(/\bhook\s+(\S+)/)
+  return m ? m[1] : null
+}
+
+/**
+ * Remove prjct-managed hook entries whose subcommand is no longer declared
+ * in PRJCT_HOOKS. Empty matcher blocks and events are pruned too. Returns
+ * the count removed. Non-prjct hooks and current managed hooks are untouched.
+ */
+function pruneOrphanedManagedHooks(hooks: Record<string, HookMatcher[]>): number {
+  const valid = new Set<string>(PRJCT_HOOKS.map((h) => h.subcommand))
+  let pruned = 0
+  for (const event of Object.keys(hooks)) {
+    const blocks = hooks[event]
+    const keptBlocks: HookMatcher[] = []
+    for (const block of blocks) {
+      block.hooks = block.hooks.filter((h) => {
+        if (!isPrjctHook(h)) return true
+        const sub = subcommandOf(h)
+        if (sub && !valid.has(sub)) {
+          pruned++
+          return false
+        }
+        return true
+      })
+      if (block.hooks.length > 0) keptBlocks.push(block)
+    }
+    if (keptBlocks.length > 0) hooks[event] = keptBlocks
+    else delete hooks[event]
+  }
+  return pruned
 }
 
 interface UninstallResult {
@@ -198,9 +234,16 @@ export async function install(): Promise<InstallResult> {
     void desiredCommand
   }
 
+  // Prune orphaned managed hooks: entries we wrote in a prior version whose
+  // subcommand is no longer in PRJCT_HOOKS (e.g. `pre-edit`, retired when
+  // anticipation moved from a push hook to the pull `prjct_guard` MCP tool).
+  // Without this, a refresh-only `install()` would leave dead `prjct hook X`
+  // entries in the user's settings forever.
+  const hooksPruned = pruneOrphanedManagedHooks(hooks)
+
   settings.hooks = hooks
   await writeSettings(settings)
-  return { settingsPath: settingsPath(), hooksWritten, alreadyPresent }
+  return { settingsPath: settingsPath(), hooksWritten, alreadyPresent, hooksPruned }
 }
 
 /**

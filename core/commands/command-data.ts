@@ -498,7 +498,7 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
     features: [
       'Pillar 3 (anticipation): see the trap before you step in it',
-      'Claude Code gets this proactively via the pre-edit hook; Codex/others call it directly',
+      'Pull, not push — also exposed as the prjct_guard MCP tool for Claude + Codex',
       'Strict: only gotchas / anti-patterns / recurring-bugs — never plain decisions, so no noise',
       'Quiet by design: "clear to edit" when nothing preventive matches',
       'Matches absolute or repo-relative paths by exact / suffix / basename',

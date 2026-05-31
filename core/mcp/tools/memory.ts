@@ -7,11 +7,18 @@
  * Phase C: those layers duplicated what `projectMemory` already does
  * and made the API confusing for Claude (which to call?).
  *
- * Tools exposed (4 total):
+ * Tools exposed (5 total):
  *   - prjct_mem_save   — persist a memory entry
  *   - prjct_mem_list   — recall with optional topic / types / tags
  *   - prjct_mem_similar — fuzzy match against a description
  *   - prjct_mem_forget — remove an entry by id
+ *   - prjct_guard      — ANTICIPATION: preventive memory for a file, on demand
+ *
+ * `prjct_guard` is the pull-based form of pillar 3 (anticipation): an
+ * agent asks "what should I know before editing this file?" and gets back
+ * only the gotchas / anti-patterns / recurring-bugs recorded against it.
+ * Provider-agnostic — Codex (no hooks) and Claude both reach it here,
+ * instead of pushing the warning into every turn's context.
  *
  * `prjct capture` / `prjct remember` from the CLI call the same
  * `projectMemory` API, so whatever the human types in the terminal
@@ -164,6 +171,30 @@ export function registerMemoryTools(server: McpServer) {
           return { content: [{ type: 'text', text: 'No similar memories found.' }] }
         }
         return { content: [{ type: 'text', text: formatMemoryMd(entries, { boundary: 'llm' }) }] }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_guard',
+    'Anticipation: before editing a file, get the preventive memory recorded against it — gotchas, anti-patterns, recurring bugs only. Empty result means clear to edit. Pull this instead of guessing what might break.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      file: z.string().describe('File to check (absolute or repo-relative)'),
+      limit: z.number().optional().default(3).describe('Max preventive entries (default 3)'),
+    },
+    safeMcpCall(
+      'prjct_guard',
+      async (args: { projectPath: string; file: string; limit?: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const hits = projectMemory.recallForFile(projectId, args.file, args.limit ?? 3)
+        if (hits.length === 0) {
+          const base = args.file.split('/').pop() ?? args.file
+          return {
+            content: [{ type: 'text', text: `No preventive memory for ${base} — clear to edit.` }],
+          }
+        }
+        return { content: [{ type: 'text', text: formatMemoryMd(hits, { boundary: 'llm' }) }] }
       }
     )
   )

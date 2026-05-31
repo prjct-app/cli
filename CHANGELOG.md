@@ -4,8 +4,18 @@
 
 ## [2.36.0] - 2026-06-01
 
+Context-efficiency pivot (push → pull): stop filling the agent's context window, fix Codex, expose anticipation on demand.
+
+### Fixed
+- **Codex skill no longer rejected.** The Codex `SKILL.md` exceeded Codex's hard 1024-byte limit (1085 B), so prjct silently failed to load in Codex entirely. Rewrote it as a minimal router (~870 B) that points at the CLI + MCP instead of inlining instructions.
+
 ### Added
-- feat: prjct guard <file> — provider-agnostic anticipation primitive exposing a file's preventive memory (gotchas/anti-patterns/recurring-bugs) so Codex and any non-Claude agent get pillar 3, plus Codex SKILL.md now instructs guarding before edits
+- `prjct guard <file>` — anticipation primitive: the preventive memory (gotchas / anti-patterns / recurring-bugs) recorded against a file, pulled on demand before editing. Quiet by design ("clear to edit" when nothing matches).
+- `prjct_guard` MCP tool — the same anticipation, pull-based, for Claude and Codex (Codex has no hook system; both reach it here).
+- Installer now prunes retired prjct-managed hooks from existing settings.
+
+### Changed
+- **Pillar 3 anticipation is now pull, not push.** Replaced the `pre-edit` PreToolUse hook (which could inject into every edit) with the on-demand `prjct guard` CLI + `prjct_guard` MCP tool — the agent asks when it matters instead of prjct pushing into context.
 
 ## [2.35.0] - 2026-05-31
 

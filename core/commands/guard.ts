@@ -6,15 +6,13 @@
  * This is pillar 3 (anticipation) of the RAG north star: "anticipar, prevenir
  * bugs, conocerse para que el dev y el LLM sean uno mismo".
  *
- * Two delivery mechanisms share this one intelligence:
- *   - Claude Code: the `pre-edit` PreToolUse hook fires it proactively (no
- *     agent effort). See core/hooks/pre-edit.ts.
- *   - Codex (and any agent without hooks): the SKILL.md instructs calling
- *     `prjct guard <file>` before editing. Reactive, but it's the only
- *     injection channel those agents expose.
+ * Pull, not push: this is the CLI face of the same intelligence behind the
+ * `prjct_guard` MCP tool. The agent (Claude or Codex) asks for a file's traps
+ * on demand instead of us injecting them into every turn's context. Keeping
+ * anticipation pull-based is what stops it from bloating the context window.
  *
- * Quiet by design: prints "no preventive memory" (exit 0) when nothing
- * genuinely preventive matches, so it never becomes per-edit noise.
+ * Quiet by design: prints "clear to edit" (exit 0) when nothing genuinely
+ * preventive matches, so it never becomes noise.
  */
 
 import { deriveTitle, type MemoryEntry, projectMemory } from '../memory/project-memory'
