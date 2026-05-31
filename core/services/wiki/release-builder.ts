@@ -1,10 +1,11 @@
 /**
  * Release file builder.
  *
- * Most projects have way more history in their CHANGELOG than in the
- * young prjct SQLite tables. Parse `CHANGELOG.md` and emit one file
- * per `## [version] - date` block so every release shows up in the
- * vault as a discrete, addressable note.
+ * `CHANGELOG.md` is the source of truth and ships in the repo. The vault used
+ * to mirror it as one file PER version (hundreds of near-empty notes nobody
+ * reads — pure sprawl). Instead we emit a SINGLE `releases/index.md` rollup: a
+ * newest-first table with a one-line summary per version, pointing at
+ * `CHANGELOG.md` for the full notes.
  */
 
 import fs from 'node:fs/promises'
@@ -42,63 +43,30 @@ export function parseChangelog(raw: string): ReleaseEntry[] {
   return out
 }
 
-export function releaseSlug(version: string): string {
-  // Versions like `2.0.0-alpha.12` → `v2.0.0-alpha.12`. Obsidian-safe.
-  const cleaned = version.replace(/[^a-zA-Z0-9._-]+/g, '-')
-  return `v${cleaned}`
-}
-
-function buildReleaseFile(
-  entry: ReleaseEntry,
-  prev: { entry: ReleaseEntry; slug: string } | null,
-  next: { entry: ReleaseEntry; slug: string } | null
-): string {
-  const lines: string[] = []
-  lines.push('---')
-  lines.push(`type: release`)
-  lines.push(`version: ${entry.version}`)
-  lines.push(`date: ${entry.date}`)
-  lines.push('tags: [release]')
-  lines.push('---')
-  lines.push('')
-  lines.push(`# v${entry.version} — ${entry.date}`)
-  lines.push('')
-
-  // Nav at the top for quick hop-scrolling through release history.
-  const navParts: string[] = []
-  if (prev) navParts.push(`← [v${prev.entry.version}](${prev.slug}.md)`)
-  navParts.push(`[releases index](index.md)`)
-  if (next) navParts.push(`[v${next.entry.version}](${next.slug}.md) →`)
-  lines.push(navParts.join(' · '))
-  lines.push('')
-
-  if (entry.body) {
-    lines.push(entry.body)
-    lines.push('')
-  } else {
-    lines.push('_No changelog body._')
-    lines.push('')
+/** First non-empty, de-bulleted line of a changelog body, table-cell safe. */
+function firstMeaningfulLine(body: string): string {
+  for (const raw of body.split('\n')) {
+    const t = raw.replace(/^[-*#>\s]+/, '').trim()
+    if (t) {
+      const clean = t.replace(/\|/g, '\\|')
+      return clean.length > 80 ? `${clean.slice(0, 79)}…` : clean
+    }
   }
-
-  lines.push('---')
-  lines.push('')
-  lines.push(`[project wiki](../index.md) · [releases index](index.md)`)
-  lines.push('')
-  return `${lines.join('\n')}\n`
+  return '—'
 }
 
-function buildReleasesIndex(entries: Array<{ entry: ReleaseEntry; slug: string }>): string {
+function buildReleasesIndex(entries: ReleaseEntry[]): string {
   const lines: string[] = ['# Releases', '']
   lines.push(
-    `${entries.length} version entr${entries.length === 1 ? 'y' : 'ies'} parsed from \`CHANGELOG.md\`. Newest first.`
+    `${entries.length} version${entries.length === 1 ? '' : 's'} parsed from \`CHANGELOG.md\`. Newest first — full notes live in \`CHANGELOG.md\`.`
   )
   lines.push('')
   lines.push('See also: [project wiki](../index.md)')
   lines.push('')
-  lines.push('| Date | Version | Link |')
+  lines.push('| Date | Version | Summary |')
   lines.push('|---|---|---|')
-  for (const { entry, slug } of entries) {
-    lines.push(`| ${entry.date} | ${entry.version} | [v${entry.version}](${slug}.md) |`)
+  for (const entry of entries) {
+    lines.push(`| ${entry.date} | ${entry.version} | ${firstMeaningfulLine(entry.body)} |`)
   }
   lines.push('')
   return `${lines.join('\n')}\n`
@@ -117,29 +85,7 @@ export async function buildReleasesFiles(projectPath: string): Promise<Map<strin
   const entries = parseChangelog(raw)
   if (entries.length === 0) return out
 
-  // Some CHANGELOGs repeat a version header (re-releases, authoring
-  // mistakes). Disambiguate with a `-Nb` suffix on the slug so every
-  // parsed entry survives — we'd rather show "v1.45.6-2b.md" than drop
-  // half the history on the floor.
-  const slugSeen = new Map<string, number>()
-  const decoratedEntries: Array<{ entry: ReleaseEntry; slug: string }> = []
-  for (const entry of entries) {
-    const base = releaseSlug(entry.version)
-    const count = slugSeen.get(base) ?? 0
-    slugSeen.set(base, count + 1)
-    const slug = count === 0 ? base : `${base}-${count + 1}b`
-    decoratedEntries.push({ entry, slug })
-  }
-
-  // Two-pass so each release can carry prev/next nav pointing at the
-  // decorated slugs. `entries` is newest-first → `prev` in nav means
-  // "previous in reading order" (older).
-  for (let i = 0; i < decoratedEntries.length; i++) {
-    const curr = decoratedEntries[i]
-    const newer = i > 0 ? decoratedEntries[i - 1] : null
-    const older = i + 1 < decoratedEntries.length ? decoratedEntries[i + 1] : null
-    out.set(`releases/${curr.slug}.md`, buildReleaseFile(curr.entry, older, newer))
-  }
-  out.set('releases/index.md', buildReleasesIndex(decoratedEntries))
+  // One consolidated rollup — NOT one file per version (that was the sprawl).
+  out.set('releases/index.md', buildReleasesIndex(entries))
   return out
 }

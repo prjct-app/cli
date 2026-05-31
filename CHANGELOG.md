@@ -167,6 +167,11 @@
 
 ## [Unreleased]
 
+## [2.32.7] - 2026-05-31
+
+### Added
+- vault signal cleanup: collapse release/tag sprawl + always-on architecture.md synthesis
+
 ## [2.32.6] - 2026-05-31
 
 ### Added
