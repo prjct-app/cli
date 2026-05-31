@@ -39,6 +39,7 @@ export const PRJCT_HOOKS = [
     subcommand: 'pre-commit',
     ifClause: 'Bash(git commit *)',
   },
+  { event: 'PreToolUse', matcher: 'Edit|Write', subcommand: 'pre-edit' },
   { event: 'PostToolUse', matcher: 'Edit|Write', subcommand: 'post-edit' },
   { event: 'Stop', matcher: '', subcommand: 'stop' },
   { event: 'SubagentStart', matcher: '', subcommand: 'subagent-start' },
