@@ -38,7 +38,7 @@ export function registerSpecTools(server: McpServer) {
 
   s.tool(
     'prjct_spec_create',
-    'CALL THIS when the user describes a feature, fix, or initiative WITH goals or stakes attached (e.g. "we need rate limiting on auth", "fix onboarding", "let\'s build SDD"). Drafts a spec — Goal/ELI10/Stakes/Acceptance criteria/Scope/Out-of-scope/Risks/Test plan. The structured fields default to empty; populate them by calling `prjct_spec_update` once you have the answers. Skip this tool only for routine work (single-file fix, doc tweak, GTD capture) — for that, use `prjct_capture` or the matching memory tool.',
+    'Draft a spec when the user frames a feature/fix/initiative WITH goals or stakes (e.g. "rate limiting on auth", "fix onboarding"). Fields default empty — fill them via `prjct_spec_update`. Skip for routine work (single-file fix, doc tweak, capture); use `prjct_capture` instead.',
     {
       projectPath: z.string().describe('Project directory path'),
       title: z.string().describe("One-line title (what you'd say to a coworker walking by)"),
@@ -212,7 +212,7 @@ export function registerSpecTools(server: McpServer) {
 
   s.tool(
     'prjct_spec_set_status',
-    'Promote / demote a spec lifecycle state. Reviewers passing is auto-promoting (draft → reviewed); use this tool to mark a spec `in_progress` when work starts, `archived` when superseded, or `shipped` (use `prjct_spec_ship` instead when shipping for the first time, since it also records the PR).',
+    'Promote/demote a spec lifecycle state: `in_progress` when work starts, `archived` when superseded. (draft → reviewed auto-promotes when reviewers pass; for first ship use `prjct_spec_ship` so the PR is recorded.)',
     {
       projectPath: z.string().describe('Project directory path'),
       id: z.string().describe('Spec id'),
@@ -234,7 +234,7 @@ export function registerSpecTools(server: McpServer) {
 
   s.tool(
     'prjct_spec_audit',
-    'CALL THIS before any implementation work begins on a spec. Returns a dispatch prompt for THREE review subagents (strategic / architecture / design). RUN ALL THREE IN PARALLEL via your Agent / Task tool — one tool-use block per reviewer in the SAME message. Each returns a verdict (pass | fail) + notes. Persist each via `prjct_spec_record_review`. All three pass → the spec auto-promotes draft → reviewed and is safe to start a task against.',
+    'Call before implementing a spec. Returns a dispatch prompt for THREE review subagents (strategic / architecture / design) — run ALL THREE IN PARALLEL (one Agent block per reviewer, same message). Persist each verdict via `prjct_spec_record_review`; all three pass → spec auto-promotes draft → reviewed.',
     {
       projectPath: z.string().describe('Project directory path'),
       id: z.string().describe('Spec id to audit'),
@@ -287,7 +287,7 @@ export function registerSpecTools(server: McpServer) {
 
   s.tool(
     'prjct_spec_link_task',
-    'Link a task to its spec. Call this AFTER starting the task (when the user begins implementation) so `prjct_ship` later knows which spec to gate against. Idempotent — re-linking the same task is a no-op.',
+    'Link a task to its spec (call after starting the task) so `prjct_ship` knows which spec to gate against. Idempotent.',
     {
       projectPath: z.string().describe('Project directory path'),
       specId: z.string().describe('Spec id'),
