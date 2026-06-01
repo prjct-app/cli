@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.37.2] - 2026-06-01
+
+### Changed
+- **Quality-workflow methodology rewritten as behavior, not procedure** (in the pulled `workflows.md` reference). The `review` / `qa` / `security` / `investigate` / `ship` / `audit` sections were numbered step-by-step lists (40 procedural steps); they now describe the *observable outcome* — "what good looks like" — and let the agent discover the how. Stop-conditions, the per-role model policy, and the parallel-dispatch mechanics are kept verbatim (those are concrete operational rules, not procedure). Rationale (Deep SWE / Theo): over-specified step-by-step prompts flatter weak models and add noise; behavior-framed prompts force end-to-end exploration and let capable models self-verify. Aligns the methodology with prjct's own anti-harness ethos.
+
 ## [2.37.1] - 2026-06-01
 
 Context-efficiency, part 3: trim the recurring per-turn surfaces.
