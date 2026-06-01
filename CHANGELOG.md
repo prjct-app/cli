@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
-## [2.37.0] - 2026-06-01
+## [2.37.1] - 2026-06-01
+
+Context-efficiency, part 3: trim the recurring per-turn surfaces.
+
+### Changed
+- **Per-prompt topical-memory injection is now selective, not padded.** It fires on every prompt. Previously, when FTS/BM25 returned fewer than 8 matches it padded the set up to 8 with weaker recency/substring matches — spending tokens on low-relevance entries every turn. Now it injects exactly the BM25-ranked matches and only falls back to the recency window when FTS returns *nothing* (fresh DB / no indexed match). Narrow prompts inject few, highly-relevant entries instead of a padded eight. Also condensed the per-block preamble that repeated verbatim each prompt.
+- **MCP tool descriptions condensed** (~820 → ~680 tokens) without losing the "when to call" signal — they load into context whenever the prjct MCP server is connected.
 
 Context-efficiency, part 2: cut the Claude skill's always-on footprint by 73%.
 
