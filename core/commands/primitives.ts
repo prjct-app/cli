@@ -9,10 +9,10 @@
  * - remember: Claude saves project memory entries (fact, decision, learning…)
  */
 
-import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
+import { readLastStatus, setTaskStatus } from '../services/task-service'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -42,44 +42,35 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
-      // Resume-intent bypasses the active-task guard: when the current task
-      // is paused, there's no `currentTask` — we need to promote a paused
-      // one before we can check anything else.
-      const resumeIntent =
-        value !== null &&
-        ['active', 'resume', 'in_progress', 'working'].includes(value.toLowerCase())
-      if (resumeIntent) {
-        const current = await stateStorage.getCurrentTask(pid.value)
-        if (!current) {
-          const resumed = await stateStorage.resumeTask(pid.value)
-          if (resumed) {
-            await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
-              taskId: resumed.id,
-              from: 'paused',
-              to: value,
-            })
-            const msg = `status → ${value}`
-            if (options.md) console.log(`✓ ${msg}`)
-            else out.done(msg)
-            return { success: true, taskId: resumed.id, status: value }
-          }
+      // Value provided → delegate the write (incl. the paused-task resume
+      // bypass and the state-machine transition) to task-service, the shared
+      // non-printing core. This command owns only the presentation.
+      if (value) {
+        const outcome = await setTaskStatus(pid.value, projectPath, value)
+        if (!outcome.ok) {
+          // No active task and no paused task to resume — emit the uniform guard.
+          const task = await requireActiveTask(pid.value, options)
+          if (!task.ok) return task.result
+          return { success: false, error: 'No active task' }
         }
+        const msg = `status → ${value}`
+        if (options.md) console.log(`✓ ${msg}`)
+        else out.done(msg)
+        return { success: true, taskId: outcome.taskId, status: value }
       }
 
-      // No-arg `status` should still be informative when the task is
-      // paused (no currentTask). Show the paused task rather than a bogus
-      // "no active task" — the task exists, it just isn't the focus.
-      if (!value) {
-        const current = await stateStorage.getCurrentTask(pid.value)
-        if (!current) {
-          const paused = await stateStorage.getPausedTasks(pid.value)
-          if (paused.length > 0) {
-            const t = paused[0]
-            const line = `Task: ${t.id}  |  Type: ${t.type ?? 'unset'}  |  Status: paused`
-            if (options.md) console.log(line)
-            else out.info(line)
-            return { success: true, taskId: t.id, status: 'paused' }
-          }
+      // No-arg `status` → informative display. When the task is paused there's
+      // no `currentTask`; show the paused task rather than a bogus "no active
+      // task" — the task exists, it just isn't the focus.
+      const current = await stateStorage.getCurrentTask(pid.value)
+      if (!current) {
+        const paused = await stateStorage.getPausedTasks(pid.value)
+        if (paused.length > 0) {
+          const t = paused[0]
+          const line = `Task: ${t.id}  |  Type: ${t.type ?? 'unset'}  |  Status: paused`
+          if (options.md) console.log(line)
+          else out.info(line)
+          return { success: true, taskId: t.id, status: 'paused' }
         }
       }
 
@@ -90,49 +81,10 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       // Recover the last status transition (if any) for this task so the
       // no-args `prjct status` reflects reality, not the task `type` tag.
       const lastStatus = await readLastStatus(pid.value, active.id)
-
-      if (!value) {
-        const line = `Task: ${active.id}  |  Type: ${active.type ?? 'unset'}  |  Status: ${lastStatus ?? 'active'}`
-        if (options.md) console.log(line)
-        else out.info(line)
-        return { success: true, taskId: active.id, status: lastStatus ?? 'active' }
-      }
-
-      await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
-        taskId: active.id,
-        from: lastStatus ?? null,
-        to: value,
-      })
-
-      // Drive the real workflow state machine so state.json and the audit
-      // log agree. Without this, `status paused` flips the audit trail but
-      // leaves state.currentTask.status='in_progress', which later blocks
-      // `prjct task` with a bogus "cannot transition from working".
-      const normalized = value.toLowerCase()
-      try {
-        if (normalized === 'done' || normalized === 'completed') {
-          await stateStorage.completeTask(pid.value)
-        } else if (normalized === 'paused' || normalized === 'pause') {
-          await stateStorage.pauseTask(pid.value)
-        } else if (
-          normalized === 'active' ||
-          normalized === 'resume' ||
-          normalized === 'in_progress' ||
-          normalized === 'working'
-        ) {
-          // Only resume if there's no active task; otherwise it's a no-op.
-          const current = await stateStorage.getCurrentTask(pid.value)
-          if (!current) await stateStorage.resumeTask(pid.value)
-        }
-      } catch {
-        // State machine rejected a redundant transition (e.g. `done` on an
-        // already-completed task). The audit log still captures intent.
-      }
-
-      const msg = `status → ${value}`
-      if (options.md) console.log(`✓ ${msg}`)
-      else out.done(msg)
-      return { success: true, taskId: active.id, status: value }
+      const line = `Task: ${active.id}  |  Type: ${active.type ?? 'unset'}  |  Status: ${lastStatus ?? 'active'}`
+      if (options.md) console.log(line)
+      else out.info(line)
+      return { success: true, taskId: active.id, status: lastStatus ?? 'active' }
     } catch (error) {
       const msg = getErrorMessage(error)
       return failHard(msg)
@@ -327,32 +279,4 @@ function parseRememberArgs(args: string): ParsedRemember {
   }
   if (!content) return { ok: false, error: 'content is required' }
   return { ok: true, type, content }
-}
-
-/**
- * Read the most recent status transition for a task out of the memory
- * event log. Events outlive the task column (which only holds `type`) so
- * we can show a real status in `prjct status` without a schema change.
- */
-async function readLastStatus(projectId: string, taskId: string): Promise<string | null> {
-  try {
-    const { default: prjctDb } = await import('../storage/database')
-    type Row = { data: string }
-    const rows = prjctDb.query<Row>(
-      projectId,
-      'SELECT data FROM events WHERE type = ? ORDER BY id DESC LIMIT 10',
-      `memory.${STATUS_CHANGE_ACTION}`
-    )
-    for (const row of rows) {
-      try {
-        const parsed = JSON.parse(row.data) as { taskId?: string; to?: string }
-        if (parsed.taskId === taskId && parsed.to) return parsed.to
-      } catch {
-        // ignore malformed row
-      }
-    }
-  } catch {
-    // non-critical
-  }
-  return null
 }

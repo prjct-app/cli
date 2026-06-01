@@ -1,7 +1,7 @@
 /**
  * prjct MCP Server
  *
- * Exposes project data via Model Context Protocol (48 tools).
+ * Exposes project data via Model Context Protocol.
  * Wraps existing storage and context modules — no new logic.
  *
  */

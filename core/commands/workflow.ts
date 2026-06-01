@@ -15,14 +15,12 @@
  *   - md-helpers.ts    — buildFlowDiagram for `--md` output
  */
 
-import { generateUUID } from '../schemas/schemas'
-import { getGitBranch } from '../session/git-helpers'
+import { startTask } from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import * as dateHelper from '../utils/date-helper'
 import { failFromError } from '../utils/md-aware'
 import {
   mdActionRequired,
@@ -77,58 +75,21 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // No task arg → show the active one (or none).
       if (!task) return this._showActiveTask(projectId, options)
 
-      // before_task workflow rules (gates may block, hooks may nudge).
-      const beforeResult = await executeWorkflowRules(projectId, 'task', 'before', {
-        projectPath,
-        skipRules: options.skipHooks,
+      // Side-effecting core lives in task-service so the MCP write-path
+      // fires identical gates/state/memory without printing to stdout.
+      const outcome = await startTask(projectId, projectPath, task, {
+        skipHooks: options.skipHooks,
+        spec: options.spec,
       })
-      if (!beforeResult.success) {
-        const msg =
-          beforeResult.gatesFailed.length > 0
-            ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
-            : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
-        return { success: false, error: msg }
+      if (!outcome.ok) {
+        return { success: false, error: outcome.blocked ?? 'Task start blocked' }
       }
 
-      // Optional Linear issue linkage — matches e.g. `PRJ-42`. Pure tag,
-      // no external status transitions (Linear MCP handles those).
-      const linearId = /^[A-Z]+-\d+$/.test(task) ? task : undefined
-      const taskDescription = task
-
-      const taskId = generateUUID()
-      // SDD linkage: --spec wires this task to a spec for the ship gate.
-      const linkedSpecId = options.spec
-      await stateStorage.startTask(projectId, {
-        id: taskId,
-        description: taskDescription,
-        sessionId: generateUUID(),
-        linearId,
-        linkedSpecId,
-      } as Parameters<typeof stateStorage.startTask>[1])
-
-      // Mirror the linkage on the spec side so `prjct spec show <id>`
-      // lists the linked task. Best-effort — a missing spec just no-ops.
-      if (linkedSpecId) {
-        try {
-          const { specService } = await import('../services/spec-service')
-          await specService.linkTask(projectPath, linkedSpecId, taskId)
-        } catch {
-          // ignore — task creation already succeeded
-        }
-      }
-
-      await this.logToMemory(projectPath, 'task_started', {
-        task: taskDescription,
-        taskId,
-        timestamp: dateHelper.getTimestamp(),
-      })
-
-      await executeWorkflowRules(projectId, 'task', 'after', {
-        projectPath,
-        skipRules: options.skipHooks,
-      })
-
-      const branch = await getGitBranch(projectPath).catch(() => '')
+      const taskDescription = outcome.description ?? task
+      const taskId = outcome.taskId ?? ''
+      const linearId = outcome.linearId
+      const branch = outcome.branch ?? ''
+      const beforeInstructions = outcome.instructions ?? []
 
       if (options.md) {
         console.log(
@@ -141,14 +102,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
                   `Task: \`${taskId}\``,
                   branch ? `Branch: \`${branch}\`` : null,
                   linearId ? `Linear: \`${linearId}\`` : null,
-                  beforeResult.instructions.length > 0
-                    ? `Agent instructions: ${beforeResult.instructions.length}`
+                  beforeInstructions.length > 0
+                    ? `Agent instructions: ${beforeInstructions.length}`
                     : null,
                 ].filter((s): s is string => s !== null)
               )
             ),
-            beforeResult.instructions.length > 0
-              ? mdSection('Agent Instructions', mdList(beforeResult.instructions))
+            beforeInstructions.length > 0
+              ? mdSection('Agent Instructions', mdList(beforeInstructions))
               : null,
             mdNextSteps([
               { label: 'Pull project memory', command: 'prjct context memory <topic>' },
