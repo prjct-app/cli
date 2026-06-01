@@ -207,16 +207,15 @@ export function registerMemoryTools(server: McpServer) {
       id: z.string().describe('Memory id (e.g. "mem_42" or "ship_7")'),
     },
     safeMcpCall('prjct_mem_forget', async (args: { projectPath: string; id: string }) => {
-      // `projectMemory` doesn't expose a direct forget yet — the
-      // event-sourced store treats deletion as a new entry. When
-      // the API gains `projectMemory.forget(id)`, wire it here.
-      // For now this is a declarative no-op with a hint.
-      void args
+      const projectId = await resolveProjectId(args.projectPath)
+      const removed = projectMemory.forget(projectId, args.id)
       return {
         content: [
           {
             type: 'text',
-            text: 'Forget is not implemented in the projectMemory API yet. Entries persist event-sourced — filter them out client-side, or drop the underlying event manually.',
+            text: removed
+              ? `✓ forgot ${args.id} — removed from recall, search, and embeddings.`
+              : `_No memory entry with id ${args.id} (already gone, or not a remember entry)._`,
           },
         ],
       }

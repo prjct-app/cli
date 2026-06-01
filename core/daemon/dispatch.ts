@@ -125,6 +125,16 @@ export async function executeCommand(
         md,
         limit: opts.limit ? Number(opts.limit) : undefined,
       })
+    case 'embeddings':
+      // Must mirror the cold path (core/index.ts): the default
+      // registry.execute path drops option flags, so `prjct embeddings set
+      // --key …` via the daemon silently lost the key (set became a no-op).
+      return commands.embeddings(param, request.cwd, {
+        md,
+        key: opts.key ? String(opts.key) : undefined,
+        model: opts.model ? String(opts.model) : undefined,
+        baseUrl: opts['base-url'] ? String(opts['base-url']) : undefined,
+      })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)
