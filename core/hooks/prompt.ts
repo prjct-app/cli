@@ -174,14 +174,13 @@ export async function buildProjectState(
     /* best-effort */
   }
 
-  // Inbox depth — pure count, signals "you have things to triage".
+  // Inbox depth — pure count, signals "you have things to triage". A direct
+  // COUNT (not a 200-row overfetch + deserialize just to read `.length`), and
+  // it reports the true count instead of capping at the old limit of 50.
   try {
-    const inboxEntries = projectMemory.recall(config.projectId, {
-      types: ['inbox'],
-      limit: 50,
-    })
-    if (inboxEntries.length > 0) {
-      lines.push(`- Inbox: ${inboxEntries.length} items pending`)
+    const inboxCount = projectMemory.countByType(config.projectId, 'inbox')
+    if (inboxCount > 0) {
+      lines.push(`- Inbox: ${inboxCount} items pending`)
       hasContent = true
     }
   } catch {
@@ -265,12 +264,12 @@ export async function buildImprovementSignals(
   const config = preloaded !== undefined ? preloaded : await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 
+  // Targeted exact-type query (newest-first) — avoids the broad
+  // `type LIKE 'memory.remember.%'` 4× overfetch + JS type-filter that the
+  // generic recall() would run on this hot, every-prompt path.
   let signals: MemoryEntry[] = []
   try {
-    signals = projectMemory.recall(config.projectId, {
-      types: ['improvement-signal'],
-      limit: 16,
-    })
+    signals = projectMemory.recallByType(config.projectId, 'improvement-signal', 16)
   } catch {
     return null
   }
