@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.38.0] - 2026-06-01
+
+### Features
+
+- PULL-only prompt hook + MCP task write-path (2.38.0) (#410)
+
+
 ## [2.37.6] - 2026-06-01
 
 Code-health pass (clean-code batch from the optimization audit).
