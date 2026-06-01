@@ -11,7 +11,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { formatMemoryMd, projectMemory } from '../../memory/project-memory'
+import { setTaskStatus, startTask } from '../../services/task-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
 import { stateStorage } from '../../storage/state-storage'
@@ -27,7 +27,7 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_task_status',
-    'Current task, duration, subtasks, and queue',
+    'The active task (description, branch, when it started) plus the queued tasks. Read this to see what is in progress before starting new work.',
     {
       projectPath: z.string().describe('Project directory path'),
     },
@@ -53,6 +53,80 @@ export function registerProjectTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
+    })
+  )
+
+  s.tool(
+    'prjct_task_start',
+    'Start a task. Fires the same before/after workflow gates and memory logging as `prjct task` — a gate may block the start. Pass linked_spec_id to wire the task to a spec for the ship gate. Use when the user begins concrete work.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      description: z.string().describe('What the task is — a short imperative phrase'),
+      linked_spec_id: z
+        .string()
+        .optional()
+        .describe('Spec id to link for the SDD ship gate (e.g. "spec_12")'),
+      skip_hooks: z
+        .boolean()
+        .optional()
+        .describe('Skip before/after workflow rules. Default false.'),
+    },
+    safeMcpCall(
+      'prjct_task_start',
+      async (args: {
+        projectPath: string
+        description: string
+        linked_spec_id?: string
+        skip_hooks?: boolean
+      }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const outcome = await startTask(projectId, args.projectPath, args.description, {
+          spec: args.linked_spec_id,
+          skipHooks: args.skip_hooks,
+        })
+        if (!outcome.ok) {
+          return {
+            content: [{ type: 'text', text: outcome.blocked ?? 'Task start was blocked.' }],
+          }
+        }
+        const lines = [`✓ Task started: ${outcome.description}`, `Id: ${outcome.taskId}`]
+        if (outcome.branch) lines.push(`Branch: ${outcome.branch}`)
+        if (outcome.linearId) lines.push(`Linear: ${outcome.linearId}`)
+        if (outcome.linkedSpecId) lines.push(`Linked spec: ${outcome.linkedSpecId}`)
+        if (outcome.instructions && outcome.instructions.length > 0) {
+          lines.push('', 'Agent instructions:')
+          for (const i of outcome.instructions) lines.push(`- ${i}`)
+        }
+        return { content: [{ type: 'text', text: lines.join('\n') }] }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_task_set_status',
+    'Change the active task\'s status (e.g. "done", "paused", "active"). Records the transition and drives the workflow state machine, exactly like `prjct status <value>`. "active"/"resume" promotes a paused task back to focus.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      status: z
+        .string()
+        .describe('New status: done | completed | paused | active | resume | in_progress'),
+    },
+    safeMcpCall('prjct_task_set_status', async (args: { projectPath: string; status: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
+      if (!outcome.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'No active task to update. Start one with prjct_task_start.',
+            },
+          ],
+        }
+      }
+      return {
+        content: [{ type: 'text', text: `✓ status → ${outcome.status} (task ${outcome.taskId})` }],
+      }
     })
   )
 
@@ -107,22 +181,8 @@ export function registerProjectTools(server: McpServer) {
     })
   )
 
-  s.tool(
-    'prjct_patterns',
-    'Project memory grouped by type (decision / pattern / anti-pattern / gotcha). Powered by projectMemory — same source the CLI memory verbs read.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-    },
-    safeMcpCall('prjct_patterns', async (args: { projectPath: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const entries = projectMemory.recall(projectId, {
-        types: ['decision', 'pattern', 'anti-pattern', 'gotcha'],
-        limit: 50,
-      })
-      if (entries.length === 0) {
-        return { content: [{ type: 'text', text: 'No decisions or patterns captured yet.' }] }
-      }
-      return { content: [{ type: 'text', text: formatMemoryMd(entries) }] }
-    })
-  )
+  // `prjct_patterns` was removed — it was a strict subset of `prjct_mem_list`
+  // (recall with types=[decision, pattern, anti-pattern, gotcha]). One fewer
+  // tool schema in the client's context every turn; callers pass the `types`
+  // filter to `prjct_mem_list` for the same result.
 }

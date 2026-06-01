@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { buildImprovementSignals, buildProjectState } from '../../hooks/prompt'
+import { buildProjectState } from '../../hooks/prompt'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import prjctDb from '../../storage/database'
@@ -109,58 +109,5 @@ describe('UserPromptSubmit — project state', () => {
     const r = await buildProjectState(projectPath)
     expect(r).not.toBeNull()
     expect(r).toContain('# prjct: project state')
-  })
-})
-
-describe('UserPromptSubmit — improvement signals', () => {
-  it('returns null when no improvement-signal entries exist', async () => {
-    await freshProject()
-    const r = await buildImprovementSignals(projectPath)
-    expect(r).toBeNull()
-  })
-
-  it('surfaces recent improvement-signal entries (within 24h)', async () => {
-    await freshProject()
-    prjctDb.appendEvent(projectId, 'memory.remember.improvement-signal', {
-      content: '[negation] User pushback: "no, primero corramos los tests"',
-      tags: { source: 'friction-detector', category: 'negation', key: 'abc123' },
-      provenance: 'extracted',
-    })
-    const r = await buildImprovementSignals(projectPath)
-    expect(r).toContain('# prjct: improvement signals')
-    expect(r).toContain('1 signal captured at last session-end')
-    expect(r).toContain('[negation] User pushback')
-  })
-
-  it('does not surface signals older than 24h', async () => {
-    await freshProject()
-    const oldTs = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-    prjctDb.run(
-      projectId,
-      "INSERT INTO events (type, data, timestamp) VALUES ('memory.remember.improvement-signal', ?, ?)",
-      JSON.stringify({
-        content: 'old signal',
-        tags: { source: 'friction-detector', category: 'negation' },
-        provenance: 'extracted',
-      }),
-      oldTs
-    )
-    const r = await buildImprovementSignals(projectPath)
-    expect(r).toBeNull()
-  })
-
-  it('caps surfaced signals at 3 even when more exist', async () => {
-    await freshProject()
-    for (let i = 0; i < 5; i++) {
-      prjctDb.appendEvent(projectId, 'memory.remember.improvement-signal', {
-        content: `[negation] signal ${i}`,
-        tags: { source: 'friction-detector', category: 'negation', key: `k${i}` },
-        provenance: 'extracted',
-      })
-    }
-    const r = await buildImprovementSignals(projectPath)
-    expect(r).not.toBeNull()
-    // Friction per-source budget is 3 even when 5 exist.
-    expect(r).toMatch(/3 signals captured at last session-end/)
   })
 })

@@ -21,7 +21,7 @@ export function registerFileTools(server: McpServer) {
 
   s.tool(
     'prjct_relevant_files',
-    'BM25-ranked files relevant to a query',
+    'Files most relevant to a query, ranked by keyword/path match, domain, and git recency. Use to scope where work likely lives before reading the tree.',
     {
       projectPath: z.string().describe('Project directory path'),
       query: z.string().describe('Task or query to find relevant files for'),
