@@ -492,6 +492,39 @@ describe('projectMemory.searchFts — BM25 relevance over recency', () => {
   })
 })
 
+describe('projectMemory.countByType / recallByType — hot-path exact-type queries', () => {
+  it('countByType returns the true count, uncapped', async () => {
+    for (let i = 0; i < 7; i++) {
+      await writeMemoryEntry({ type: 'inbox', content: `inbox item ${i}` })
+    }
+    await writeMemoryEntry({ type: 'decision', content: 'not an inbox item' })
+    expect(projectMemory.countByType(projectId, 'inbox')).toBe(7)
+    expect(projectMemory.countByType(projectId, 'decision')).toBe(1)
+  })
+
+  it('countByType returns 0 for a type with no entries', () => {
+    expect(projectMemory.countByType(projectId, 'nonexistent-type')).toBe(0)
+  })
+
+  it('recallByType returns only the exact type, newest-first, within limit', async () => {
+    await writeMemoryEntry({ type: 'improvement-signal', content: 'signal one' })
+    await writeMemoryEntry({ type: 'decision', content: 'a decision in between' })
+    await writeMemoryEntry({ type: 'improvement-signal', content: 'signal two' })
+    await writeMemoryEntry({ type: 'improvement-signal', content: 'signal three' })
+
+    const got = projectMemory.recallByType(projectId, 'improvement-signal', 2)
+    expect(got.length).toBe(2)
+    expect(got.every((e) => e.type === 'improvement-signal')).toBe(true)
+    // Newest-first (id DESC): signal three before signal two.
+    expect(got[0].content).toBe('signal three')
+    expect(got[1].content).toBe('signal two')
+  })
+
+  it('recallByType returns [] for limit 0', () => {
+    expect(projectMemory.recallByType(projectId, 'improvement-signal', 0)).toEqual([])
+  })
+})
+
 describe('projectMemory.forget', () => {
   function writeMemoryRow(args: { id: string; type: string; content: string }): void {
     const now = new Date().toISOString()

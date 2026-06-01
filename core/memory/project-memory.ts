@@ -614,6 +614,49 @@ export const projectMemory = {
   },
 
   /**
+   * Count remembered entries of ONE exact type, straight from the event store
+   * (the same source recall reads). A targeted COUNT — no `LIKE` overfetch, no
+   * JSON parse, no JS type-filter — for the hot prompt-hook path that only
+   * needs a number (e.g. inbox depth). Exact-match equality uses the
+   * `(type, …)` index, and it's not capped, so it can't undercount past a
+   * fixed limit the way the old `recall({types}).length` did.
+   */
+  countByType(projectId: string, type: string): number {
+    try {
+      const row = prjctDb.get<{ n: number }>(
+        projectId,
+        'SELECT COUNT(*) AS n FROM events WHERE type = ?',
+        `${REMEMBER_EVENT_PREFIX}${type}`
+      )
+      return row?.n ?? 0
+    } catch {
+      return 0
+    }
+  },
+
+  /**
+   * Recall entries of ONE exact type, newest-first, WITHOUT the broad
+   * `type LIKE 'memory.remember.%'` overfetch (4×) + JS type-filter that
+   * `recall` does. For hot paths that need a single type's recent entries
+   * (e.g. the improvement-signal block on every prompt). Skips supersede/dedup
+   * — fine for keyless, non-superseded types like `improvement-signal`.
+   */
+  recallByType(projectId: string, type: string, limit: number): MemoryEntry[] {
+    if (limit <= 0) return []
+    try {
+      const rows = prjctDb.query<EventRow>(
+        projectId,
+        'SELECT id, type, data, timestamp FROM events WHERE type = ? ORDER BY id DESC LIMIT ?',
+        `${REMEMBER_EVENT_PREFIX}${type}`,
+        limit
+      )
+      return rows.map(rowToEntry)
+    } catch {
+      return []
+    }
+  },
+
+  /**
    * Forget a memory entry by id across EVERY read path, so it stops surfacing:
    *   - `events` row deleted — recall() + allEntriesForIndex read events directly
    *     (events has no deleted_at; the dedup migration likewise hard-deletes).

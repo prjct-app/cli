@@ -2,7 +2,15 @@
 
 ## [Unreleased]
 
-## [2.37.3] - 2026-06-01
+## [2.37.4] - 2026-06-01
+
+Hot-path performance (batch 2 from the optimization audit) — the UserPromptSubmit hook fires on every prompt and blocks context injection, so its DB work is the most worth trimming.
+
+### Performance
+- **Inbox depth is now a `COUNT`, not a 200-row overfetch + deserialize.** The prompt hook read up to 200 event rows, JSON-parsed each, filtered by type, and used only `.length`. New `projectMemory.countByType()` runs a single exact-type `COUNT` — and reports the true count instead of capping at 50.
+- **Improvement-signal recall is now an exact-type query.** It used the generic `recall({types:['improvement-signal']})`, which does a broad `type LIKE 'memory.remember.%'` 4× overfetch + JS type-filter. New `projectMemory.recallByType()` queries the one exact type, newest-first, using the index. Together these cut the every-prompt hook from up to three `events` overfetch-scans to targeted indexed lookups.
+
+Deferred (audit batch 2 remainder): stop-hook transcript read-once + step parallelization, embeddings backfill delta query, FTS5 prefix-index rebuild — all detached/session-end work, lower priority than the per-prompt path.
 
 Confirmed-bug batch from a full optimization audit (4 parallel reviewers, each finding adversarially verified — two "high severity" findings turned out false and were dropped).
 
