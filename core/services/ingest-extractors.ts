@@ -20,11 +20,8 @@
  * text still runs through the secret/prompt-injection scanners in wiki-ingest.
  */
 
-import { execFile } from 'node:child_process'
 import path from 'node:path'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
+import { execFileAsync } from '../utils/exec'
 
 const EXEC_OPTS = { timeout: 30_000, maxBuffer: 64 * 1024 * 1024 } as const
 

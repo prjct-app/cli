@@ -2,7 +2,17 @@
 
 ## [Unreleased]
 
-## [2.37.5] - 2026-06-01
+## [2.37.6] - 2026-06-01
+
+Code-health pass (clean-code batch from the optimization audit).
+
+### Changed
+- **Dropped the `date-fns` dependency.** `toRelative()` (its only use) now uses the built-in `Intl.RelativeTimeFormat` — identical output, one fewer dependency, smaller bundle, and aligned with the zero-dependency posture. Works on Bun and Node alike.
+- **De-duplicated `execFileAsync`.** Four services each re-promisified `execFile` locally; they now import the shared `core/utils/exec` helper (single source, no drift).
+- **Hardened DB enum reads.** `workflow-rule-storage` and `context-zone-storage` validated stored enum strings via raw `as` casts; they now validate against the allowed set and fall back to a safe default (the pattern `spec-storage` already used), so a stale/renamed DB value can't propagate a bad union member.
+- **Fixed a silently-swallowed error in the file scanner.** `files-tool` had a `// Log but continue` comment with no actual log; non-ENOENT errors (e.g. EACCES) are now debug-logged so "scan found 0 files" is diagnosable. Still never fatal.
+
+Verified not a risk (audit follow-up): `prepare: lefthook install` does not run on registry installs (`npm/bun -g`) — it's dev-only, so it doesn't violate the no-install-time-scripts constraint.
 
 Robustness sweep: close an entire class of "works in the terminal, broken via the daemon" bugs — and add a test so it can't come back.
 

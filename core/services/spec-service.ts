@@ -13,8 +13,6 @@
  * service owns persistence + invariants only.
  */
 
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
 import { specStorage } from '../storage/spec-storage'
@@ -27,8 +25,7 @@ import {
   type SpecStatus,
 } from '../types/spec'
 import { getTimestamp } from '../utils/date-helper'
-
-const execFileAsync = promisify(execFile)
+import { execFileAsync } from '../utils/exec'
 
 /**
  * Read git HEAD sha at `projectPath`. Returns null when not a git repo

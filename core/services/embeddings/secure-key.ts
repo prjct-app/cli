@@ -12,13 +12,10 @@
  * re-shell to Keychain on every call.
  */
 
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
+import { execFileAsync } from '../../utils/exec'
 
 /** Env override — also re-exported from the embeddings index for back-compat. */
 export const EMBEDDINGS_API_KEY_ENV = 'PRJCT_EMBEDDINGS_API_KEY'
