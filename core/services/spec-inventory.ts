@@ -21,14 +21,11 @@
  *              index.ts re-export shims, .test.ts, .spec.ts.
  */
 
-import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { specStorage } from '../storage/spec-storage'
 import type { Spec } from '../types/spec'
-
-const execFileAsync = promisify(execFile)
+import { execFileAsync } from '../utils/exec'
 
 const DRIFT_LOC_THRESHOLD = 5
 const COSMETIC_COMMIT_RE = /^(chore|style|format|fmt|docs|typo)(\(|:|!)/i

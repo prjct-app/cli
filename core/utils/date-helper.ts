@@ -7,7 +7,6 @@
  * - commands.ts (38+ inline date operations)
  */
 
-import { formatDistanceToNowStrict } from 'date-fns'
 import type { DateComponents } from '../types/utils'
 
 /**
@@ -167,12 +166,39 @@ export function getEndOfDay(date: Date): Date {
 }
 
 /**
+ * Largest-to-smallest unit thresholds (in seconds) for relative formatting.
+ * Months are 30 days, years 365 days — same approximation date-fns'
+ * `formatDistanceToNowStrict` used, so output matches ("2 months ago" etc.).
+ */
+const RELATIVE_UNITS: ReadonlyArray<readonly [Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 31_536_000],
+  ['month', 2_592_000],
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60],
+  ['second', 1],
+]
+const RELATIVE_FMT = new Intl.RelativeTimeFormat('en', { numeric: 'always' })
+
+/**
  * Convert a date/timestamp to a relative string (e.g. "5 minutes ago").
- * Uses date-fns formatDistanceToNowStrict for accurate, token-friendly output.
+ * Single-unit, strict rounding (rounds the absolute magnitude, then signs it)
+ * via the built-in `Intl.RelativeTimeFormat` — no dependency, works on Bun and
+ * Node alike. Replaces date-fns' `formatDistanceToNowStrict` (one call site,
+ * one fewer dependency); output is identical for whole-unit deltas.
  */
 export function toRelative(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return formatDistanceToNowStrict(d, { addSuffix: true })
+  const deltaSec = Math.round((d.getTime() - Date.now()) / 1000)
+  const past = deltaSec <= 0
+  const abs = Math.abs(deltaSec)
+  for (const [unit, secs] of RELATIVE_UNITS) {
+    if (abs >= secs || unit === 'second') {
+      const value = Math.round(abs / secs)
+      return RELATIVE_FMT.format(past ? -value : value, unit)
+    }
+  }
+  return RELATIVE_FMT.format(0, 'second')
 }
 
 /**

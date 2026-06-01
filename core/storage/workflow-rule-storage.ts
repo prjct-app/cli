@@ -27,12 +27,24 @@ interface WorkflowRuleRow {
   trust_source: string | null
 }
 
+const WORKFLOW_RULE_TYPES: ReadonlyArray<WorkflowRule['type']> = [
+  'hook',
+  'gate',
+  'step',
+  'instruction',
+]
+
 function rowToRule(row: WorkflowRuleRow): WorkflowRule {
   const trustSource: WorkflowRule['trustSource'] =
     row.trust_source === 'imported' ? 'imported' : 'local'
+  // Validate the stored enum instead of trusting the cast: a stale/renamed DB
+  // value falls back to a safe default rather than propagating a bad union member.
+  const type: WorkflowRule['type'] = (WORKFLOW_RULE_TYPES as readonly string[]).includes(row.type)
+    ? (row.type as WorkflowRule['type'])
+    : 'step'
   return {
     id: row.id,
-    type: row.type as WorkflowRule['type'],
+    type,
     command: row.command,
     position: row.position,
     action: row.action,

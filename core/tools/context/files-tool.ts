@@ -12,8 +12,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { FilesToolOutput, ScoredFile, ScoreReason } from '../../types/context-tools'
-import { isNotFoundError } from '../../types/fs'
+import { getErrorMessage, isNotFoundError } from '../../types/fs'
 import { execAsync } from '../../utils/exec'
+import log from '../../utils/logger'
 import { CODE_EXTENSIONS, DOMAIN_KEYWORDS, IGNORE_DIRS, STOP_WORDS } from './files-tool/constants'
 
 /**
@@ -87,8 +88,11 @@ async function getAllCodeFiles(projectPath: string): Promise<string[]> {
         }
       }
     } catch (error) {
+      // Missing dir is expected (race with deletion); anything else (EACCES on
+      // a symlinked dir, etc.) is worth a debug line so "scan found 0 files" is
+      // diagnosable — but never fatal, the walk continues on siblings.
       if (!isNotFoundError(error)) {
-        // Log but continue on permission errors, etc.
+        log.debug(`files-tool: skipped unreadable path during walk: ${getErrorMessage(error)}`)
       }
     }
   }

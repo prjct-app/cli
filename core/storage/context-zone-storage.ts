@@ -5,8 +5,14 @@
  * Used by the dashboard to show zone distribution and compaction frequency.
  */
 
-import type { ZoneTransition } from '../types/agentic/templates-orchestration'
+import type { ContextZone, ZoneTransition } from '../types/agentic/templates-orchestration'
 import { prjctDb } from './database'
+
+/** Validate a stored zone string against the union, defaulting to 'smart'. */
+const CONTEXT_ZONES: ReadonlyArray<ContextZone> = ['smart', 'warning', 'dumb']
+function toZone(value: string): ContextZone {
+  return (CONTEXT_ZONES as readonly string[]).includes(value) ? (value as ContextZone) : 'smart'
+}
 
 // Types
 
@@ -82,8 +88,8 @@ class ContextZoneStorage {
     )
 
     return rows.map((row) => ({
-      from: row.zone_from as ZoneTransition['from'],
-      to: row.zone_to as ZoneTransition['to'],
+      from: toZone(row.zone_from),
+      to: toZone(row.zone_to),
       usagePercent: row.usage_percent,
       timestamp: row.timestamp,
       action: row.action,
