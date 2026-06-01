@@ -2,7 +2,20 @@
 
 ## [Unreleased]
 
-## [2.37.4] - 2026-06-01
+## [2.37.5] - 2026-06-01
+
+Robustness sweep: close an entire class of "works in the terminal, broken via the daemon" bugs — and add a test so it can't come back.
+
+### Fixed
+- **Commands silently dropped their flags when run through the daemon.** A command whose cold handler (`core/index.ts`) reads option flags but has no explicit `case` in the daemon dispatcher fell through to the option-less registry path, dropping every flag. Beyond `embeddings` (fixed in 2.37.3), this hit:
+  - `prjct capture "…" --tags … --force` — tags and the secret-override were dropped (an explicit `capture` is registered, so it skipped the unknown-verb auto-route and fell through).
+  - `prjct init --pack … --persona … --yes` — onboarding pack/persona selection was ignored.
+  - `prjct regen --md` — agents got non-md output.
+  - `prjct login --url …`, `prjct logout`, `prjct auth` — flags/args dropped.
+  Each now has an explicit dispatch case mirroring the cold path (and `init` correctly uses the request's cwd, not the daemon's).
+
+### Internal
+- New `dispatch-option-parity.test.ts`: every option-bearing cold command must be either cold-handled (`_binCommands`) or explicitly cased in the daemon dispatcher. CI now fails if a future option-taking command reintroduces this drift.
 
 Hot-path performance (batch 2 from the optimization audit) — the UserPromptSubmit hook fires on every prompt and blocks context injection, so its DB work is the most worth trimming.
 
