@@ -77,6 +77,15 @@ export async function executeCommand(
         noSpecGate: opts['no-spec-gate'] === true,
       })
     }
+    case 'capture':
+      // Explicit `prjct capture "…" --tags …`: `capture` IS registered, so it
+      // skips the unknown-verb auto-route above and lands here. Without this
+      // case it fell to the option-less registry path, dropping --tags/--force.
+      return commands.capture(param, request.cwd, {
+        md,
+        tags: opts.tags ? String(opts.tags) : undefined,
+        force: opts.force === true,
+      })
     case 'spec':
       return routeSpec(commands, request.args, opts, request.cwd)
     case 'audit-spec':
@@ -135,6 +144,29 @@ export async function executeCommand(
         model: opts.model ? String(opts.model) : undefined,
         baseUrl: opts['base-url'] ? String(opts['base-url']) : undefined,
       })
+    // The cases below close the same flag-stripping gap as embeddings: each
+    // is registered + daemon-routed but used to fall through to the
+    // option-less registry path. `dispatch-option-parity.test.ts` guards
+    // against this class of drift recurring.
+    case 'init':
+      // request.cwd (NOT the daemon's process.cwd) is the project dir.
+      return commands.init(
+        {
+          idea: param,
+          yes: opts.yes === true,
+          pack: opts.pack ? String(opts.pack) : undefined,
+          persona: opts.persona ? String(opts.persona) : undefined,
+        },
+        request.cwd
+      )
+    case 'regen':
+      return commands.regenVault(request.cwd, { md })
+    case 'login':
+      return commands.login({ md, url: opts.url ? String(opts.url) : undefined })
+    case 'logout':
+      return commands.logout()
+    case 'auth':
+      return commands.auth(param, { md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)
