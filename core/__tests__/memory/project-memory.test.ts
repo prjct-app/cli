@@ -492,6 +492,59 @@ describe('projectMemory.searchFts — BM25 relevance over recency', () => {
   })
 })
 
+describe('projectMemory.forget', () => {
+  function writeMemoryRow(args: { id: string; type: string; content: string }): void {
+    const now = new Date().toISOString()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memories
+         (id, project_id, title, content, tags, type, provenance, user_triggered,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args.id,
+      projectId,
+      args.content.slice(0, 80),
+      args.content,
+      '{}',
+      args.type,
+      'declared',
+      0,
+      now,
+      now
+    )
+  }
+
+  it('removes a remembered entry from recall', async () => {
+    await writeMemoryEntry({ type: 'decision', content: 'forget me please' })
+    const before = projectMemory.recall(projectId, { types: ['decision'] })
+    const target = before.find((e) => e.content === 'forget me please')
+    expect(target).toBeDefined()
+
+    const ok = projectMemory.forget(projectId, target!.id)
+    expect(ok).toBe(true)
+
+    const after = projectMemory.recall(projectId, { types: ['decision'] })
+    expect(after.some((e) => e.id === target!.id)).toBe(false)
+  })
+
+  it('soft-deletes the FTS mirror so searchFts stops returning it', () => {
+    writeMemoryRow({ id: 'mem_4242', type: 'fact', content: 'forgettable unique token zorptak' })
+    expect(projectMemory.searchFts(projectId, ['zorptak'], 4).length).toBe(1)
+    // No event row backs this mirror-only row, but forget still cleans the
+    // mirror and reports success (it removed the entry from a read surface).
+    expect(projectMemory.forget(projectId, 'mem_4242')).toBe(true)
+    expect(projectMemory.searchFts(projectId, ['zorptak'], 4).length).toBe(0)
+  })
+
+  it('returns false for a non-existent id', () => {
+    expect(projectMemory.forget(projectId, 'mem_999999')).toBe(false)
+  })
+
+  it('returns false for a malformed id', () => {
+    expect(projectMemory.forget(projectId, 'not-an-id')).toBe(false)
+  })
+})
+
 describe('projectMemory.recallForFile — anticipation (pre-edit)', () => {
   it('surfaces a gotcha tagged against the exact repo-relative file', async () => {
     await writeMemoryEntry({

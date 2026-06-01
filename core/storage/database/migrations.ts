@@ -853,4 +853,19 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 26,
+    name: 'events-type-id-index',
+    up: (db: SqliteDatabase) => {
+      // Recall is `… WHERE type LIKE 'memory.remember.%' ORDER BY id DESC`
+      // (project-memory.ts recall + allEntriesForIndex) and fires on every
+      // UserPromptSubmit hook. Migration 20 added (type, timestamp DESC)
+      // INTENDING to serve that ORDER BY — but the sort column is `id`, not
+      // `timestamp`, so the planner used the index only for the type range and
+      // then ran a separate filesort on `id` every time. This index sorts by
+      // the actual ORDER BY column, collapsing the filesort into an ordered
+      // index scan. Additive; the old index can stay for timestamp-range use.
+      db.run('CREATE INDEX IF NOT EXISTS idx_events_type_id ON events(type, id DESC)')
+    },
+  },
 ]

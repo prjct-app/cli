@@ -8,7 +8,7 @@ description: Use when the user mentions p., prjct, tasks, specs, shipping, or pr
 Run `prjct <command> --md` and follow its output. Pull context on demand; never dump it all.
 
 - Flow: `task` → work → `done` → `ship`
-- Memory: `prjct remember <decision|gotcha|learning|fact> "<text>"`, `prjct recall`, `prjct guard <file>` (preventive memory before editing)
+- Memory: `prjct remember <decision|gotcha|learning|fact> "<text>"`, `prjct context memory <topic>` (recall), `prjct guard <file>` (preventive memory before editing)
 - Capture stray thoughts: `prjct capture "<text>"`
 - Run `prjct --help` for the full command list; prefer the prjct MCP tools (`prjct_*`) when available.
 

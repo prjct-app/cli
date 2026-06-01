@@ -614,6 +614,66 @@ export const projectMemory = {
   },
 
   /**
+   * Forget a memory entry by id across EVERY read path, so it stops surfacing:
+   *   - `events` row deleted — recall() + allEntriesForIndex read events directly
+   *     (events has no deleted_at; the dedup migration likewise hard-deletes).
+   *   - `memories` mirror soft-deleted (deleted_at) — searchFts filters on it.
+   *   - any stored embedding dropped — so it can't resurface via semantic search.
+   * Returns true iff a remember-event row existed and was removed. Best-effort
+   * on the mirror/embedding cleanups (their absence must not fail the forget).
+   */
+  forget(projectId: string, id: string): boolean {
+    const m = String(id)
+      .trim()
+      .match(/^(?:mem[_-])?(\d+)$/i)
+    if (!m) return false
+    const rowId = Number(m[1])
+    const memId = `mem_${rowId}`
+    let removed = false
+
+    // Source event (recall + vault index read events directly). A memories
+    // mirror row can outlive its event and vice-versa, so clean each
+    // independently and report success if EITHER surface had the entry.
+    try {
+      const ev = prjctDb.get<{ id: number }>(
+        projectId,
+        'SELECT id FROM events WHERE id = ? AND type LIKE ?',
+        rowId,
+        `${REMEMBER_EVENT_PREFIX}%`
+      )
+      if (ev) {
+        prjctDb.run(projectId, 'DELETE FROM events WHERE id = ?', rowId)
+        removed = true
+      }
+    } catch {}
+
+    // FTS mirror — soft-delete so searchFts (filters deleted_at) stops it.
+    try {
+      const mem = prjctDb.get<{ id: string }>(
+        projectId,
+        'SELECT id FROM memories WHERE id = ? AND deleted_at IS NULL',
+        memId
+      )
+      if (mem) {
+        prjctDb.run(
+          projectId,
+          'UPDATE memories SET deleted_at = ? WHERE id = ?',
+          new Date().toISOString(),
+          memId
+        )
+        removed = true
+      }
+    } catch {}
+
+    // Drop any stored embedding so it can't resurface via semantic search.
+    try {
+      prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)
+    } catch {}
+
+    return removed
+  },
+
+  /**
    * Follow each seed entry's cross-references ONE hop and return the linked
    * entries (deduped against the seed, capped).
    *

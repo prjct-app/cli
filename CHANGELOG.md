@@ -2,7 +2,17 @@
 
 ## [Unreleased]
 
-## [2.37.2] - 2026-06-01
+## [2.37.3] - 2026-06-01
+
+Confirmed-bug batch from a full optimization audit (4 parallel reviewers, each finding adversarially verified — two "high severity" findings turned out false and were dropped).
+
+### Fixed
+- **`prjct embeddings set --key …` silently lost its flags via the daemon.** `embeddings` had no explicit case in the daemon dispatcher, so it fell through to the option-less registry path — the key never reached the command (the "stale daemon" confusion from 2.34.0). Added an explicit `embeddings` case mirroring the cold path.
+- **Codex skill pointed at a non-existent `prjct recall` verb.** Introduced in 2.36.0; Codex would auto-capture it as an inbox note. Replaced with `prjct context memory <topic>`.
+- **`prjct_mem_forget` was a no-op with a description that claimed it deleted.** Implemented `projectMemory.forget()` — deletes the source `events` row, soft-deletes the `memories` FTS mirror, and drops any stored embedding, so a forgotten entry stops surfacing in recall, search, and semantic search.
+
+### Performance
+- **Recall no longer filesorts on every prompt.** Recall queries (`… WHERE type LIKE 'memory.remember.%' ORDER BY id DESC`) fire on every UserPromptSubmit hook; migration 20's `(type, timestamp DESC)` index couldn't satisfy the `id`-ordered sort, so SQLite ran a separate filesort each time. Added `idx_events_type_id ON events(type, id DESC)` (migration 26) so it's an ordered index scan.
 
 ### Changed
 - **Quality-workflow methodology rewritten as behavior, not procedure** (in the pulled `workflows.md` reference). The `review` / `qa` / `security` / `investigate` / `ship` / `audit` sections were numbered step-by-step lists (40 procedural steps); they now describe the *observable outcome* — "what good looks like" — and let the agent discover the how. Stop-conditions, the per-role model policy, and the parallel-dispatch mechanics are kept verbatim (those are concrete operational rules, not procedure). Rationale (Deep SWE / Theo): over-specified step-by-step prompts flatter weak models and add noise; behavior-framed prompts force end-to-end exploration and let capable models self-verify. Aligns the methodology with prjct's own anti-harness ethos.
