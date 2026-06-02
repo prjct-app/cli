@@ -1,18 +1,22 @@
 /**
  * global-config tests — read/write to ~/.prjct-cli/config/global.json.
  *
- * Tests redirect to a temp HOME so the user's real config never gets
- * touched. We re-import the module fresh per test to pick up the new
- * HOME env var (config dir is computed at module load).
+ * Tests redirect to a temp dir via `PRJCT_CLI_HOME` so the user's real config
+ * is never touched. This MUST use the env override, not a patched `process.env
+ * .HOME`: Bun's `os.homedir()` ignores a mutated HOME, so the old HOME-patch
+ * strategy silently read/wrote the real `~/.prjct-cli/config/global.json` — the
+ * "malformed JSON" case below would otherwise corrupt it to `{invalid json`.
+ * The path is resolved per call in the module, so a static import is fine.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import * as m from '../../services/global-config'
 
 let tempHome = ''
-let originalHome = ''
+let originalCliHome: string | undefined
 
 beforeEach(async () => {
   tempHome = path.join(
@@ -20,12 +24,13 @@ beforeEach(async () => {
     `prjct-config-test-${Date.now()}-${Math.random().toString(36).slice(2)}`
   )
   await fs.mkdir(tempHome, { recursive: true })
-  originalHome = process.env.HOME ?? ''
-  process.env.HOME = tempHome
+  originalCliHome = process.env.PRJCT_CLI_HOME
+  process.env.PRJCT_CLI_HOME = tempHome
 })
 
 afterEach(async () => {
-  process.env.HOME = originalHome
+  if (originalCliHome === undefined) delete process.env.PRJCT_CLI_HOME
+  else process.env.PRJCT_CLI_HOME = originalCliHome
   if (tempHome) {
     await fs.rm(tempHome, { recursive: true, force: true }).catch(() => undefined)
     tempHome = ''
@@ -33,11 +38,9 @@ afterEach(async () => {
 })
 
 async function freshImport(): Promise<typeof import('../../services/global-config')> {
-  // Bun caches modules — flush so module-level `path.join(os.homedir(), …)`
-  // re-evaluates with the patched HOME. Cache flush is per-test-runner
-  // best-effort; if it doesn't take, the assertions still hold because
-  // we always read/write through the public API.
-  return import(`../../services/global-config?t=${Date.now()}`)
+  // The module resolves its path lazily from PRJCT_CLI_HOME on every call, so
+  // no cache-busting is needed — return the statically imported module.
+  return m
 }
 
 describe('global-config', () => {

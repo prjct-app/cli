@@ -94,6 +94,15 @@ export interface LocalConfig {
     model?: string
     /** Expected vector dimensionality (used to invalidate stale vectors). */
     dims?: number
+    /** Header carrying the API key. Default `authorization` (Bearer). Set to
+     *  `api-key` for Azure OpenAI, or any custom header a gateway expects. */
+    authHeader?: string
+    /** Scheme/prefix before the key, e.g. `Bearer`. Empty string = raw key. */
+    authScheme?: string
+    /** Extra static headers sent on every request. */
+    headers?: Record<string, string>
+    /** Raw query string appended to the URL, e.g. `api-version=2023-05-15`. */
+    query?: string
   }
 }
 

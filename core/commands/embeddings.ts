@@ -24,9 +24,27 @@ import {
 } from '../services/embeddings/secure-key'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { failHard } from '../utils/md-aware'
+import { failHard, notifyFail, notifyInfo } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
+
+/**
+ * Best-effort, actionable hint derived from a failed-embedding error string.
+ * The common failures are config mismatches the user can fix; map them to a
+ * concrete next step instead of leaving the raw HTTP body to speak for itself.
+ */
+function embeddingsFailureHint(detail: string): string | undefined {
+  if (/\b401\b|invalid_api_key|incorrect api key|unauthor/i.test(detail)) {
+    return "The endpoint rejected the key (401). The base URL must match the key's provider — e.g. an OpenRouter key (sk-or-…) needs `--base-url https://openrouter.ai/api/v1`, not OpenAI's. Re-set with: prjct embeddings set --key <api-key> --base-url <url>"
+  }
+  if (/\b404\b|not found/i.test(detail)) {
+    return "No /embeddings route at that base URL (404). Check the base URL is the provider's OpenAI-compatible root (e.g. https://openrouter.ai/api/v1, https://api.openai.com/v1)."
+  }
+  if (/ENOTFOUND|ECONNREFUSED|fetch failed|getaddrinfo|ETIMEDOUT/i.test(detail)) {
+    return 'Could not reach the endpoint. Check the base URL and your network: prjct embeddings status'
+  }
+  return undefined
+}
 
 interface EmbeddingsOptions {
   md?: boolean
@@ -34,6 +52,13 @@ interface EmbeddingsOptions {
   key?: string
   model?: string
   baseUrl?: string
+  /** Auth knobs for non-Bearer providers (Azure OpenAI, custom gateways). */
+  authHeader?: string
+  authScheme?: string
+  /** Extra static headers as "k=v,k2=v2". */
+  headers?: string
+  /** Raw query string appended to the URL, e.g. "api-version=2023-05-15". */
+  query?: string
 }
 
 function flag(parts: string[], name: string): string | undefined {
@@ -41,6 +66,20 @@ function flag(parts: string[], name: string): string | undefined {
   if (i >= 0 && parts[i + 1]) return parts[i + 1]
   const eq = parts.find((p) => p.startsWith(`--${name}=`))
   return eq ? eq.slice(name.length + 3) : undefined
+}
+
+/** Parse a "k=v,k2=v2" header string into an object (skips malformed pairs). */
+function parseHeaderPairs(raw: string | undefined): Record<string, string> | undefined {
+  if (!raw?.trim()) return undefined
+  const out: Record<string, string> = {}
+  for (const pair of raw.split(',')) {
+    const eq = pair.indexOf('=')
+    if (eq <= 0) continue
+    const k = pair.slice(0, eq).trim()
+    const v = pair.slice(eq + 1).trim()
+    if (k) out[k] = v
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 export class EmbeddingsCommands extends PrjctCommandsBase {
@@ -73,9 +112,24 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
     const key = options.key ?? flag(parts, 'key')
     const model = options.model ?? flag(parts, 'model')
     const baseUrl = options.baseUrl ?? flag(parts, 'base-url') ?? flag(parts, 'baseUrl')
-    if (!key && !model && !baseUrl) {
+    const authHeader = options.authHeader ?? flag(parts, 'auth-header')
+    // `none` (case-insensitive) → raw key, no scheme prefix (Azure's api-key).
+    const authSchemeRaw = options.authScheme ?? flag(parts, 'auth-scheme')
+    const authScheme =
+      authSchemeRaw === undefined ? undefined : /^none$/i.test(authSchemeRaw) ? '' : authSchemeRaw
+    const extraHeaders = parseHeaderPairs(options.headers ?? flag(parts, 'headers'))
+    const query = options.query ?? flag(parts, 'query')
+    if (
+      !key &&
+      !model &&
+      !baseUrl &&
+      authHeader === undefined &&
+      authScheme === undefined &&
+      !extraHeaders &&
+      query === undefined
+    ) {
       return failHard(
-        'Nothing to set. Usage: prjct embeddings set --key <api-key> [--model <id>] [--base-url <url>]'
+        'Nothing to set. Usage: prjct embeddings set --key <api-key> [--model <id>] [--base-url <url>] [--auth-header <h>] [--auth-scheme <s|none>] [--headers "k=v,..."] [--query <qs>]'
       )
     }
 
@@ -87,12 +141,25 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
         return failHard(`Could not store the key securely: ${getErrorMessage(error)}`)
       }
     }
-    const settings = setGlobalEmbeddings({ model, baseUrl })
+    const settings = setGlobalEmbeddings({
+      model,
+      baseUrl,
+      authHeader,
+      authScheme,
+      extraHeaders,
+      query,
+    })
 
     out.done('Global embeddings configured (applies to all projects)')
     out.info(`provider: ${settings.provider}`)
     out.info(`model:    ${settings.model}`)
     out.info(`base URL: ${settings.baseUrl}`)
+    if (settings.authHeader) out.info(`auth hdr: ${settings.authHeader}`)
+    if (settings.authScheme !== undefined)
+      out.info(`auth:     ${settings.authScheme ? settings.authScheme : '(raw key, no scheme)'}`)
+    if (settings.query) out.info(`query:    ${settings.query}`)
+    if (settings.extraHeaders)
+      out.info(`headers:  ${Object.keys(settings.extraHeaders).join(', ')}`)
     if (location)
       out.info(
         `api key:  stored in ${location === 'keychain' ? 'macOS Keychain' : '~/.prjct-cli/config/embeddings.key (0600)'}`
@@ -116,18 +183,23 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
     out.info(`provider: ${g.provider}`)
     out.info(`model:    ${g.model}`)
     out.info(`base URL: ${g.baseUrl}`)
+    if (g.authHeader) out.info(`auth hdr: ${g.authHeader}`)
+    if (g.authScheme !== undefined)
+      out.info(`auth:     ${g.authScheme ? g.authScheme : '(raw key, no scheme)'}`)
+    if (g.query) out.info(`query:    ${g.query}`)
+    if (g.extraHeaders) out.info(`headers:  ${Object.keys(g.extraHeaders).join(', ')}`)
     out.info(
       `api key:  ${loc === 'none' ? 'MISSING — set with `prjct embeddings set --key <api-key>`' : `present (${loc})`}`
     )
     return { success: true, configured: true }
   }
 
-  private async test(_options: EmbeddingsOptions): Promise<CommandResult> {
+  private async test(options: EmbeddingsOptions): Promise<CommandResult> {
     const provider = resolveActiveProvider(null)
     try {
       const [vector] = await provider.embed(['prjct embeddings connectivity probe'])
       if (!vector || vector.length === 0) {
-        return failHard(`Provider '${provider.model}' returned an empty vector.`)
+        return failHard(`Provider '${provider.model}' returned an empty vector.`, options)
       }
       out.done(`OK — '${provider.model}' returned a ${vector.length}-dim vector.`)
       if (provider.isLocal) {
@@ -137,9 +209,15 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
       }
       return { success: true, model: provider.model, dims: vector.length }
     } catch (error) {
-      return failHard(
-        `Embedding failed for '${provider.model}': ${getErrorMessage(error)}. Check the key and base URL.`
-      )
+      // Headline only — out.fail truncates to ~65 chars. The full endpoint
+      // response and a targeted hint go through notifyInfo (no truncation), so
+      // the one command meant to diagnose connectivity doesn't hide the reason.
+      const detail = getErrorMessage(error)
+      notifyFail(`Embedding test failed for '${provider.model}'.`, options)
+      notifyInfo(detail, options)
+      const hint = embeddingsFailureHint(detail)
+      if (hint) notifyInfo(hint, options)
+      return { success: false, error: detail }
     }
   }
 

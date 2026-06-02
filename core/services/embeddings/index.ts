@@ -58,30 +58,79 @@ export function resolveProvider(config: LocalConfig | null | undefined): Embeddi
   const e = config?.embeddings
   if (!e || !e.provider || !e.model) return null
   if (e.provider === 'openai-compatible') {
-    return new HttpEmbeddingProvider(e.baseUrl ?? 'https://api.openai.com/v1', e.model)
+    return new HttpEmbeddingProvider(e.baseUrl ?? 'https://api.openai.com/v1', e.model, {
+      authHeader: e.authHeader,
+      authScheme: e.authScheme,
+      extraHeaders: e.headers,
+      query: e.query,
+    })
   }
   return null
+}
+
+/**
+ * Auth/transport knobs so the OpenAI-compatible path reaches providers that
+ * deviate from the `Authorization: Bearer` default — Azure OpenAI (`api-key`
+ * header + `api-version` query), gateways needing extra static headers, etc.
+ * All optional; the defaults are exactly the OpenAI/OpenRouter/Ollama shape.
+ */
+export interface HttpAuthOptions {
+  /** Header that carries the API key. Default `authorization`. */
+  authHeader?: string
+  /** Scheme/prefix before the key, e.g. `Bearer`. Empty string = raw key
+   *  (Azure's `api-key: <key>`). Default `Bearer`. */
+  authScheme?: string
+  /** Extra static headers sent on every request. */
+  extraHeaders?: Record<string, string>
+  /** Raw query string appended to the URL, e.g. `api-version=2023-05-15`. */
+  query?: string
+}
+
+/**
+ * Build the `/embeddings` request (URL + fetch init) for an OpenAI-compatible
+ * endpoint. Pure and exported so the auth/header/query wiring is unit-testable
+ * without a network round-trip.
+ */
+export function buildEmbeddingsRequest(
+  baseUrl: string,
+  model: string,
+  texts: string[],
+  key: string | null,
+  auth: HttpAuthOptions = {}
+): { url: string; init: RequestInit } {
+  const root = baseUrl.replace(/\/+$/, '')
+  const q = auth.query?.trim().replace(/^\?/, '')
+  const url = `${root}/embeddings${q ? `?${q}` : ''}`
+
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    ...(auth.extraHeaders ?? {}),
+  }
+  if (key) {
+    const headerName = auth.authHeader?.trim() || 'authorization'
+    const scheme = auth.authScheme ?? 'Bearer'
+    headers[headerName] = scheme ? `${scheme} ${key}` : key
+  }
+
+  return {
+    url,
+    init: { method: 'POST', headers, body: JSON.stringify({ model, input: texts }) },
+  }
 }
 
 /** OpenAI-compatible `/embeddings` provider over `fetch` (no SDK). */
 export class HttpEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private readonly baseUrl: string,
-    public readonly model: string
+    public readonly model: string,
+    private readonly auth: HttpAuthOptions = {}
   ) {}
 
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return []
-    const url = `${this.baseUrl.replace(/\/$/, '')}/embeddings`
     const key = await getEmbeddingsKey()
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(key ? { authorization: `Bearer ${key}` } : {}),
-      },
-      body: JSON.stringify({ model: this.model, input: texts }),
-    })
+    const { url, init } = buildEmbeddingsRequest(this.baseUrl, this.model, texts, key, this.auth)
+    const res = await fetch(url, init)
     if (!res.ok) {
       throw new Error(`embeddings endpoint ${res.status}: ${await res.text().catch(() => '')}`)
     }
@@ -179,7 +228,13 @@ export function resolveActiveProvider(config: LocalConfig | null | undefined): E
   const explicit = resolveProvider(config)
   if (explicit) return explicit
   const global = resolveGlobalEmbeddings()
-  if (global) return new HttpEmbeddingProvider(global.baseUrl, global.model)
+  if (global)
+    return new HttpEmbeddingProvider(global.baseUrl, global.model, {
+      authHeader: global.authHeader,
+      authScheme: global.authScheme,
+      extraHeaders: global.extraHeaders,
+      query: global.query,
+    })
   return new LocalSubwordEmbeddingProvider()
 }
 

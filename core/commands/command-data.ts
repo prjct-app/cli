@@ -468,14 +468,16 @@ export const COMMANDS: CommandMeta[] = [
     usage: {
       claude: '/p:embeddings status',
       terminal:
-        'prjct embeddings <set|status|test|clear> [--key <K>] [--model <M>] [--base-url <U>]',
+        'prjct embeddings <set|status|test|clear> [--key <K>] [--model <M>] [--base-url <U>] [--auth-header <H>] [--auth-scheme <S|none>] [--headers "k=v,..."] [--query <qs>]',
     },
     params: '[set|status|test|clear]',
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
     features: [
-      'BYOT: bring your own embedding API key (OpenAI-compatible)',
+      'BYOT: bring your own embedding API key — ANY OpenAI-compatible provider',
+      'OpenAI, OpenRouter, Ollama, Together, Mistral, Voyage, Jina, LM Studio…',
+      'Non-Bearer providers too: --auth-header api-key --auth-scheme none --query "api-version=..." (Azure OpenAI)',
       'Key stored in the macOS Keychain (else a 0600 file), never in config',
       'Global — applies to all projects; per-project config still overrides',
       'Without a key, recall uses the always-on local subword embedder',
