@@ -18,3 +18,4 @@ Rules:
 - All commits include footer: `Generated with [p/](https://www.prjct.app/)`
 - All storage through `prjct` CLI (SQLite internally)
 - Start code tasks with `p. task` and follow Context Contract from CLI output
+- Worktree hygiene: if working in a git worktree, remove it AFTER its PR merges — `git worktree remove` from the main worktree; never with uncommitted/unpushed work, never `--force`

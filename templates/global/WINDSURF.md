@@ -18,6 +18,7 @@ Data:
 - Commit footer: `Generated with [p/](https://www.prjct.app/)`
 - Path resolution: `.prjct/prjct.config.json` → `~/.prjct-cli/projects/{projectId}`
 - Storage: `prjct` CLI (SQLite internally)
+- Worktree hygiene: if working in a git worktree, remove it AFTER its PR merges — `git worktree remove` from the main worktree; never with uncommitted/unpushed work, never `--force`
 
 Crew (opt-in via `prjct crew install`): Leader (blue) · Implementer (purple) · Reviewer (pink). Subagent dispatch is Claude-Code-only; in Windsurf, identify the role you are playing explicitly.
 
