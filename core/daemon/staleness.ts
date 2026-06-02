@@ -48,6 +48,35 @@ export function resolveEntryPath(): string | null {
   return null
 }
 
+/**
+ * Pure restart decision, separated from the fs-touching detectors so the
+ * ordering/throttle contract is unit-testable:
+ *   - a rebuilt entry file (cheap mtime check) always wins immediately;
+ *   - global-install drift is checked at most once per `driftMinIntervalMs`
+ *     (time-throttled, not request-counted) and skipped for health pings.
+ * The drift probe is injected (`checkDrift`) so tests don't touch the fs.
+ * Returns whether to restart plus the (possibly advanced) throttle timestamp.
+ */
+export function decideRestart(opts: {
+  codeStale: boolean
+  command: string
+  ownVersion: string | null
+  now: number
+  lastDriftCheckMs: number
+  driftMinIntervalMs: number
+  checkDrift: (ownVersion: string) => boolean
+}): { restart: boolean; lastDriftCheckMs: number } {
+  if (opts.codeStale) return { restart: true, lastDriftCheckMs: opts.lastDriftCheckMs }
+
+  if (opts.ownVersion && opts.command !== '__ping') {
+    if (opts.now - opts.lastDriftCheckMs >= opts.driftMinIntervalMs) {
+      return { restart: opts.checkDrift(opts.ownVersion), lastDriftCheckMs: opts.now }
+    }
+  }
+
+  return { restart: false, lastDriftCheckMs: opts.lastDriftCheckMs }
+}
+
 export function isCodeStale(entryPath: string | null, originalMtime: number | null): boolean {
   if (!entryPath || originalMtime === null) return false
 

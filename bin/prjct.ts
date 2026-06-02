@@ -243,42 +243,49 @@ if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
         cwd: process.cwd(),
         stdin: stdinPayload,
       })
-      if (response.stdout) process.stdout.write(response.stdout)
-      process.exit(response.exitCode ?? 0)
+      // `retry` = daemon code is stale; the hook did NOT run there. Fall
+      // through to in-process execution below so the hook always runs on the
+      // fresh code (this was the original "stale daemon caches old hook code"
+      // trap). Otherwise write the daemon's output and exit.
+      if (!response.retry) {
+        if (response.stdout) process.stdout.write(response.stdout)
+        process.exit(response.exitCode ?? 0)
+      }
     } catch {
-      // Daemon unreachable mid-request. stdin is already consumed, so we
-      // can't fall through to main()'s stdin-reading handler — run the hook
-      // in-process right here with the payload we captured. Mirrors the cold
-      // path: emit, then await afterEmit before exit.
-      try {
-        const { getHookRunner } = await import('../core/hooks/registry')
-        const runner = getHookRunner(subcommand)
-        if (!runner) {
-          process.stdout.write('{}\n')
-          process.exit(0)
-        }
-        let input: unknown = {}
-        try {
-          input = stdinPayload ? JSON.parse(stdinPayload) : {}
-        } catch {
-          input = {}
-        }
-        const pending: Array<() => Promise<void>> = []
-        await runner(process.cwd(), {
-          input,
-          sink: (chunk: string) => {
-            process.stdout.write(chunk)
-          },
-          detachAfterEmit: (fn: () => Promise<void>) => {
-            pending.push(fn)
-          },
-        })
-        for (const fn of pending) await fn().catch(() => undefined)
-        process.exit(0)
-      } catch {
+      // Fall through to in-process execution below (handles both daemon-
+      // unreachable and the stale-retry case).
+    }
+    // stdin is already consumed, so we can't defer to main()'s stdin-reading
+    // handler — run the hook in-process right here with the payload we
+    // captured. Mirrors the cold path: emit, then await afterEmit before exit.
+    try {
+      const { getHookRunner } = await import('../core/hooks/registry')
+      const runner = getHookRunner(subcommand)
+      if (!runner) {
         process.stdout.write('{}\n')
         process.exit(0)
       }
+      let input: unknown = {}
+      try {
+        input = stdinPayload ? JSON.parse(stdinPayload) : {}
+      } catch {
+        input = {}
+      }
+      const pending: Array<() => Promise<void>> = []
+      await runner(process.cwd(), {
+        input,
+        sink: (chunk: string) => {
+          process.stdout.write(chunk)
+        },
+        detachAfterEmit: (fn: () => Promise<void>) => {
+          pending.push(fn)
+        },
+      })
+      for (const fn of pending) await fn().catch(() => undefined)
+      process.exit(0)
+    } catch {
+      process.stdout.write('{}\n')
+      process.exit(0)
     }
   }
 }
@@ -324,9 +331,15 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
         perfStartNs: ((globalThis as Record<string, unknown>).__perfStartNs as bigint)?.toString(),
       })
 
-      if (response.stdout) console.log(response.stdout)
-      if (response.stderr) console.error(response.stderr)
-      process.exit(response.exitCode)
+      // Daemon refused because its code is stale (newer build/install on
+      // disk). The command did NOT run there — fall through to direct
+      // in-process execution on the fresh code. Transparent: no error, no
+      // manual re-run. The daemon restarts itself in the background.
+      if (!response.retry) {
+        if (response.stdout) console.log(response.stdout)
+        if (response.stderr) console.error(response.stderr)
+        process.exit(response.exitCode)
+      }
     } catch (err) {
       // The socket file existed when we entered this block, so the
       // daemon was running (or had been running, with a stale socket
