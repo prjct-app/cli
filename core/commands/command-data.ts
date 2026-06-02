@@ -476,6 +476,7 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: false,
     features: [
       'BYOT: bring your own embedding API key — ANY OpenAI-compatible provider',
+      'Zero-config: paste just --key, the base URL is auto-detected from its prefix',
       'OpenAI, OpenRouter, Ollama, Together, Mistral, Voyage, Jina, LM Studio…',
       'Non-Bearer providers too: --auth-header api-key --auth-scheme none --query "api-version=..." (Azure OpenAI)',
       'Key stored in the macOS Keychain (else a 0600 file), never in config',

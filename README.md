@@ -310,25 +310,24 @@ Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals
 
 On by default for **every** project — no setup, no key, no native dependency. A built-in pure-JS embedder (feature-hashed character n-grams) vectorizes memory into SQLite so recall catches morphological / cross-vocabulary matches BM25 misses (`auth`≈`authentication`).
 
-Want higher quality? Bring your own key once, globally:
+Want higher quality? Bring your own key once, globally — **just paste the key, the provider is auto-detected from its prefix:**
 
 ```bash
-prjct embeddings set --key sk-...      # stored in the macOS Keychain (else a 0600 file), never in config
-prjct embeddings test                  # validate connectivity (full error + hint on failure)
-prjct embeddings status                # show provider, model, base URL + key location
-prjct embeddings clear                 # forget the key AND settings (falls back to local)
+prjct embeddings set --key sk-or-v1-...   # → OpenRouter (auto-detected)
+prjct embeddings set --key sk-...         # → OpenAI (auto-detected)
+prjct embeddings test                     # validate connectivity (full error + hint on failure)
+prjct embeddings status                   # show provider, model, base URL + key location
+prjct embeddings clear                    # forget the key AND settings (falls back to local)
 ```
 
-One key applies to every project. **Any OpenAI-compatible `/embeddings` provider works** — just point `--base-url` at its root:
+One key applies to every project. **Any OpenAI-compatible `/embeddings` provider works.** For providers without a recognizable key prefix (or a custom/self-hosted endpoint), point `--base-url` at its root:
 
 ```bash
-# OpenAI (default)
-prjct embeddings set --key sk-...      --base-url https://api.openai.com/v1
-# OpenRouter
-prjct embeddings set --key sk-or-v1-... --base-url https://openrouter.ai/api/v1
 # Ollama (local, no key) / LM Studio / Together / Mistral / Voyage / Jina / DeepInfra …
 prjct embeddings set --model nomic-embed-text --base-url http://localhost:11434/v1
 ```
+
+`set` is partial-update friendly — `set --key …` keeps your existing model and base URL; `set --model …` keeps your key. An explicit `--base-url` always overrides auto-detection.
 
 Providers that don't use `Authorization: Bearer` are supported too via auth flags — e.g. **Azure OpenAI** (`api-key` header + `api-version` query):
 

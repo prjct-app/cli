@@ -14,6 +14,26 @@ import { getConfig, setConfig } from '../global-config'
 export const DEFAULT_EMBEDDINGS_BASE_URL = 'https://api.openai.com/v1'
 export const DEFAULT_EMBEDDINGS_MODEL = 'text-embedding-3-small'
 
+/**
+ * Infer the provider's base URL from an API-key prefix, so users can paste just
+ * `--key` and skip `--base-url`. API keys are provider-stamped at the prefix:
+ * `sk-or-…` is OpenRouter, `sk-ant-…` is Anthropic, etc. Returns undefined when
+ * the prefix isn't recognized (the caller keeps the existing/default base URL).
+ * Order matters — the OpenRouter/Anthropic prefixes are checked before the
+ * generic `sk-` (OpenAI) so they don't get misrouted.
+ */
+export function detectBaseUrlFromKey(
+  key: string
+): { baseUrl: string; provider: string } | undefined {
+  const k = key.trim()
+  if (/^sk-or-/i.test(k)) return { baseUrl: 'https://openrouter.ai/api/v1', provider: 'OpenRouter' }
+  if (/^sk-ant-/i.test(k)) return undefined // Anthropic has no /embeddings endpoint
+  if (/^(gsk_|gpg_)/i.test(k)) return undefined // Groq / others without embeddings
+  if (/^sk-/i.test(k)) return { baseUrl: 'https://api.openai.com/v1', provider: 'OpenAI' }
+  if (/^pa-/i.test(k)) return { baseUrl: 'https://api.voyageai.com/v1', provider: 'Voyage' }
+  return undefined
+}
+
 export interface GlobalEmbeddingsSettings {
   provider: 'openai-compatible'
   baseUrl: string
@@ -73,8 +93,9 @@ export function resolveGlobalEmbeddings(): GlobalEmbeddingsSettings | null {
 }
 
 /** Persist the global embeddings provider/model/baseUrl + auth (key handled
- *  apart). A field passed as `undefined` is left untouched; pass an empty
- *  string to clear an optional auth field. */
+ *  apart). Partial-update friendly: a field not provided is LEFT AS-IS (so
+ *  `set --key …` keeps your model/base URL); defaults apply only on first
+ *  config. Pass an empty string to clear an optional auth field. */
 export function setGlobalEmbeddings(opts: {
   baseUrl?: string
   model?: string
@@ -83,9 +104,15 @@ export function setGlobalEmbeddings(opts: {
   extraHeaders?: Record<string, string>
   query?: string
 }): GlobalEmbeddingsSettings {
+  const existing = resolveGlobalEmbeddings()
   setConfig(K_PROVIDER, 'openai-compatible')
-  setConfig(K_BASE_URL, opts.baseUrl?.trim() || DEFAULT_EMBEDDINGS_BASE_URL)
-  setConfig(K_MODEL, opts.model?.trim() || DEFAULT_EMBEDDINGS_MODEL)
+  // Only overwrite baseUrl/model when explicitly given; otherwise preserve the
+  // current value (or seed the default on first config). This stops a partial
+  // `set` from silently resetting an already-configured provider.
+  if (opts.baseUrl?.trim()) setConfig(K_BASE_URL, opts.baseUrl.trim())
+  else if (!existing) setConfig(K_BASE_URL, DEFAULT_EMBEDDINGS_BASE_URL)
+  if (opts.model?.trim()) setConfig(K_MODEL, opts.model.trim())
+  else if (!existing) setConfig(K_MODEL, DEFAULT_EMBEDDINGS_MODEL)
 
   // Optional auth knobs: only written when explicitly provided. Empty string
   // clears (deletes) the key; for authScheme, '' is meaningful (raw key) so we

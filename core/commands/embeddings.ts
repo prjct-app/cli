@@ -13,6 +13,7 @@
 import {
   clearGlobalEmbeddings,
   DEFAULT_EMBEDDINGS_MODEL,
+  detectBaseUrlFromKey,
   resolveActiveProvider,
   resolveGlobalEmbeddings,
   setGlobalEmbeddings,
@@ -111,7 +112,18 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
     // direct programmatic call (or a test) works the same way.
     const key = options.key ?? flag(parts, 'key')
     const model = options.model ?? flag(parts, 'model')
-    const baseUrl = options.baseUrl ?? flag(parts, 'base-url') ?? flag(parts, 'baseUrl')
+    let baseUrl = options.baseUrl ?? flag(parts, 'base-url') ?? flag(parts, 'baseUrl')
+    // Zero-config: infer the base URL from the key prefix (sk-or-… → OpenRouter,
+    // sk-… → OpenAI, …) so pasting just `--key` is enough. An explicit
+    // `--base-url` always wins; detection also fires when switching providers.
+    let detectedProvider: string | undefined
+    if (!baseUrl && key) {
+      const detected = detectBaseUrlFromKey(key)
+      if (detected) {
+        baseUrl = detected.baseUrl
+        detectedProvider = detected.provider
+      }
+    }
     const authHeader = options.authHeader ?? flag(parts, 'auth-header')
     // `none` (case-insensitive) → raw key, no scheme prefix (Azure's api-key).
     const authSchemeRaw = options.authScheme ?? flag(parts, 'auth-scheme')
@@ -151,6 +163,7 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
     })
 
     out.done('Global embeddings configured (applies to all projects)')
+    if (detectedProvider) out.info(`detected: ${detectedProvider} (from key prefix)`)
     out.info(`provider: ${settings.provider}`)
     out.info(`model:    ${settings.model}`)
     out.info(`base URL: ${settings.baseUrl}`)

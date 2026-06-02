@@ -30,6 +30,7 @@ export {
   clearGlobalEmbeddings,
   DEFAULT_EMBEDDINGS_BASE_URL,
   DEFAULT_EMBEDDINGS_MODEL,
+  detectBaseUrlFromKey,
   resolveGlobalEmbeddings,
   setGlobalEmbeddings,
 } from './global'
