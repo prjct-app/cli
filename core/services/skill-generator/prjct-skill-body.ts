@@ -17,8 +17,13 @@
 import { formatProjectHeader, formatRichContext } from './formatters'
 import type { SkillContext } from './types'
 
+// Trigger only — NOT a manual. This string is always in the host model's
+// context (the skill list ships it every turn), so it carries just enough to
+// fire correctly and bias routing; the full triage/verb-map/tiers/language
+// rules live in the body, which loads on invoke. Keeping the methodology out
+// of here is the same pull-not-push rule the rest of the runtime follows.
 export const PRJCT_SKILL_DESCRIPTION =
-  'Project-memory + spec-driven runtime. prjct remembers and shows the path; the agent decides how to execute with its own tools. TRIAGE FIRST, every turn — is this simple or complex? MOST work is SIMPLE (≈1 file, known cause, bug/config/copy/doc, reversible, or the user says fix/hoy/rápido/directo): go DIRECT — `prjct task` → implement → `qa`/`review` → `ship`. NO spec, NO audit-spec, NO reviewer subagents. Spec is the EXCEPTION, ONLY for genuinely complex / high-stakes work (multi-file + new behavior, ambiguous scope, irreversible, or the user frames goals/acceptance/risks): then `spec` → `audit-spec` → `task --spec` → `ship`. Over-routing simple work through spec+reviewers is THE failure mode (burns time/tokens, zero protection on a one-file fix) — when unsure prefer DIRECT and ask one line; never default to spec. Recognize intent in any language (es/en) and run the verb yourself — never make the user type commands. Routine captures (capture/remember/tag) auto-execute, one-line confirm; destructive verbs (ship, status done) suggest-and-confirm; heavy reviews (audit/review/security/investigate) dispatch parallel subagents ONLY when the diff/scope warrants. Lookup-first: vault before re-reading source.'
+  'Project memory + spec-driven runtime: recall and capture decisions/learnings/gotchas, run registered workflows, frame and ship work. Recognize intent in any language (es/en) and run the verb yourself — never make the user type commands. Triage every turn: most work is SIMPLE → go direct (`prjct task` → ship); reserve the spec pipeline for genuinely complex or high-stakes work. Over-routing simple work through spec + reviewers is the main failure mode.'
 
 export const PRJCT_SKILL_ALLOWED_TOOLS = [
   'Bash',
