@@ -201,7 +201,7 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct status <value>` | Inline status change on the active task (`done`, `paused`, `active`, …). |
 | `prjct tag <k:v>` | Tag the active task (`type:bug`, `domain:auth`, …). |
 | `prjct remember <type> "<content>"` | Persist a memory entry (decision, learning, gotcha, …). |
-| `prjct embeddings <set\|status\|test\|clear>` | Configure the global BYOT embeddings provider (one secure key, all projects). |
+| `prjct embeddings <set\|status\|test\|clear>` | Configure the global BYOT embeddings provider — any OpenAI-compatible API (OpenAI, OpenRouter, Ollama, Azure, …), one secure key, all projects. |
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
@@ -282,7 +282,7 @@ prjct hooks <install|uninstall|status>  Git hooks for auto-sync
 prjct context <memory|learnings|wiki>  Recall memory / sync the vault
 prjct review-risk        Advisory change-size + delivery-geometry hint (read-only)
 prjct workflow ["config"]  Configure hooks via natural language
-prjct stop / restart     Background daemon control
+prjct stop / restart     Background daemon control (self-reloads on stale code; manual restart rarely needed)
 prjct login / logout / auth   Cloud sync authentication
 prjct update             Update CLI system-wide (alias: prjct upgrade)
 prjct --version / --help
@@ -314,11 +314,41 @@ Want higher quality? Bring your own key once, globally:
 
 ```bash
 prjct embeddings set --key sk-...      # stored in the macOS Keychain (else a 0600 file), never in config
-prjct embeddings test                  # validate connectivity
-prjct embeddings status                # show provider + key location
+prjct embeddings test                  # validate connectivity (full error + hint on failure)
+prjct embeddings status                # show provider, model, base URL + key location
+prjct embeddings clear                 # forget the key AND settings (falls back to local)
 ```
 
-One key applies to every project (OpenAI-compatible — OpenAI, Ollama at `http://localhost:11434/v1`, LM Studio, …). Without it, the local embedder is used. Each project re-vectorizes on its next session.
+One key applies to every project. **Any OpenAI-compatible `/embeddings` provider works** — just point `--base-url` at its root:
+
+```bash
+# OpenAI (default)
+prjct embeddings set --key sk-...      --base-url https://api.openai.com/v1
+# OpenRouter
+prjct embeddings set --key sk-or-v1-... --base-url https://openrouter.ai/api/v1
+# Ollama (local, no key) / LM Studio / Together / Mistral / Voyage / Jina / DeepInfra …
+prjct embeddings set --model nomic-embed-text --base-url http://localhost:11434/v1
+```
+
+Providers that don't use `Authorization: Bearer` are supported too via auth flags — e.g. **Azure OpenAI** (`api-key` header + `api-version` query):
+
+```bash
+prjct embeddings set --key "$AZURE_KEY" \
+  --base-url https://RESOURCE.openai.azure.com/openai/deployments/DEPLOYMENT \
+  --auth-header api-key --auth-scheme none --query "api-version=2023-05-15"
+```
+
+| Flag | Purpose |
+| --- | --- |
+| `--key <k>` | API key — stored in the Keychain (else a 0600 file), never in config |
+| `--base-url <u>` | Provider's OpenAI-compatible root (default `https://api.openai.com/v1`) |
+| `--model <m>` | Model id (default `text-embedding-3-small`) |
+| `--auth-header <h>` | Header carrying the key (default `authorization`; `api-key` for Azure) |
+| `--auth-scheme <s\|none>` | Prefix before the key (default `Bearer`; `none` = raw key) |
+| `--headers "k=v,k2=v2"` | Extra static headers (gateways, attribution) |
+| `--query <qs>` | Raw query string appended to the URL (e.g. `api-version=2023-05-15`) |
+
+Without a key the built-in local embedder is used. Vector dimensionality is detected from the provider's response (no hardcoded size). Each project re-vectorizes on its next session.
 
 ### Drop files into the vault (bidirectional)
 

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+The long-lived daemon no longer serves stale code, and embeddings reach any provider.
+
+### Fixed
+- **Daemon could serve output from an outdated build (the recurring "stale daemon" trap).** Two compounding defects: staleness was detected *after* the daemon decided to serve, so the request that first observed a new build/install was still answered by the old code; and on refusal the client printed `Daemon restarting — retry the command` and exited 1, so the command never ran (1st call stale → 2nd fails → 3rd fresh). Now staleness is detected *before* serving, the daemon refuses cleanly with a `retry` signal (the request never executes → zero side effects), and **both `bin/prjct.ts` and the daemon shim** (`scripts/build.js` → `dist/bin/prjct.mjs`, what users actually run) transparently fall through to direct in-process execution on the fresh code — no error, no manual re-run. Hooks degrade to the fail-soft `{}` no-op. The global-install version-drift check is now time-throttled (1s) instead of every-10-commands (which could leak up to 9 stale responses). Closes the "stale daemon caches old hook code" gotcha.
+- **`prjct embeddings test` no longer truncates its failure** to 65 chars (`embeddings endpoi…`). It now prints the full endpoint response plus an actionable hint (401 → base-url/key mismatch, 404 → wrong route, network → unreachable) — the one command meant to diagnose connectivity stopped hiding the diagnosis.
+- **Embeddings test isolation:** `global-config` resolves its directory lazily from `PRJCT_CLI_HOME`, so config/embeddings tests no longer read the developer's real `~/.prjct-cli`.
+
+### Added
+- **Embeddings support ANY OpenAI-compatible provider, including non-Bearer ones.** Already worked with OpenAI, OpenRouter, Ollama, Together, Mistral, Voyage, Jina, LM Studio, … via `--base-url` + `--model` + `--key`; now providers that deviate from `Authorization: Bearer` are covered too — e.g. **Azure OpenAI** (`api-key` header + `api-version` query) and custom gateways. New `prjct embeddings set` flags: `--auth-header <h>`, `--auth-scheme <s|none>` (`none` = raw key), `--headers "k=v,…"`, `--query <qs>`. Default stays `Bearer`/`authorization`, so existing providers are unchanged. Vector dimensionality is detected from the response (no hardcoded size).
+
 ## [2.38.1] - 2026-06-02
 
 ### Performance
