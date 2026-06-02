@@ -16,6 +16,13 @@ The long-lived daemon no longer serves stale code, and embeddings reach any prov
 - **Zero-config embeddings setup — paste just the key.** `prjct embeddings set --key <k>` now infers the base URL from the key's prefix (`sk-or-…` → OpenRouter, `sk-…` → OpenAI, `pa-…` → Voyage; `sk-ant-`/Groq/unknown → keep default), so `--base-url` is optional for known providers. An explicit `--base-url` still wins, and detection re-fires when you switch keys. `set` is now partial-update friendly too: `set --key …` keeps your existing model/base URL instead of resetting them.
 - **Embeddings support ANY OpenAI-compatible provider, including non-Bearer ones.** Already worked with OpenAI, OpenRouter, Ollama, Together, Mistral, Voyage, Jina, LM Studio, … via `--base-url` + `--model` + `--key`; now providers that deviate from `Authorization: Bearer` are covered too — e.g. **Azure OpenAI** (`api-key` header + `api-version` query) and custom gateways. New `prjct embeddings set` flags: `--auth-header <h>`, `--auth-scheme <s|none>` (`none` = raw key), `--headers "k=v,…"`, `--query <qs>`. Default stays `Bearer`/`authorization`, so existing providers are unchanged. Vector dimensionality is detected from the response (no hardcoded size).
 
+## [2.40.0] - 2026-06-02
+
+### Features
+
+- per-worktree active tasks — multi-agent runtime (#413)
+
+
 ## [2.39.0] - 2026-06-02
 
 ### Features
