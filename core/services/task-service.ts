@@ -18,12 +18,14 @@
 
 import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { generateUUID } from '../schemas/schemas'
+import type { CurrentTask, TaskFeedback } from '../schemas/state'
 import { getGitBranch } from '../session/git-helpers'
 import { stateStorage } from '../storage/state-storage'
 import * as dateHelper from '../utils/date-helper'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import { memoryService } from './memory-service'
 import projectService from './project-service'
+import { deriveWorkspace } from './workspace-id'
 
 /** Status values that mean "make this task the active one again". */
 const RESUME_VALUES = ['active', 'resume', 'in_progress', 'working']
@@ -70,13 +72,36 @@ export async function startTask(
 
   const taskId = generateUUID()
   const linkedSpecId = options.spec
-  await stateStorage.startTask(projectId, {
+
+  // Multi-agent: a task in a child worktree lands in activeTasks[] keyed by
+  // its workspaceId, so parallel agents don't clobber a shared currentTask.
+  // The main worktree keeps the singular currentTask path (transparent for
+  // single-agent use, and the backward-compatible mirror for read paths).
+  const ws = await deriveWorkspace(projectPath)
+  const taskFields = {
     id: taskId,
     description,
     sessionId: generateUUID(),
     linearId,
     linkedSpecId,
-  } as Parameters<typeof stateStorage.startTask>[1])
+  }
+  if (ws.isMain) {
+    await stateStorage.startTask(
+      projectId,
+      taskFields as Parameters<typeof stateStorage.startTask>[1]
+    )
+  } else {
+    await stateStorage.startTaskInWorkspace(
+      projectId,
+      {
+        ...taskFields,
+        branch: ws.branch,
+        workspaceId: ws.workspaceId,
+        worktreePath: ws.worktreePath,
+      } as Parameters<typeof stateStorage.startTaskInWorkspace>[1],
+      ws.workspaceId
+    )
+  }
 
   // Mirror the linkage on the spec side so `prjct spec show <id>` lists the
   // linked task. Best-effort — a missing spec just no-ops.
@@ -119,6 +144,8 @@ export type SetStatusOutcome =
   | { ok: true; taskId: string; status: string }
   /** No active task and no paused task to resume — caller emits the guard. */
   | { ok: false; reason: 'no-active-task' }
+  /** The transition isn't supported in this context — caller prints `message`. */
+  | { ok: false; reason: 'unsupported'; message: string }
 
 /**
  * Change the active task's status. Drives the real workflow state machine so
@@ -134,6 +161,39 @@ export async function setTaskStatus(
 ): Promise<SetStatusOutcome> {
   const normalized = value.toLowerCase()
   const resumeIntent = RESUME_VALUES.includes(normalized)
+
+  // Multi-agent: in a child worktree the status applies to THAT workspace's
+  // task in activeTasks[], isolated from other worktrees. The main worktree
+  // keeps the singular currentTask path below.
+  const ws = await deriveWorkspace(projectPath)
+  if (!ws.isMain) {
+    const wsTask = await stateStorage.getCurrentTaskForWorkspace(projectId, ws.workspaceId)
+    if (!wsTask) return { ok: false, reason: 'no-active-task' }
+
+    // `done` removes the task from this workspace (-> idle for this worktree),
+    // leaving every other workspace's task untouched.
+    if (normalized === 'done' || normalized === 'completed') {
+      const lastStatus = await readLastStatus(projectId, wsTask.id)
+      await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
+        taskId: wsTask.id,
+        from: lastStatus ?? null,
+        to: value,
+        workspaceId: ws.workspaceId,
+      })
+      await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
+      return { ok: true, taskId: wsTask.id, status: value }
+    }
+
+    // Pause/resume PER worktree needs a per-workspace paused store (planned
+    // follow-up). Returning an explicit `unsupported` — rather than a false
+    // success that mutates nothing — avoids leaving the worktree task wedged
+    // in `working` (which would then block the next `prjct task` here).
+    return {
+      ok: false,
+      reason: 'unsupported',
+      message: `'${value}' isn't supported for a worktree task yet — only 'done'. (pause/resume per-worktree is a planned follow-up)`,
+    }
+  }
 
   // Resume-intent bypasses the active-task guard: when the current task is
   // paused, there's no `currentTask` — promote a paused one first.
@@ -183,6 +243,36 @@ export async function setTaskStatus(
   }
 
   return { ok: true, taskId: active.id, status: value }
+}
+
+/**
+ * Resolve the active task for the CALLER's worktree — the main worktree's
+ * singular currentTask, or the child worktree's slot in activeTasks[]. Returns
+ * the full task (incl. linkedSpecId) so callers like `prjct ship` can read its
+ * spec linkage and description. Null when this workspace has no active task.
+ */
+export async function resolveActiveTask(
+  projectId: string,
+  projectPath: string
+): Promise<CurrentTask | null> {
+  const ws = await deriveWorkspace(projectPath)
+  if (ws.isMain) return stateStorage.getCurrentTask(projectId)
+  return stateStorage.getCurrentTaskForWorkspace(projectId, ws.workspaceId)
+}
+
+/**
+ * Complete the active task for the CALLER's worktree, routing to the singular
+ * (main) or per-workspace (child) completion so ship/done isolate correctly.
+ * Returns the completed task, or null when nothing was active.
+ */
+export async function completeActiveTask(
+  projectId: string,
+  projectPath: string,
+  feedback?: TaskFeedback
+): Promise<CurrentTask | null> {
+  const ws = await deriveWorkspace(projectPath)
+  if (ws.isMain) return stateStorage.completeTask(projectId, feedback)
+  return stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId, feedback)
 }
 
 /**

@@ -182,6 +182,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '- Secret-like content is refused by `remember` and `capture` unless `--force`.',
     '- Bare `prjct "<text>"` routes to `capture` (inbox), not `task`. Use `prjct task` explicitly for work that needs a branch/worktree.',
     '- Hooks in `~/.claude/settings.json` already inject persona + topical memory on SessionStart / UserPromptSubmit — you rarely need to call prjct by hand at session start.',
+    "- **Worktree hygiene.** If you are working inside a git worktree, clean it up so they don't pile up on the local machine: AFTER the branch's PR is *merged* (not at session end — an open PR keeps its worktree), `git worktree remove <path>` + `git worktree prune`, run from the MAIN worktree (git won't remove the worktree you're standing in). NEVER remove a worktree with uncommitted or unpushed work, and never `--force` over a dirty tree (it silently discards work).",
     '',
   ].join('\n')
 }

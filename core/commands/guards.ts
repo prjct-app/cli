@@ -10,8 +10,8 @@
 import configManager from '../infrastructure/config-manager'
 import type { CurrentTask } from '../schemas/state'
 import { projectService } from '../services/project-service'
+import { resolveActiveTask } from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
-import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { failWith } from '../utils/md-aware'
@@ -63,9 +63,13 @@ export async function requireProject(
  */
 export async function requireActiveTask(
   projectId: string,
-  options: MdOption = {}
+  options: MdOption = {},
+  projectPath: string = process.cwd()
 ): Promise<Guard<CurrentTask>> {
-  const active = await stateStorage.getCurrentTask(projectId)
+  // Workspace-aware: resolves the CURRENT worktree's task (main → currentTask,
+  // child worktree → its activeTasks[] slot) so the shared guard works for
+  // parallel agents, not just the main worktree.
+  const active = await resolveActiveTask(projectId, projectPath)
   if (!active) {
     return {
       ok: false,

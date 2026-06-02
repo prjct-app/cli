@@ -1,0 +1,112 @@
+/**
+ * Multi-workspace task overview — the read-side counterpart to task-service.
+ *
+ * One place that answers "what is active, and in which workspace?" so every
+ * surface (CLI `prjct task` no-arg + `prjct status`, the MCP prjct_task_status
+ * tool, and the session hooks) renders the SAME workspace-labelled view and
+ * agrees on which task belongs to the caller's worktree. This is what makes
+ * the per-workspace state observable instead of silently singular.
+ */
+
+import { stateStorage } from '../storage/state-storage'
+import { deriveWorkspace, MAIN_WORKSPACE_ID } from './workspace-id'
+
+export interface ActiveTaskView {
+  id: string
+  description: string
+  workspaceId: string
+  /** Short display id: `main` or the first 6 chars of the hash. */
+  shortId: string
+  /** `shortId · branch` — the workspace label rendered to users. */
+  label: string
+  branch?: string
+  /** Linear issue id when the task is linked (preserved for `--md` output). */
+  linearId?: string
+  startedAt: string
+  /** True when this task belongs to the caller's current worktree. */
+  isCurrent: boolean
+}
+
+export interface TaskOverview {
+  /** The caller's own workspace task, if any. */
+  current: ActiveTaskView | null
+  /** Every active task across the project, current-first. */
+  all: ActiveTaskView[]
+}
+
+function labelFor(workspaceId: string, branch?: string): { shortId: string; label: string } {
+  const shortId = workspaceId === MAIN_WORKSPACE_ID ? MAIN_WORKSPACE_ID : workspaceId.slice(0, 6)
+  return { shortId, label: `${shortId} · ${branch ?? '(detached)'}` }
+}
+
+/**
+ * Collect the active task for the caller's worktree plus every other active
+ * task in the project. `current` is resolved by deriving the caller's
+ * workspaceId from `projectPath`; the main worktree maps onto the singular
+ * currentTask, child worktrees onto their activeTasks[] slot.
+ */
+export async function collectActiveTasks(
+  projectId: string,
+  projectPath: string
+): Promise<TaskOverview> {
+  const ws = await deriveWorkspace(projectPath)
+  const views: ActiveTaskView[] = []
+
+  // Main worktree task (singular currentTask), surfaced as the `main` workspace.
+  const mainTask = await stateStorage.getCurrentTask(projectId)
+  if (mainTask) {
+    const { shortId, label } = labelFor(MAIN_WORKSPACE_ID, mainTask.branch)
+    views.push({
+      id: mainTask.id,
+      description: mainTask.description,
+      workspaceId: MAIN_WORKSPACE_ID,
+      shortId,
+      label,
+      branch: mainTask.branch,
+      linearId: mainTask.linearId,
+      startedAt: mainTask.startedAt,
+      isCurrent: ws.workspaceId === MAIN_WORKSPACE_ID,
+    })
+  }
+
+  // Child-worktree tasks (activeTasks[]). Defensive: skip any stray entry
+  // tagged as the main workspace so it can never double-count with currentTask.
+  for (const t of await stateStorage.getActiveTasks(projectId)) {
+    if (t.workspaceId === MAIN_WORKSPACE_ID) continue
+    const { shortId, label } = labelFor(t.workspaceId, t.branch)
+    views.push({
+      id: t.id,
+      description: t.description,
+      workspaceId: t.workspaceId,
+      shortId,
+      label,
+      branch: t.branch,
+      linearId: t.linearId,
+      startedAt: t.startedAt,
+      isCurrent: ws.workspaceId === t.workspaceId,
+    })
+  }
+
+  views.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent))
+  const current = views.find((v) => v.isCurrent) ?? null
+  return { current, all: views }
+}
+
+/** One-line plain-text rendering of a task with its workspace marker. */
+export function formatActiveTaskLine(v: ActiveTaskView): string {
+  const marker = v.isCurrent ? '→' : ' '
+  const here = v.isCurrent ? '  (this worktree)' : ''
+  return `${marker} ${v.label}    ${v.description}${here}`
+}
+
+/** Multi-workspace list view shared by `prjct status` and prjct_task_status. */
+export function formatActiveTaskList(overview: TaskOverview): string {
+  if (overview.all.length === 0) return 'No active task.'
+  if (overview.all.length === 1 && overview.current) {
+    const v = overview.current
+    return `Active: ${v.description}\n  Workspace: ${v.label}`
+  }
+  const lines = [`Active tasks (${overview.all.length})`]
+  for (const v of overview.all) lines.push(formatActiveTaskLine(v))
+  return lines.join('\n')
+}

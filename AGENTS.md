@@ -98,3 +98,21 @@ These are enforced by lint/CI, not just convention:
   see `core/__tests__/storage/sqlite-migration.test.ts` for the pattern.
 - **Biome + lefthook** handle format on pre-commit. Run `bun run check:fix`
   to apply all Biome fixes at once.
+
+## Worktree cleanup (any agent)
+
+If you are working inside a git worktree (e.g. under `.worktrees/<slug>`), clean
+it up when you're done so worktrees don't accumulate on the local machine. This
+applies to **any** agent/LLM, not just Claude.
+
+- **Trigger: after the PR for the worktree's branch is *merged*** — not at
+  session end. An open or unmerged PR keeps its worktree (the work isn't landed
+  yet). Check with e.g. `gh pr view <branch> --json state`.
+- **Remove from the main worktree**, never from inside the worktree being removed
+  (git refuses to delete the worktree you're standing in): `cd` to the main repo,
+  then `git worktree remove <path>` followed by `git worktree prune`.
+- **Never remove a worktree with uncommitted or unpushed work.** Verify
+  `git status` is clean and `git rev-list @{u}..HEAD` is empty first. If in
+  doubt, leave it and clean up on a later pass once the PR is merged.
+- Do not `--force` a removal to override a dirty tree — that silently discards
+  work. A dirty/unpushed worktree means cleanup is not yet safe.

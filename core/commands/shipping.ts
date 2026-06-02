@@ -14,9 +14,9 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { syncService } from '../services/sync-service'
+import { completeActiveTask, resolveActiveTask } from '../services/task-service'
 import { prjctDb } from '../storage/database'
 import { shippedStorage } from '../storage/shipped-storage'
-import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandClarification, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -86,11 +86,14 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       let featureName = feature
 
-      const currentTask = await stateStorage.getCurrentTask(projectId)
+      // Resolve + complete the task for THIS worktree (main → currentTask,
+      // child worktree → its activeTasks[] slot) so parallel agents ship their
+      // own work without disturbing sibling worktrees.
+      const currentTask = await resolveActiveTask(projectId, projectPath)
       const linkedSpecId = currentTask?.linkedSpecId
       if (currentTask) {
         if (!featureName) featureName = currentTask.description || 'current work'
-        await stateStorage.completeTask(projectId)
+        await completeActiveTask(projectId, projectPath)
       }
       if (!featureName) featureName = 'current work'
 
@@ -402,7 +405,7 @@ async function buildClarification(
   }
 
   // Case 2 — steps are defined AND there's an active task → proceed.
-  const activeTask = await stateStorage.getCurrentTask(projectId)
+  const activeTask = await resolveActiveTask(projectId, projectPath)
   if (activeTask) return null
 
   // Case 3 — no active task but steps exist. Dangerous when there's a

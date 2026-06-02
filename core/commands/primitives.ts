@@ -12,7 +12,7 @@
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
-import { readLastStatus, setTaskStatus } from '../services/task-service'
+import { readLastStatus, resolveActiveTask, setTaskStatus } from '../services/task-service'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -48,8 +48,13 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       if (value) {
         const outcome = await setTaskStatus(pid.value, projectPath, value)
         if (!outcome.ok) {
+          if (outcome.reason === 'unsupported') {
+            if (options.md) console.log(`> ${outcome.message}`)
+            else out.fail(outcome.message)
+            return { success: false, error: outcome.message }
+          }
           // No active task and no paused task to resume — emit the uniform guard.
-          const task = await requireActiveTask(pid.value, options)
+          const task = await requireActiveTask(pid.value, options, projectPath)
           if (!task.ok) return task.result
           return { success: false, error: 'No active task' }
         }
@@ -62,7 +67,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       // No-arg `status` → informative display. When the task is paused there's
       // no `currentTask`; show the paused task rather than a bogus "no active
       // task" — the task exists, it just isn't the focus.
-      const current = await stateStorage.getCurrentTask(pid.value)
+      const current = await resolveActiveTask(pid.value, projectPath)
       if (!current) {
         const paused = await stateStorage.getPausedTasks(pid.value)
         if (paused.length > 0) {
@@ -74,7 +79,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         }
       }
 
-      const task = await requireActiveTask(pid.value, options)
+      const task = await requireActiveTask(pid.value, options, projectPath)
       if (!task.ok) return task.result
 
       const active = task.value
@@ -106,7 +111,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
-      const task = await requireActiveTask(pid.value, options)
+      const task = await requireActiveTask(pid.value, options, projectPath)
       if (!task.ok) return task.result
 
       if (!args) {
@@ -195,7 +200,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       // `remember` works even without an active task — you might be
       // capturing a fact before kicking off work. Just record without
       // source in that case.
-      const active = await stateStorage.getCurrentTask(pid.value)
+      const active = await resolveActiveTask(pid.value, projectPath)
 
       await projectMemory.remember(projectPath, {
         type,

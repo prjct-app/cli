@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Multi-agent: per-worktree active tasks.** prjct's single-`currentTask` runtime now supports several AI agents working concurrently, each in its own git worktree, without clobbering a shared task. A deterministic `workspaceId` (derived from the git worktree root) keys each task into the existing `activeTasks[]` layer; the main worktree keeps the singular `currentTask` path, so single-agent use is unchanged. The single-task gate is now evaluated **per workspace** (a task in worktree A no longer blocks worktree B; a second task in the *same* worktree still gates), atomic inside the SQLite compare-and-set updater. Wiring lives at one choke point — `task-service` (`startTask`/`setTaskStatus`/`resolveActiveTask`/`completeActiveTask`) — inherited by the CLI, the MCP `prjct_task_*` tools, and `prjct ship`. Every read path (`prjct task`/`status` no-arg, `prjct remember` attribution, the session hooks, `prjct_task_status`, `prjct_workflow_status`) now resolves the **current worktree's** task and renders a workspace label (`shortId · branch`) plus a multi-workspace list, so it's always clear which worktree a task belongs to. Pause/resume **per worktree** is a planned follow-up (a child-worktree `prjct status paused` returns an explicit "unsupported" rather than a silent no-op); `done`/`ship` isolate correctly today.
+
 The long-lived daemon no longer serves stale code, and embeddings reach any provider.
 
 ### Fixed

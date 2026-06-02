@@ -71,16 +71,19 @@ export class WorkflowStateMachine {
     },
     workspaceId?: string
   ): WorkflowState {
-    // Multi-agent mode: look up task by workspaceId in activeTasks
-    let task: Record<string, unknown> | null | undefined = null
-    if (workspaceId && storageState?.activeTasks?.length) {
-      task = storageState.activeTasks.find((t) => t.workspaceId === workspaceId)
+    // Multi-agent mode: a workspace's lifecycle is resolved PURELY from its own
+    // task in activeTasks[]. We deliberately do NOT fall back to the singular
+    // currentTask here — that belongs to the main worktree, and letting it leak
+    // in would make a main-worktree task block sibling worktrees. No task for
+    // this workspace ⇒ idle ⇒ `prjct task` is allowed.
+    if (workspaceId) {
+      const wsTask = (storageState?.activeTasks ?? []).find((t) => t.workspaceId === workspaceId)
+      if (!wsTask) return 'idle'
+      return this.statusToState(wsTask)
     }
 
-    // Fallback to single-task mode
-    if (!task) {
-      task = storageState?.currentTask
-    }
+    // Single-task (legacy / main worktree) mode.
+    const task: Record<string, unknown> | null | undefined = storageState?.currentTask
 
     if (!task) {
       // Check if there are paused tasks (array or legacy previousTask)
@@ -90,6 +93,12 @@ export class WorkflowStateMachine {
       return hasPaused ? 'paused' : 'idle'
     }
 
+    return this.statusToState(task)
+  }
+
+  /** Map a task's `status` field to a workflow state (a present task with no
+   * explicit status is treated as `working`). */
+  private statusToState(task: Record<string, unknown>): WorkflowState {
     const status = (typeof task.status === 'string' ? task.status : '').toLowerCase()
 
     switch (status) {
@@ -104,7 +113,7 @@ export class WorkflowStateMachine {
       case 'shipped':
         return 'shipped'
       default:
-        return task ? 'working' : 'idle'
+        return 'working'
     }
   }
 

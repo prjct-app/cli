@@ -57,9 +57,18 @@ class StateStorage extends StorageManager<StateJson> {
   /**
    * Validate a state transition through the state machine.
    * Throws if the transition is invalid.
+   *
+   * When `workspaceId` is provided the lifecycle is evaluated PER workspace
+   * (multi-agent parallel mode): a task active in one worktree does not block
+   * starting one in another, but a second task in the SAME workspace still
+   * gates. Omitting it preserves the legacy singular (currentTask) gate.
    */
-  private validateTransition(state: StateJson, command: WorkflowCommand): void {
-    const currentState = workflowStateMachine.getCurrentState(state)
+  private validateTransition(
+    state: StateJson,
+    command: WorkflowCommand,
+    workspaceId?: string
+  ): void {
+    const currentState = workflowStateMachine.getCurrentState(state, workspaceId)
     const result = workflowStateMachine.canTransition(currentState, command)
     if (!result.valid) {
       throw new Error(`${result.error}. ${result.suggestion || ''}`.trim())
@@ -351,6 +360,10 @@ class StateStorage extends StorageManager<StateJson> {
     task: Omit<WorkspaceTask, 'startedAt'>,
     workspaceId: string
   ): Promise<WorkspaceTask> {
+    // Per-workspace gate: a task already active in THIS workspace blocks a new
+    // one (same as the singular path), but other workspaces are unaffected.
+    const state = await this.read(projectId)
+    this.validateTransition(state, 'task', workspaceId)
     return workspace.startTaskInWorkspace(this.workspaceBackend(), projectId, task, workspaceId)
   }
 
@@ -393,9 +406,10 @@ class StateStorage extends StorageManager<StateJson> {
   async addTokens(
     projectId: string,
     tokensIn: number,
-    tokensOut: number
+    tokensOut: number,
+    workspaceId?: string
   ): Promise<{ tokensIn: number; tokensOut: number } | null> {
-    return workspace.addTokens(this.workspaceBackend(), projectId, tokensIn, tokensOut)
+    return workspace.addTokens(this.workspaceBackend(), projectId, tokensIn, tokensOut, workspaceId)
   }
 
   // =========== Subtask Methods (delegated to ./state-storage/subtasks) ===========
