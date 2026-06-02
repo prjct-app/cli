@@ -368,11 +368,13 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(ref).toMatch(/Subagent C.*investigate/)
     })
 
-    it('the skill description scopes heavy reviews to when the diff/scope warrants', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toMatch(/heavy reviews \(audit\/review\/security\/investigate\)/i)
-      expect(content).toMatch(/parallel subagents ONLY when the diff\/scope warrants/i)
+    it('scopes heavy-review subagent dispatch to diff size — in the pulled reference, not the always-on description', async () => {
+      // The always-on skill description is a lean trigger; the subagent-
+      // dispatch scoping rule (don't over-dispatch on small diffs) lives in
+      // workflows.md, pulled only when a heavy workflow actually runs.
+      const ref = await readReference()
+      expect(ref).toMatch(/dispatch the read-and-analyze step as a subagent/i)
+      expect(ref).toContain('Skip the subagent only for: diffs under 5 files')
     })
 
     it('teaches the decision-brief format for non-trivial AskUserQuestion calls', async () => {
