@@ -35,11 +35,20 @@ export async function startTaskInWorkspace(
     startedAt: getTimestamp(),
   }
 
-  await backend.update(projectId, (state) => ({
-    ...state,
-    activeTasks: [...(state.activeTasks || []), workspaceTask],
-    lastUpdated: getTimestamp(),
-  }))
+  await backend.update(projectId, (state) => {
+    // Atomic per-workspace gate: re-checked against the FRESH state inside the
+    // CAS updater, so two concurrent starts in the same workspace can't both
+    // win (the outer validateTransition gives the friendly message; this is
+    // the race-proof backstop that keeps activeTasks one-per-workspace).
+    if ((state.activeTasks || []).some((t) => t.workspaceId === workspaceId)) {
+      throw new Error('A task is already active in this workspace')
+    }
+    return {
+      ...state,
+      activeTasks: [...(state.activeTasks || []), workspaceTask],
+      lastUpdated: getTimestamp(),
+    }
+  })
 
   await backend.publish(projectId, 'task.started', {
     taskId: workspaceTask.id,
@@ -68,21 +77,28 @@ export async function completeTaskInWorkspace(
   feedback?: TaskFeedback
 ): Promise<WorkspaceTask | null> {
   const state = await backend.read(projectId)
-  const activeTasks = state.activeTasks || []
-  const task = activeTasks.find((t) => t.workspaceId === workspaceId)
+  const task = (state.activeTasks || []).find((t) => t.workspaceId === workspaceId)
   if (!task) return null
 
   const completedAt = getTimestamp()
-  const historyEntry = backend.createTaskHistoryEntry(task, completedAt, feedback)
-  const existingHistory = backend.getTaskHistoryFromState(state)
-  const taskHistory = [historyEntry, ...existingHistory].slice(0, backend.maxTaskHistory)
 
-  await backend.update(projectId, (s) => ({
-    ...s,
-    activeTasks: (s.activeTasks || []).filter((t) => t.workspaceId !== workspaceId),
-    taskHistory,
-    lastUpdated: completedAt,
-  }))
+  // Build the history entry + trimmed history INSIDE the CAS updater so a
+  // concurrent completion's retry re-applies against the freshest history
+  // (closing over an outer-read history would clobber the other completer).
+  await backend.update(projectId, (s) => {
+    const fresh = (s.activeTasks || []).find((t) => t.workspaceId === workspaceId) ?? task
+    const historyEntry = backend.createTaskHistoryEntry(fresh, completedAt, feedback)
+    const taskHistory = [historyEntry, ...backend.getTaskHistoryFromState(s)].slice(
+      0,
+      backend.maxTaskHistory
+    )
+    return {
+      ...s,
+      activeTasks: (s.activeTasks || []).filter((t) => t.workspaceId !== workspaceId),
+      taskHistory,
+      lastUpdated: completedAt,
+    }
+  })
 
   await backend.publish(projectId, 'task.completed', {
     taskId: task.id,
@@ -118,42 +134,70 @@ export async function updateWorkspaceTask(
   fields: Partial<WorkspaceTask>
 ): Promise<WorkspaceTask | null> {
   const state = await backend.read(projectId)
-  const activeTasks = state.activeTasks || []
-  const index = activeTasks.findIndex((t) => t.workspaceId === workspaceId)
-  if (index === -1) return null
+  const existing = (state.activeTasks || []).find((t) => t.workspaceId === workspaceId)
+  if (!existing) return null
 
-  const updated: WorkspaceTask = { ...activeTasks[index], ...fields, workspaceId }
+  // Merge by workspaceId INSIDE the updater (not by a stale positional index),
+  // so a concurrent insert/remove can't make the index point at the wrong row.
+  await backend.update(projectId, (s) => ({
+    ...s,
+    activeTasks: (s.activeTasks || []).map((t) =>
+      t.workspaceId === workspaceId ? { ...t, ...fields, workspaceId } : t
+    ),
+    lastUpdated: getTimestamp(),
+  }))
 
-  await backend.update(projectId, (s) => {
-    const tasks = [...(s.activeTasks || [])]
-    tasks[index] = updated
-    return { ...s, activeTasks: tasks, lastUpdated: getTimestamp() }
-  })
-
-  return updated
+  return { ...existing, ...fields, workspaceId }
 }
 
 export async function addTokens(
   backend: WorkspaceBackend,
   projectId: string,
   tokensIn: number,
-  tokensOut: number
+  tokensOut: number,
+  workspaceId?: string
 ): Promise<{ tokensIn: number; tokensOut: number } | null> {
   const state = await backend.read(projectId)
+
+  // Deltas are summed INSIDE the updater against the freshest token totals, so
+  // concurrent flushes accumulate instead of clobbering (closing over an
+  // outer-read sum would lose the other writer's tokens on CAS retry). The
+  // committed total is captured from the winning updater run.
+
+  // Multi-agent: accumulate against the named workspace's task in activeTasks[].
+  // Without a workspaceId (or for the main worktree) accumulate on currentTask.
+  // This avoids the silent no-op where a child-worktree task has no currentTask.
+  if (workspaceId) {
+    if (!(state.activeTasks || []).some((t) => t.workspaceId === workspaceId)) return null
+    let result: { tokensIn: number; tokensOut: number } | null = null
+    await backend.update(projectId, (s) => ({
+      ...s,
+      activeTasks: (s.activeTasks || []).map((t) => {
+        if (t.workspaceId !== workspaceId) return t
+        const newIn = (t.tokensIn || 0) + tokensIn
+        const newOut = (t.tokensOut || 0) + tokensOut
+        result = { tokensIn: newIn, tokensOut: newOut }
+        return { ...t, tokensIn: newIn, tokensOut: newOut }
+      }),
+      lastUpdated: getTimestamp(),
+    }))
+    return result
+  }
+
   if (!state.currentTask) return null
 
-  const newIn = (state.currentTask.tokensIn || 0) + tokensIn
-  const newOut = (state.currentTask.tokensOut || 0) + tokensOut
+  let result: { tokensIn: number; tokensOut: number } | null = null
+  await backend.update(projectId, (s) => {
+    if (!s.currentTask) return s
+    const newIn = (s.currentTask.tokensIn || 0) + tokensIn
+    const newOut = (s.currentTask.tokensOut || 0) + tokensOut
+    result = { tokensIn: newIn, tokensOut: newOut }
+    return {
+      ...s,
+      currentTask: { ...s.currentTask, tokensIn: newIn, tokensOut: newOut },
+      lastUpdated: getTimestamp(),
+    }
+  })
 
-  await backend.update(projectId, (s) => ({
-    ...s,
-    currentTask: {
-      ...s.currentTask!,
-      tokensIn: newIn,
-      tokensOut: newOut,
-    },
-    lastUpdated: getTimestamp(),
-  }))
-
-  return { tokensIn: newIn, tokensOut: newOut }
+  return result
 }

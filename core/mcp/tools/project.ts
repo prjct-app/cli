@@ -11,10 +11,10 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { collectActiveTasks } from '../../services/task-overview'
 import { setTaskStatus, startTask } from '../../services/task-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
-import { stateStorage } from '../../storage/state-storage'
 import { resolveProjectId } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
@@ -33,16 +33,24 @@ export function registerProjectTools(server: McpServer) {
     },
     safeMcpCall('prjct_task_status', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const current = await stateStorage.getCurrentTask(projectId)
+      const overview = await collectActiveTasks(projectId, args.projectPath)
       const queue = await queueStorage.getActiveTasks(projectId)
 
       const parts: string[] = []
-      if (current) {
-        parts.push(`## Active Task\n**${current.description}**`)
-        if (current.branch) parts.push(`Branch: ${current.branch}`)
-        parts.push(`Started: ${current.startedAt}`)
-      } else {
+      if (overview.all.length === 0) {
         parts.push('No active task.')
+      } else if (overview.all.length === 1 && overview.current) {
+        const v = overview.current
+        parts.push(`## Active Task\n**${v.description}**`)
+        parts.push(`Workspace: ${v.label}`)
+        if (v.branch) parts.push(`Branch: ${v.branch}`)
+        parts.push(`Started: ${v.startedAt}`)
+      } else {
+        parts.push(`## Active Tasks (${overview.all.length})`)
+        for (const v of overview.all) {
+          const here = v.isCurrent ? ' [this worktree]' : ''
+          parts.push(`-${here} ${v.label}: ${v.description} — started ${v.startedAt}`)
+        }
       }
 
       if (queue.length > 0) {

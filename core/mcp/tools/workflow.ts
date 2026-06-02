@@ -7,7 +7,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { customWorkflowStorage } from '../../storage/custom-workflow-storage'
-import { stateStorage } from '../../storage/state-storage'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
 import { resolveProjectId } from '../resolve'
 import { safeMcpCall } from './error-handler'
@@ -92,7 +91,10 @@ export function registerWorkflowTools(server: McpServer) {
     },
     safeMcpCall('prjct_workflow_status', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const currentTask = await stateStorage.getCurrentTask(projectId)
+      // Workspace-aware: surface THIS worktree's task (main → currentTask,
+      // child worktree → its activeTasks[] slot), not just the main slot.
+      const { resolveActiveTask } = await import('../../services/task-service')
+      const currentTask = await resolveActiveTask(projectId, args.projectPath)
       const allRules = workflowRuleStorage.getAllRules(projectId)
 
       const parts: string[] = ['## Workflow Status']

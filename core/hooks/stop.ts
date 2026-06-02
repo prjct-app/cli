@@ -27,7 +27,6 @@ import { ingestTranscript } from '../services/transcript-learner'
 import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
-import { stateStorage } from '../storage/state-storage'
 import { type HookIo, runHook } from './_runner'
 
 interface HookInput {
@@ -108,8 +107,12 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
             // own — the explicit `corrects:` tag is now an optional override,
             // not a requirement.
             if (friction.signalsRecorded > 0) {
-              const task = await stateStorage.getCurrentTask(config.projectId)
-              if (task?.id) usefulnessService.penalizeSurfaced(config.projectId, task.id)
+              // Per-worktree: penalize memories surfaced for THIS workspace's
+              // task, not a sibling worktree's. Falls back to singular.
+              const { collectActiveTasks } = await import('../services/task-overview')
+              const overview = await collectActiveTasks(config.projectId, p)
+              const taskId = overview.current?.id
+              if (taskId) usefulnessService.penalizeSurfaced(config.projectId, taskId)
             }
           } catch {
             /* same contract as transcript-learner — silent best-effort */

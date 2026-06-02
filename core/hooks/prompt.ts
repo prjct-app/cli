@@ -19,8 +19,8 @@
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
+import { collectActiveTasks } from '../services/task-overview'
 import { shippedStorage } from '../storage/shipped-storage'
-import { stateStorage } from '../storage/state-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
@@ -51,12 +51,21 @@ export async function buildProjectState(
   const lines: string[] = ['# prjct: project state']
   let hasContent = false
 
-  // Active task — most useful single fact.
+  // Active task — most useful single fact. Resolved PER worktree so a parallel
+  // agent sees its own task, not a sibling's. Falls back to singular outside a
+  // worktree.
   try {
-    const activeTask = await stateStorage.getCurrentTask(config.projectId)
-    if (activeTask) {
-      const startedAgo = formatRelative(activeTask.startedAt)
-      lines.push(`- Active task: "${activeTask.description}" (${startedAgo})`)
+    const overview = await collectActiveTasks(config.projectId, projectPath)
+    if (overview.current) {
+      const startedAgo = formatRelative(overview.current.startedAt)
+      lines.push(
+        `- Active task: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
+      )
+      hasContent = true
+    }
+    const others = overview.all.filter((v) => !v.isCurrent)
+    if (others.length > 0) {
+      lines.push(`- ${others.length} task(s) active in other workspace(s)`)
       hasContent = true
     }
   } catch {

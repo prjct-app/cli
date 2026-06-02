@@ -15,9 +15,9 @@
  *   - md-helpers.ts    — buildFlowDiagram for `--md` output
  */
 
+import { collectActiveTasks } from '../services/task-overview'
 import { startTask } from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
-import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -73,7 +73,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const projectId = proj.value
 
       // No task arg → show the active one (or none).
-      if (!task) return this._showActiveTask(projectId, options)
+      if (!task) return this._showActiveTask(projectId, projectPath, options)
 
       // Side-effecting core lives in task-service so the MCP write-path
       // fires identical gates/state/memory without printing to stdout.
@@ -140,11 +140,23 @@ export class WorkflowCommands extends PrjctCommandsBase {
    */
   private async _showActiveTask(
     projectId: string,
+    projectPath: string,
     options: { md?: boolean }
   ): Promise<CommandResult> {
-    const active = await stateStorage.getCurrentTask(projectId)
+    const overview = await collectActiveTasks(projectId, projectPath)
+    const active = overview.current
+    const others = overview.all.filter((v) => !v.isCurrent)
+
     if (!active) {
-      const msg = 'no active task. `prjct task "<description>"` to start one.'
+      // Nothing in THIS worktree — but sibling worktrees may be busy.
+      const base = 'no active task. `prjct task "<description>"` to start one.'
+      const hint =
+        others.length > 0
+          ? `\n${others.length} active in other workspace(s):\n${others
+              .map((v) => `  ${v.label}    ${v.description}`)
+              .join('\n')}`
+          : ''
+      const msg = base + hint
       if (options.md) console.log(`> ${msg}`)
       else out.info(msg)
       return { success: true, message: 'no active task' }
@@ -158,16 +170,26 @@ export class WorkflowCommands extends PrjctCommandsBase {
             mdList(
               [
                 `Task: \`${active.id}\``,
+                `Workspace: \`${active.label}\``,
                 active.branch ? `Branch: \`${active.branch}\`` : null,
                 active.linearId ? `Linear: \`${active.linearId}\`` : null,
                 `Started: ${active.startedAt}`,
+                others.length > 0 ? `Other active workspaces: ${others.length}` : null,
               ].filter((s): s is string => s !== null)
             )
-          )
+          ),
+          others.length > 0
+            ? mdSection(
+                'Other Active Workspaces',
+                mdList(others.map((v) => `${v.label} — ${v.description}`))
+              )
+            : null
         )
       )
     } else {
       out.info(`Active: ${active.description}`)
+      out.info(`Workspace: ${active.label}`)
+      for (const v of others) out.info(`  other: ${v.label} — ${v.description}`)
     }
     return { success: true, currentTask: active }
   }
