@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.38.1] - 2026-06-02
+
+### Performance
+
+- slim always-on skill description (2.38.1) (#411)
+
+
 ## [2.38.0] - 2026-06-01
 
 ### Features
