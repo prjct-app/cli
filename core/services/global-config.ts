@@ -12,8 +12,22 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const CONFIG_DIR = path.join(os.homedir(), '.prjct-cli', 'config')
-const CONFIG_PATH = path.join(CONFIG_DIR, 'global.json')
+/**
+ * Resolve the config dir at call time. Honors `PRJCT_CLI_HOME` (the same
+ * override `system-database.ts` uses) so tests and alt-home installs redirect
+ * cleanly. Resolving lazily — not once at module load — matters because tests
+ * can't rely on `os.homedir()`: Bun ignores a mutated `process.env.HOME`, so a
+ * test that only patched HOME would silently read/write the user's REAL config.
+ */
+function configDir(): string {
+  const override = process.env.PRJCT_CLI_HOME?.trim()
+  const base = override ? path.resolve(override) : path.join(os.homedir(), '.prjct-cli')
+  return path.join(base, 'config')
+}
+
+function configFilePath(): string {
+  return path.join(configDir(), 'global.json')
+}
 
 type GlobalConfigValue = string | number | boolean
 
@@ -30,7 +44,7 @@ interface GlobalConfig {
 
 function readRaw(): GlobalConfig {
   try {
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf-8')
+    const raw = fs.readFileSync(configFilePath(), 'utf-8')
     const parsed = JSON.parse(raw)
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
       return parsed as GlobalConfig
@@ -41,8 +55,8 @@ function readRaw(): GlobalConfig {
 }
 
 function writeRaw(cfg: GlobalConfig): void {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true })
-  fs.writeFileSync(CONFIG_PATH, `${JSON.stringify(cfg, null, 2)}\n`, 'utf-8')
+  fs.mkdirSync(configDir(), { recursive: true })
+  fs.writeFileSync(configFilePath(), `${JSON.stringify(cfg, null, 2)}\n`, 'utf-8')
 }
 
 export function getConfig<K extends keyof GlobalConfig>(key: K): GlobalConfig[K] {
@@ -65,5 +79,5 @@ export function unsetConfig(key: keyof GlobalConfig): void {
 }
 
 export function configPath(): string {
-  return CONFIG_PATH
+  return configFilePath()
 }

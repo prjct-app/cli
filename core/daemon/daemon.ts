@@ -24,6 +24,7 @@ import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon
 import { executeCommand } from './dispatch'
 import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from './protocol'
 import {
+  decideRestart,
   isCodeStale as detectStaleCode,
   isGlobalVersionDrifted,
   isProcessRunning,
@@ -35,13 +36,20 @@ import {
 /** Run WAL checkpoint every N requests to reclaim disk space */
 const WAL_CHECKPOINT_INTERVAL = 50
 
-/** Re-check global install version every N requests (cheap readlink+readFile) */
-const VERSION_DRIFT_CHECK_INTERVAL = 10
+/**
+ * Min interval between global-install version-drift checks. The mtime check is
+ * a single stat and runs on every request; drift does a few readlink+readFile,
+ * so we throttle it by TIME (not request count) — at most once per second. A
+ * time bound caps the staleness window to ~1s regardless of request rate,
+ * unlike a per-N-request counter which could serve N-1 stale commands.
+ */
+const VERSION_DRIFT_CHECK_MIN_MS = 1000
 
 let ipcServer: Server | null = null
 let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
 let ownVersion: string | null = null
+let lastDriftCheckMs = 0
 
 // Serializes command execution. handleRequestInner patches the GLOBAL
 // console.log/error to capture a command's output; with concurrent socket
@@ -201,6 +209,40 @@ function handleConnection(socket: Socket): void {
   })
 }
 
+/**
+ * Decide — BEFORE serving — whether the loaded code is stale (a newer build or
+ * global install is on disk). Sets `restartPending`. Running this ahead of
+ * execution is the whole point: it guarantees a request is never answered by an
+ * outdated build (the previous design checked AFTER serving, so the request
+ * that first observed the new code was still served stale).
+ */
+function markStaleIfNeeded(command: string): void {
+  if (!state || state.restartPending) return
+
+  // Cheap (one stat): catches local rebuilds. The drift probe (readlink +
+  // readFile) is throttled inside decideRestart and skipped for health pings.
+  const codeStale = detectStaleCode(state.entryPath, state.entryMtime)
+  const decision = decideRestart({
+    codeStale,
+    command,
+    ownVersion,
+    now: Date.now(),
+    lastDriftCheckMs,
+    driftMinIntervalMs: VERSION_DRIFT_CHECK_MIN_MS,
+    checkDrift: isGlobalVersionDrifted,
+  })
+  lastDriftCheckMs = decision.lastDriftCheckMs
+
+  if (decision.restart) {
+    state.restartPending = true
+    console.log(
+      codeStale
+        ? 'Build change detected — daemon will restart; request runs on fresh code.'
+        : `Version drift detected — daemon v${ownVersion} is stale; request runs on fresh code.`
+    )
+  }
+}
+
 async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   if (!state || !commands) {
     return {
@@ -211,15 +253,26 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
     }
   }
 
-  // If we already decided to restart, refuse new work so the client
-  // takes the direct path on its first try (instead of getting a
-  // dropped socket mid-request and falling through silently).
-  if (state.restartPending) {
+  // Detect staleness BEFORE serving so no request is ever answered by an
+  // outdated build.
+  markStaleIfNeeded(request.command)
+
+  // When stale, refuse real work and tell the client to run it directly on the
+  // fresh code (the `retry` flag). The request did NOT execute → zero side
+  // effects → the client falls through safely, no error shown to the user.
+  // Control commands (`daemon`, health `__ping`) still pass so `daemon
+  // stop`/`status` and liveness checks keep working while we drain.
+  if (state.restartPending && request.command !== 'daemon' && request.command !== '__ping') {
+    if (state.activeRequests === 0) {
+      console.log('Daemon shutting down for code reload...')
+      setImmediate(() => shutdown(0))
+    }
     return {
       id: request.id,
       success: false,
       exitCode: 1,
-      stderr: 'Daemon restarting — retry the command',
+      retry: true,
+      stderr: 'daemon code is stale — running directly',
     }
   }
 
@@ -264,27 +317,9 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
     prjctDb.checkpointAll()
   }
 
-  // Stale-code detection: check if the entry file was rebuilt. Mark
-  // restart as pending and let the request finish.
-  if (!state.restartPending && detectStaleCode(state.entryPath, state.entryMtime)) {
-    console.log('Build changed detected — daemon will restart after this request')
-    state.restartPending = true
-  }
-
-  // Global-install drift detection: catches pnpm content-store upgrades
-  // where the old daemon's files are untouched but the user-facing `prjct`
-  // binary now points at a different version.
-  if (
-    !state.restartPending &&
-    ownVersion &&
-    state.commandsServed % VERSION_DRIFT_CHECK_INTERVAL === 0 &&
-    isGlobalVersionDrifted(ownVersion)
-  ) {
-    console.log(
-      `Version drift detected — daemon v${ownVersion} is stale; shutting down so the next request spawns fresh.`
-    )
-    state.restartPending = true
-  }
+  // NOTE: stale-code / version-drift detection happens in markStaleIfNeeded()
+  // BEFORE serving (see handleRequest) — never here, or the triggering request
+  // would be answered by the outdated build.
 
   if (request.command === 'daemon') return handleDaemonCommand(request)
 

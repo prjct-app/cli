@@ -28,6 +28,7 @@ import type { LocalConfig } from '../../types/config'
 
 let tmpRoot: string
 let projectId: string
+let origCliHome: string | undefined
 
 const origGlobal = pathManager.getGlobalProjectPath.bind(pathManager)
 const origStorage = pathManager.getStoragePath.bind(pathManager)
@@ -63,6 +64,11 @@ function write(type: string, content: string, tags: Record<string, string> = {})
 beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-embed-'))
   projectId = `test-embed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  // Isolate the GLOBAL embeddings config: without this, resolveActiveProvider
+  // reads the developer's real ~/.prjct-cli/config/global.json, so the
+  // "falls back to the local default" cases fail on any BYOT-configured machine.
+  origCliHome = process.env.PRJCT_CLI_HOME
+  process.env.PRJCT_CLI_HOME = tmpRoot
   pathManager.getGlobalProjectPath = (id: string) => path.join(tmpRoot, id)
   pathManager.getStoragePath = (id: string, filename: string) =>
     path.join(tmpRoot, id, 'storage', filename)
@@ -71,6 +77,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  if (origCliHome === undefined) delete process.env.PRJCT_CLI_HOME
+  else process.env.PRJCT_CLI_HOME = origCliHome
   pathManager.getGlobalProjectPath = origGlobal
   pathManager.getStoragePath = origStorage
   pathManager.getFilePath = origFile

@@ -176,6 +176,13 @@ function generateDaemonShim() {
   //     misc network errors) MAY mean the daemon already started executing
   //     the request, so re-running can double-bump version / double-push.
   //   - On socket close before response: NEVER fall through — exit 1.
+  //   - On a `retry` response (daemon refused because its CODE IS STALE — the
+  //     request did NOT execute, so there are zero side effects): the generic
+  //     path re-runs DIRECTLY in-process (set PRJCT_NO_DAEMON=1 so the imported
+  //     core skips the dying daemon) on the fresh code; the hook path degrades
+  //     to the fail-soft `{}` no-op (it can't re-read consumed stdin, and a
+  //     hook is best-effort). This is the definitive fix for the recurring
+  //     stale-daemon trap — output is never served from an outdated build.
   //
   // This blocked the bin/prjct.ts hardening from commit d08727b8 from
   // reaching production for ~10 days (the shim is what end users actually
@@ -201,7 +208,7 @@ function sendHook(sub,data){
   const soft=()=>{if(!done){done=true;clearTimeout(t);sock.destroy();process.stdout.write("{}\\n");process.exit(0)}};
   const t=setTimeout(soft,5000);
   sock.on("connect",()=>sock.write(msg));
-  sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));done=true;clearTimeout(t);sock.end();if(r.stdout)process.stdout.write(r.stdout);process.exit(r.exitCode!=null?r.exitCode:0)}});
+  sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));if(r.retry){soft();return}done=true;clearTimeout(t);sock.end();if(r.stdout)process.stdout.write(r.stdout);process.exit(r.exitCode!=null?r.exitCode:0)}});
   sock.on("error",soft);
   sock.on("close",soft);
 }
@@ -215,7 +222,7 @@ if(cmd==="hook"&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
   const sock=connect(sockPath);let buf="",done=false;
   const t=setTimeout(()=>{if(!done){done=true;sock.destroy();refuse("timed out")}},30000);
   sock.on("connect",()=>sock.write(msg));
-  sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));done=true;clearTimeout(t);sock.end();if(r.stdout)console.log(r.stdout);if(r.stderr)console.error(r.stderr);process.exit(r.exitCode)}});
+  sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));done=true;clearTimeout(t);sock.end();if(r.retry){process.env.PRJCT_NO_DAEMON="1";fallback();return}if(r.stdout)console.log(r.stdout);if(r.stderr)console.error(r.stderr);process.exit(r.exitCode)}});
   sock.on("error",e=>{if(!done){done=true;clearTimeout(t);if(isSafeRetry(e))fallback();else refuse(e&&e.message||String(e))}});
   sock.on("close",()=>{if(!done){done=true;clearTimeout(t);refuse("Connection closed before response")}});
 }else{fallback()}

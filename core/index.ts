@@ -271,6 +271,10 @@ async function main(): Promise<void> {
             key: options.key ? String(options.key) : undefined,
             model: options.model ? String(options.model) : undefined,
             baseUrl: options['base-url'] ? String(options['base-url']) : undefined,
+            authHeader: options['auth-header'] ? String(options['auth-header']) : undefined,
+            authScheme: options['auth-scheme'] != null ? String(options['auth-scheme']) : undefined,
+            headers: options.headers ? String(options.headers) : undefined,
+            query: options.query ? String(options.query) : undefined,
           }),
         // Anticipation primitive (provider-agnostic; Codex/others call directly)
         guard: (p) =>

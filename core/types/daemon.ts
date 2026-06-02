@@ -38,6 +38,13 @@ export interface DaemonResponse {
   stderr?: string
   /** Structured result (for --json mode) */
   result?: unknown
+  /**
+   * Set when the daemon refused the request because its code is stale (a
+   * newer build/install is on disk). The request was NOT executed, so there
+   * are zero side effects — the client must transparently fall through to
+   * direct in-process execution on the fresh code, NOT print this as an error.
+   */
+  retry?: boolean
 }
 
 /** Daemon status info returned by `daemon status` */

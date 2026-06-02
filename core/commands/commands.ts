@@ -258,7 +258,15 @@ class PrjctCommands {
   async embeddings(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: MdOption & { key?: string; model?: string; baseUrl?: string } = {}
+    options: MdOption & {
+      key?: string
+      model?: string
+      baseUrl?: string
+      authHeader?: string
+      authScheme?: string
+      headers?: string
+      query?: string
+    } = {}
   ): Promise<CommandResult> {
     return this.embeddingsCmds.embeddings(input, projectPath, options)
   }
