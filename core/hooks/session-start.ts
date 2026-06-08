@@ -32,14 +32,28 @@
 
 import configManager from '../infrastructure/config-manager'
 import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
+import { deriveTitle, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'
 import { type HookIo, runHook } from './_runner'
+import { safeTruncate } from './_shared'
 
 interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact'
 }
+
+interface SessionContextOptions {
+  /**
+   * Append the project-knowledge digest (top gotchas + decisions + developer
+   * profile pointer). OFF by default — see the cache-stability note below.
+   * Only the cold-start sources (`startup`/`clear`/`compact`) pass `true`.
+   */
+  digest?: boolean
+}
+
+const DIGEST_MAX_CHARS = 1400
+const DIGEST_PER_TYPE = 3
 
 /**
  * Build the additionalContext body for the current project.
@@ -47,25 +61,86 @@ interface HookInput {
  * `preloadedConfig` lets the caller skip a duplicate disk read — the
  * hook entry point reads config once and passes it down. Tests can
  * keep calling this with just `projectPath` and we'll read it ourselves.
+ *
+ * # Why the digest is gated (cache stability)
+ *
+ * The persona block is intentionally byte-identical across turns: this
+ * output is reused by `subagent-start` and `cwd-changed` (which fire
+ * mid-session), and any byte change busts Anthropic's cached system-prompt
+ * prefix (10× re-tokenization cost). The variable knowledge digest is
+ * therefore injected ONLY on cold-start sources — `startup`/`clear`/
+ * `compact` — where the context is being built fresh anyway (no warm prefix
+ * to bust) and grounding matters most: a freshly-updated model starts blank
+ * and the vault is the only thing that survived the update. The mid-session
+ * reusers call this with `digest` unset → persona-only, byte-identical.
  */
 export async function buildSessionContext(
   projectPath: string,
-  preloadedConfig?: LocalConfig | null
+  preloadedConfig?: LocalConfig | null,
+  opts: SessionContextOptions = {}
 ): Promise<string | null> {
   const config = preloadedConfig ?? (await configManager.readConfig(projectPath))
   if (!config?.projectId) return null
 
   const persona = config.persona
-  if (!persona) return null
+  const digest = opts.digest ? buildKnowledgeDigest(config.projectId) : null
 
-  return [
-    '# prjct: project context',
+  // Nothing to say (no persona declared AND no knowledge yet) → stay silent.
+  if (!persona && !digest) return null
+
+  const sections: string[] = ['# prjct: project context', '']
+  if (persona) {
+    sections.push(
+      formatPersona(persona),
+      '',
+      '> Exposed as state, not prescription. Decide whether any of this matters for the current turn.',
+      '> For recall, run `prjct context memory [topic]` (per-turn topical memory is already injected by the prompt hook).'
+    )
+  }
+  if (digest) {
+    if (persona) sections.push('')
+    sections.push(digest)
+  }
+  return sections.join('\n')
+}
+
+/**
+ * Compact, high-signal recall of what the project already knows — the
+ * cross-model-update grounding. Top preventive traps + recent decisions +
+ * a pointer to the synthesized developer profile. Recency-ranked, tightly
+ * truncated so it never bloats the cold-start context.
+ */
+function buildKnowledgeDigest(projectId: string): string | null {
+  let gotchas: MemoryEntry[] = []
+  let decisions: MemoryEntry[] = []
+  try {
+    gotchas = projectMemory.recall(projectId, {
+      types: ['gotcha', 'anti-pattern'],
+      limit: DIGEST_PER_TYPE,
+    })
+    decisions = projectMemory.recall(projectId, { types: ['decision'], limit: DIGEST_PER_TYPE })
+  } catch {
+    return null
+  }
+  if (gotchas.length === 0 && decisions.length === 0) return null
+
+  const lines: string[] = ['## What this project already knows', '']
+  lines.push(
+    '> Carried across sessions and model updates — this survived even if your conversation context did not.'
+  )
+  if (gotchas.length > 0) {
+    lines.push('', '**Traps to avoid:**')
+    for (const e of gotchas) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
+  }
+  if (decisions.length > 0) {
+    lines.push('', '**Decisions in force:**')
+    for (const e of decisions) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
+  }
+  lines.push(
     '',
-    formatPersona(persona),
-    '',
-    '> Exposed as state, not prescription. Decide whether any of this matters for the current turn.',
-    '> For recall, run `prjct context memory [topic]` (per-turn topical memory is already injected by the prompt hook).',
-  ].join('\n')
+    '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is lives in `developer.md` in the vault.'
+  )
+  return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
 }
 
 function formatPersona(persona: ProjectPersona): string {
@@ -97,9 +172,14 @@ export function runSessionStartHook(
     {
       event: 'SessionStart',
       projectPath,
-      build: async (_input, p) => {
+      build: async (input, p) => {
         cachedConfig = await configManager.readConfig(p).catch(() => null)
-        return buildSessionContext(p, cachedConfig)
+        // Cold-start sources rebuild context from scratch (no warm cache to
+        // bust) and are exactly when grounding matters — a resumed session
+        // still holds its context, so it stays persona-only for cache safety.
+        const source = input.source ?? 'startup'
+        const digest = source === 'startup' || source === 'clear' || source === 'compact'
+        return buildSessionContext(p, cachedConfig, { digest })
       },
       afterEmit: async (_input, p) => {
         // Refresh the Obsidian vault from DB so the files Claude may Read

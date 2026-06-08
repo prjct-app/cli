@@ -30,6 +30,18 @@ const TERMINAL_COMMANDS = [
     example: 'prjct sync',
   },
   {
+    name: 'search',
+    description: 'Search project memory (decisions, learnings, gotchas)',
+    example: 'prjct search "auth refresh"',
+    options: ['--md'],
+  },
+  {
+    name: 'forget',
+    description: 'Delete a project memory entry by id',
+    example: 'prjct forget mem_1234',
+    options: ['--md'],
+  },
+  {
     name: 'watch',
     description: 'Auto-sync on file changes',
     example: 'prjct watch',

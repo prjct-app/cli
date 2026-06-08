@@ -113,6 +113,42 @@ export class ContextCommands {
   }
 
   /**
+   * Search project memory — first-class verb over the SAME blended pipeline
+   * `context memory` uses (FTS5 BM25 + opt-in semantic + recency recall +
+   * usefulness rerank + graph expansion). Exists because an agent's instinct
+   * is `prjct search "<q>"`; without a registered verb that fell through to
+   * the GTD auto-route and silently captured the query to the inbox.
+   *
+   * Returns the rendered output in `CommandResult.message` (NOT console.log)
+   * so it survives the daemon round-trip — the daemon returns the result and
+   * the client prints `message`; a console.log would vanish into the daemon's
+   * own stdout.
+   */
+  async search(
+    query: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    const projectId = await configManager.getProjectId(projectPath)
+    if (!projectId) {
+      return { success: false, message: 'No prjct project. Run `prjct init` first.' }
+    }
+
+    const q = (query ?? '').trim()
+    if (!q) return { success: false, message: 'search requires a query' }
+
+    // `['memory', q]` → runMemoryTool joins non-flag args, so a query with
+    // spaces arrives intact. A `mem_1234` query resolves that entry by id.
+    const { runContextTool } = await import('../tools/context')
+    const result = await runContextTool(['memory', q], projectId, projectPath)
+    const ok = result.tool !== 'error'
+    const message = options.md
+      ? ((result.result as { markdown?: string }).markdown ?? '')
+      : JSON.stringify(result, null, 2)
+    return { success: ok, message }
+  }
+
+  /**
    * Format context output as markdown for LLM consumption
    */
   private formatContextMd(output: ContextOutput): string {

@@ -180,6 +180,14 @@ class PrjctCommands {
     return this.contextCmds.context(input, projectPath, options)
   }
 
+  async search(
+    query: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    return this.contextCmds.search(query, projectPath, options)
+  }
+
   // ========== v2 Primitives ==========
 
   async status(
@@ -204,6 +212,14 @@ class PrjctCommands {
     options: { md?: boolean; tags?: string } = {}
   ): Promise<CommandResult> {
     return this.primitivesCmds.remember(args, projectPath, options)
+  }
+
+  async forget(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.forget(id, projectPath, options)
   }
 
   // v2 alpha.8: declarative packs + Claude Code hook install

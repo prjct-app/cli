@@ -129,6 +129,13 @@ export async function executeCommand(
       })
     case 'config':
       return commands.config(param, request.cwd, { md })
+    case 'search':
+      // Explicit case so --md survives the daemon; the default
+      // registry.execute path strips flags (dispatch-option-parity.test.ts).
+      return commands.search(param, request.cwd, { md })
+    case 'forget':
+      // Same as search: explicit case so --md survives the daemon round-trip.
+      return commands.forget(param, request.cwd, { md })
     case 'guard':
       return commands.guard(param, request.cwd, {
         md,

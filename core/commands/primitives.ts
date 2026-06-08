@@ -226,6 +226,55 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return failHard(msg)
     }
   }
+
+  /**
+   * Forget a memory entry by id — the delete half of `remember`. Accepts
+   * `mem_1234`, `mem-1234`, or a bare `1234`. Hard-deletes the source event
+   * and drops the FTS mirror + any embedding so it can never resurface
+   * (lexical OR semantic). See `projectMemory.forget` for the cross-surface
+   * cleanup.
+   *
+   * Lives here (not as `remember forget <id>`, which only ever created a junk
+   * `type:forget` entry) so an agent's instinct `prjct forget mem_1234`
+   * actually deletes. Regenerates the vault so the entry stops surfacing in
+   * `.prjct/wiki/_generated/` too.
+   */
+  async forget(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    try {
+      const target = (id ?? '').trim()
+      if (!target) {
+        out.info('Usage: prjct forget <id>   (e.g. prjct forget mem_1234)')
+        return { success: false, error: 'Missing id' }
+      }
+
+      const pid = await requireProject(projectPath)
+      if (!pid.ok) return pid.result
+
+      const removed = projectMemory.forget(pid.value, target)
+      if (!removed) {
+        if (options.md) console.log(`✗ no memory entry matched ${target}`)
+        else out.fail(`no memory entry matched ${target}`)
+        return { success: false, error: `No memory entry matched ${target}` }
+      }
+
+      // Drop the entry from the agent-crawlable vault too, mirroring
+      // `remember`'s post-write regen.
+      const { regenerateWikiDeferred } = await import('../services/wiki-generator')
+      await regenerateWikiDeferred(projectPath, pid.value)
+
+      if (options.md) console.log(`✓ forgot ${target}`)
+      else out.done(`forgot ${target}`)
+
+      return { success: true, id: target }
+    } catch (error) {
+      const msg = getErrorMessage(error)
+      return failHard(msg)
+    }
+  }
 }
 
 // Helpers (unexported)

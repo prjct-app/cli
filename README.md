@@ -201,6 +201,8 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct status <value>` | Inline status change on the active task (`done`, `paused`, `active`, …). |
 | `prjct tag <k:v>` | Tag the active task (`type:bug`, `domain:auth`, …). |
 | `prjct remember <type> "<content>"` | Persist a memory entry (decision, learning, gotcha, …). |
+| `prjct forget <id>` | Delete a memory entry by id (`prjct forget mem_1234`) — the delete half of `remember`. |
+| `prjct search "<query>"` | Search project memory — blended BM25 + semantic + recency recall (`prjct search mem_1234` resolves an entry by id). |
 | `prjct embeddings <set\|status\|test\|clear>` | Configure the global BYOT embeddings provider — any OpenAI-compatible API (OpenAI, OpenRouter, Ollama, Azure, …), one secure key, all projects. |
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
@@ -239,16 +241,17 @@ Slots ship **empty** — the human or the agent fills them on demand.
 
 ## Hooks (opt-in)
 
-`prjct install` writes 7 passive hooks to `~/.claude/settings.json`. They inject `additionalContext`; none block by default.
+`prjct install` writes 8 passive hooks to `~/.claude/settings.json`. They inject `additionalContext`; none block by default.
 
 | Event | Injects |
 |---|---|
-| `SessionStart` | Persona + active task + recent learnings; regenerates vault from DB |
-| `UserPromptSubmit` | Topical recall from memory matching the prompt |
+| `SessionStart` | Persona; on cold start (startup/clear/compact) also the knowledge digest — top traps + decisions in force, so a freshly-updated model starts grounded. Regenerates vault from DB |
+| `UserPromptSubmit` | Active project state (task, branch, inbox) |
 | `PreToolUse` (Bash git commit) | Anti-patterns tagged with touched files |
+| `PreToolUse` (Edit/Write) | The file's preventive memory (gotchas/anti-patterns) right before you edit it — pushes what `prjct guard` makes pull |
 | `PostToolUse` (Edit/Write) | Silently annotates `files_touched` on active task |
 | `Stop` | Async prompt: "learn anything reusable?"; ingests captured/ then regenerates vault |
-| `SubagentStart` | Persona + memories for fresh-brain subagents |
+| `SubagentStart` | Persona for fresh-brain subagents (cache-stable, digest-free) |
 | `CwdChanged` | Re-contextualizes on project switch |
 
 Remove with `prjct claude uninstall` (hooks only) or `prjct uninstall` (everything).

@@ -168,6 +168,22 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'forget',
+    group: 'core',
+    routing: { group: 'primitives', method: 'forget' },
+    description: 'Delete a project memory entry by id (the delete half of `remember`)',
+    usage: { claude: 'prjct forget mem_1234', terminal: 'prjct forget mem_1234 [--md]' },
+    params: '<id>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Accepts `mem_1234`, `mem-1234`, or a bare `1234`',
+      'Hard-deletes the source event + drops the FTS mirror and any embedding — cannot resurface lexically or semantically',
+      'Regenerates the vault so the entry stops surfacing in `.prjct/wiki/_generated/`',
+    ],
+  },
+  {
     name: 'capture',
     group: 'core',
     routing: { group: 'capture', method: 'capture' },
@@ -402,6 +418,23 @@ export const COMMANDS: CommandMeta[] = [
       'imports - Analyze dependency graphs',
       'recent - Find hot files from git history',
       'summary - Intelligent file summarization',
+    ],
+  },
+  {
+    name: 'search',
+    group: 'core',
+    routing: { group: 'context', method: 'search' },
+    description:
+      'Search project memory (decisions, learnings, gotchas, ships…) — BM25 + semantic + recall',
+    usage: { claude: 'prjct search "<query>"', terminal: 'prjct search "<query>" [--md]' },
+    params: '<query>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Blended retrieval: FTS5 BM25 + opt-in semantic + recency recall',
+      'Reranks by proven usefulness, expands one hop of the memory graph',
+      '`prjct search mem_1234` resolves a specific entry by id',
     ],
   },
   {

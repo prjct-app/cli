@@ -2,10 +2,34 @@
 
 ## [Unreleased]
 
-### Added
-- **Multi-agent: per-worktree active tasks.** prjct's single-`currentTask` runtime now supports several AI agents working concurrently, each in its own git worktree, without clobbering a shared task. A deterministic `workspaceId` (derived from the git worktree root) keys each task into the existing `activeTasks[]` layer; the main worktree keeps the singular `currentTask` path, so single-agent use is unchanged. The single-task gate is now evaluated **per workspace** (a task in worktree A no longer blocks worktree B; a second task in the *same* worktree still gates), atomic inside the SQLite compare-and-set updater. Wiring lives at one choke point — `task-service` (`startTask`/`setTaskStatus`/`resolveActiveTask`/`completeActiveTask`) — inherited by the CLI, the MCP `prjct_task_*` tools, and `prjct ship`. Every read path (`prjct task`/`status` no-arg, `prjct remember` attribution, the session hooks, `prjct_task_status`, `prjct_workflow_status`) now resolves the **current worktree's** task and renders a workspace label (`shortId · branch`) plus a multi-workspace list, so it's always clear which worktree a task belongs to. Pause/resume **per worktree** is a planned follow-up (a child-worktree `prjct status paused` returns an explicit "unsupported" rather than a silent no-op); `done`/`ship` isolate correctly today.
+## [2.41.0] - 2026-06-09
 
-The long-lived daemon no longer serves stale code, and embeddings reach any provider.
+Memory recall + apply-loop: prjct now *applies* what it learns at the moment it matters, not just on demand — and the knowledge survives model updates.
+
+### Added
+- **`prjct search "<query>"`** — first-class memory recall verb over the blended BM25 + semantic + recency pipeline (`prjct search mem_1234` resolves an entry by id). Before this, `prjct search "x"` was an unknown verb that fell through the GTD auto-route and silently *captured* the query to the inbox instead of searching.
+- **`prjct forget <id>`** — the delete half of `remember`. Hard-deletes the source event and drops the FTS mirror + any embedding, so an entry can't resurface lexically or semantically; regenerates the vault. Accepts `mem_1234`, `mem-1234`, or a bare `1234`. (`projectMemory.forget()` existed but had no CLI verb — `prjct remember forget <id>` used to just create a junk `type:forget` entry.)
+- **Apply-loop push hooks (Claude).** Anticipation was pull-only (`prjct guard` / the `prjct_guard` MCP tool), which depends on the agent *remembering* to ask — and a freshly-updated model starts with that instinct reset and zero conversation context. Now Claude also gets two targeted pushes (both fire regardless of model = update-proof): a `PreToolUse(Edit|Write)` hook surfaces a file's preventive memory (gotchas/anti-patterns) the moment it's edited, and `SessionStart` injects a compact knowledge digest (top traps + decisions in force + a `developer.md` pointer) on cold start. Pull stays for non-Claude agents. The digest only injects on cold-start sources (`startup`/`clear`/`compact`), never the warm-prefix reusers (`resume`/subagent/cwd-change), so the prompt-cache-stability contract is preserved.
+
+### Changed
+- **Slimmed the always-on prjct skill** to curb Opus 4.8 over-routing: a DIRECT-by-default gate, heavy quality workflows (`review`/`qa`/`security`/`investigate`/`audit`) moved out of the lean body into `workflows.md`, and an explicit subagent model-downgrade policy.
+
+### Fixed
+- **Tests no longer write vaults into the real `~/Documents/prjct/`.** `getWikiPath` resolved the vault root off `os.homedir()` with no override, so any test that made a tmp project and triggered vault generation left an orphan `~/Documents/prjct/<tmp-slug>/` behind (hundreds accumulated). New `getVaultRoot()` honors `PRJCT_VAULT_ROOT` (mirrors `PRJCT_OBSIDIAN_CONFIG_DIR`); the global test preload sandboxes it to a throwaway temp dir, removed on exit.
+
+## [2.40.0] - 2026-06-02
+
+### Features
+
+- per-worktree active tasks — multi-agent runtime (#413)
+
+  **Multi-agent: per-worktree active tasks.** prjct's single-`currentTask` runtime now supports several AI agents working concurrently, each in its own git worktree, without clobbering a shared task. A deterministic `workspaceId` (derived from the git worktree root) keys each task into the existing `activeTasks[]` layer; the main worktree keeps the singular `currentTask` path, so single-agent use is unchanged. The single-task gate is now evaluated **per workspace** (a task in worktree A no longer blocks worktree B; a second task in the *same* worktree still gates), atomic inside the SQLite compare-and-set updater. Wiring lives at one choke point — `task-service` (`startTask`/`setTaskStatus`/`resolveActiveTask`/`completeActiveTask`) — inherited by the CLI, the MCP `prjct_task_*` tools, and `prjct ship`. Every read path (`prjct task`/`status` no-arg, `prjct remember` attribution, the session hooks, `prjct_task_status`, `prjct_workflow_status`) now resolves the **current worktree's** task and renders a workspace label (`shortId · branch`) plus a multi-workspace list, so it's always clear which worktree a task belongs to. Pause/resume **per worktree** is a planned follow-up (a child-worktree `prjct status paused` returns an explicit "unsupported" rather than a silent no-op); `done`/`ship` isolate correctly today.
+
+## [2.39.0] - 2026-06-02
+
+### Features
+
+- zero-config embeddings (any provider) + fix daemon never serves stale code (#412)
 
 ### Fixed
 - **Daemon could serve output from an outdated build (the recurring "stale daemon" trap).** Two compounding defects: staleness was detected *after* the daemon decided to serve, so the request that first observed a new build/install was still answered by the old code; and on refusal the client printed `Daemon restarting — retry the command` and exited 1, so the command never ran (1st call stale → 2nd fails → 3rd fresh). Now staleness is detected *before* serving, the daemon refuses cleanly with a `retry` signal (the request never executes → zero side effects), and **both `bin/prjct.ts` and the daemon shim** (`scripts/build.js` → `dist/bin/prjct.mjs`, what users actually run) transparently fall through to direct in-process execution on the fresh code — no error, no manual re-run. Hooks degrade to the fail-soft `{}` no-op. The global-install version-drift check is now time-throttled (1s) instead of every-10-commands (which could leak up to 9 stale responses). Closes the "stale daemon caches old hook code" gotcha.
@@ -16,33 +40,17 @@ The long-lived daemon no longer serves stale code, and embeddings reach any prov
 - **Zero-config embeddings setup — paste just the key.** `prjct embeddings set --key <k>` now infers the base URL from the key's prefix (`sk-or-…` → OpenRouter, `sk-…` → OpenAI, `pa-…` → Voyage; `sk-ant-`/Groq/unknown → keep default), so `--base-url` is optional for known providers. An explicit `--base-url` still wins, and detection re-fires when you switch keys. `set` is now partial-update friendly too: `set --key …` keeps your existing model/base URL instead of resetting them.
 - **Embeddings support ANY OpenAI-compatible provider, including non-Bearer ones.** Already worked with OpenAI, OpenRouter, Ollama, Together, Mistral, Voyage, Jina, LM Studio, … via `--base-url` + `--model` + `--key`; now providers that deviate from `Authorization: Bearer` are covered too — e.g. **Azure OpenAI** (`api-key` header + `api-version` query) and custom gateways. New `prjct embeddings set` flags: `--auth-header <h>`, `--auth-scheme <s|none>` (`none` = raw key), `--headers "k=v,…"`, `--query <qs>`. Default stays `Bearer`/`authorization`, so existing providers are unchanged. Vector dimensionality is detected from the response (no hardcoded size).
 
-## [2.40.0] - 2026-06-02
-
-### Features
-
-- per-worktree active tasks — multi-agent runtime (#413)
-
-
-## [2.39.0] - 2026-06-02
-
-### Features
-
-- zero-config embeddings (any provider) + fix daemon never serves stale code (#412)
-
-
 ## [2.38.1] - 2026-06-02
 
 ### Performance
 
 - slim always-on skill description (2.38.1) (#411)
 
-
 ## [2.38.0] - 2026-06-01
 
 ### Features
 
 - PULL-only prompt hook + MCP task write-path (2.38.0) (#410)
-
 
 ## [2.37.6] - 2026-06-01
 
