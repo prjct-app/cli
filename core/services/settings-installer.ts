@@ -39,6 +39,10 @@ export const PRJCT_HOOKS = [
     subcommand: 'pre-commit',
     ifClause: 'Bash(git commit *)',
   },
+  // Push a file's preventive memory (gotchas/anti-patterns) the moment Claude
+  // is about to edit it — closes the apply loop that pull-only `guard` left to
+  // the agent's (unreliable) instinct. Fires regardless of model = update-proof.
+  { event: 'PreToolUse', matcher: 'Edit|Write', subcommand: 'pre-edit' },
   { event: 'PostToolUse', matcher: 'Edit|Write', subcommand: 'post-edit' },
   { event: 'Stop', matcher: '', subcommand: 'stop' },
   { event: 'SubagentStart', matcher: '', subcommand: 'subagent-start' },
@@ -235,10 +239,11 @@ export async function install(): Promise<InstallResult> {
   }
 
   // Prune orphaned managed hooks: entries we wrote in a prior version whose
-  // subcommand is no longer in PRJCT_HOOKS (e.g. `pre-edit`, retired when
-  // anticipation moved from a push hook to the pull `prjct_guard` MCP tool).
-  // Without this, a refresh-only `install()` would leave dead `prjct hook X`
-  // entries in the user's settings forever.
+  // subcommand is no longer in PRJCT_HOOKS. (`pre-edit` was once retired this
+  // way when anticipation went pull-only; it's back now as the apply-loop
+  // push, so it's no longer pruned — but the mechanism still matters for any
+  // future retirement.) Without this, a refresh-only `install()` would leave
+  // dead `prjct hook X` entries in the user's settings forever.
   const hooksPruned = pruneOrphanedManagedHooks(hooks)
 
   settings.hooks = hooks

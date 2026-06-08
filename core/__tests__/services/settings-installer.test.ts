@@ -53,21 +53,24 @@ describe('settings-installer', () => {
     expect(second.hooksPruned).toBe(0)
   })
 
-  test('install prunes a retired managed hook (e.g. pre-edit) from existing settings', async () => {
+  test('install prunes a retired managed hook from existing settings', async () => {
     const settingsPath = path.join(home, '.claude', 'settings.json')
     await fs.mkdir(path.dirname(settingsPath), { recursive: true })
-    // Simulate a settings file from an older prjct that installed `pre-edit`.
+    // Simulate a settings file from an older prjct that installed a hook
+    // whose subcommand has since left PRJCT_HOOKS. Use a fictional retired
+    // name (`legacy-recall`) under a matcher nothing current claims, so the
+    // assertion isn't muddied by a real hook re-occupying the same block.
     await fs.writeFile(
       settingsPath,
       JSON.stringify({
         hooks: {
-          PreToolUse: [
+          PostToolUse: [
             {
-              matcher: 'Edit|Write',
+              matcher: 'Bash',
               hooks: [
                 {
                   type: 'command',
-                  command: 'command -v prjct >/dev/null 2>&1 && prjct hook pre-edit || exit 0',
+                  command: 'command -v prjct >/dev/null 2>&1 && prjct hook legacy-recall || exit 0',
                   _prjctManaged: true,
                 },
               ],
@@ -82,9 +85,9 @@ describe('settings-installer', () => {
 
     const parsed = JSON.parse(await fs.readFile(settingsPath, 'utf-8'))
     const commands = JSON.stringify(parsed.hooks)
-    expect(commands).not.toContain('hook pre-edit')
-    // The retired-hook's now-empty Edit|Write block under PreToolUse is gone,
-    // but the current pre-commit PreToolUse hook is present.
+    expect(commands).not.toContain('hook legacy-recall')
+    // The retired hook's now-empty PostToolUse/Bash block is gone, but the
+    // current pre-commit PreToolUse hook is present.
     expect(commands).toContain('hook pre-commit')
   })
 

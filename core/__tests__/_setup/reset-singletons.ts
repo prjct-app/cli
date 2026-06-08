@@ -17,7 +17,37 @@
  */
 
 import { beforeEach } from 'bun:test'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { resetCircuitBreakers } from '../../utils/retry'
+
+// Sandbox the vault root for the ENTIRE test process.
+//
+// `getWikiPath` defaults to `~/Documents/prjct/<slug>/`. Any test that
+// creates a tmp project and triggers vault generation (crew/retro/
+// review-risk/sync/remember…) otherwise wrote a real folder into the user's
+// `~/Documents/prjct/` and never cleaned it — hundreds of orphan
+// `prjct-*-test-*` vaults accumulated. `PRJCT_VAULT_ROOT` (honored by
+// core/infrastructure/path-manager/wiki-paths.ts) redirects every vault into
+// a throwaway temp dir that we remove on process exit. Set before any test
+// imports the path manager so it's in effect process-wide.
+if (!process.env.PRJCT_VAULT_ROOT) {
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'prjct-test-vault-'))
+  process.env.PRJCT_VAULT_ROOT = sandbox
+  const cleanup = () => {
+    try {
+      fs.rmSync(sandbox, { recursive: true, force: true })
+    } catch {
+      /* best-effort */
+    }
+  }
+  process.on('exit', cleanup)
+  process.on('SIGINT', () => {
+    cleanup()
+    process.exit(130)
+  })
+}
 
 // Deterministic agent detection for the whole test process.
 //

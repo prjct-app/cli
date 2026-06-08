@@ -415,9 +415,9 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('you run the verb, the user never types it')
       expect(content).toContain('| Intent / signal | Verb | Tier |')
       // Regression lock (recurring [Triage before spec] / [Right-size
-      // ceremony]): the triage gate is prominent and `task` (the default)
-      // precedes `spec`/`audit-spec` in the verb table.
-      expect(content).toContain('## TRIAGE FIRST')
+      // ceremony]): the DIRECT-default gate is prominent and `task` (the
+      // default) precedes `spec`/`audit-spec` in the verb table.
+      expect(content).toContain('## Act: default DIRECT')
       const verbMap = content.split('## Verb intent map')[1]?.split('## Routing')[0] ?? ''
       expect(verbMap.indexOf('`prjct task')).toBeGreaterThan(-1)
       expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct spec'))
@@ -461,27 +461,28 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const tier1 = content.split('Tier 1 — auto-execute')[1]?.split('Tier 2 —')[0] ?? ''
       expect(tier1).toContain('`capture`')
       expect(tier1).toContain('`tag`')
-      expect(tier1).toContain('`remember <type>`')
+      expect(tier1).toContain('`remember`')
       expect(tier1).toContain('`guard`')
       expect(tier1).toContain('`context-save`')
       expect(tier1).toContain('`health`')
       expect(tier1).toContain('`retro`')
     })
 
-    it('groups task / ship / status / audit into Tier 2 (suggest-and-confirm)', async () => {
+    it('groups task / ship / status into Tier 2 (suggest-and-confirm)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       const tier2 = content.split('Tier 2 — suggest-and-confirm')[1]?.split('Tier 3 —')[0] ?? ''
       expect(tier2).toContain('`task`')
       expect(tier2).toContain('`ship`')
       expect(tier2).toContain('`status done|paused`')
-      expect(tier2).toContain('`audit`')
+      // Heavy quality workflows (`audit`/`review`/`security`/`investigate`)
+      // moved out of the lean body into workflows.md — no longer in Tier 2.
     })
 
     it('refuses pausing on routine captures and shipping without a surfaced plan', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toMatch(/Do NOT ask "want me to save that\?"/)
+      expect(content).toMatch(/Do not ask "want me to save that\?"/)
       expect(content).toMatch(/Never run `ship` without surfacing the plan first/)
     })
   })

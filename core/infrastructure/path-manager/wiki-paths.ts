@@ -1,14 +1,29 @@
 /**
  * Wiki vault path resolution.
  *
- * Default vault location is `~/Documents/prjct/<slug>/`, derived from the
- * main worktree directory name so sibling worktrees of the same project
- * share one vault. Users can override via `vaultPath` in the local
+ * Default vault location is `<vaultRoot>/<slug>/`, derived from the main
+ * worktree directory name so sibling worktrees of the same project share one
+ * vault. Users can override per-project via `vaultPath` in the local
  * `.prjct/prjct.config.json` (absolute, tilde, or relative).
+ *
+ * `<vaultRoot>` is `~/Documents/prjct` by default, but `PRJCT_VAULT_ROOT`
+ * takes precedence on all platforms — mirroring `PRJCT_OBSIDIAN_CONFIG_DIR`
+ * so the test suite (and CI) can sandbox the vault into a temp dir and never
+ * write into the user's real `~/Documents/prjct/`. Without this, any test
+ * that creates a tmp project and triggers vault generation (crew/retro/
+ * review-risk/sync/remember…) left an orphan `~/Documents/prjct/<tmp-slug>/`
+ * behind — hundreds accumulated.
  */
 
 import os from 'node:os'
 import path from 'node:path'
+
+/** Base directory that holds every project's vault. Env override wins. */
+export function getVaultRoot(): string {
+  const override = process.env.PRJCT_VAULT_ROOT?.trim()
+  if (override) return path.resolve(override)
+  return path.join(os.homedir(), 'Documents', 'prjct')
+}
 
 export async function getWikiPath(
   projectPath: string,
@@ -20,10 +35,10 @@ export async function getWikiPath(
 
   const rootPath = await resolveProjectRootPath(projectPath)
 
-  // Default: ~/Documents/prjct/<slug>/
+  // Default: <vaultRoot>/<slug>/
   const base = path.basename(path.resolve(rootPath)).toLowerCase()
   const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
-  return path.join(os.homedir(), 'Documents', 'prjct', slug)
+  return path.join(getVaultRoot(), slug)
 }
 
 /**
@@ -37,7 +52,7 @@ export function getWikiPathWithProjectHash(projectPath: string, projectId: strin
   const base = path.basename(path.resolve(projectPath)).toLowerCase()
   const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
   const hash = projectId.replace(/-/g, '').slice(0, 8)
-  return path.join(os.homedir(), 'Documents', 'prjct', `${slug}-${hash}`)
+  return path.join(getVaultRoot(), `${slug}-${hash}`)
 }
 
 /** Legacy in-repo vault path. Kept only for migration detection. */

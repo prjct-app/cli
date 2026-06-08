@@ -240,6 +240,8 @@ async function main(): Promise<void> {
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),
+        // Memory search — registered verb over the context-memory pipeline
+        search: (p) => commands.search(p, process.cwd(), { md }),
         // v2 primitives
         status: (p) => commands.status(p, process.cwd(), { md }),
         tag: (p) => commands.tag(p, process.cwd(), { md }),
@@ -248,6 +250,8 @@ async function main(): Promise<void> {
             md,
             tags: options.tags ? String(options.tags) : undefined,
           }),
+        // Delete half of remember — forget a memory entry by id
+        forget: (p) => commands.forget(p, process.cwd(), { md }),
         // Auth (cloud sync)
         login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
         logout: () => commands.logout(),
@@ -514,6 +518,7 @@ TERMINAL COMMANDS (this CLI)
   prjct init             Initialize project (required for Cursor)
   prjct setup            Reconfigure installations
   prjct sync             Sync project state
+  prjct search "<q>"     Search project memory (decisions, learnings, gotchas)
   prjct watch            Auto-sync on file changes (Ctrl+C to stop)
   prjct hooks            Manage git hooks for auto-sync
   prjct doctor           Check system health and dependencies

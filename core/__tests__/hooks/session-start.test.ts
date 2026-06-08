@@ -141,3 +141,48 @@ describe('SessionStart hook — buildSessionContext', () => {
     expect(after).toBe(before)
   })
 })
+
+describe('SessionStart hook — knowledge digest (cold-start only)', () => {
+  test('digest OFF by default — the cache-safe path used by subagent/cwd reuse', async () => {
+    await freshProject({ role: 'DEV' })
+    insertMemory('gotcha', 'stale daemon caches old hook code; stop it before testing')
+    const ctx = await buildSessionContext(projectPath)
+    expect(ctx).not.toBeNull()
+    expect(ctx).not.toContain('What this project already knows')
+    expect(ctx).not.toContain('stale daemon')
+  })
+
+  test('digest ON surfaces top traps + decisions (cross-update grounding)', async () => {
+    await freshProject({ role: 'DEV' })
+    insertMemory('gotcha', 'stale daemon caches old hook code; stop it before testing')
+    insertMemory('decision', 'we picked SQLite for local-first persistence')
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('What this project already knows')
+    expect(ctx).toContain('Traps to avoid')
+    expect(ctx).toContain('Decisions in force')
+    expect(ctx).toContain('survived even if your conversation context did not')
+  })
+
+  test('digest ON works even without a persona (knowledge alone is enough)', async () => {
+    await freshProject()
+    insertMemory('gotcha', 'never edit the generated vault by hand — fix the pipeline')
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('What this project already knows')
+  })
+
+  test('digest ON with no memory and no persona → still null (no noise)', async () => {
+    await freshProject()
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).toBeNull()
+  })
+
+  test('digest references developer.md and id-resolution path', async () => {
+    await freshProject({ role: 'DEV' })
+    insertMemory('decision', 'ship as minor when the squash title starts with feat:')
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).toContain('developer.md')
+    expect(ctx).toContain('prjct search')
+  })
+})
