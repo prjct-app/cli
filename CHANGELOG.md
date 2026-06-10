@@ -2,17 +2,10 @@
 
 ## [Unreleased]
 
-Hot-path performance pass over the hooks that fire on every Claude turn.
-
-### Fixed
-- **Session-end embedding backfill was a silent no-op.** The Stop hook passed the project *path* where `backfill` expects the project *id*, so every session end wrote vectors to a phantom database under `~/.prjct-cli/projects/Users/…` instead of the real project DB. Vectors now land where semantic search reads them.
-
-### Performance (per-turn hooks)
-- **Stop hook reads the config once and the transcript once.** It read `prjct.config.json` 4–5× per turn (once per sub-service, plus once per `remember()` call) and read+parsed the session transcript JSONL 3× (transcript-learner, friction-detector, skill-miss-detector). The hook now reads each once and threads them through; the three detectors share one JSONL tokenizer (`transcript-jsonl.ts`), deduplicating three identical parsers.
-- **`StorageManager.update` is one transaction.** The optimistic-CAS retry loop (up to 8 × [2 SELECTs + UPDATE]) is now a single `BEGIN IMMEDIATE` read-modify-write — strictly stronger for multi-agent state (concurrent writers wait on the lock instead of looping), with 1 SELECT + 1 write per update.
-- **Embedding backfill fetches only new entries.** A SQL anti-join replaces deserializing the whole memory corpus per Stop hook; noise-vector pruning (which needs the full corpus) is throttled to every 10th run.
-- **Global config is stat-cached.** `resolveGlobalEmbeddings` did 7 `readFileSync`+parse of `global.json` per Stop hook; reads now revalidate against mtime+size, so a CLI write is still picked up by a long-lived daemon.
-- **CLI cold-path reorder.** The hook fast path runs before the verb-registry import and the update/self-heal blocks (hooks need none of them); self-heal moved after the daemon fast path (SessionStart's own self-heal keeps coverage).
+### Refactoring
+- **Single command manifest — the quadruple-dispatch problem is gone.** Four hand-maintained lists had to agree on which commands exist and where they route (`_binCommands` in bin/prjct.ts, the shim skip-set in scripts/build.js, `standardCommands` in core/index.ts, and the dispatch.ts switch); 18 bin-only commands existed in no metadata at all. `command-data.ts` now carries `routingMode` and `optionSchema` per command, and all four surfaces derive from it: bin imports the derived set, the build evaluates the manifest to emit the shim, and BOTH dispatch paths map flags generically through one schema — the daemon "flag-strip" bug class (a command losing options to a missing hand-written case) disappears by construction. Adding a command is now one manifest entry. Guarded by a new `manifest-completeness` suite plus the rewritten parity/shim-sync tests.
+- **Dead code:** deleted `core/session/session-snapshot.ts` (217 lines, zero importers) and its orphaned schema; knip's `exports` rule went `off` → `warn` so dead exports are visible again (that blindness is what hid the module).
+- **Deduped the provider status table** (version output) — the two hand-rolled copies in core/index.ts and bin/prjct.ts had already drifted; the line renderer now lives once in `core/utils/provider-status.ts`.
 
 ## [2.42.1] - 2026-06-10
 
@@ -23,7 +16,6 @@ Hot-path performance pass over the hooks that fire on every Claude turn.
 ### Refactoring
 
 - perf: hot paths — Stop hook config/transcript once, CAS→txn, backfill anti-join + ghost-DB fix (#416)
-
 
 ## [2.42.0] - 2026-06-10
 

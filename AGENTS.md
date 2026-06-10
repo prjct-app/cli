@@ -78,6 +78,28 @@ SessionStart, UserPromptSubmit, PreToolUse (Bash git commit), PostToolUse
 `additionalContext`; nothing blocks unless a hand-rolled workflow rule
 explicitly does so. `prjct uninstall` cleanly removes them.
 
+## Adding a CLI command
+
+`core/commands/command-data.ts` is the single manifest for command
+routing. One entry there is the whole wiring:
+
+- `routing: { group, method }` — which command-group method handles it
+  (register.ts auto-registers it; `verb-names.ts` derives the fast-path
+  verb set).
+- `optionSchema: { booleans?, strings?, numbers? }` — its flags, in the
+  handler's camelCase names (wire kebab-case is resolved automatically).
+  Both the daemon dispatch AND the cold path map flags through this one
+  schema, so a command can never lose options to a missing hand-written
+  case (the historical daemon "flag-strip" class).
+- `routingMode: 'bin-only'` — only for commands bin/prjct.ts must handle
+  itself (TTY, daemon lifecycle). `_binCommands` and the daemon shim's
+  skip set both derive from it; do NOT hand-edit either.
+
+Only complex signatures (object params, multi-positional, e.g. `init`,
+`sync`, `spec`) get explicit cases in `dispatch.ts` + `core/index.ts` —
+`manifest-completeness.test.ts` fails if a schema-covered command grows
+one.
+
 ## Code rules
 
 These are enforced by lint/CI, not just convention:
