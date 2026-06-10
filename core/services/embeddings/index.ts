@@ -292,6 +292,9 @@ function dot(a: ArrayLike<number>, b: ArrayLike<number>): number {
  */
 const SEMANTIC_SCAN_MAX_ROWS = 2000
 
+/** Noise-vector pruning runs on every Nth backfill (see shouldPruneThisRun). */
+const PRUNE_EVERY = 10
+
 export const embeddingService = {
   /**
    * Always true now: the local default provider makes semantic search
@@ -353,20 +356,29 @@ export const embeddingService = {
   ): Promise<{ embedded: number; skipped: number; total: number }> {
     const provider = opts.provider ?? resolveActiveProvider(config)
     const batchSize = opts.batchSize ?? 64
-    const all = projectMemory.allEntriesForIndex(projectId)
+
+    // Work list via SQL anti-join: only entries that still lack a vector are
+    // fetched + deserialized. The old path loaded the WHOLE corpus on every
+    // Stop hook just to set-diff against embeddedIds in JS.
+    const todo = projectMemory
+      .unembeddedEntriesForIndex(projectId, provider.model)
+      .filter((e) => isModelMemory(e) && e.content.trim().length > 0)
 
     // Selectivity (RAG north star): embed only entries that MODEL the
-    // project/developer, never bulk-vectorize telemetry noise. Prune any noise
-    // vectors a prior (indiscriminate) backfill stored, so semantic recall
-    // stops surfacing hot-file churn / raw friction.
-    const model = all.filter((e) => isModelMemory(e))
-    this.pruneNonModelVectors(
-      projectId,
-      all.filter((e) => !isModelMemory(e)).map((e) => e.id)
-    )
+    // project/developer, never bulk-vectorize telemetry noise. Pruning noise
+    // vectors needs the full corpus, so it's throttled to every Nth backfill
+    // (first run always prunes) — a stale noise vector is harmless meanwhile.
+    if (this.shouldPruneThisRun(projectId)) {
+      const all = projectMemory.allEntriesForIndex(projectId)
+      this.pruneNonModelVectors(
+        projectId,
+        all.filter((e) => !isModelMemory(e)).map((e) => e.id)
+      )
+    }
 
-    const have = this.embeddedIds(projectId, provider.model)
-    const todo = model.filter((e) => !have.has(e.id) && e.content.trim().length > 0)
+    // "skipped" = entries already vectorized by prior runs (counted before
+    // this run's stores land, mirroring the old set-diff semantics).
+    const alreadyEmbedded = this.countByModel(projectId, provider.model)
 
     let embedded = 0
     for (let i = 0; i < todo.length; i += batchSize) {
@@ -384,7 +396,35 @@ export const embeddingService = {
         // Skip this batch; the next backfill retries it.
       }
     }
-    return { embedded, skipped: model.length - todo.length, total: model.length }
+    return { embedded, skipped: alreadyEmbedded, total: alreadyEmbedded + todo.length }
+  },
+
+  /** Vectors already stored for `model` — the previous runs' work. */
+  countByModel(projectId: string, model: string): number {
+    try {
+      const row = prjctDb.get<{ n: number }>(
+        projectId,
+        'SELECT COUNT(*) AS n FROM memory_embeddings WHERE model = ?',
+        model
+      )
+      return row?.n ?? 0
+    } catch {
+      return 0
+    }
+  },
+
+  /** Prune throttle: every PRUNE_EVERY-th backfill, starting with the first.
+   *  Counter lives in kv_store so it survives across processes. Best-effort —
+   *  any storage error defaults to pruning (the safe, if slower, choice). */
+  shouldPruneThisRun(projectId: string): boolean {
+    try {
+      const KEY = 'embeddings:prune-tick'
+      const tick = prjctDb.getDoc<number>(projectId, KEY) ?? 0
+      prjctDb.setDoc(projectId, KEY, (tick + 1) % PRUNE_EVERY)
+      return tick === 0
+    } catch {
+      return true
+    }
   },
 
   /** Delete stored vectors for entries that are no longer model-worthy
