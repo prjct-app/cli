@@ -137,7 +137,7 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_analysis',
-    'LLM analysis: stack, patterns, anti-patterns, conventions',
+    'The stored project analysis (stack, patterns, anti-patterns, conventions). Read this instead of re-deriving the architecture from source.',
     {
       projectPath: z.string().describe('Project directory path'),
     },

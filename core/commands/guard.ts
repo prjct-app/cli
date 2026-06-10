@@ -15,7 +15,9 @@
  * preventive matches, so it never becomes noise.
  */
 
-import { deriveTitle, type MemoryEntry, projectMemory } from '../memory/project-memory'
+import type { MemoryEntry } from '../memory/entries'
+import { deriveTitle } from '../memory/format'
+import { projectMemory } from '../memory/project-memory'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import out from '../utils/output'

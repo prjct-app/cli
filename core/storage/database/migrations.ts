@@ -918,4 +918,47 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 29,
+    name: 'fts5-prefix-indexes',
+    up: (db: SqliteDatabase) => {
+      // searchFts matches every keyword as a PREFIX query (`"kw"*` — see
+      // project-memory.ts searchFts), but the FTS table from migration 10
+      // had no prefix indexes, so each prefix term scanned the full-term
+      // index. FTS5 prefix indexes can only be declared at CREATE time →
+      // drop + recreate with prefix='2 3 4' and rebuild from the content
+      // table. Trigger bodies identical to migration 10.
+      db.run(`
+        DROP TRIGGER IF EXISTS memories_ai;
+        DROP TRIGGER IF EXISTS memories_ad;
+        DROP TRIGGER IF EXISTS memories_au;
+        DROP TABLE IF EXISTS memories_fts;
+
+        CREATE VIRTUAL TABLE memories_fts USING fts5(
+          title, content, tags,
+          content='memories', content_rowid='rowid',
+          prefix='2 3 4'
+        );
+
+        CREATE TRIGGER memories_ai AFTER INSERT ON memories BEGIN
+          INSERT INTO memories_fts(rowid, title, content, tags)
+          VALUES (NEW.rowid, NEW.title, NEW.content, NEW.tags);
+        END;
+
+        CREATE TRIGGER memories_ad AFTER DELETE ON memories BEGIN
+          INSERT INTO memories_fts(memories_fts, rowid, title, content, tags)
+          VALUES ('delete', OLD.rowid, OLD.title, OLD.content, OLD.tags);
+        END;
+
+        CREATE TRIGGER memories_au AFTER UPDATE ON memories BEGIN
+          INSERT INTO memories_fts(memories_fts, rowid, title, content, tags)
+          VALUES ('delete', OLD.rowid, OLD.title, OLD.content, OLD.tags);
+          INSERT INTO memories_fts(rowid, title, content, tags)
+          VALUES (NEW.rowid, NEW.title, NEW.content, NEW.tags);
+        END;
+
+        INSERT INTO memories_fts(memories_fts) VALUES ('rebuild');
+      `)
+    },
+  },
 ]

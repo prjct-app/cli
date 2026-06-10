@@ -14,7 +14,9 @@
 
 import { execSync } from 'node:child_process'
 import configManager from '../infrastructure/config-manager'
-import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
+import type { MemoryEntry } from '../memory/entries'
+import { formatMemoryMd } from '../memory/format'
+import { projectMemory } from '../memory/project-memory'
 import { type HookIo, runHook } from './_runner'
 import { safeTruncate } from './_shared'
 

@@ -27,7 +27,9 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { BASE_MEMORY_TYPES, formatMemoryMd, projectMemory } from '../../memory/project-memory'
+import { BASE_MEMORY_TYPES } from '../../memory/entries'
+import { formatMemoryMd } from '../../memory/format'
+import { projectMemory } from '../../memory/project-memory'
 import { scanForPromptInjection } from '../../utils/prompt-injection'
 import { scanForSecrets } from '../../utils/secret-scanner'
 import { resolveProjectId } from '../resolve'

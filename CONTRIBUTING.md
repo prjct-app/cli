@@ -67,6 +67,25 @@ prjct-cli/
 └── scripts/        # Build and deploy scripts
 ```
 
+## Dependency overrides (`package.json` → `overrides`)
+
+Every entry pins a **transitive** dependency to a patched version because the
+direct dependency that brings it in has not shipped a release with the fix.
+JSON can't carry comments, so the rationale lives here — keep this table in
+sync when adding or removing an override:
+
+| Override | Why | Ref |
+|---|---|---|
+| `path-to-regexp: 8.4.0` | DoS via sequential optional groups (via MCP SDK → express → router) | PR #251 |
+| `brace-expansion: 5.0.5` | ReDoS in expansion parsing (via glob/minimatch chain) | PR #251 |
+| `fast-uri: >=3.1.2` | Host confusion + `%2e%2e` path traversal (via ajv; not exercised — ajv only validates schemas we author) | PR #326 |
+| `hono: >=4.12.18` | Batch of HIGH advisories (XSS, cache deception, cookie injection, proto pollution, path traversal) | PR #251, #326 |
+| `ip-address: >=10.1.1` | Parsing advisory in the MCP SDK chain (not exercised at runtime) | PR #326 |
+
+Removal condition: when the parent package (usually
+`@modelcontextprotocol/sdk`) ships a release that pulls the patched version,
+delete the override and verify with `npm audit` / Dependabot.
+
 ## Coding Standards
 
 - TypeScript with strict mode

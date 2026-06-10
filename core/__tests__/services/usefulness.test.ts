@@ -12,7 +12,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import type { MemoryEntry } from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
 import { extractRefIds, usefulnessService } from '../../services/usefulness'
 import prjctDb from '../../storage/database'
 

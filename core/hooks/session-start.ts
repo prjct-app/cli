@@ -32,7 +32,9 @@
 
 import configManager from '../infrastructure/config-manager'
 import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
-import { deriveTitle, type MemoryEntry, projectMemory } from '../memory/project-memory'
+import type { MemoryEntry } from '../memory/entries'
+import { deriveTitle } from '../memory/format'
+import { projectMemory } from '../memory/project-memory'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'

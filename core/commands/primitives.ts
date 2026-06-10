@@ -9,7 +9,8 @@
  * - remember: Claude saves project memory entries (fact, decision, learning…)
  */
 
-import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
+import { MEMORY_TYPES, type MemoryType } from '../memory/entries'
+import { projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { readLastStatus, resolveActiveTask, setTaskStatus } from '../services/task-service'

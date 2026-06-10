@@ -11,7 +11,7 @@
  * stream alone wouldn't carry.
  */
 
-import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/project-memory'
+import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
 import type { QueueTask } from '../../schemas/state'
 import { SPEC_REVIEWERS, type Spec } from '../../types/spec'
 import { slugify } from './_shared'

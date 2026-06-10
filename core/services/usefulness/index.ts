@@ -22,7 +22,7 @@
  * recall. Time is injectable so tests are deterministic.
  */
 
-import type { MemoryEntry } from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
 import prjctDb from '../../storage/database'
 
 /** Days for a usefulness contribution to halve. ~6 weeks: a decision cited

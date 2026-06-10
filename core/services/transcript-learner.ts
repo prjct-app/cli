@@ -24,7 +24,8 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
-import { type MemoryType, projectMemory } from '../memory/project-memory'
+import type { MemoryType } from '../memory/entries'
+import { projectMemory } from '../memory/project-memory'
 import type { LocalConfig } from '../types/config'
 import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jsonl'
 

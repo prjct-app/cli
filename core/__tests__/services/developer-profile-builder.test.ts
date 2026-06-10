@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import type { MemoryEntry } from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
 import { buildDeveloperProfile } from '../../services/wiki/developer-profile-builder'
 
 function entry(

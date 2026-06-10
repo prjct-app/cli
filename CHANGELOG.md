@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+Optimization backlog pass (the items deferred since v2.37.x, consolidated in mem_1814).
+
+### Fixed
+- **Post-upgrade re-setup silently never ran.** `bin/prjct.ts` invoked `setup.run()` through a default export that the ESM-standardization PR (#132, 2026-02) deleted — `bin/` sits outside core's typecheck, so the call threw `TypeError` into its own catch and only stamped the version, on every upgrade, for four months. `run()` is a named export now and bin imports it directly.
+
+### Performance
+- **FTS5 prefix indexes** (migration 29): `searchFts` matches every keyword as a prefix query, but the FTS table had no prefix indexes — each term scanned the full-term index. Recreated with `prefix='2 3 4'` + content rebuild.
+
+### Changed
+- **MCP tool descriptions are intent-led.** Six tools (analysis, workflow rules/list/status, signatures, history) were noun phrases with no "when to reach for this"; each now states what it returns and when to use it.
+- **`package.json` overrides documented** in CONTRIBUTING.md — vulnerability class, the PR that introduced each pin (#251/#326), and the removal condition.
+
+### Refactoring
+- **God-files split.** `infrastructure/setup.ts` (892 → 472) extracted `codex-skill.ts` + `statusline-installer.ts`; `memory/project-memory.ts` (1086 → 660) extracted `entries.ts` (types + row mapping + pure filters) and `format.ts` (markdown rendering). All importers updated per the no-re-export rule.
+- **Dropped the `glob` dependency** — the single call site (monorepo workspace discovery) uses native `node:fs` `globSync` (node ≥22 / bun; the engine floor is already 22.5). `@types/node@22` pinned as a devDependency (types resolved to a transitive v20 that predates `globSync`).
+
 ### Performance
 - **Daemon command groups load lazily.** `PrjctCommands` and the registry bindings eagerly imported and instantiated all ~18 command-group classes at daemon startup; both now use memoized dynamic-import loaders (new `registerLazyMethod`), so the first socket request stops paying for the whole command tree (daemon module import: 67ms → 40ms warm).
 

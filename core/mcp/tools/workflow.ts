@@ -20,7 +20,7 @@ export function registerWorkflowTools(server: McpServer) {
 
   s.tool(
     'prjct_workflow_rules',
-    'Get workflow rules for a command (gates, hooks, steps, instructions)',
+    'The gates/hooks/steps registered for a command (task, ship, …). Check before running a lifecycle verb so a gate never surprises you mid-action.',
     {
       projectPath: z.string().describe('Project directory path'),
       command: z.string().describe('Command name (task, done, ship, sync, etc.)'),
@@ -57,7 +57,7 @@ export function registerWorkflowTools(server: McpServer) {
 
   s.tool(
     'prjct_workflow_list',
-    'List all workflows for this project (built-in + custom)',
+    'Every workflow this project registered (built-in + custom). Use to discover what `prjct workflow run <name>` can execute here.',
     {
       projectPath: z.string().describe('Project directory path'),
     },
@@ -85,7 +85,7 @@ export function registerWorkflowTools(server: McpServer) {
 
   s.tool(
     'prjct_workflow_status',
-    'Current workflow execution state + active rules',
+    'Where the active task sits in its workflow (state + rules currently in force). Read when deciding whether done/ship is allowed next.',
     {
       projectPath: z.string().describe('Project directory path'),
     },

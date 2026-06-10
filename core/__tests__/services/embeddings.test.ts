@@ -13,7 +13,8 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { isModelMemory, projectMemory } from '../../memory/project-memory'
+import { isModelMemory } from '../../memory/entries'
+import { projectMemory } from '../../memory/project-memory'
 import {
   cosineSimilarity,
   type EmbeddingProvider,

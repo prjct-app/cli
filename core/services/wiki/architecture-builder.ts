@@ -10,7 +10,8 @@
  * richer LLM analysis IS present, the caller prefers that and ignores this.
  */
 
-import { deriveTitle, type MemoryEntry } from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
+import { deriveTitle } from '../../memory/format'
 import { truncate } from './_shared'
 
 const MAX_PER_SECTION = 20
