@@ -12,22 +12,29 @@
  * stopwords/noise and burn the context window with entries the turn never
  * needed — exactly the bloat we refuse to ship to clients.
  *
+ * ONE exception to PULL: preventive knowledge. When the prompt's keywords
+ * BM25-match a `gotcha`/`anti-pattern`, a single one-line trap cue rides
+ * along — the same class the pre-edit guard pushes, because a trap only
+ * helps BEFORE it's stepped in. Decisions/learnings/facts stay pull-only.
+ *
  * Zero "do X" prescription. The LLM decides. Degrades gracefully: on any
  * error (no project, no git) we emit `{}` and stay out of the way.
  */
 
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
-import { projectMemory } from '../memory/project-memory'
+import { deriveTitle, projectMemory } from '../memory/project-memory'
 import { collectActiveTasks } from '../services/task-overview'
 import { shippedStorage } from '../storage/shipped-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { type HookIo, runHook } from './_runner'
-import { safeTruncate } from './_shared'
+import { extractKeywords, safeTruncate } from './_shared'
 
-const STATE_BUDGET = 600
+const STATE_BUDGET = 900
+/** FTS candidates fetched before the preventive-type filter picks ONE. */
+const CUE_CANDIDATES = 8
 
 interface HookInput {
   prompt?: string
@@ -120,6 +127,24 @@ export async function buildProjectState(
   return lines.join('\n')
 }
 
+/**
+ * At most ONE preventive entry (gotcha / anti-pattern) whose content
+ * BM25-matches the prompt's keywords, as a one-line cue. Best-effort —
+ * any failure returns null and the state block ships without it.
+ */
+export function buildTopicalCue(projectId: string, prompt: string): string | null {
+  try {
+    const keywords = extractKeywords(prompt)
+    if (keywords.length === 0) return null
+    const hits = projectMemory.searchFts(projectId, keywords, CUE_CANDIDATES)
+    const trap = hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
+    if (!trap) return null
+    return `> Trap on this topic: ${deriveTitle(trap)}  \`${trap.id}\``
+  } catch {
+    return null
+  }
+}
+
 interface GitSnapshot {
   branch: string
   modified: number
@@ -201,7 +226,11 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
         // entries the turn never needed.
         const state = await buildProjectState(p, config)
         if (!state) return null
-        return safeTruncate(state, STATE_BUDGET)
+        // The ONE push exception: a single trap cue when the prompt's
+        // keywords hit a gotcha/anti-pattern (see header). State leads;
+        // the cue is appended and shares the same hard budget.
+        const cue = config?.projectId ? buildTopicalCue(config.projectId, prompt) : null
+        return safeTruncate(cue ? `${state}\n\n${cue}` : state, STATE_BUDGET)
       },
     },
     io

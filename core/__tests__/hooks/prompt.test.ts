@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { buildProjectState } from '../../hooks/prompt'
+import { buildProjectState, buildTopicalCue } from '../../hooks/prompt'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import prjctDb from '../../storage/database'
@@ -109,5 +109,53 @@ describe('UserPromptSubmit — project state', () => {
     const r = await buildProjectState(projectPath)
     expect(r).not.toBeNull()
     expect(r).toContain('# prjct: project state')
+  })
+})
+
+describe('UserPromptSubmit — topical trap cue', () => {
+  function seedMirror(id: string, type: string, content: string): void {
+    const now = new Date().toISOString()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memories
+         (id, project_id, title, content, tags, type, provenance, user_triggered,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id,
+      projectId,
+      content.slice(0, 80),
+      content,
+      '{}',
+      type,
+      'declared',
+      0,
+      now,
+      now
+    )
+  }
+
+  it('surfaces ONE gotcha when prompt keywords match', async () => {
+    await freshProject()
+    seedMirror('mem_1', 'gotcha', 'the daemon caches stale hook code until restarted')
+    seedMirror('mem_2', 'gotcha', 'embeddings clear also wipes the keychain key')
+    const cue = buildTopicalCue(projectId, 'why is the daemon serving stale responses?')
+    expect(cue).not.toBeNull()
+    expect(cue).toContain('Trap on this topic')
+    expect(cue).toContain('mem_1')
+    expect(cue).not.toContain('mem_2')
+  })
+
+  it('ignores non-preventive types even when they match', async () => {
+    await freshProject()
+    seedMirror('mem_3', 'decision', 'we chose a daemon architecture for warm starts')
+    const cue = buildTopicalCue(projectId, 'tell me about the daemon architecture')
+    expect(cue).toBeNull()
+  })
+
+  it('returns null when nothing matches', async () => {
+    await freshProject()
+    seedMirror('mem_4', 'gotcha', 'biome resolves zero files inside a git worktree')
+    const cue = buildTopicalCue(projectId, 'completely unrelated cooking recipe question')
+    expect(cue).toBeNull()
   })
 })
