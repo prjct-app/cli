@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import type { WorkflowCommand, WorkflowState } from '../../types/workflow'
-import { WorkflowStateMachine } from '../../workflow/state-machine'
+import { WorkflowStateMachine } from '../../workflow-engine/state-machine'
 
 const sm = new WorkflowStateMachine()
 

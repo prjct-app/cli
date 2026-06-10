@@ -7,7 +7,7 @@
 
 import chalk from 'chalk'
 import type { WorkflowState } from '../types/workflow'
-import { workflowStateMachine } from '../workflow/state-machine'
+import { workflowStateMachine } from '../workflow-engine/state-machine'
 
 interface NextStep {
   cmd: string

@@ -27,7 +27,7 @@ import { failFromError } from '../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
-import { executeWorkflowRules } from '../workflow/workflow-engine'
+import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
 

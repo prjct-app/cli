@@ -146,7 +146,7 @@ describe('v15 migration — orphan workflow_rules', () => {
 
 describe('v1 task status coercion (regression guard)', () => {
   it('state-machine maps legacy statuses to v2 states', async () => {
-    const { workflowStateMachine } = await import('../../workflow/state-machine')
+    const { workflowStateMachine } = await import('../../workflow-engine/state-machine')
 
     expect(workflowStateMachine.getCurrentState({ currentTask: { status: 'in_progress' } })).toBe(
       'working'
