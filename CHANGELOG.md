@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+LLM-first surface pass: everything an agent reads from prjct — errors, hook context, MCP output, semantic recall — got sharper and cheaper.
+
+### Added
+- **Subagent context digest.** Spawned subagents used to receive the persona block only and re-investigated facts the main session already knew. The `SubagentStart` hook now injects a compact digest: role + the active task for *this worktree* + the top 2 preventive traps, capped at 500 chars. Variable content is safe here because SubagentStart emits via `systemMessage`, outside the cached prompt prefix.
+- **One-line trap cue on prompts.** The per-turn state hook stays PULL-not-PUSH for decisions/learnings/facts, with one exception: when the prompt's keywords BM25-match a `gotcha`/`anti-pattern`, a single `> Trap on this topic:` line rides along with the state block — the same preventive class the pre-edit guard pushes, because a trap only helps *before* it's stepped in.
+- **Skill-miss feedback loop closed.** The Stop-hook detector already recorded "relevant but never referenced" knowledge as improvement-signals; now those signals act. Write side: each miss cancels the automatic `relates:` reference credit and nets the missed entry −0.3 usefulness (a miss is not usage). Read side: the cold-start digest gains a **Keeps being missed** slot for the entry flagged ≥2×, so chronically-missed knowledge gets pushed in front of the agent instead of accumulating silently.
+
+### Changed
+- **No more truncated output for agents.** `out.fail`/`done`/`warn` truncated to 65–80 chars unconditionally; in non-TTY contexts (pipes, agents, CI) messages now pass through untruncated. Human TTY behavior unchanged.
+- **MCP server instructions trimmed ~3×.** The SDD canonical-sequence block duplicated the `prjct_spec_*` tool descriptions verbatim on every MCP turn and contradicted the skill's default-DIRECT routing; the instructions are back to the anti-harness shape (use-when + what's-here + gotchas). `prjct_task_set_status` now surfaces the real "unsupported transition" message instead of a generic no-active-task line.
+
+### Performance
+- **`recallForFile` is indexed.** The `prjct guard` / pre-edit lookup overfetched 500 recall rows and filtered by the `file` tag in JS. Migration 27 adds a virtual generated `file_tag` column (+ partial index) on `events`, so the lookup touches only file-tagged remember rows.
+- **Semantic search is bounded and norm-cached.** Migration 28 stores each vector's L2 norm at write time (backfilled), turning per-row cosine into a dot product; the scan is capped at the 2000 newest vectors per model. Still zero native deps — no sqlite-vec.
+
 ## [2.41.0] - 2026-06-09
 
 Memory recall + apply-loop: prjct now *applies* what it learns at the moment it matters, not just on demand — and the knowledge survives model updates.

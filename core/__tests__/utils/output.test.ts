@@ -42,12 +42,35 @@ describe('Output Module', () => {
       expect(output).toContain('task completed')
     })
 
-    it('should truncate long messages', () => {
-      const longMessage = 'a'.repeat(100)
-      out.done(longMessage)
+    it('should truncate long messages in TTY mode', () => {
+      const prevOut = process.stdout.isTTY
+      process.stdout.isTTY = true
+      try {
+        const longMessage = 'a'.repeat(100)
+        out.done(longMessage)
 
-      const output = consoleLogSpy.mock.calls[0][0]
-      expect(output.length).toBeLessThan(80)
+        const output = consoleLogSpy.mock.calls[0][0]
+        expect(output.length).toBeLessThan(80)
+      } finally {
+        process.stdout.isTTY = prevOut
+      }
+    })
+
+    it('should NOT truncate in non-TTY (agent/pipe) mode', () => {
+      const prevOut = process.stdout.isTTY
+      const prevErr = process.stderr.isTTY
+      process.stdout.isTTY = false as never
+      process.stderr.isTTY = false as never
+      try {
+        const longMessage = 'a'.repeat(100)
+        out.done(longMessage)
+
+        const output = consoleLogSpy.mock.calls[0][0]
+        expect(output).toContain(longMessage)
+      } finally {
+        process.stdout.isTTY = prevOut
+        process.stderr.isTTY = prevErr
+      }
     })
 
     it('should return self for chaining', () => {
@@ -66,12 +89,35 @@ describe('Output Module', () => {
       expect(output).toContain('something failed')
     })
 
-    it('should truncate long error messages', () => {
-      const longMessage = 'error '.repeat(50)
-      out.fail(longMessage)
+    it('should truncate long error messages in TTY mode', () => {
+      const prevOut = process.stdout.isTTY
+      process.stdout.isTTY = true
+      try {
+        const longMessage = 'error '.repeat(50)
+        out.fail(longMessage)
 
-      const output = consoleErrorSpy.mock.calls[0][0]
-      expect(output.length).toBeLessThan(80)
+        const output = consoleErrorSpy.mock.calls[0][0]
+        expect(output.length).toBeLessThan(80)
+      } finally {
+        process.stdout.isTTY = prevOut
+      }
+    })
+
+    it('should NOT truncate error messages in non-TTY (agent/pipe) mode', () => {
+      const prevOut = process.stdout.isTTY
+      const prevErr = process.stderr.isTTY
+      process.stdout.isTTY = false as never
+      process.stderr.isTTY = false as never
+      try {
+        const longMessage = 'error '.repeat(50)
+        out.fail(longMessage)
+
+        const output = consoleErrorSpy.mock.calls[0][0]
+        expect(output).toContain(longMessage.trim())
+      } finally {
+        process.stdout.isTTY = prevOut
+        process.stderr.isTTY = prevErr
+      }
     })
 
     it('should return self for chaining', () => {

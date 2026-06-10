@@ -122,7 +122,11 @@ function buildKnowledgeDigest(projectId: string): string | null {
   } catch {
     return null
   }
-  if (gotchas.length === 0 && decisions.length === 0) return null
+  const repeatMiss = findRepeatMissedEntry(
+    projectId,
+    new Set([...gotchas, ...decisions].map((e) => e.id))
+  )
+  if (gotchas.length === 0 && decisions.length === 0 && !repeatMiss) return null
 
   const lines: string[] = ['## What this project already knows', '']
   lines.push(
@@ -136,11 +140,106 @@ function buildKnowledgeDigest(projectId: string): string | null {
     lines.push('', '**Decisions in force:**')
     for (const e of decisions) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
   }
+  if (repeatMiss) {
+    lines.push(
+      '',
+      '**Keeps being missed:**',
+      `- ${deriveTitle(repeatMiss.entry)}  \`${repeatMiss.entry.id}\` — flagged relevant-but-unused ${repeatMiss.count}×. Apply it or supersede it.`
+    )
+  }
   lines.push(
     '',
     '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is lives in `developer.md` in the vault.'
   )
   return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
+}
+
+/** A memory must be skill-missed at least this often to earn a digest slot. */
+const REPEAT_MISS_THRESHOLD = 2
+
+/**
+ * The skill-miss feedback loop's read side: the entry most often flagged
+ * "relevant but never referenced" across sessions. One slot, ≥2 misses,
+ * skipping anything the digest already shows — knowledge that keeps
+ * failing to land gets pushed in front of the agent instead of silently
+ * accumulating improvement-signal rows. Best-effort: null on any failure.
+ */
+function findRepeatMissedEntry(
+  projectId: string,
+  alreadyShown: Set<string>
+): { entry: MemoryEntry; count: number } | null {
+  try {
+    const signals = projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { kind: 'skill-miss' },
+      limit: 50,
+      dedupeByKey: false,
+    })
+    const counts = new Map<string, number>()
+    for (const s of signals) {
+      const memId = s.tags?.relates
+      if (!memId) continue
+      counts.set(memId, (counts.get(memId) ?? 0) + 1)
+    }
+    let topId: string | null = null
+    let topCount = 0
+    for (const [id, count] of counts) {
+      if (count > topCount) {
+        topId = id
+        topCount = count
+      }
+    }
+    if (!topId || topCount < REPEAT_MISS_THRESHOLD || alreadyShown.has(topId)) return null
+    const entry = projectMemory.getById(projectId, topId)
+    return entry ? { entry, count: topCount } : null
+  } catch {
+    return null
+  }
+}
+
+const SUBAGENT_DIGEST_MAX_CHARS = 500
+const SUBAGENT_GOTCHA_COUNT = 2
+
+/**
+ * Compact context for a spawned subagent: role, the active task for THIS
+ * worktree, and the top preventive traps. Subagents previously received the
+ * persona block only and re-investigated facts the main session already knew.
+ *
+ * SubagentStart's response schema rejects `additionalContext`, so this is
+ * emitted as `systemMessage` — outside the cached system-prompt prefix —
+ * which is why variable content (the active task) is safe here while the
+ * SessionStart persona block must stay byte-identical.
+ */
+export async function buildSubagentDigest(projectPath: string): Promise<string | null> {
+  const config = await configManager.readConfig(projectPath).catch(() => null)
+  if (!config?.projectId) return null
+
+  const lines: string[] = ['# prjct: subagent context']
+  if (config.persona?.role) lines.push(`Role in this project: ${config.persona.role}`)
+
+  try {
+    const { resolveActiveTask } = await import('../services/task-service')
+    const task = await resolveActiveTask(config.projectId, projectPath)
+    if (task) lines.push(`Active task (this worktree): ${task.description}`)
+  } catch {
+    // best-effort — a digest without the task is still useful
+  }
+
+  try {
+    const gotchas = projectMemory.recall(config.projectId, {
+      types: ['gotcha', 'anti-pattern'],
+      limit: SUBAGENT_GOTCHA_COUNT,
+    })
+    if (gotchas.length > 0) {
+      lines.push('Traps to avoid:')
+      for (const e of gotchas) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
+    }
+  } catch {
+    // best-effort
+  }
+
+  if (lines.length <= 1) return null
+  return safeTruncate(lines.join('\n'), SUBAGENT_DIGEST_MAX_CHARS)
 }
 
 function formatPersona(persona: ProjectPersona): string {

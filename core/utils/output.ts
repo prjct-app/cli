@@ -82,6 +82,9 @@ export function setQuietMode(enabled: boolean): void {
  * Truncate string to max chars (uses tier config if no max specified)
  */
 const truncate = (s: string | undefined | null, max?: number): string => {
+  // Agent/pipe context (no TTY on either stream): never truncate — agents act
+  // on full messages, and a 65-char error with an ellipsis is undebuggable.
+  if (!process.stdout.isTTY && !process.stderr.isTTY) return s || ''
   const limit = max ?? (getTierConfig().maxCharsPerLine || OUTPUT_LIMITS.FALLBACK_TRUNCATE)
   return s && s.length > limit ? `${s.slice(0, limit - 1)}…` : s || ''
 }

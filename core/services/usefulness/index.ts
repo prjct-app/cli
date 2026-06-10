@@ -43,6 +43,14 @@ const CORRECTION_WEIGHT = -2.5
  *  fuzzy (the friction may be unrelated) — but it needs NO command, so prjct
  *  learns from mistakes on its own. Bounded by decay + the rerank cap. */
 const FRICTION_WEIGHT = -0.5
+/** AUTOMATIC negative: a skill-miss signal flagged this entry as relevant
+ *  but unused. The signal's `relates:` tag already earned it an automatic
+ *  REF_WEIGHT credit inside `remember()` — but a miss is not load-bearing
+ *  usage, so this cancels that (+1.0) and nets a small −0.3: knowledge that
+ *  keeps failing to land sinks slightly instead of climbing. The session
+ *  digest separately surfaces repeat-missed entries so they get reworded or
+ *  applied rather than just buried. */
+const SKILL_MISS_WEIGHT = -1.3
 const MS_PER_DAY = 86_400_000
 
 /** Tag keys whose values name a related entry (mirrors expandWithLinks). */
@@ -222,6 +230,24 @@ export const usefulnessService = {
       return rows.length
     } catch {
       return 0
+    }
+  },
+
+  /**
+   * AUTOMATIC negative reinforcement for a skill-miss: `memoryId` was
+   * relevant to a session's work but never referenced. Cancels the automatic
+   * ref credit the miss-signal's `relates:` tag just earned it and nets a
+   * small penalty (see SKILL_MISS_WEIGHT). Best-effort.
+   */
+  penalizeSkillMiss(
+    projectId: string,
+    memoryId: string,
+    nowIso: string = new Date().toISOString()
+  ): void {
+    try {
+      addScore(projectId, memoryId, SKILL_MISS_WEIGHT, nowIso)
+    } catch {
+      /* best-effort — never block the Stop hook */
     }
   },
 

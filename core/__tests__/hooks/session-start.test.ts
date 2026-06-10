@@ -178,6 +178,52 @@ describe('SessionStart hook — knowledge digest (cold-start only)', () => {
     expect(ctx).toBeNull()
   })
 
+  test('digest surfaces an entry skill-missed ≥2× (feedback loop read side)', async () => {
+    await freshProject({ role: 'DEV' })
+    insertMemory('learning', 'embeddings clear deletes the keychain key — use set to keep it')
+    const row = prjctDb.get<{ id: number }>(projectId, 'SELECT MAX(id) AS id FROM events')
+    const memId = `mem_${row?.id}`
+    for (let i = 0; i < 2; i++) {
+      prjctDb.run(
+        projectId,
+        "INSERT INTO events (type, data, timestamp) VALUES (?, ?, datetime('now'))",
+        'memory.remember.improvement-signal',
+        JSON.stringify({
+          content: `[skill-miss] Unused project knowledge (learning, ${memId})`,
+          tags: { kind: 'skill-miss', source: 'skill-miss-detector', relates: memId, key: `k${i}` },
+          provenance: 'extracted',
+        })
+      )
+    }
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).toContain('Keeps being missed')
+    expect(ctx).toContain(memId)
+    expect(ctx).toContain('2×')
+  })
+
+  test('a single skill-miss does NOT earn a digest slot (threshold is 2)', async () => {
+    await freshProject({ role: 'DEV' })
+    insertMemory('learning', 'embeddings clear deletes the keychain key — use set to keep it')
+    const row = prjctDb.get<{ id: number }>(projectId, 'SELECT MAX(id) AS id FROM events')
+    prjctDb.run(
+      projectId,
+      "INSERT INTO events (type, data, timestamp) VALUES (?, ?, datetime('now'))",
+      'memory.remember.improvement-signal',
+      JSON.stringify({
+        content: '[skill-miss] Unused project knowledge',
+        tags: {
+          kind: 'skill-miss',
+          source: 'skill-miss-detector',
+          relates: `mem_${row?.id}`,
+          key: 'k0',
+        },
+        provenance: 'extracted',
+      })
+    )
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx ?? '').not.toContain('Keeps being missed')
+  })
+
   test('digest references developer.md and id-resolution path', async () => {
     await freshProject({ role: 'DEV' })
     insertMemory('decision', 'ship as minor when the squash title starts with feat:')

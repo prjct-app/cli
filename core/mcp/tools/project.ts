@@ -123,14 +123,11 @@ export function registerProjectTools(server: McpServer) {
       const projectId = await resolveProjectId(args.projectPath)
       const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
       if (!outcome.ok) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'No active task to update. Start one with prjct_task_start.',
-            },
-          ],
-        }
+        const text =
+          outcome.reason === 'unsupported'
+            ? outcome.message
+            : 'No active task to update. Start one with prjct_task_start.'
+        return { content: [{ type: 'text', text }] }
       }
       return {
         content: [{ type: 'text', text: `✓ status → ${outcome.status} (task ${outcome.taskId})` }],
