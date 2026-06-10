@@ -5,9 +5,9 @@
  * pnpm, lerna, nx, rush, turborepo, plus npm/yarn `workspaces`.
  */
 
+import { globSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { globSync } from 'glob'
 import type { MonorepoInfo, MonorepoPackage } from '../../types/infrastructure'
 import * as fileHelper from '../../utils/file-helper'
 
@@ -103,7 +103,10 @@ export async function discoverMonorepoPackages(
     for (const pattern of patterns) {
       if (pattern.startsWith('!')) continue
 
-      const matches = globSync(pattern, { cwd: rootPath, absolute: false })
+      // node:fs globSync (node >=22, bun) — replaced the npm `glob` dep;
+      // same contract for the simple workspace patterns used here
+      // (relative matches under cwd; the package.json probe below filters).
+      const matches = globSync(pattern, { cwd: rootPath })
 
       for (const match of matches) {
         const packagePath = path.join(rootPath, match)
