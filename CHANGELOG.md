@@ -7,6 +7,13 @@
 - **Dead code:** deleted `core/session/session-snapshot.ts` (217 lines, zero importers) and its orphaned schema; knip's `exports` rule went `off` → `warn` so dead exports are visible again (that blindness is what hid the module).
 - **Deduped the provider status table** (version output) — the two hand-rolled copies in core/index.ts and bin/prjct.ts had already drifted; the line renderer now lives once in `core/utils/provider-status.ts`.
 
+## [2.42.2] - 2026-06-10
+
+### Refactoring
+
+- single command manifest — quadruple dispatch eliminated, flag-strip class gone by construction (#418)
+
+
 ## [2.42.1] - 2026-06-10
 
 ### Performance
