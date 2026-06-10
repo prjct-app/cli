@@ -1,0 +1,164 @@
+/**
+ * Machine-signal quarantine + `signals.md` dashboard.
+ *
+ * Auto-detectors (hot-file churn, skill-miss, friction, recurring bugs)
+ * write their output into project memory as regular entries. That is
+ * right for the DB — recall and the hooks feed on them — but rendering
+ * each one as its own vault note drowned the knowledge graph in dozens
+ * of `hot-file-NNN` / `skill-miss-...-NNN` nodes (45% of all entries
+ * are machine telemetry). The vault is for KNOWLEDGE; telemetry gets
+ * exactly one page.
+ *
+ * Every rendered row keeps its `^mem-N` block anchor so cross-refs
+ * resolve as `[[signals#^mem-N|title]]` — one hub node in the graph
+ * instead of a dust cloud.
+ */
+
+import type { MemoryEntry } from '../../memory/entries'
+import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
+import { truncate } from './_shared'
+
+/** `tags.source` values produced by automatic detectors, not by an agent/user. */
+export const MACHINE_SOURCES: ReadonlySet<string> = new Set([
+  'pattern-detector-auto',
+  'pattern-detector-recurring',
+  'skill-miss-detector',
+  'friction-detector',
+])
+
+/**
+ * Telemetry, not knowledge: everything typed `improvement-signal` plus
+ * any entry stamped by a machine detector (hot-file churn entries are
+ * stored as type `learning` but are pure telemetry).
+ */
+export function isSignalEntry(e: Pick<MemoryEntry, 'type' | 'tags'>): boolean {
+  if (e.type === 'improvement-signal') return true
+  const source = e.tags?.source
+  return source !== undefined && MACHINE_SOURCES.has(source)
+}
+
+function rowId(id: string): string {
+  return id.replace(/^mem[_-]/, '')
+}
+
+function dateOnly(iso: string): string {
+  const m = (iso || '').match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : ''
+}
+
+function oneLine(content: string, max = 220): string {
+  return truncate((content.split('\n')[0] ?? content).replace(/\s+/g, ' ').trim(), max)
+}
+
+type Section = { title: string; intro: string; rows: string[] }
+
+/**
+ * Single dashboard page for all machine signals. Returns null when the
+ * project has none (the page simply doesn't exist — no empty stub).
+ */
+export function buildSignalsFile(
+  signals: MemoryEntry[],
+  opts: FormatMemoryMdOptions
+): string | null {
+  if (signals.length === 0) return null
+
+  const hotFiles: MemoryEntry[] = []
+  const recurring: MemoryEntry[] = []
+  const skillMisses: MemoryEntry[] = []
+  const friction: MemoryEntry[] = []
+  const other: MemoryEntry[] = []
+  for (const e of signals) {
+    const source = e.tags?.source
+    if (source === 'pattern-detector-auto') hotFiles.push(e)
+    else if (source === 'pattern-detector-recurring') recurring.push(e)
+    else if (source === 'skill-miss-detector') skillMisses.push(e)
+    else if (source === 'friction-detector') friction.push(e)
+    else other.push(e)
+  }
+
+  const anchor = (e: MemoryEntry) => `^mem-${rowId(e.id)}`
+  const stamp = (e: MemoryEntry) => {
+    const d = dateOnly(e.rememberedAt)
+    return d ? ` _(${d})_` : ''
+  }
+
+  const sections: Section[] = []
+
+  if (hotFiles.length > 0) {
+    // Newest entry per file leads; older churn entries for the same
+    // file stay listed (their anchors must exist) but compactly.
+    const byFile = new Map<string, MemoryEntry[]>()
+    for (const e of hotFiles) {
+      const file = e.tags?.file ?? '(unknown file)'
+      const bucket = byFile.get(file) ?? []
+      bucket.push(e)
+      byFile.set(file, bucket)
+    }
+    const rows: string[] = []
+    const sorted = [...byFile.entries()].sort((a, b) => b[1].length - a[1].length)
+    for (const [file, items] of sorted) {
+      const [latest, ...older] = items
+      const touches = latest.tags?.touches ? `${latest.tags.touches} touches` : 'churning'
+      const win = latest.tags?.window_days ?? latest.tags?.['window-days']
+      const window = win ? ` in ${win}d` : ''
+      rows.push(`- \`${file}\` — ${touches}${window}${stamp(latest)} ${anchor(latest)}`)
+      for (const o of older) rows.push(`    - earlier sighting${stamp(o)} ${anchor(o)}`)
+    }
+    sections.push({
+      title: 'Hot files',
+      intro: 'Files that keep churning — refactor candidates or deliberate hubs.',
+      rows,
+    })
+  }
+
+  if (recurring.length > 0) {
+    sections.push({
+      title: 'Recurring patterns',
+      intro: 'The same class of change keeps happening.',
+      rows: recurring.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${anchor(e)}`),
+    })
+  }
+
+  if (skillMisses.length > 0) {
+    sections.push({
+      title: 'Knowledge being missed',
+      intro: 'Project knowledge existed but was not applied in a session.',
+      rows: skillMisses.map(
+        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${anchor(e)}`
+      ),
+    })
+  }
+
+  if (friction.length > 0) {
+    sections.push({
+      title: 'Friction',
+      intro: 'Moments the developer pushed back — do not repeat.',
+      rows: friction.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${anchor(e)}`),
+    })
+  }
+
+  if (other.length > 0) {
+    sections.push({
+      title: 'Other signals',
+      intro: '',
+      rows: other.map(
+        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${anchor(e)}`
+      ),
+    })
+  }
+
+  const lines: string[] = [
+    '# Signals (machine telemetry)',
+    '',
+    '> Auto-detected by prjct — churn, missed knowledge, friction. This is',
+    '> telemetry, not curated knowledge: act on it, then let it expire.',
+    `> ${signals.length} signal${signals.length === 1 ? '' : 's'} recorded.`,
+  ]
+  for (const s of sections) {
+    lines.push('', `## ${s.title}`, '')
+    if (s.intro) lines.push(`_${s.intro}_`, '')
+    lines.push(...s.rows)
+  }
+  lines.push('')
+  return lines.join('\n')
+}

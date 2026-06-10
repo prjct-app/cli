@@ -66,6 +66,7 @@ import {
   formatShipBody,
 } from './wiki/memory-builder'
 import { buildReleasesFiles } from './wiki/release-builder'
+import { buildSignalsFile, isSignalEntry } from './wiki/signals-builder'
 import { buildSpecFiles } from './wiki/spec-builder'
 import { buildWorkflowFiles } from './wiki/workflow-builder'
 import { ensureCapturedReadme, ensureWorkflowsReadme } from './wiki-ingest'
@@ -169,6 +170,10 @@ export async function generateWiki(
     }
   })()
   const declared = entries.filter((e) => e.type !== 'shipped')
+  // Knowledge vs telemetry: detector output (hot-file churn, skill-miss,
+  // friction) renders on ONE signals.md dashboard, never as notes/tags.
+  const signals = declared.filter(isSignalEntry)
+  const knowledge = declared.filter((e) => !isSignalEntry(e))
 
   // --- Build all file bodies in memory ---
   const files = new Map<string, string>()
@@ -179,6 +184,8 @@ export async function generateWiki(
   for (const [rel, body] of buildMemoryFiles(declared, entries)) files.set(rel, body)
   for (const [rel, body] of buildTagFiles(declared, entries)) files.set(rel, body)
   const vaultLinkOpts = buildVaultOpts(entries)
+  const signalsBody = buildSignalsFile(signals, vaultLinkOpts)
+  if (signalsBody) files.set('signals.md', signalsBody)
   for (const [rel, body] of buildSpecFiles(specs, queueTasks, vaultLinkOpts)) files.set(rel, body)
 
   // crew-runs/<slug>-<ts>.md — one file per recorded crew session.
@@ -254,14 +261,26 @@ export async function generateWiki(
   // releases" not "182 files".
   const releaseCount = releasesMap.size > 0 ? releasesMap.size - 1 : 0
 
+  // Counts reflect what the vault actually renders: knowledge only —
+  // telemetry is summarized by signalsCount, and tag keys are limited
+  // to the keys buildTagFiles emitted a page for.
   const memoryTypeCounts = new Map<string, number>()
-  for (const e of declared) memoryTypeCounts.set(e.type, (memoryTypeCounts.get(e.type) ?? 0) + 1)
+  for (const e of knowledge) memoryTypeCounts.set(e.type, (memoryTypeCounts.get(e.type) ?? 0) + 1)
   const tagKeyCounts = new Map<string, number>()
-  for (const e of declared) {
+  for (const rel of files.keys()) {
+    const m = rel.match(/^tags\/(.+)\.md$/)
+    if (m) tagKeyCounts.set(m[1], 0)
+  }
+  for (const e of knowledge) {
     for (const k of Object.keys(e.tags)) {
-      tagKeyCounts.set(k, (tagKeyCounts.get(k) ?? 0) + 1)
+      const slug = slugify(k)
+      if (tagKeyCounts.has(slug)) tagKeyCounts.set(slug, (tagKeyCounts.get(slug) ?? 0) + 1)
     }
   }
+  const noteRef = (e: { id: string }) => ({
+    slug: vaultLinkOpts.idSlugIndex?.get(e.id) ?? '',
+    title: vaultLinkOpts.idTitleIndex?.get(e.id) ?? e.id,
+  })
   files.set(
     'index.md',
     buildIndexFile({
@@ -277,6 +296,17 @@ export async function generateWiki(
       archiveCount: collectConcepts(archiveEntries).size,
       releaseCount,
       workflowCount,
+      signalsCount: signals.length,
+      recentDecisions: knowledge
+        .filter((e) => e.type === 'decision')
+        .slice(0, 5)
+        .map(noteRef)
+        .filter((r) => r.slug),
+      topGotchas: knowledge
+        .filter((e) => e.type === 'gotcha')
+        .slice(0, 5)
+        .map(noteRef)
+        .filter((r) => r.slug),
     })
   )
 

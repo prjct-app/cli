@@ -123,18 +123,107 @@ describe('buildTagFiles — Defect C: relation tags are NOT tag pages', () => {
       content: 'changelog root cause fixed',
       tags: { topic: 'release', resolves: 'mem_3135', relates: 'mem_2895', closes: 'mem_2604' },
     }),
+    mk({
+      id: 'mem_3206',
+      content: 'second release note so the topic dimension is browsable',
+      tags: { topic: 'release', once: 'single-use' },
+    }),
   ]
   const files = buildTagFiles(entries, entries)
   const keys = [...files.keys()]
 
-  it('does not emit tags/relates|resolves|closes/* orphan stubs', () => {
-    expect(keys.some((k) => k.startsWith('tags/relates/'))).toBe(false)
-    expect(keys.some((k) => k.startsWith('tags/resolves/'))).toBe(false)
-    expect(keys.some((k) => k.startsWith('tags/closes/'))).toBe(false)
+  it('does not emit relation-key tag pages (relates/resolves/closes)', () => {
+    expect(keys.some((k) => k.includes('relates'))).toBe(false)
+    expect(keys.some((k) => k.includes('resolves'))).toBe(false)
+    expect(keys.some((k) => k.includes('closes'))).toBe(false)
   })
 
-  it('still emits real category tag pages (topic)', () => {
-    expect(keys.some((k) => k.startsWith('tags/topic/'))).toBe(true)
+  it('emits a LINK-ONLY index page per category key — no content duplication', () => {
+    expect(files.has('tags/topic.md')).toBe(true)
+    const page = files.get('tags/topic.md') ?? ''
+    // Wikilinks to the entry notes, never the entry content copied in
+    // (the old model embedded full formatMemoryMd rows with provenance
+    // markers and block anchors).
+    expect(page).toMatch(/- \[\[[a-z0-9-]+\|[^\]]+\]\]/)
+    expect(page).not.toContain('`DECL`')
+    expect(page).not.toContain('^mem-')
+    // No per-value pages at all (the old tags/<key>/<value>.md model).
+    expect(keys.some((k) => /^tags\/[^/]+\//.test(k))).toBe(false)
+  })
+
+  it('emits a tags.md master index linking each key page', () => {
+    const index = files.get('tags.md') ?? ''
+    expect(index).toContain('[[tags/topic|topic]]')
+  })
+
+  it('a dimension used once gets no page (orphan-node guard)', () => {
+    expect(files.has('tags/once.md')).toBe(false)
+  })
+})
+
+describe('machine-signal quarantine — telemetry never becomes notes or tags', () => {
+  const signal = mk({
+    id: 'mem_900',
+    type: 'learning',
+    content: 'Hot file: `core/x.ts` — 3 touches in the last 7 days. Worth a refactor pass.',
+    tags: { source: 'pattern-detector-auto', pattern: 'hot-file', file: 'core/x.ts', touches: '3' },
+    provenance: 'inferred',
+  })
+  const improvement = mk({
+    id: 'mem_901',
+    type: 'improvement-signal',
+    content: 'skill-miss: unused project knowledge mem_902',
+    tags: { source: 'skill-miss-detector' },
+    provenance: 'inferred',
+  })
+  const knowledge = mk({
+    id: 'mem_902',
+    type: 'gotcha',
+    content: 'Real trap worth its own note. See mem_900 for the churn signal.',
+    tags: { topic: 'storage' },
+  })
+  const all = [signal, improvement, knowledge]
+
+  it('signal entries get no per-entry note and no MOC row', () => {
+    const files = buildMemoryFiles(all, all)
+    expect([...files.keys()].some((k) => k.startsWith('memory/learning/'))).toBe(false)
+    expect(files.has('memory/improvement-signal.md')).toBe(false)
+    const gotchaMoc = files.get('memory/gotcha.md') ?? ''
+    expect(gotchaMoc).toContain('Real trap')
+  })
+
+  it('signal entries get no tag pages either', () => {
+    const files = buildTagFiles(all, all)
+    const bodies = [...files.values()].join('\n')
+    expect(bodies).not.toContain('Hot file')
+  })
+
+  it('refs to a signal id resolve into signals.md, not a dangling node', () => {
+    const files = buildMemoryFiles(all, all)
+    const note = [...files.entries()].find(([k]) => k.startsWith('memory/gotcha/'))?.[1] ?? ''
+    expect(note).toContain('[[signals#^mem-900|')
+  })
+})
+
+describe('frontmatter — native Obsidian tag list', () => {
+  it('emits tags: [key/value] and hides machine/relation keys', () => {
+    const entries = [
+      mk({
+        id: 'mem_10',
+        content: 'A decision with mixed tags worth keeping around',
+        tags: {
+          topic: 'Daemon Lazy Loading',
+          source: 'analysis',
+          session: 'abc-123',
+          resolves: 'mem_9',
+        },
+      }),
+    ]
+    const files = buildMemoryFiles(entries, entries)
+    const note = [...files.entries()].find(([k]) => k.startsWith('memory/decision/'))?.[1] ?? ''
+    expect(note).toContain('tags: [topic/daemon-lazy-loading]')
+    expect(note).not.toContain('session')
+    expect(note).not.toMatch(/tags:.*resolves/)
   })
 })
 
