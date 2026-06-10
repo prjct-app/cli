@@ -13,8 +13,8 @@
  */
 
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { resolveCliHome } from '../../infrastructure/cli-home'
 import { execFileAsync } from '../../utils/exec'
 
 /** Env override — also re-exported from the embeddings index for back-compat. */
@@ -22,7 +22,11 @@ export const EMBEDDINGS_API_KEY_ENV = 'PRJCT_EMBEDDINGS_API_KEY'
 
 const KEYCHAIN_SERVICE = 'prjct-embeddings'
 const KEYCHAIN_ACCOUNT = 'prjct'
-const KEY_FILE = path.join(os.homedir(), '.prjct-cli', 'config', 'embeddings.key')
+// Per call, not a module const — honors PRJCT_CLI_HOME so tests and
+// alt-home installs never touch the user's real key file.
+function keyFilePath(): string {
+  return path.join(resolveCliHome(), 'config', 'embeddings.key')
+}
 
 // undefined = not yet resolved; null = resolved-and-absent.
 let cached: string | null | undefined
@@ -50,7 +54,7 @@ async function readKeychain(): Promise<string | null> {
 
 function readFileKey(): string | null {
   try {
-    const v = fs.readFileSync(KEY_FILE, 'utf-8').trim()
+    const v = fs.readFileSync(keyFilePath(), 'utf-8').trim()
     return v || null
   } catch {
     return null
@@ -101,10 +105,10 @@ export async function setEmbeddingsKey(value: string): Promise<'keychain' | 'fil
       // Keychain unavailable (locked, headless) → fall through to file.
     }
   }
-  fs.mkdirSync(path.dirname(KEY_FILE), { recursive: true })
-  fs.writeFileSync(KEY_FILE, key, { mode: 0o600 })
+  fs.mkdirSync(path.dirname(keyFilePath()), { recursive: true })
+  fs.writeFileSync(keyFilePath(), key, { mode: 0o600 })
   try {
-    fs.chmodSync(KEY_FILE, 0o600)
+    fs.chmodSync(keyFilePath(), 0o600)
   } catch {
     /* best-effort on platforms without POSIX perms */
   }
@@ -128,7 +132,7 @@ export async function clearEmbeddingsKey(): Promise<void> {
     }
   }
   try {
-    fs.rmSync(KEY_FILE)
+    fs.rmSync(keyFilePath())
   } catch {
     /* not present */
   }

@@ -19,7 +19,7 @@ core/
                                 types, workflow slots, hook signals)
   memory/                       projectMemory — unified surface over SQLite
                                 + wiki (save / list / similar / forget / wiki)
-  workflow/                     Engine (state-machine, when-evaluator) — runs
+  workflow-engine/               Engine (state-machine, when-evaluator) — runs
                                 bash, mcp:, and persona:context step types
   services/                     sync-service, skill-generator, wiki-generator,
                                 wiki-ingest, pattern-extractor

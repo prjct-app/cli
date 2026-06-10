@@ -9,15 +9,16 @@
 
 import { execFile, spawn } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { resolveCliHome } from '../infrastructure/cli-home'
 import { getConfig, setConfig } from './global-config'
 
 const execFileP = promisify(execFile)
 
-const STATE_DIR = path.join(os.homedir(), '.prjct-cli', 'state')
-const LOG_PATH = path.join(STATE_DIR, 'auto-update.log')
+// Per call — honors PRJCT_CLI_HOME (see cli-home.ts).
+const stateDir = (): string => path.join(resolveCliHome(), 'state')
+const logPath = (): string => path.join(stateDir(), 'auto-update.log')
 const THROTTLE_MS = 60 * 60 * 1000 // 1 hour
 const NPM_REGISTRY = 'https://registry.npmjs.org/prjct-cli/latest'
 
@@ -90,7 +91,7 @@ async function fetchLatestVersion(): Promise<string | null> {
 
 function detectInstallSource(): InstallSource {
   // 1. Binary install lives at ~/.prjct-cli/bin/prjct
-  const binaryPath = path.join(os.homedir(), '.prjct-cli', 'bin', 'prjct')
+  const binaryPath = path.join(resolveCliHome(), 'bin', 'prjct')
   if (fs.existsSync(binaryPath)) {
     try {
       const stat = fs.statSync(binaryPath)
@@ -158,8 +159,8 @@ function compareSemver(a: string, b: string): number {
 
 function log(line: string): void {
   try {
-    fs.mkdirSync(STATE_DIR, { recursive: true })
-    fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${line}\n`)
+    fs.mkdirSync(stateDir(), { recursive: true })
+    fs.appendFileSync(logPath(), `${new Date().toISOString()} ${line}\n`)
   } catch {
     /* best-effort */
   }

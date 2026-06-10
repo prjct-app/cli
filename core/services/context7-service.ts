@@ -3,20 +3,23 @@ import os from 'node:os'
 import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
 import { CONTEXT7_VERIFY_TTL_MS } from '../constants/timings'
+import { resolveCliHome } from '../infrastructure/cli-home'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Context7Status } from '../types/services.js'
 import { execFileAsync } from '../utils/exec'
 import { writeJson } from '../utils/file-helper'
 import { MCP_SERVER_PRESETS } from '../utils/mcp-config'
 
-// Persistent verify cache lives at ~/.prjct-cli/state/context7-verify.json so
+// Persistent verify cache lives at <cli-home>/state/context7-verify.json so
 // the 5-min TTL survives across CLI invocations. Without this, every fresh
 // `prjct sync` reruns `npx @upstash/context7-mcp --help` (~1.1s warm).
-function getVerifyCachePath(): string {
+// Exported so session-cleanup's rotation targets the SAME file instead of
+// rebuilding the path (they had already drifted on env handling).
+export function getVerifyCachePath(): string {
   if (process.env.NODE_ENV === 'test') {
     return path.join(os.tmpdir(), 'prjct-context7-test', 'verify-cache.json')
   }
-  return path.join(os.homedir(), '.prjct-cli', 'state', 'context7-verify.json')
+  return path.join(resolveCliHome(), 'state', 'context7-verify.json')
 }
 
 async function readPersistedVerify(): Promise<{ at: number; status: Context7Status } | null> {

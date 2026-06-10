@@ -14,7 +14,7 @@ import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
 import type { WorkflowRunContext } from '../../types/workflow.js'
-import { executeWorkflowRules } from '../../workflow/workflow-engine'
+import { executeWorkflowRules } from '../../workflow-engine/workflow-engine'
 
 async function freshProject(): Promise<{ projectPath: string; projectId: string }> {
   const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-prefix-test-'))

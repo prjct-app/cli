@@ -33,7 +33,7 @@ import {
 } from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import out from '../utils/output'
-import { executeWorkflowRules } from '../workflow/workflow-engine'
+import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
 import { detectIntent } from './workflow/intent'

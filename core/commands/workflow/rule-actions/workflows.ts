@@ -12,7 +12,7 @@ import { getErrorMessage } from '../../../types/fs'
 import { failWith, notifyDone, notifyFail } from '../../../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../../../utils/md-formatter'
 import { detectProjectCommands } from '../../../utils/project-commands'
-import { WORKFLOW_TIMEOUTS } from '../../../workflow/timeouts'
+import { WORKFLOW_TIMEOUTS } from '../../../workflow-engine/timeouts'
 
 export async function workflowInit(
   projectId: string,

@@ -25,7 +25,7 @@ core/
   hooks/          7 Claude Code hook subcommands (passive context injection)
   packs/          Pack manifests + pack-manager (persona, memory types, slots)
   memory/         projectMemory (unified surface over SQLite + wiki)
-  workflow/       Engine + state-machine + when-evaluator (declarative)
+  workflow-engine/ Engine + state-machine + when-evaluator (declarative)
   services/       sync-service, skill-generator, wiki-generator, wiki-ingest
   domain/         Pure algorithms (bm25, import-graph, git-cochange, file-ranker)
   storage/        SQLite persistence (one DB per project)

@@ -10,6 +10,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { resolveCliHome } from '../infrastructure/cli-home'
 import type { McpHealthRow, McpHealthStatus } from '../types/storage/extended'
 import { openDatabase, type SqliteDatabase } from './database/sqlite-compat'
 
@@ -20,11 +21,8 @@ class SystemDatabase {
   private dbPath: string
 
   constructor() {
-    const envOverride = process.env.PRJCT_CLI_HOME?.trim()
-    const globalBaseDir = envOverride
-      ? path.resolve(envOverride)
-      : path.join(require('node:os').homedir(), '.prjct-cli')
-    this.dbPath = path.join(globalBaseDir, 'system.db')
+    // Lazy-resolved shared definition — honors PRJCT_CLI_HOME (cli-home.ts).
+    this.dbPath = path.join(resolveCliHome(), 'system.db')
   }
 
   private getDb(): SqliteDatabase {

@@ -21,7 +21,7 @@ import type {
 import { StateJsonSchema } from '../schemas/state'
 import type { WorkflowCommand } from '../types/workflow'
 import { getTimestamp } from '../utils/date-helper'
-import { workflowStateMachine } from '../workflow/state-machine'
+import { workflowStateMachine } from '../workflow-engine/state-machine'
 import type { LifecycleBackend } from './state-storage/lifecycle'
 import * as lifecycle from './state-storage/lifecycle'
 import type { QueryBackend } from './state-storage/queries'
