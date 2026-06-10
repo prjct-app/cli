@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import type { MemoryEntry } from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
 import { buildArchitectureBaseline } from '../../services/wiki/architecture-builder'
 
 function entry(id: string, type: string, content: string): MemoryEntry {

@@ -23,7 +23,8 @@
 
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
-import { deriveTitle, projectMemory } from '../memory/project-memory'
+import { deriveTitle } from '../memory/format'
+import { projectMemory } from '../memory/project-memory'
 import { collectActiveTasks } from '../services/task-overview'
 import { shippedStorage } from '../storage/shipped-storage'
 import type { LocalConfig } from '../types/config'

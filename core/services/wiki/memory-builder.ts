@@ -13,13 +13,13 @@
  * displayed label is always a legible title, never the `mem_N` DB key.
  */
 
+import type { MemoryEntry } from '../../memory/entries'
 import {
   deriveTitle,
   type FormatMemoryMdOptions,
   formatMemoryMd,
   linkifyMemRefs,
-  type MemoryEntry,
-} from '../../memory/project-memory'
+} from '../../memory/format'
 import type { ShippedFeature } from '../../types/storage'
 import { chunkEntries, slugify } from './_shared'
 

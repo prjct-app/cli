@@ -19,7 +19,8 @@
  * The provider is injectable so tests run fully offline against a fake.
  */
 
-import { isModelMemory, type MemoryEntry, projectMemory } from '../../memory/project-memory'
+import { isModelMemory, type MemoryEntry } from '../../memory/entries'
+import { projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 import type { LocalConfig } from '../../types/config'
 import { resolveGlobalEmbeddings } from './global'

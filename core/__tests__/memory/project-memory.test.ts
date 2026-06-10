@@ -13,13 +13,9 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import {
-  deriveTitle,
-  formatMemoryMd,
-  linkifyMemRefs,
-  type MemoryEntry,
-  projectMemory,
-} from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
+import { deriveTitle, formatMemoryMd, linkifyMemRefs } from '../../memory/format'
+import { projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 
 /**

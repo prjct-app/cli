@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import type { MemoryEntry } from '../../memory/project-memory'
+import type { MemoryEntry } from '../../memory/entries'
 import {
   buildMemoryFiles,
   buildTagFiles,

@@ -13,12 +13,9 @@
  */
 
 import configManager from '../../infrastructure/config-manager'
-import {
-  formatMemoryMd,
-  type MemoryEntry,
-  type MemoryType,
-  projectMemory,
-} from '../../memory/project-memory'
+import type { MemoryEntry, MemoryType } from '../../memory/entries'
+import { formatMemoryMd } from '../../memory/format'
+import { projectMemory } from '../../memory/project-memory'
 import { embeddingService } from '../../services/embeddings'
 import { usefulnessService } from '../../services/usefulness'
 import { stateStorage } from '../../storage/state-storage'
