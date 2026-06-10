@@ -33,7 +33,7 @@ class CommandRegistry {
   private handlers: Map<string, CommandHandler<unknown>> = new Map()
   private handlerFns: Map<string, HandlerFn<unknown>> = new Map()
   /** Option-aware bridges: (param, projectPath, options) → result. Set by
-   *  registerMethod; consumed by executeWithOptions for schema-covered
+   *  registerLazyMethod; consumed by executeWithOptions for schema-covered
    *  commands. */
   private optionFns: Map<
     string,
@@ -99,47 +99,16 @@ class CommandRegistry {
   }
 
   /**
-   * Register a bound method from an existing command group
-   * Bridges command classes to the registry pattern
-   */
-  registerMethod<T extends object>(
-    name: string,
-    instance: T,
-    methodName: keyof T,
-    meta?: Partial<CommandMeta>
-  ): void {
-    const method = instance[methodName]
-    if (typeof method !== 'function') {
-      throw new Error(`${String(methodName)} is not a function`)
-    }
-
-    // Create a wrapper that adapts method signature to HandlerFn
-    const wrapper: HandlerFn<unknown> = async (params, context) => {
-      // Commands expect (param?, projectPath) signature
-      type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
-      if (params !== undefined && params !== null) {
-        return (method as LegacyMethod).call(instance, params, context.projectPath)
-      }
-      return (method as LegacyMethod).call(instance, context.projectPath)
-    }
-
-    this.handlerFns.set(name, wrapper)
-    // Option-aware bridge with the uniform group-method shape
-    // (param, projectPath, options). executeWithOptions uses it so flags
-    // survive dispatch without a hand-written case per command.
-    this.optionFns.set(name, (param, projectPath, options) => {
-      type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
-      return (method as LegacyMethod).call(instance, param, projectPath, options)
-    })
-    this.setMeta(name, meta)
-  }
-
-  /**
-   * Like registerMethod, but the owning instance loads lazily on first
+   * Register a command whose owning instance loads lazily on first
    * dispatch — register.ts hands a memoized async factory instead of a
    * constructed instance, so registering every command at import time
    * costs nothing (the daemon cold-start win). The "method exists"
-   * validation moves from registration to first call.
+   * validation moves from registration to first call (CI-guarded by
+   * manifest-completeness.test.ts, which instantiates every group).
+   *
+   * This is the ONLY registration path for group methods — the old
+   * eager `registerMethod` was deleted when register.ts migrated, so
+   * the two mechanisms can't drift.
    */
   registerLazyMethod(
     name: string,
@@ -148,13 +117,18 @@ class CommandRegistry {
     meta?: Partial<CommandMeta>
   ): void {
     type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
+    // Memoized on success only: a failed load/lookup leaves `resolved`
+    // unset so the next dispatch retries instead of replaying the error.
+    let resolved: { instance: object; method: LegacyMethod } | undefined
     const resolve = async (): Promise<{ instance: object; method: LegacyMethod }> => {
+      if (resolved) return resolved
       const instance = await loadInstance()
       const method = (instance as Record<string, unknown>)[methodName]
       if (typeof method !== 'function') {
         throw new Error(`${methodName} is not a function`)
       }
-      return { instance, method: method as LegacyMethod }
+      resolved = { instance, method: method as LegacyMethod }
+      return resolved
     }
 
     const wrapper: HandlerFn<unknown> = async (params, context) => {
@@ -436,7 +410,7 @@ class CommandRegistry {
   }
 
   /**
-   * Execute a registerMethod-bound command WITH its options object —
+   * Execute a registerLazyMethod-bound command WITH its options object —
    * (param, projectPath, options), the uniform group-method shape. The
    * caller maps wire flags through the command's `optionSchema` first
    * (see option-mapper.ts). Same context rules as execute().

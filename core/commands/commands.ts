@@ -48,71 +48,173 @@ class PrjctCommands {
   // keep the signatures without the load.
   private _workflow?: Promise<WorkflowCommands>
   private workflowG(): Promise<WorkflowCommands> {
-    return (this._workflow ??= import('./workflow').then((m) => new m.WorkflowCommands()))
+    return (this._workflow ??= import('./workflow')
+      .then((m) => new m.WorkflowCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._workflow = undefined
+        throw err
+      }))
   }
   private _planning?: Promise<PlanningCommands>
   private planningG(): Promise<PlanningCommands> {
-    return (this._planning ??= import('./planning').then((m) => new m.PlanningCommands()))
+    return (this._planning ??= import('./planning')
+      .then((m) => new m.PlanningCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._planning = undefined
+        throw err
+      }))
   }
   private _shipping?: Promise<ShippingCommands>
   private shippingG(): Promise<ShippingCommands> {
-    return (this._shipping ??= import('./shipping').then((m) => new m.ShippingCommands()))
+    return (this._shipping ??= import('./shipping')
+      .then((m) => new m.ShippingCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._shipping = undefined
+        throw err
+      }))
   }
   private _analysis?: Promise<AnalysisCommands>
   private analysisG(): Promise<AnalysisCommands> {
-    return (this._analysis ??= import('./analysis').then((m) => new m.AnalysisCommands()))
+    return (this._analysis ??= import('./analysis')
+      .then((m) => new m.AnalysisCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._analysis = undefined
+        throw err
+      }))
   }
   private _setupCmds?: Promise<SetupCommands>
   private setupCmdsG(): Promise<SetupCommands> {
-    return (this._setupCmds ??= import('./setup').then((m) => new m.SetupCommands()))
+    return (this._setupCmds ??= import('./setup')
+      .then((m) => new m.SetupCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._setupCmds = undefined
+        throw err
+      }))
   }
   private _updateCmds?: Promise<UpdateCommands>
   private updateCmdsG(): Promise<UpdateCommands> {
-    return (this._updateCmds ??= import('./update').then((m) => new m.UpdateCommands()))
+    return (this._updateCmds ??= import('./update')
+      .then((m) => new m.UpdateCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._updateCmds = undefined
+        throw err
+      }))
   }
   private _contextCmds?: Promise<ContextCommands>
   private contextCmdsG(): Promise<ContextCommands> {
-    return (this._contextCmds ??= import('./context').then((m) => new m.ContextCommands()))
+    return (this._contextCmds ??= import('./context')
+      .then((m) => new m.ContextCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._contextCmds = undefined
+        throw err
+      }))
   }
   private _primitivesCmds?: Promise<PrimitiveCommands>
   private primitivesCmdsG(): Promise<PrimitiveCommands> {
-    return (this._primitivesCmds ??= import('./primitives').then((m) => new m.PrimitiveCommands()))
+    return (this._primitivesCmds ??= import('./primitives')
+      .then((m) => new m.PrimitiveCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._primitivesCmds = undefined
+        throw err
+      }))
   }
   private _seedCmds?: Promise<SeedCommands>
   private seedCmdsG(): Promise<SeedCommands> {
-    return (this._seedCmds ??= import('./seed').then((m) => new m.SeedCommands()))
+    return (this._seedCmds ??= import('./seed')
+      .then((m) => new m.SeedCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._seedCmds = undefined
+        throw err
+      }))
   }
   private _installCmds?: Promise<InstallCommands>
   private installCmdsG(): Promise<InstallCommands> {
-    return (this._installCmds ??= import('./install').then((m) => new m.InstallCommands()))
+    return (this._installCmds ??= import('./install')
+      .then((m) => new m.InstallCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._installCmds = undefined
+        throw err
+      }))
   }
   private _captureCmds?: Promise<CaptureCommands>
   private captureCmdsG(): Promise<CaptureCommands> {
-    return (this._captureCmds ??= import('./capture').then((m) => new m.CaptureCommands()))
+    return (this._captureCmds ??= import('./capture')
+      .then((m) => new m.CaptureCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._captureCmds = undefined
+        throw err
+      }))
   }
   private _mcpCmds?: Promise<McpCommands>
   private mcpCmdsG(): Promise<McpCommands> {
-    return (this._mcpCmds ??= import('./mcp').then((m) => new m.McpCommands()))
+    return (this._mcpCmds ??= import('./mcp')
+      .then((m) => new m.McpCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._mcpCmds = undefined
+        throw err
+      }))
   }
   private _teamCmds?: Promise<TeamCommands>
   private teamCmdsG(): Promise<TeamCommands> {
-    return (this._teamCmds ??= import('./team').then((m) => new m.TeamCommands()))
+    return (this._teamCmds ??= import('./team')
+      .then((m) => new m.TeamCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._teamCmds = undefined
+        throw err
+      }))
   }
   private _configCmds?: Promise<ConfigCommands>
   private configCmdsG(): Promise<ConfigCommands> {
-    return (this._configCmds ??= import('./config').then((m) => new m.ConfigCommands()))
+    return (this._configCmds ??= import('./config')
+      .then((m) => new m.ConfigCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._configCmds = undefined
+        throw err
+      }))
   }
   private _embeddingsCmds?: Promise<EmbeddingsCommands>
   private embeddingsCmdsG(): Promise<EmbeddingsCommands> {
-    return (this._embeddingsCmds ??= import('./embeddings').then((m) => new m.EmbeddingsCommands()))
+    return (this._embeddingsCmds ??= import('./embeddings')
+      .then((m) => new m.EmbeddingsCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._embeddingsCmds = undefined
+        throw err
+      }))
   }
   private _guardCmds?: Promise<GuardCommands>
   private guardCmdsG(): Promise<GuardCommands> {
-    return (this._guardCmds ??= import('./guard').then((m) => new m.GuardCommands()))
+    return (this._guardCmds ??= import('./guard')
+      .then((m) => new m.GuardCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._guardCmds = undefined
+        throw err
+      }))
   }
   private _specCmds?: Promise<SpecCommands>
   private specCmdsG(): Promise<SpecCommands> {
-    return (this._specCmds ??= import('./spec').then((m) => new m.SpecCommands()))
+    return (this._specCmds ??= import('./spec')
+      .then((m) => new m.SpecCommands())
+      .catch((err) => {
+        // Don't memoize a failed load — clear so the next call retries.
+        this._specCmds = undefined
+        throw err
+      }))
   }
 
   // Shared state

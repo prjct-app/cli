@@ -254,17 +254,10 @@ function unpackVector(blob: Uint8Array): Float32Array {
 }
 
 export function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
-  const n = Math.min(a.length, b.length)
-  let dot = 0
-  let na = 0
-  let nb = 0
-  for (let i = 0; i < n; i++) {
-    dot += a[i] * b[i]
-    na += a[i] * a[i]
-    nb += b[i] * b[i]
-  }
-  const denom = Math.sqrt(na) * Math.sqrt(nb)
-  return denom === 0 ? 0 : dot / denom
+  // Single-sourced over dot/l2Norm so a numeric fix (e.g. clamping) can
+  // never diverge between this and the norm-cached semanticSearch path.
+  const denom = l2Norm(a) * l2Norm(b)
+  return denom === 0 ? 0 : dot(a, b) / denom
 }
 
 interface EmbeddingRow {

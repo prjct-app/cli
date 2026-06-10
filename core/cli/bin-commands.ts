@@ -24,22 +24,6 @@ export interface BinCommandContext {
  * path (setup check + core/index.ts dispatch).
  */
 export async function runBinCommand(args: string[], ctx: BinCommandContext): Promise<boolean> {
-  const os = await import('node:os')
-  const path = await import('node:path')
-  const chalk = (await import('chalk')).default
-  const { detectAllProviders } = await import('../infrastructure/ai-provider')
-  const configManager = (await import('../infrastructure/config-manager')).default
-  const { fileExists } = await import('../utils/file-helper')
-  const { VERSION } = await import('../utils/version')
-  // Keep TS quiet about branch-conditional usage of the shared imports.
-  void os
-  void path
-  void chalk
-  void detectAllProviders
-  void configManager
-  void fileExists
-  void VERSION
-
   if (args[0] === 'daemon') {
     const subcommand = args[1] || 'status'
 
@@ -85,6 +69,7 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       const status = await getDaemonStatus()
 
       if (status.running) {
+        const chalk = (await import('chalk')).default
         const uptime = status.uptime ? Math.round(status.uptime / 1000) : 0
         const stale = (status as unknown as Record<string, unknown>).stale
         console.log(`Daemon running (PID ${status.pid})${stale ? ' ⚠ STALE' : ''}`)
@@ -221,6 +206,7 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
     await runStart()
   } else if (args[0] === 'context') {
     const projectPath = process.cwd()
+    const configManager = (await import('../infrastructure/config-manager')).default
     const projectId = await configManager.getProjectId(projectPath)
 
     if (!projectId) {
@@ -498,6 +484,7 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'watch') {
     const projectPath = process.cwd()
+    const configManager = (await import('../infrastructure/config-manager')).default
     const projectId = await configManager.getProjectId(projectPath)
 
     if (!projectId) {
@@ -529,6 +516,12 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
     console.log(getHelp(topic))
     process.exitCode = 0
   } else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const chalk = (await import('chalk')).default
+    const { detectAllProviders } = await import('../infrastructure/ai-provider')
+    const { fileExists } = await import('../utils/file-helper')
+    const { VERSION } = await import('../utils/version')
     const detection = await detectAllProviders(ctx.isRefresh)
     const home = os.homedir()
     const cwd = process.cwd()

@@ -24,10 +24,20 @@ import { commandRegistry } from './registry'
 // unparsed until a request actually needs them.
 function lazy(factory: () => Promise<object>): () => Promise<object> {
   let memo: Promise<object> | undefined
-  return () => (memo ??= factory())
+  return () =>
+    (memo ??= factory().catch((err) => {
+      // A failed load must NOT be memoized: a transient import/constructor
+      // error would otherwise poison every command in the group for the
+      // daemon's lifetime. Clear the memo so the next dispatch retries.
+      memo = undefined
+      throw err
+    }))
 }
 
-const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = {
+/** Exported for manifest-completeness.test.ts, which instantiates every
+ *  group and verifies each routing.method exists — the registration-time
+ *  validation registerLazyMethod deferred to first dispatch. */
+export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = {
   workflow: lazy(async () => new (await import('./workflow')).WorkflowCommands()),
   planning: lazy(async () => new (await import('./planning')).PlanningCommands()),
   shipping: lazy(async () => new (await import('./shipping')).ShippingCommands()),

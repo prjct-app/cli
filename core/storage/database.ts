@@ -32,6 +32,18 @@ function runImmediate<T>(db: SqliteDatabase, fn: (db: SqliteDatabase) => T): T {
   return typeof txn.immediate === 'function' ? txn.immediate(db) : txn(db)
 }
 
+/**
+ * Strictly-monotonic ISO stamp relative to `prev` — two writes inside the
+ * same millisecond must not produce an equal token (a stale CAS read could
+ * silently win). Shared by nextKvStamp and updateDoc so the bump rule can
+ * never drift between the two write paths.
+ */
+function monotonicStamp(prev: string | null | undefined): string {
+  const now = new Date().toISOString()
+  if (!prev || now > prev) return now
+  return new Date(new Date(prev).getTime() + 1).toISOString()
+}
+
 /** Max concurrent DB connections before evicting least-recently-used */
 const MAX_DB_CONNECTIONS = 3
 
@@ -205,10 +217,7 @@ class PrjctDatabase {
     ) as {
       updated_at: string
     } | null
-    const now = new Date().toISOString()
-    const prev = row?.updated_at
-    if (!prev || now > prev) return now
-    return new Date(new Date(prev).getTime() + 1).toISOString()
+    return monotonicStamp(row?.updated_at)
   }
 
   /**
@@ -259,10 +268,7 @@ class PrjctDatabase {
       ) as { data: string; updated_at: string } | null
       const base = row ? (JSON.parse(row.data) as T) : getDefault()
       const updated = updater(base)
-      const nowIso = new Date().toISOString()
-      const prev = row?.updated_at
-      const stamp =
-        !prev || nowIso > prev ? nowIso : new Date(new Date(prev).getTime() + 1).toISOString()
+      const stamp = monotonicStamp(row?.updated_at)
       this.prepareCached(
         db,
         'INSERT OR REPLACE INTO kv_store (key, data, updated_at) VALUES (?, ?, ?)'
