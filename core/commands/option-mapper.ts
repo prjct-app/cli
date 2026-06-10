@@ -20,6 +20,9 @@ export function mapOptions(
   opts: Record<string, unknown>,
   schema: CommandOptionSchema
 ): Record<string, unknown> {
+  // Precedence: an explicit camelCase key wins over its kebab twin when a
+  // caller (test / programmatic DaemonRequest) supplies both. The CLI parser
+  // only ever produces kebab keys, so the wire path is unambiguous.
   const pick = (key: string): unknown => (opts[key] !== undefined ? opts[key] : opts[kebab(key)])
   const result: Record<string, unknown> = { md: opts.md === true }
   for (const key of schema.booleans ?? []) {
@@ -31,7 +34,10 @@ export function mapOptions(
   }
   for (const key of schema.numbers ?? []) {
     const v = pick(key)
-    result[key] = v != null && v !== false && v !== '' ? Number(v) : undefined
+    const n = v != null && v !== false && v !== '' ? Number(v) : Number.NaN
+    // Non-numeric input maps to undefined (flag ignored), never NaN —
+    // handlers must not have to NaN-guard every numeric option.
+    result[key] = Number.isNaN(n) ? undefined : n
   }
   return result
 }

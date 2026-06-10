@@ -12,6 +12,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { resolveCliHome } from '../infrastructure/cli-home'
+import { compareSemver } from '../schemas/model'
 import { getConfig, setConfig } from './global-config'
 
 const execFileP = promisify(execFile)
@@ -145,16 +146,6 @@ async function applyUpgrade(source: InstallSource, _targetVersion: string): Prom
     })
     return
   }
-}
-
-function compareSemver(a: string, b: string): number {
-  const pa = a.split('.').map((n) => Number.parseInt(n, 10) || 0)
-  const pb = b.split('.').map((n) => Number.parseInt(n, 10) || 0)
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return 1
-    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return -1
-  }
-  return 0
 }
 
 function log(line: string): void {

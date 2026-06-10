@@ -323,7 +323,7 @@ export interface BlockingRules {
  */
 /**
  * Single source of truth for verb → handler dispatch.
- * `register.ts` walks this to call `commandRegistry.registerMethod`,
+ * `register.ts` walks this to call `commandRegistry.registerLazyMethod`,
  * and `verb-names.ts` derives the fast-path verb set from it. Both
  * used to maintain hand-written copies — adding a new command meant
  * three coordinated edits across files (the "triple-touch" smell).

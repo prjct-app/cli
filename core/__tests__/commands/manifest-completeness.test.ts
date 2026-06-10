@@ -12,6 +12,7 @@
 import { describe, expect, test } from 'bun:test'
 import { BIN_ONLY_COMMANDS, COMMAND_ALIASES, COMMANDS } from '../../commands/command-data'
 import { mapOptions } from '../../commands/option-mapper'
+import { groupLoaders } from '../../commands/register'
 import { BIN_COMMANDS_SET, REGISTERED_VERBS_SET } from '../../commands/verb-names'
 
 describe('command manifest — completeness', () => {
@@ -70,6 +71,25 @@ describe('command manifest — completeness', () => {
     const missing = COMMANDS.filter(
       (c) => c.routing && !complex.has(c.name) && !c.optionSchema
     ).map((c) => c.name)
+    expect(missing).toEqual([])
+  })
+})
+
+describe('command manifest — handler validation', () => {
+  test('every routing.method exists on its group class', async () => {
+    // registerLazyMethod defers "method is not a function" from registration
+    // to first dispatch — a typo'd routing.method in the manifest would only
+    // surface when a user runs the verb. This test restores the old
+    // registration-time guarantee at CI time: instantiate every group once
+    // and probe each method.
+    const missing: string[] = []
+    for (const meta of COMMANDS) {
+      if (!meta.routing) continue
+      const instance = (await groupLoaders[meta.routing.group]()) as Record<string, unknown>
+      if (typeof instance[meta.routing.method] !== 'function') {
+        missing.push(`${meta.name} -> ${meta.routing.group}.${meta.routing.method}`)
+      }
+    }
     expect(missing).toEqual([])
   })
 })
