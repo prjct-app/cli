@@ -60,6 +60,13 @@ Optimization backlog pass (the items deferred since v2.37.x, consolidated in mem
 - **`bin/prjct.ts` split**: the ~550 lines of bin-only command handlers moved to `core/cli/bin-commands.ts` (1082 → 536 lines); the entry point keeps startup concerns only.
 - **`core/workflow/` → `core/workflow-engine/`** — disambiguates the rule engine from `core/workflows/` (implementations).
 
+## [2.43.0] - 2026-06-10
+
+### Features
+
+- vault v2 — signal-first RAG (telemetry quarantine, link-only tags, dashboard index) (#424)
+
+
 ## [2.42.6] - 2026-06-10
 
 ### Bug Fixes
