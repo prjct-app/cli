@@ -34,6 +34,7 @@ import fs from 'node:fs/promises'
 import { projectMemory } from '../memory/project-memory'
 import { getModifiedFiles } from '../session/git-helpers'
 import { crewRunStorage } from '../storage/crew-run-storage'
+import { usefulnessService } from './usefulness'
 
 const SOURCE_TAG = 'skill-miss-detector'
 const MAX_SKILL_MISSES_PER_SESSION = 3
@@ -220,6 +221,9 @@ export async function detectSkillMisses(
         },
         provenance: 'extracted',
       })
+      // The remember() above auto-credited the missed entry via its
+      // `relates:` tag — but a miss is not usage. Cancel it + nudge down.
+      usefulnessService.penalizeSkillMiss(projectId, miss.memId)
       recorded++
     } catch {
       skipped++

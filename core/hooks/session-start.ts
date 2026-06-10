@@ -122,7 +122,11 @@ function buildKnowledgeDigest(projectId: string): string | null {
   } catch {
     return null
   }
-  if (gotchas.length === 0 && decisions.length === 0) return null
+  const repeatMiss = findRepeatMissedEntry(
+    projectId,
+    new Set([...gotchas, ...decisions].map((e) => e.id))
+  )
+  if (gotchas.length === 0 && decisions.length === 0 && !repeatMiss) return null
 
   const lines: string[] = ['## What this project already knows', '']
   lines.push(
@@ -136,11 +140,61 @@ function buildKnowledgeDigest(projectId: string): string | null {
     lines.push('', '**Decisions in force:**')
     for (const e of decisions) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
   }
+  if (repeatMiss) {
+    lines.push(
+      '',
+      '**Keeps being missed:**',
+      `- ${deriveTitle(repeatMiss.entry)}  \`${repeatMiss.entry.id}\` — flagged relevant-but-unused ${repeatMiss.count}×. Apply it or supersede it.`
+    )
+  }
   lines.push(
     '',
     '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is lives in `developer.md` in the vault.'
   )
   return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
+}
+
+/** A memory must be skill-missed at least this often to earn a digest slot. */
+const REPEAT_MISS_THRESHOLD = 2
+
+/**
+ * The skill-miss feedback loop's read side: the entry most often flagged
+ * "relevant but never referenced" across sessions. One slot, ≥2 misses,
+ * skipping anything the digest already shows — knowledge that keeps
+ * failing to land gets pushed in front of the agent instead of silently
+ * accumulating improvement-signal rows. Best-effort: null on any failure.
+ */
+function findRepeatMissedEntry(
+  projectId: string,
+  alreadyShown: Set<string>
+): { entry: MemoryEntry; count: number } | null {
+  try {
+    const signals = projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { kind: 'skill-miss' },
+      limit: 50,
+      dedupeByKey: false,
+    })
+    const counts = new Map<string, number>()
+    for (const s of signals) {
+      const memId = s.tags?.relates
+      if (!memId) continue
+      counts.set(memId, (counts.get(memId) ?? 0) + 1)
+    }
+    let topId: string | null = null
+    let topCount = 0
+    for (const [id, count] of counts) {
+      if (count > topCount) {
+        topId = id
+        topCount = count
+      }
+    }
+    if (!topId || topCount < REPEAT_MISS_THRESHOLD || alreadyShown.has(topId)) return null
+    const entry = projectMemory.getById(projectId, topId)
+    return entry ? { entry, count: topCount } : null
+  } catch {
+    return null
+  }
 }
 
 const SUBAGENT_DIGEST_MAX_CHARS = 500

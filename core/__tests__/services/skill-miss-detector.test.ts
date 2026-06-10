@@ -245,6 +245,30 @@ describe('skill-miss-detector — persistence + containment (DB)', () => {
     expect(r.signalsRecorded).toBe(0)
   })
 
+  it('nets a negative usefulness score on the missed entry (feedback loop)', async () => {
+    await seedDecision('Set sqlite pragma busy_timeout to 5000 on every connection')
+    await writeTranscript('edited the sqlite pragma handling in the storage layer')
+
+    const r = await detectSkillMisses(dir, transcriptPath, 'sess-1')
+    expect(r.signalsRecorded).toBe(1)
+
+    const signals = (await import('../../memory/project-memory')).projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { source: 'skill-miss-detector' },
+      dedupeByKey: false,
+    })
+    const missedId = signals[0]?.tags.relates as string
+    const row = prjctDb.get<{ score: number }>(
+      projectId,
+      'SELECT score FROM memory_usefulness WHERE memory_id = ?',
+      missedId
+    )
+    // remember() auto-credits +1.0 for the relates: tag; the penalty must
+    // cancel it and net the entry slightly negative — a miss is not usage.
+    expect(row).not.toBeNull()
+    expect(row?.score ?? 0).toBeLessThan(0)
+  })
+
   it('writes nothing to disk outside SQLite (persistence rule)', async () => {
     await seedDecision('Set sqlite pragma busy_timeout to 5000 on every connection')
     await writeTranscript('edited the sqlite pragma handling in the storage layer')
