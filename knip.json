@@ -13,6 +13,6 @@
   "ignoreExportsUsedInFile": true,
   "rules": {
     "duplicates": "off",
-    "exports": "off"
+    "exports": "warn"
   }
 }
