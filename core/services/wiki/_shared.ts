@@ -70,14 +70,18 @@ export function deburr(value: string): string {
   return value.normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
-export function slugify(value: string): string {
-  return (
-    deburr(value)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 60) || 'unnamed'
-  )
+export function slugify(value: string, max = 60): string {
+  let slug = deburr(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  if (slug.length > max) {
+    // Cut at a word boundary — `...porque-la-key-guardada-es-de.md` style
+    // mid-word truncation made filenames unreadable in the file view.
+    const cut = slug.lastIndexOf('-', max)
+    slug = slug.slice(0, cut > max / 2 ? cut : max).replace(/-+$/, '')
+  }
+  return slug || 'unnamed'
 }
 
 export function sha256(body: string): string {

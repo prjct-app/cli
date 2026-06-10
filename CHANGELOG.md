@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
-Follow-ups from the v2.42.x range review (the reported-not-fixed list).
+Vault v2 — signal-first RAG. The generated vault now renders knowledge, not telemetry: on this repo it dropped from 326 files to ~113 with zero information loss (everything stays in SQLite).
+
+### Changed
+- **Machine signals quarantined to one `signals.md` dashboard.** Detector output (hot-file churn, skill-miss, friction, recurring bugs — 45% of all entries on a busy project) no longer spawns per-entry notes or tag pages. One page, grouped by section, hot files deduped per path, every row block-anchored so `[[signals#^mem-N|title]]` refs still resolve. The graph shows one hub instead of a dust cloud of `hot-file-NNN` nodes.
+- **Tag pages are link-only.** The old `tags/<key>/<value>.md` model copied every entry's full content into every tag page it appeared on (54% of vault files, all duplicated content). Now: one `tags/<key>.md` index per dimension with values as sections and entries as wikilinks, plus a `tags.md` master index. Dimensions used by fewer than 2 entries get no page (orphan-node guard).
+- **Native Obsidian frontmatter tags.** `tags: { topic: "x" }` (a YAML flow map Obsidian ignores) → `tags: [topic/x]` — graph coloring/filtering and the tag pane now work. Machine bookkeeping keys (source/session/touches/hash/…) are excluded from note bodies and frontmatter; they stay queryable in SQLite.
+- **index.md is a dashboard.** Recent decisions and known traps surface as wikilinks on the landing page; signals get their own section.
+- **Readable filenames.** Slugs cut at word boundaries (no more `…-porque-la-key-guardada-es-de.md`); `retro` entries get per-entry notes.
 
 ### Fixed
 - **CI/Release no longer resolve bun `latest` per run.** `setup-bun` queried the bun tags API on every workflow run (the 500-prone call that aborted the v2.42.6 release) and silently drifted from local dev. All non-canary jobs now pin via a single `.bun-version` file; the install-compat matrix keeps `latest` deliberately as the canary.

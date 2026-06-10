@@ -57,7 +57,37 @@ export interface FormatMemoryMdOptions {
    * the relations actually appear in the graph (the v2.23.3 regression).
    */
   idSlugIndex?: Map<string, string>
+  /**
+   * Ids of machine-signal entries (detector output). They have no note
+   * of their own — refs resolve into the single `signals.md` dashboard
+   * (`[[signals#^mem-N|title]]`) instead of spawning telemetry nodes.
+   */
+  signalIds?: ReadonlySet<string>
 }
+
+/**
+ * Tag keys that are machine bookkeeping (detector provenance, counters,
+ * hashes, session ids). Hidden from vault note bodies and never turned
+ * into Obsidian tags — they stay queryable in SQLite, which is where
+ * machines look.
+ */
+export const MACHINE_TAG_KEYS: ReadonlySet<string> = new Set([
+  'source',
+  'session',
+  'window_days',
+  'window-days',
+  'touches',
+  'occurrences',
+  'phrase',
+  'slug',
+  'hash',
+  'content-hash',
+  'content_hash',
+  'key',
+  'kind',
+  'spec-id',
+  'spec_id',
+])
 
 const TITLE_MAX = 72
 
@@ -124,6 +154,11 @@ export function linkifyMemRefs(text: string, opts?: FormatMemoryMdOptions): stri
       const title = opts?.idTitleIndex?.get(canonical)
       const slug = opts?.idSlugIndex?.get(canonical)
       const display = title ? linkLabel(title) : canonical
+      // Machine signals live on the single signals.md dashboard — link
+      // its block anchor, never a per-entry node.
+      if (opts?.signalIds?.has(canonical)) {
+        return `[[signals#^mem-${n}|${display}]]`
+      }
       // Per-entry note → link the REAL basename so the graph draws the
       // edge (alias-only links are invisible to Obsidian's graph).
       if (slug && type && opts?.perEntryTypes?.has(type)) {
@@ -179,7 +214,11 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
     if (items.length === 0) return
     lines.push(`### ${type.toUpperCase()}`)
     for (const e of items) {
+      // Vault output hides machine-bookkeeping tags (source=, touches=,
+      // session=, …) — they read as noise in every entry row. CLI/LLM
+      // surfaces keep the full set (byte-identical legacy output).
       const tags = Object.entries(e.tags)
+        .filter(([k]) => !opts?.vault || !MACHINE_TAG_KEYS.has(k))
         .map(([k, v]) => `${k}=${llmBoundary ? escapeMarkdownInline(v) : v}`)
         .join(' ')
       const prov = PROV_PREFIX[e.provenance]

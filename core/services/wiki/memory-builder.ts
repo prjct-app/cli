@@ -19,14 +19,18 @@ import {
   type FormatMemoryMdOptions,
   formatMemoryMd,
   linkifyMemRefs,
+  MACHINE_TAG_KEYS,
 } from '../../memory/format'
 import type { ShippedFeature } from '../../types/storage'
 import { chunkEntries, slugify } from './_shared'
+import { isSignalEntry } from './signals-builder'
 
 /**
  * Types rendered as their own per-entry note. Ephemeral GTD types
  * (`inbox`/`todo`/`idea`) stay aggregated — they churn and would just
  * add noise nodes — but still resolve via the index (block anchor).
+ * Machine signals (`improvement-signal`, detector output) never get a
+ * note regardless of type — they render on `signals.md` only.
  */
 export const PER_ENTRY_TYPES: ReadonlySet<string> = new Set([
   'decision',
@@ -39,17 +43,17 @@ export const PER_ENTRY_TYPES: ReadonlySet<string> = new Set([
   'spec',
   'feedback',
   'improvement-idea',
-  'improvement-signal',
   'question',
   'source',
   'person',
+  'retro',
 ])
 
 /**
  * Tag keys that encode an entry→entry RELATION, not a category. These
- * must NOT spawn `tags/<rel>/<value>.md` pages (that fragmented the
- * graph into orphan stubs); they become real wikilink edges in each
- * note's `## Relations` section instead.
+ * must NOT spawn tag pages (that fragmented the graph into orphan
+ * stubs); they become real wikilink edges in each note's `## Relations`
+ * section instead.
  */
 const RELATION_KEYS: ReadonlySet<string> = new Set([
   'relates',
@@ -59,6 +63,7 @@ const RELATION_KEYS: ReadonlySet<string> = new Set([
   'duplicates',
   'blocks',
   'depends',
+  'corrects',
 ])
 
 /**
@@ -71,10 +76,12 @@ export function buildIndexMaps(allEntries: MemoryEntry[]): {
   idTypeIndex: Map<string, string>
   idTitleIndex: Map<string, string>
   idSlugIndex: Map<string, string>
+  signalIds: Set<string>
 } {
   const idTypeIndex = new Map<string, string>()
   const idTitleIndex = new Map<string, string>()
   const idSlugIndex = new Map<string, string>()
+  const signalIds = new Set<string>()
   // SINGLE SOURCE OF TRUTH for per-entry note basenames. The link
   // target (linkifyMemRefs) and the emitted filename
   // (buildMemoryEntryNotes) MUST be byte-identical or the graph edge
@@ -86,6 +93,11 @@ export function buildIndexMaps(allEntries: MemoryEntry[]): {
     idTypeIndex.set(e.id, e.type)
     const title = deriveTitle(e)
     idTitleIndex.set(e.id, title)
+    if (isSignalEntry(e)) {
+      // Telemetry — anchored on signals.md, never a note of its own.
+      signalIds.add(e.id)
+      continue
+    }
     if (PER_ENTRY_TYPES.has(e.type)) {
       let slug = slugify(title)
       if (usedSlugs.has(slug)) slug = `${slug}-${rowId(e.id)}`.slice(0, 80)
@@ -93,31 +105,33 @@ export function buildIndexMaps(allEntries: MemoryEntry[]): {
       idSlugIndex.set(e.id, slug)
     }
   }
-  return { idTypeIndex, idTitleIndex, idSlugIndex }
+  return { idTypeIndex, idTitleIndex, idSlugIndex, signalIds }
 }
 
 function vaultOpts(
   idTypeIndex: Map<string, string>,
   idTitleIndex: Map<string, string>,
-  idSlugIndex: Map<string, string>
+  idSlugIndex: Map<string, string>,
+  signalIds: Set<string>
 ): FormatMemoryMdOptions {
   return {
     vault: true,
     idTypeIndex,
     idTitleIndex,
     idSlugIndex,
+    signalIds,
     perEntryTypes: PER_ENTRY_TYPES,
   }
 }
 
 /**
  * Shared vault linkify options built once from the FULL entry set —
- * so every builder (memory, tags, specs) resolves `mem_N` refs to the
- * same slug-targeted, legible links (graph-visible, not alias-only).
+ * so every builder (memory, tags, specs, signals) resolves `mem_N` refs
+ * to the same slug-targeted, legible links (graph-visible, not alias-only).
  */
 export function buildVaultOpts(allEntries: MemoryEntry[]): FormatMemoryMdOptions {
-  const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
-  return vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
+  const { idTypeIndex, idTitleIndex, idSlugIndex, signalIds } = buildIndexMaps(allEntries)
+  return vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex, signalIds)
 }
 
 export function formatShipBody(ship: ShippedFeature): string {
@@ -146,12 +160,25 @@ function dateOnly(iso: string): string {
   return m ? m[1] : ''
 }
 
-/** YAML flow map of tags with quoted values; '' when no tags. */
+/**
+ * Native Obsidian tag list (`tags: [topic/daemon, trap/lazy-rejection]`).
+ * The previous YAML flow-map form was invisible to Obsidian — tags must
+ * be a list of strings to power graph coloring/filtering and the tag
+ * pane. Nested `key/value` syntax keeps the dimension browsable.
+ * Machine bookkeeping and relation keys are excluded (relations are
+ * wikilink edges; machine keys live in SQLite).
+ */
 function frontmatterTags(tags: Record<string, string>): string {
-  const pairs = Object.entries(tags)
-  if (pairs.length === 0) return ''
-  const body = pairs.map(([k, v]) => `${k}: ${JSON.stringify(String(v))}`).join(', ')
-  return `tags: { ${body} }`
+  const items: string[] = []
+  for (const [k, v] of Object.entries(tags)) {
+    if (MACHINE_TAG_KEYS.has(k) || RELATION_KEYS.has(k)) continue
+    const key = slugify(k, 40)
+    const value = slugify(String(v), 60)
+    if (key === 'unnamed' || value === 'unnamed') continue
+    items.push(`${key}/${value}`)
+  }
+  if (items.length === 0) return ''
+  return `tags: [${items.join(', ')}]`
 }
 
 /**
@@ -193,7 +220,7 @@ export function buildMemoryEntryNotes(
   const titleByType = new Map<string, Array<{ id: string; title: string; slug: string }>>()
 
   for (const e of entries) {
-    if (!PER_ENTRY_TYPES.has(e.type)) continue
+    if (!PER_ENTRY_TYPES.has(e.type) || isSignalEntry(e)) continue
     const title = deriveTitle(e)
     // Slug comes from the shared index (buildIndexMaps) so the filename
     // is byte-identical to every link target. Fallback only if an entry
@@ -253,20 +280,24 @@ export function buildMemoryFiles(
 ): Map<string, string> {
   // Substantive types → one note per entry + a `memory/<type>.md` MOC
   // that wikilinks every note (the hub node). Ephemeral types keep the
-  // aggregated/chunked file. Index maps are built from the FULL entry
-  // set so every cross-ref resolves (Defect B).
+  // aggregated/chunked file. Machine signals are quarantined to
+  // signals.md (built by the orchestrator) — without this gate the
+  // graph drowned in hot-file/skill-miss telemetry nodes (45% of all
+  // entries). Index maps are built from the FULL entry set so every
+  // cross-ref resolves (Defect B).
   const files = new Map<string, string>()
-  const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
-  const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
+  const { idTypeIndex, idTitleIndex, idSlugIndex, signalIds } = buildIndexMaps(allEntries)
+  const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex, signalIds)
+  const knowledge = entries.filter((e) => !isSignalEntry(e))
 
   const byType = new Map<string, MemoryEntry[]>()
-  for (const e of entries) {
+  for (const e of knowledge) {
     const bucket = byType.get(e.type) ?? []
     bucket.push(e)
     byType.set(e.type, bucket)
   }
 
-  const { files: noteFiles, titleByType } = buildMemoryEntryNotes(entries, opts)
+  const { files: noteFiles, titleByType } = buildMemoryEntryNotes(knowledge, opts)
   for (const [rel, body] of noteFiles) files.set(rel, body)
 
   for (const [type, items] of byType) {
@@ -317,76 +348,68 @@ export function buildMemoryFiles(
 }
 
 /**
- * Tag keys that are machine bookkeeping, not browsable categories — their
- * values are opaque hashes / uuids / counters that spawned hundreds of vault
- * pages nobody reads (tags/key/<hash>.md, tags/session/<uuid>.md, …). We skip
- * generating pages for them; the entries are still reachable via memory/<type>
- * and search. Human dimensions (topic, type, pr, file, domain, …) still get
- * pages.
+ * Tag keys that don't deserve a browsable page: machine bookkeeping
+ * (MACHINE_TAG_KEYS — hashes, counters, session ids) — their values are
+ * opaque noise that once spawned hundreds of vault pages nobody reads.
+ * Human dimensions (topic, type, pr, file, domain, …) get an index page.
  */
-const NOISE_TAG_KEYS = new Set([
-  'key',
-  'hash',
-  'content-hash',
-  'content_hash',
-  'session',
-  'window-days',
-  'window_days',
-  'touches',
-  'occurrences',
-  'phrase',
-  'slug',
-  'spec-id',
-  'spec_id',
-  'kind',
-])
+const NOISE_TAG_KEYS: ReadonlySet<string> = MACHINE_TAG_KEYS
+
+/** Wikilink for one entry: the note basename when it has its own note,
+ *  the aggregated file's block anchor otherwise. */
+function entryLink(e: MemoryEntry, opts: FormatMemoryMdOptions): string {
+  const title = (opts.idTitleIndex?.get(e.id) ?? deriveTitle(e)).replace(/[[\]|]/g, '')
+  const slug = opts.idSlugIndex?.get(e.id)
+  if (slug) return `[[${slug}|${title}]]`
+  return `[[${e.type}#^mem-${rowId(e.id)}|${title}]]`
+}
 
 export function buildTagFiles(
   entries: MemoryEntry[],
   allEntries: MemoryEntry[] = entries
 ): Map<string, string> {
-  // One page per distinct tag pair (`tags/<key>/<value>.md`) + an index
-  // per tag key (`tags/<key>.md`). Relation tags are excluded — they're
-  // graph edges, not categories (Defect C). Opaque machine keys (NOISE_TAG_KEYS)
-  // are skipped so the vault stays browsable signal, not hash sprawl.
+  // One LINK-ONLY index page per tag key (`tags/<key>.md`): values as
+  // sections, entries as wikilinks. The old model emitted a page per
+  // tag PAIR with every entry's full content copied in — 54% of vault
+  // files were duplicated-content tag pages, and every one was a noise
+  // node in the graph. Relation tags are excluded (graph edges, not
+  // categories — Defect C); machine keys are excluded (hash sprawl);
+  // machine-signal entries are excluded (they live on signals.md).
   const files = new Map<string, string>()
-  const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
-  const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
-  const byPair = groupByTagPair(entries)
+  const { idTypeIndex, idTitleIndex, idSlugIndex, signalIds } = buildIndexMaps(allEntries)
+  const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex, signalIds)
+  const byPair = groupByTagPair(entries.filter((e) => !isSignalEntry(e)))
 
-  for (const [key, byValue] of byPair) {
+  const keyIndexLines = [`# Tags`, '']
+  const sortedKeys = [...byPair.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  for (const [key, byValue] of sortedKeys) {
     if (NOISE_TAG_KEYS.has(key)) continue
+    // A dimension used once is not a browsable dimension — a 1-entry
+    // page is just another orphan node. The entry stays reachable via
+    // its type MOC and its frontmatter tag.
+    const total = [...byValue.values()].reduce((n, items) => n + items.length, 0)
+    if (total < 2) continue
     const keySlug = slugify(key)
-    const indexLines = [`# Tag: ${key}`, '']
+    const lines = [`# Tag: ${key}`, '']
     const sortedValues = [...byValue.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-
+    let entryCount = 0
     for (const [value, items] of sortedValues) {
-      const valueSlug = slugify(value)
-      const chunks = chunkEntries(items)
-      if (chunks.length === 1) {
-        const body = [`# ${key}: ${value}`, '', formatMemoryMd(items, opts), ''].join('\n')
-        files.set(`tags/${keySlug}/${valueSlug}.md`, body)
-        indexLines.push(`- [${value}](${keySlug}/${valueSlug}.md) — ${items.length} entries`)
-      } else {
-        for (let i = 0; i < chunks.length; i++) {
-          const body = [
-            `# ${key}: ${value} — chunk ${i + 1}/${chunks.length}`,
-            '',
-            formatMemoryMd(chunks[i], opts),
-            '',
-          ].join('\n')
-          files.set(`tags/${keySlug}/${valueSlug}-${i + 1}.md`, body)
-        }
-        indexLines.push(`- **${value}** — ${items.length} entries across ${chunks.length} chunks`)
-        for (let i = 0; i < chunks.length; i++) {
-          indexLines.push(`  - [chunk ${i + 1}](${keySlug}/${valueSlug}-${i + 1}.md)`)
-        }
-      }
+      lines.push(`## ${value}`, '')
+      for (const item of items) lines.push(`- ${entryLink(item, opts)}`)
+      lines.push('')
+      entryCount += items.length
     }
-
-    indexLines.push('')
-    files.set(`tags/${keySlug}.md`, `${indexLines.join('\n')}\n`)
+    files.set(`tags/${keySlug}.md`, `${lines.join('\n')}\n`)
+    // Path-qualified target: a bare [[topic]] could collide with an
+    // entry note that happens to slug to the same basename.
+    keyIndexLines.push(
+      `- [[tags/${keySlug}|${key}]] — ${sortedValues.length} values, ${entryCount} entries`
+    )
   }
 
+  if (files.size > 0) {
+    keyIndexLines.push('')
+    files.set('tags.md', `${keyIndexLines.join('\n')}\n`)
+  }
   return files
 }

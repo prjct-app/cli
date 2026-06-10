@@ -8,6 +8,10 @@ import type { LLMAnalysis } from '../../types/llm-analysis'
 import type { ShippedFeature } from '../../types/storage'
 import { slugify } from './_shared'
 
+type NoteRef = { slug: string; title: string }
+
+const wikilink = ({ slug, title }: NoteRef) => `[[${slug}|${title.replace(/[[\]|]/g, '')}]]`
+
 export function buildIndexFile(args: {
   ships: ShippedFeature[]
   memoryTypeCounts: Map<string, number>
@@ -18,6 +22,9 @@ export function buildIndexFile(args: {
   archiveCount: number
   releaseCount: number
   workflowCount: number
+  signalsCount?: number
+  recentDecisions?: NoteRef[]
+  topGotchas?: NoteRef[]
 }): string {
   const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
     args
@@ -34,6 +41,20 @@ export function buildIndexFile(args: {
     '> with `type:` frontmatter — the Stop hook ingests it.',
     '',
   ]
+
+  // Dashboard: the freshest, highest-stakes knowledge surfaces on the
+  // landing page itself — an agent (or human) sees what matters without
+  // opening a single MOC.
+  if (args.recentDecisions?.length) {
+    lines.push('## Recent decisions')
+    for (const d of args.recentDecisions) lines.push(`- ${wikilink(d)}`)
+    lines.push('')
+  }
+  if (args.topGotchas?.length) {
+    lines.push('## Known traps')
+    for (const g of args.topGotchas) lines.push(`- ${wikilink(g)}`)
+    lines.push('')
+  }
 
   if (ships.length > 0) {
     lines.push('## Ships')
@@ -68,9 +89,18 @@ export function buildIndexFile(args: {
 
   if (tagKeyCounts.size > 0) {
     lines.push('## Memory by tag')
+    lines.push('- [all tags](tags.md)')
     for (const [key, count] of tagKeyCounts) {
       lines.push(`- [${key}](tags/${slugify(key)}.md) — ${count} entries`)
     }
+    lines.push('')
+  }
+
+  if (args.signalsCount && args.signalsCount > 0) {
+    lines.push('## Machine signals')
+    lines.push(
+      `- [signals](signals.md) — ${args.signalsCount} auto-detected (hot files, missed knowledge, friction)`
+    )
     lines.push('')
   }
 
