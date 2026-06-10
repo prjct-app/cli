@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+Fixes from a full code review of the v2.42.0–v2.42.4 range (7 review angles, 42 candidates, verified).
+
+### Fixed
+- **Lazy command loaders no longer memoize rejected promises.** A transient import/constructor error during the first dispatch of a command group used to be cached forever — every later command in that group replayed the same error for the daemon's lifetime (the old eager loading failed loud at startup instead). Both layers fixed (registry group loaders + the 17 `PrjctCommands` getters); the next dispatch now retries.
+- **`mapOptions` numbers**: non-numeric input for a numeric flag maps to `undefined` (flag ignored) instead of `NaN`.
+
+### Changed
+- New CI guard: `manifest-completeness` instantiates every command group and verifies each manifest `routing.method` actually exists — restoring the registration-time validation the lazy refactor deferred to first dispatch.
+- `registerLazyMethod` memoizes the resolved instance+method pair (was re-resolving per dispatch); dead `registerMethod` deleted (single registration mechanism).
+- `runBinCommand` imports moved into the branches that use them — every bin command was paying the `version` branch's chalk/ai-provider/file-helper imports.
+- `compareSemver` deduped to the `schemas/model.ts` implementation; the monotonic-stamp rule shared between `nextKvStamp` and `updateDoc`; `cosineSimilarity` single-sourced over `dot`/`l2Norm`.
+
+
 Optimization backlog pass (the items deferred since v2.37.x, consolidated in mem_1814).
 
 ### Fixed
