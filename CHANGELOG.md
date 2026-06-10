@@ -17,6 +17,17 @@ LLM-first surface pass: everything an agent reads from prjct — errors, hook co
 - **`recallForFile` is indexed.** The `prjct guard` / pre-edit lookup overfetched 500 recall rows and filtered by the `file` tag in JS. Migration 27 adds a virtual generated `file_tag` column (+ partial index) on `events`, so the lookup touches only file-tagged remember rows.
 - **Semantic search is bounded and norm-cached.** Migration 28 stores each vector's L2 norm at write time (backfilled), turning per-row cosine into a dot product; the scan is capped at the 2000 newest vectors per model. Still zero native deps — no sqlite-vec.
 
+## [2.42.0] - 2026-06-10
+
+### Features
+
+- LLM-first surface — untruncated agent output, subagent digest, skill-miss loop, indexed recall (#415)
+
+### Refactoring
+
+- feat: LLM-first surface — untruncated agent output, subagent digest, skill-miss loop, indexed recall (#415)
+
+
 ## [2.41.0] - 2026-06-09
 
 Memory recall + apply-loop: prjct now *applies* what it learns at the moment it matters, not just on demand — and the knowledge survives model updates.
