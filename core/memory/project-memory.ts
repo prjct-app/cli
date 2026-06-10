@@ -570,19 +570,29 @@ export const projectMemory = {
     const base = filePath.split('/').pop() ?? filePath
     const isPreventive = (e: MemoryEntry) =>
       e.type === 'gotcha' || e.type === 'anti-pattern' || e.tags?.pattern === 'recurring-bug'
-    let pool: MemoryEntry[]
+    // The `file_tag` generated column (migration 27) + partial index narrow
+    // the scan to file-tagged remember rows in SQL — exact / suffix / basename
+    // matching mirrors the original JS filter. Preventive-type filtering and
+    // superseded pruning stay in JS over the (small) matched set.
+    let matches: MemoryEntry[]
     try {
-      pool = this.recall(projectId, { limit: 500 })
+      const rows = prjctDb.query<EventRow>(
+        projectId,
+        `SELECT id, type, data, timestamp FROM events
+          WHERE file_tag IS NOT NULL
+            AND (file_tag = ? OR ? LIKE '%/' || file_tag OR file_tag = ? OR file_tag LIKE '%/' || ?)
+          ORDER BY id DESC`,
+        filePath,
+        filePath,
+        base,
+        base
+      )
+      matches = rows.map(rowToEntry).filter(isPreventive)
     } catch {
       return []
     }
-    const matches = pool.filter((e) => {
-      const f = e.tags?.file
-      if (!f) return false
-      const fileMatch =
-        filePath === f || filePath.endsWith(`/${f}`) || (f.split('/').pop() ?? f) === base
-      return fileMatch && isPreventive(e)
-    })
+    const dead = collectSupersededIds(matches)
+    if (dead.size > 0) matches = matches.filter((e) => !dead.has(e.id))
     return matches.slice(0, limit)
   },
 

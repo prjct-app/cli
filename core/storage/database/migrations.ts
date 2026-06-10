@@ -868,4 +868,28 @@ export const migrations: Migration[] = [
       db.run('CREATE INDEX IF NOT EXISTS idx_events_type_id ON events(type, id DESC)')
     },
   },
+  {
+    version: 27,
+    name: 'events-file-tag-column',
+    up: (db: SqliteDatabase) => {
+      // `recallForFile` (the `prjct guard` / pre-edit anticipation lookup)
+      // used to overfetch 500 recall rows and filter by the `file` tag in JS.
+      // A virtual generated column exposes the tag to SQL so a partial index
+      // covers exactly the file-tagged remember rows — for most projects a
+      // few dozen rows instead of a 500-row JSON.parse sweep per lookup.
+      // VIRTUAL (not STORED) is required for ALTER TABLE; the CASE guard
+      // keeps json_extract off non-remember rows and malformed data.
+      db.run(`
+        ALTER TABLE events ADD COLUMN file_tag TEXT GENERATED ALWAYS AS (
+          CASE
+            WHEN type LIKE 'memory.remember.%' AND json_valid(data)
+            THEN json_extract(data, '$.tags.file')
+          END
+        ) VIRTUAL
+      `)
+      db.run(
+        'CREATE INDEX IF NOT EXISTS idx_events_file_tag ON events(file_tag) WHERE file_tag IS NOT NULL'
+      )
+    },
+  },
 ]
