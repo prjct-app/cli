@@ -29,6 +29,13 @@ Optimization backlog pass (the items deferred since v2.37.x, consolidated in mem
 - **`bin/prjct.ts` split**: the ~550 lines of bin-only command handlers moved to `core/cli/bin-commands.ts` (1082 → 536 lines); the entry point keeps startup concerns only.
 - **`core/workflow/` → `core/workflow-engine/`** — disambiguates the rule engine from `core/workflows/` (implementations).
 
+## [2.42.4] - 2026-06-10
+
+### Performance
+
+- optimization backlog — FTS5 prefix indexes, god-file splits, glob removal + broken post-upgrade setup fixed (#420)
+
+
 ## [2.42.3] - 2026-06-10
 
 ### Refactoring
