@@ -13,6 +13,13 @@
 - **`bin/prjct.ts` split**: the ~550 lines of bin-only command handlers moved to `core/cli/bin-commands.ts` (1082 → 536 lines); the entry point keeps startup concerns only.
 - **`core/workflow/` → `core/workflow-engine/`** — disambiguates the rule engine from `core/workflows/` (implementations).
 
+## [2.42.3] - 2026-06-10
+
+### Refactoring
+
+- follow-ups — workflow-engine rename, PRJCT_CLI_HOME everywhere, bin split, lazy daemon groups (#419)
+
+
 ## [2.42.2] - 2026-06-10
 
 ### Refactoring
