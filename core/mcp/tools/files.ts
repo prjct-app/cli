@@ -50,7 +50,7 @@ export function registerFileTools(server: McpServer) {
 
   s.tool(
     'prjct_signatures',
-    'Code signatures from a file (90% token reduction vs full content)',
+    'Function/class signatures of a file without bodies (~90% fewer tokens). Use to map an unfamiliar file before deciding whether to Read it fully.',
     {
       projectPath: z.string().describe('Project directory path'),
       filePath: z.string().describe('Relative file path to extract signatures from'),
@@ -85,7 +85,7 @@ export function registerFileTools(server: McpServer) {
 
   s.tool(
     'prjct_history',
-    'Recent completed tasks with outcomes',
+    'Recently completed tasks and how they ended. Use to learn what was just done before continuing related work.',
     {
       projectPath: z.string().describe('Project directory path'),
       limit: z.number().optional().default(10).describe('Max results'),
