@@ -11,8 +11,15 @@
  * pure data + types, so the import chain stays light.
  */
 
-import { COMMANDS } from './command-data'
+import { BIN_ONLY_COMMANDS, COMMANDS } from './command-data'
 
 export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(
   COMMANDS.filter((c) => c.routing).map((c) => c.name)
 )
+
+/**
+ * Commands (incl. flag aliases) that bin/prjct.ts handles directly and
+ * the daemon shim must skip. Re-exported from the manifest so the fast
+ * path imports one tiny module.
+ */
+export const BIN_COMMANDS_SET: ReadonlySet<string> = BIN_ONLY_COMMANDS

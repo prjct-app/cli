@@ -1,65 +1,60 @@
 /**
- * Daemon-shim ↔ bin/prjct.ts skip-list invariant.
+ * Daemon-shim ↔ manifest skip-list invariant.
  *
- * `bin/prjct.ts` declares `_binCommands` (commands handled directly by the
- * cold-start CLI). The daemon shim emitted by `scripts/build.js` declares
- * its own `skip` Set with the same purpose: commands not to forward to the
- * daemon socket.
- *
- * If the two lists drift, a command in `_binCommands` but absent from the
- * shim's skip Set gets forwarded to the daemon, which doesn't know it, and
- * is silently auto-routed to a default action. That is exactly what
- * happened to `crew` in 2.3.5 — `prjct crew install` ran `prjct init` instead.
- *
- * This test asserts the two lists agree.
+ * Bin-handled commands are declared ONCE in the manifest
+ * (`routingMode: 'bin-only'` in command-data.ts). `bin/prjct.ts` imports
+ * the derived `BIN_COMMANDS_SET`, and the shim emitted by scripts/build.js
+ * evaluates the same manifest at build time (`deriveShimSkipSet`). This
+ * test asserts the GENERATED shim's skip set stays a superset of the
+ * manifest's bin-only commands — drift here is what made `prjct crew
+ * install` run `prjct init` in 2.3.5.
  */
 
 import { describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
+import { BIN_COMMANDS_SET } from '../../commands/verb-names'
 
 const ROOT = path.resolve(__dirname, '../../..')
 
-function extractBinCommands(): Set<string> {
-  const src = fs.readFileSync(path.join(ROOT, 'bin/prjct.ts'), 'utf-8')
-  // Match the literal `const _binCommands = new Set([ ... ])` block.
-  const m = src.match(/const _binCommands = new Set\(\[([\s\S]+?)\]\)/)
-  if (!m) throw new Error('Could not find _binCommands declaration in bin/prjct.ts')
-  return parseStringSet(m[1])
+// build.js guards its main() behind require.main, so requiring it only
+// pulls the helpers (no build side effects).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { generateDaemonShim } = require(path.join(ROOT, 'scripts/build.js')) as {
+  generateDaemonShim: () => string
 }
 
 function extractShimSkip(): Set<string> {
-  const buildSrc = fs.readFileSync(path.join(ROOT, 'scripts/build.js'), 'utf-8')
-  // Match the inline shim's `const skip=new Set([ ... ])`.
-  const m = buildSrc.match(/const skip=new Set\(\[([^\]]+?)\]\)/)
-  if (!m) throw new Error('Could not find skip declaration in scripts/build.js shim')
-  return parseStringSet(m[1])
-}
-
-function parseStringSet(body: string): Set<string> {
+  // Parse the skip Set out of the GENERATED shim text — the artifact users
+  // actually run — not out of any source literal.
+  const shim = generateDaemonShim()
+  const m = shim.match(/const skip=new Set\(\[([^\]]+?)\]\)/)
+  if (!m) throw new Error('Could not find skip declaration in the generated shim')
   const out = new Set<string>()
-  for (const m of body.matchAll(/['"]([^'"]+)['"]/g)) out.add(m[1])
+  for (const s of m[1].matchAll(/['"]([^'"]+)['"]/g)) out.add(s[1])
   return out
 }
 
-describe('daemon-shim ↔ bin/prjct.ts sync', () => {
-  test('every command in _binCommands appears in the shim skip set', () => {
-    const bin = extractBinCommands()
+function extractBinUsage(): string {
+  return fs.readFileSync(path.join(ROOT, 'bin/prjct.ts'), 'utf-8')
+}
+
+describe('daemon-shim ↔ manifest sync', () => {
+  test('every manifest bin-only command appears in the generated shim skip set', () => {
     const shim = extractShimSkip()
-    const missing = [...bin].filter((c) => !shim.has(c))
+    const missing = [...BIN_COMMANDS_SET].filter((c) => !shim.has(c))
     expect(missing).toEqual([])
   })
 
-  // (Reverse-direction check intentionally omitted: the shim historically
-  // contained orphan entries like `dev`/`web`/`serve` that pre-date this
-  // test. They are inert — they prevent forwarding-to-daemon for commands
-  // that have no handler anyway. Forward direction is the load-bearing one.)
+  test('bin/prjct.ts derives _binCommands from the manifest (no literal)', () => {
+    const src = extractBinUsage()
+    expect(src).toContain('BIN_COMMANDS_SET')
+    expect(src).not.toMatch(/const _binCommands = new Set\(\[/)
+  })
 
-  test('crew is in both lists (regression for 2.3.5 → 2.3.6)', () => {
-    const bin = extractBinCommands()
-    const shim = extractShimSkip()
-    expect(bin.has('crew')).toBe(true)
-    expect(shim.has('crew')).toBe(true)
+  test('crew is bin-only in the manifest and skipped by the shim (regression 2.3.5)', () => {
+    expect(BIN_COMMANDS_SET.has('crew')).toBe(true)
+    expect(extractShimSkip().has('crew')).toBe(true)
   })
 })
 
