@@ -1,15 +1,17 @@
 /**
- * SubagentStart hook — inject persona + recent memory into spawned
+ * SubagentStart hook — inject a compact project digest into spawned
  * subagents. Without this, subagents start with zero project context
  * and re-investigate facts the main session already knows.
  *
- * Reuses `buildSessionContext` to keep the per-subagent injection
- * consistent with what the main session sees. Same rules: describe
- * WHAT (role, MCPs, recent memory), never CÓMO.
+ * Uses `buildSubagentDigest` (role + this worktree's active task + top
+ * traps) rather than the full session context: SubagentStart emits via
+ * `systemMessage` (its schema rejects `additionalContext`), which sits
+ * outside the cached prompt prefix, so variable content is safe here.
+ * Same rules: describe WHAT, never CÓMO.
  */
 
 import { type HookIo, runHook } from './_runner'
-import { buildSessionContext } from './session-start'
+import { buildSubagentDigest } from './session-start'
 
 export function runSubagentStartHook(
   projectPath: string = process.cwd(),
@@ -19,7 +21,7 @@ export function runSubagentStartHook(
     {
       event: 'SubagentStart',
       projectPath,
-      build: (_input, p) => buildSessionContext(p),
+      build: (_input, p) => buildSubagentDigest(p),
     },
     io
   )

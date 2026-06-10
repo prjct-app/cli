@@ -143,6 +143,51 @@ function buildKnowledgeDigest(projectId: string): string | null {
   return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
 }
 
+const SUBAGENT_DIGEST_MAX_CHARS = 500
+const SUBAGENT_GOTCHA_COUNT = 2
+
+/**
+ * Compact context for a spawned subagent: role, the active task for THIS
+ * worktree, and the top preventive traps. Subagents previously received the
+ * persona block only and re-investigated facts the main session already knew.
+ *
+ * SubagentStart's response schema rejects `additionalContext`, so this is
+ * emitted as `systemMessage` — outside the cached system-prompt prefix —
+ * which is why variable content (the active task) is safe here while the
+ * SessionStart persona block must stay byte-identical.
+ */
+export async function buildSubagentDigest(projectPath: string): Promise<string | null> {
+  const config = await configManager.readConfig(projectPath).catch(() => null)
+  if (!config?.projectId) return null
+
+  const lines: string[] = ['# prjct: subagent context']
+  if (config.persona?.role) lines.push(`Role in this project: ${config.persona.role}`)
+
+  try {
+    const { resolveActiveTask } = await import('../services/task-service')
+    const task = await resolveActiveTask(config.projectId, projectPath)
+    if (task) lines.push(`Active task (this worktree): ${task.description}`)
+  } catch {
+    // best-effort — a digest without the task is still useful
+  }
+
+  try {
+    const gotchas = projectMemory.recall(config.projectId, {
+      types: ['gotcha', 'anti-pattern'],
+      limit: SUBAGENT_GOTCHA_COUNT,
+    })
+    if (gotchas.length > 0) {
+      lines.push('Traps to avoid:')
+      for (const e of gotchas) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
+    }
+  } catch {
+    // best-effort
+  }
+
+  if (lines.length <= 1) return null
+  return safeTruncate(lines.join('\n'), SUBAGENT_DIGEST_MAX_CHARS)
+}
+
 function formatPersona(persona: ProjectPersona): string {
   const lines: string[] = []
   lines.push(`## Your role in this project: **${persona.role}**`)
