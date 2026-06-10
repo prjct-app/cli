@@ -53,6 +53,17 @@ Optimization backlog pass (the items deferred since v2.37.x, consolidated in mem
 - **`bin/prjct.ts` split**: the ~550 lines of bin-only command handlers moved to `core/cli/bin-commands.ts` (1082 → 536 lines); the entry point keeps startup concerns only.
 - **`core/workflow/` → `core/workflow-engine/`** — disambiguates the rule engine from `core/workflows/` (implementations).
 
+## [2.42.6] - 2026-06-10
+
+### Bug Fixes
+
+- review follow-ups — cold-only routing, true SIGHUP reload, subagent repeat-miss, in-process prune counter (#422)
+
+### Maintenance
+
+- pin bun via .bun-version — stop resolving 'latest' on every run (#423)
+
+
 ## [2.42.5] - 2026-06-10
 
 ### Bug Fixes
