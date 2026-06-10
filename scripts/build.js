@@ -159,11 +159,11 @@ var __dirname = __pathDirname(__filename);`,
 }
 
 /**
- * Legacy/extra shim-only skips. `dev`/`web`/`serve` are inert orphans that
- * pre-date the manifest; `spec`/`audit-spec` are deliberately served cold
- * (multi-positional parsing). Everything else derives from the manifest.
+ * Legacy shim-only skips: inert orphans that pre-date the manifest and have
+ * no handler anywhere. Everything real derives from the manifest
+ * (routingMode 'bin-only' + 'cold-only' via SHIM_SKIP_SET).
  */
-const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve', 'spec', 'audit-spec']
+const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve']
 
 /**
  * Evaluate the command manifest (command-data.ts via verb-names.ts) at
@@ -187,7 +187,7 @@ function deriveShimSkipSet() {
     mod.exports,
     require
   )
-  const derived = [...mod.exports.BIN_COMMANDS_SET]
+  const derived = [...mod.exports.SHIM_SKIP_SET]
   return [...new Set([...derived, ...SHIM_EXTRA_SKIP])]
 }
 

@@ -15,8 +15,8 @@ import fs from 'node:fs'
 import type { Server, Socket } from 'node:net'
 import { createServer as createNetServer } from 'node:net'
 import { PrjctCommands } from '../commands/commands'
+import { resetGroupLoaders } from '../commands/register'
 import { commandRegistry } from '../commands/registry'
-import '../commands/register'
 import type { HookIo } from '../hooks/_runner'
 import { getHookRunner } from '../hooks/registry'
 import prjctDb from '../storage/database'
@@ -147,7 +147,12 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   process.on('SIGTERM', () => shutdown(0))
   process.on('SIGINT', () => shutdown(0))
   process.on('SIGHUP', () => {
+    // Refresh BOTH dispatch paths: the explicit-case instance below AND the
+    // registry's lazy group memos (schema-covered commands kept pre-reload
+    // instances otherwise — the review's stale-SIGHUP finding).
     commands = new PrjctCommands()
+    resetGroupLoaders()
+    commandRegistry.resetLazyResolutions()
     console.log('Daemon reloaded (SIGHUP)')
   })
 

@@ -236,6 +236,13 @@ export async function buildSubagentDigest(projectPath: string): Promise<string |
       lines.push('Traps to avoid:')
       for (const e of gotchas) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
     }
+    // Same repeat-miss slot the session digest has: knowledge flagged
+    // relevant-but-unused 2+ times reaches subagents too — they do the
+    // bulk of the editing and were blind to it (review follow-up).
+    const repeatMiss = findRepeatMissedEntry(config.projectId, new Set(gotchas.map((e) => e.id)))
+    if (repeatMiss) {
+      lines.push(`Keeps being missed: ${deriveTitle(repeatMiss.entry)}  \`${repeatMiss.entry.id}\``)
+    }
   } catch {
     // best-effort
   }

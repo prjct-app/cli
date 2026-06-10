@@ -22,8 +22,19 @@ import { commandRegistry } from './registry'
 // costs nothing beyond the manifest. Heavy groups (analysis drags in
 // sync-service -> BM25 indexer, import-graph, skill generator) stay
 // unparsed until a request actually needs them.
+const loaderResetters: Array<() => void> = []
+
+/** SIGHUP support: drop every memoized group instance so the next dispatch
+ *  constructs fresh ones. Paired with commandRegistry.resetLazyResolutions(). */
+export function resetGroupLoaders(): void {
+  for (const reset of loaderResetters) reset()
+}
+
 function lazy(factory: () => Promise<object>): () => Promise<object> {
   let memo: Promise<object> | undefined
+  loaderResetters.push(() => {
+    memo = undefined
+  })
   return () =>
     (memo ??= factory().catch((err) => {
       // A failed load must NOT be memoized: a transient import/constructor
