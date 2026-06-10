@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+Follow-ups from the v2.42.x range review (the reported-not-fixed list).
+
+### Fixed
+- **SIGHUP now actually reloads.** The handler refreshed only the explicit-dispatch instance; schema-covered commands kept pre-reload group instances forever (the registry's lazy memos were never reset). Both lazy layers now register resetters and SIGHUP clears them.
+
+### Changed
+- **`routingMode: 'cold-only'`** — spec/audit-spec's "shim must serve these cold" condition moves from a side list in scripts/build.js into the manifest; the generated shim skip set is byte-identical, but the truth now lives where a manifest cleanup can't accidentally delete it.
+- **Subagents get the repeat-miss slot** — the "Keeps being missed" entry the session digest gained now reaches subagent digests too (they do most of the editing and were blind to it).
+- **Prune throttle is in-process** — the kv-store counter paid a read+write per session Stop just to decide "skip pruning" 9/10 times; per-process counting is the safe direction (cold runs prune more often, never less).
+
 Fixes from a full code review of the v2.42.0–v2.42.4 range (7 review angles, 42 candidates, verified).
 
 ### Fixed

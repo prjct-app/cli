@@ -593,6 +593,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'spec',
     group: 'core',
     routing: { group: 'spec', method: 'draft' },
+    routingMode: 'cold-only',
     description:
       'Draft a spec — Goal/Acceptance/Scope/Risks. The SDD entry point: spec → audit → task → ship.',
     usage: {
@@ -614,6 +615,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'audit-spec',
     group: 'core',
     routing: { group: 'spec', method: 'audit' },
+    routingMode: 'cold-only',
     description:
       'Emit subagent dispatch for parallel strategic/architecture/design review of a spec',
     usage: { claude: '/p:audit-spec <id>', terminal: 'prjct audit-spec <id>' },
@@ -683,6 +685,15 @@ export const COMMAND_ALIASES: Record<string, string> = {
  * skip-set in scripts/build.js and `_binCommands` in bin/prjct.ts both
  * consume this, so routing is declared in exactly one place.
  */
+/**
+ * Commands the SHIM must serve cold even though the daemon can handle them
+ * when reached via bin/prjct.ts (multi-positional parsing). Consumed by
+ * scripts/build.js alongside BIN_ONLY_COMMANDS.
+ */
+export const COLD_ONLY_COMMANDS: ReadonlySet<string> = new Set(
+  COMMANDS.filter((c) => c.routingMode === 'cold-only').map((c) => c.name)
+)
+
 export const BIN_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   ...COMMANDS.filter((c) => c.routingMode === 'bin-only').map((c) => c.name),
   ...Object.entries(COMMAND_ALIASES)

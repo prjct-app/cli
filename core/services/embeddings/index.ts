@@ -288,6 +288,8 @@ const SEMANTIC_SCAN_MAX_ROWS = 2000
 
 /** Noise-vector pruning runs on every Nth backfill (see shouldPruneThisRun). */
 const PRUNE_EVERY = 10
+/** Per-process backfill tick per project — see shouldPruneThisRun. */
+const pruneTicks = new Map<string, number>()
 
 export const embeddingService = {
   /**
@@ -408,17 +410,15 @@ export const embeddingService = {
   },
 
   /** Prune throttle: every PRUNE_EVERY-th backfill, starting with the first.
-   *  Counter lives in kv_store so it survives across processes. Best-effort —
-   *  any storage error defaults to pruning (the safe, if slower, choice). */
+   *  In-process counter (review follow-up: the kv version paid a read+write
+   *  per Stop just to decide "skip" 9/10 times). Per-process semantics are
+   *  the SAFE direction: a long-lived daemon throttles correctly, and
+   *  short-lived cold runs prune on their first backfill — pruning more
+   *  often is harmless, skipping it forever would not be. */
   shouldPruneThisRun(projectId: string): boolean {
-    try {
-      const KEY = 'embeddings:prune-tick'
-      const tick = prjctDb.getDoc<number>(projectId, KEY) ?? 0
-      prjctDb.setDoc(projectId, KEY, (tick + 1) % PRUNE_EVERY)
-      return tick === 0
-    } catch {
-      return true
-    }
+    const tick = pruneTicks.get(projectId) ?? 0
+    pruneTicks.set(projectId, (tick + 1) % PRUNE_EVERY)
+    return tick === 0
   },
 
   /** Delete stored vectors for entries that are no longer model-worthy

@@ -366,8 +366,11 @@ export interface CommandRouting {
  *  - 'daemon': forwarded to the daemon when its socket exists; falls
  *    through to cold in-process execution otherwise. The default for any
  *    entry with `routing` set.
+ *  - 'cold-only': the SHIM must not forward it (multi-positional parsing
+ *    the wire protocol can't reconstruct — spec/audit-spec), but the full
+ *    bin/prjct.ts can. Used to live as a side list in scripts/build.js.
  */
-export type CommandRoutingMode = 'bin-only' | 'daemon'
+export type CommandRoutingMode = 'bin-only' | 'daemon' | 'cold-only'
 
 /**
  * Declarative option surface for a daemon-routed command. dispatch.ts and

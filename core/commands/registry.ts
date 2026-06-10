@@ -43,6 +43,8 @@ class CommandRegistry {
       options: Record<string, unknown>
     ) => Promise<CommandResult>
   > = new Map()
+  /** SIGHUP support: per-command resolved {instance, method} memo resets. */
+  private lazyResetters: Array<() => void> = []
   private metadata: Map<string, CommandMeta> = new Map()
   private categories: Map<string, CategoryInfo> = new Map()
   private noProjectCommands: Set<string> = new Set(['init', 'setup', 'start', 'migrateAll'])
@@ -120,6 +122,9 @@ class CommandRegistry {
     // Memoized on success only: a failed load/lookup leaves `resolved`
     // unset so the next dispatch retries instead of replaying the error.
     let resolved: { instance: object; method: LegacyMethod } | undefined
+    this.lazyResetters.push(() => {
+      resolved = undefined
+    })
     const resolve = async (): Promise<{ instance: object; method: LegacyMethod }> => {
       if (resolved) return resolved
       const instance = await loadInstance()
@@ -145,6 +150,16 @@ class CommandRegistry {
       return method.call(instance, param, projectPath, options)
     })
     this.setMeta(name, meta)
+  }
+
+  /**
+   * Drop every memoized resolved handler so the next dispatch re-resolves
+   * through the (also reset) group loaders. SIGHUP's reload path — without
+   * this, schema-covered commands kept pre-reload instances forever while
+   * the explicit dispatch cases got fresh ones.
+   */
+  resetLazyResolutions(): void {
+    for (const reset of this.lazyResetters) reset()
   }
 
   /**
