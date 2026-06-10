@@ -892,4 +892,30 @@ export const migrations: Migration[] = [
       )
     },
   },
+  {
+    version: 28,
+    name: 'embedding-norms',
+    up: (db: SqliteDatabase) => {
+      // semanticSearch divides every cosine score by the row vector's L2
+      // norm, which it used to recompute from the unpacked BLOB on every
+      // query. Store the norm once at write time instead; the query loop
+      // becomes a dot product + one multiply. Backfill computes norms for
+      // existing vectors (Float32 little-endian BLOBs) so the column is
+      // immediately authoritative.
+      db.run('ALTER TABLE memory_embeddings ADD COLUMN norm REAL')
+      const rows = db.prepare('SELECT memory_id, vector FROM memory_embeddings').all() as Array<{
+        memory_id: string
+        vector: Uint8Array
+      }>
+      const setNorm = db.prepare('UPDATE memory_embeddings SET norm = ? WHERE memory_id = ?')
+      for (const r of rows) {
+        // Copy for 4-byte alignment — SQLite BLOBs may arrive unaligned.
+        const copy = Uint8Array.from(r.vector)
+        const v = new Float32Array(copy.buffer, 0, Math.floor(copy.byteLength / 4))
+        let sum = 0
+        for (let i = 0; i < v.length; i++) sum += v[i] * v[i]
+        setNorm.run(Math.sqrt(sum), r.memory_id)
+      }
+    },
+  },
 ]

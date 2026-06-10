@@ -269,7 +269,28 @@ export function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): nu
 interface EmbeddingRow {
   memory_id: string
   vector: Uint8Array
+  norm: number | null
 }
+
+function l2Norm(v: ArrayLike<number>): number {
+  let sum = 0
+  for (let i = 0; i < v.length; i++) sum += v[i] * v[i]
+  return Math.sqrt(sum)
+}
+
+function dot(a: ArrayLike<number>, b: ArrayLike<number>): number {
+  const n = Math.min(a.length, b.length)
+  let d = 0
+  for (let i = 0; i < n; i++) d += a[i] * b[i]
+  return d
+}
+
+/**
+ * Safety bound on how many stored vectors a single semantic query will
+ * deserialize and score (newest-first). A no-op for typical projects
+ * (hundreds of entries); caps BLOB unpacking for pathological ones.
+ */
+const SEMANTIC_SCAN_MAX_ROWS = 2000
 
 export const embeddingService = {
   /**
@@ -291,15 +312,16 @@ export const embeddingService = {
   ): void {
     prjctDb.run(
       projectId,
-      `INSERT INTO memory_embeddings (memory_id, vector, model, dims, created_at)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO memory_embeddings (memory_id, vector, model, dims, norm, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(memory_id) DO UPDATE SET
          vector = excluded.vector, model = excluded.model,
-         dims = excluded.dims, created_at = excluded.created_at`,
+         dims = excluded.dims, norm = excluded.norm, created_at = excluded.created_at`,
       memoryId,
       packVector(vector),
       model,
       vector.length,
+      l2Norm(vector),
       nowIso
     )
   },
@@ -407,15 +429,26 @@ export const embeddingService = {
     try {
       rows = prjctDb.query<EmbeddingRow>(
         projectId,
-        'SELECT memory_id, vector FROM memory_embeddings WHERE model = ?',
-        p.model
+        `SELECT memory_id, vector, norm FROM memory_embeddings
+          WHERE model = ? ORDER BY rowid DESC LIMIT ?`,
+        p.model,
+        SEMANTIC_SCAN_MAX_ROWS
       )
     } catch {
       return []
     }
 
+    // Stored norms (migration 28) turn per-row cosine into a dot product +
+    // one multiply; rows lacking a norm (edge: written mid-migration) fall
+    // back to recomputing it from the unpacked vector.
+    const qNorm = l2Norm(qv)
+    if (qNorm === 0) return []
     const ranked = rows
-      .map((r) => ({ id: r.memory_id, score: cosineSimilarity(qv, unpackVector(r.vector)) }))
+      .map((r) => {
+        const v = unpackVector(r.vector)
+        const denom = qNorm * (r.norm ?? l2Norm(v))
+        return { id: r.memory_id, score: denom === 0 ? 0 : dot(qv, v) / denom }
+      })
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
 

@@ -191,6 +191,58 @@ describe('LocalSubwordEmbeddingProvider', () => {
   })
 })
 
+describe('embeddings — stored norms (migration 28)', () => {
+  it('store() persists the vector L2 norm', () => {
+    embeddingService.store(projectId, 'mem_n1', [3, 4], 'fake-1', NOW)
+    const row = prjctDb.get<{ norm: number }>(
+      projectId,
+      'SELECT norm FROM memory_embeddings WHERE memory_id = ?',
+      'mem_n1'
+    )
+    expect(row?.norm).toBeCloseTo(5)
+  })
+
+  it('semanticSearch ranks correctly using stored norms', async () => {
+    const provider = new FakeProvider({
+      'auth bug': [1, 0, 0, 0],
+      'auth race condition in login': [0.9, 0.1, 0, 0],
+      'how to cook pasta': [0, 0, 0.9, 0.1],
+    })
+    const near = write('gotcha', 'auth race condition in login')
+    const far = write('gotcha', 'how to cook pasta')
+    await embeddingService.backfill(projectId, enabledConfig, NOW, { provider })
+
+    const hits = await embeddingService.semanticSearch(
+      projectId,
+      'auth bug',
+      enabledConfig,
+      2,
+      provider
+    )
+    expect(hits[0]?.id).toBe(near)
+    expect(hits[1]?.id).toBe(far)
+  })
+
+  it('semanticSearch survives a NULL norm (falls back to recompute)', async () => {
+    const provider = new FakeProvider({
+      'auth bug': [1, 0, 0, 0],
+      'auth race condition in login': [0.9, 0.1, 0, 0],
+    })
+    const id = write('gotcha', 'auth race condition in login')
+    await embeddingService.backfill(projectId, enabledConfig, NOW, { provider })
+    prjctDb.run(projectId, 'UPDATE memory_embeddings SET norm = NULL WHERE memory_id = ?', id)
+
+    const hits = await embeddingService.semanticSearch(
+      projectId,
+      'auth bug',
+      enabledConfig,
+      1,
+      provider
+    )
+    expect(hits[0]?.id).toBe(id)
+  })
+})
+
 describe('cosineSimilarity', () => {
   it('is 1 for identical, 0 for orthogonal', () => {
     expect(cosineSimilarity([1, 0, 0], [1, 0, 0])).toBeCloseTo(1, 5)
