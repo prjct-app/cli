@@ -2,10 +2,16 @@
 
 ## [Unreleased]
 
+### Performance
+- **Daemon command groups load lazily.** `PrjctCommands` and the registry bindings eagerly imported and instantiated all ~18 command-group classes at daemon startup; both now use memoized dynamic-import loaders (new `registerLazyMethod`), so the first socket request stops paying for the whole command tree (daemon module import: 67ms → 40ms warm).
+
+### Fixed
+- **All prjct data paths honor `PRJCT_CLI_HOME`.** New shared lazy resolver (`core/infrastructure/cli-home.ts`); fixed the four sites with no override at all — the embeddings key file, the auto-updater state dir, the context7 verify cache, and session-cleanup's rotation, which had drifted from the writer's path and rotated the user's *real* cache file from test runs.
+- Dropped the dead `daemon start --port/--no-http` flags — parsed for years but never accepted by `startDaemon` (the latent type error only surfaced when the handler moved under core's typecheck).
+
 ### Refactoring
-- **Single command manifest — the quadruple-dispatch problem is gone.** Four hand-maintained lists had to agree on which commands exist and where they route (`_binCommands` in bin/prjct.ts, the shim skip-set in scripts/build.js, `standardCommands` in core/index.ts, and the dispatch.ts switch); 18 bin-only commands existed in no metadata at all. `command-data.ts` now carries `routingMode` and `optionSchema` per command, and all four surfaces derive from it: bin imports the derived set, the build evaluates the manifest to emit the shim, and BOTH dispatch paths map flags generically through one schema — the daemon "flag-strip" bug class (a command losing options to a missing hand-written case) disappears by construction. Adding a command is now one manifest entry. Guarded by a new `manifest-completeness` suite plus the rewritten parity/shim-sync tests.
-- **Dead code:** deleted `core/session/session-snapshot.ts` (217 lines, zero importers) and its orphaned schema; knip's `exports` rule went `off` → `warn` so dead exports are visible again (that blindness is what hid the module).
-- **Deduped the provider status table** (version output) — the two hand-rolled copies in core/index.ts and bin/prjct.ts had already drifted; the line renderer now lives once in `core/utils/provider-status.ts`.
+- **`bin/prjct.ts` split**: the ~550 lines of bin-only command handlers moved to `core/cli/bin-commands.ts` (1082 → 536 lines); the entry point keeps startup concerns only.
+- **`core/workflow/` → `core/workflow-engine/`** — disambiguates the rule engine from `core/workflows/` (implementations).
 
 ## [2.42.2] - 2026-06-10
 
