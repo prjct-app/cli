@@ -283,6 +283,10 @@ export const projectMemory = {
       source?: string
       /** Defaults to `declared` — user/LLM asserted this directly. */
       provenance?: MemoryProvenance
+      /** Skips the config read when the caller already resolved it — the
+       *  Stop-hook detectors fire several remembers per turn and each used
+       *  to re-read + re-parse prjct.config.json. */
+      projectId?: string
     }
   ): Promise<void> {
     const tags = args.tags ?? {}
@@ -291,12 +295,14 @@ export const projectMemory = {
 
     // Resolve the project once and reuse it for both the dedup guard and the
     // sync publish below (each used to read + parse the config independently).
-    let projectId: string | undefined
-    try {
-      const { default: configManager } = await import('../infrastructure/config-manager')
-      projectId = (await configManager.readConfig(projectPath))?.projectId
-    } catch {
-      /* config unreadable — dedup + sync are best-effort; the local write proceeds */
+    let projectId: string | undefined = args.projectId
+    if (!projectId) {
+      try {
+        const { default: configManager } = await import('../infrastructure/config-manager')
+        projectId = (await configManager.readConfig(projectPath))?.projectId
+      } catch {
+        /* config unreadable — dedup + sync are best-effort; the local write proceeds */
+      }
     }
 
     // Dedup net: a verbatim re-capture of the same (type, content) adds no
@@ -779,6 +785,45 @@ export const projectMemory = {
    * every cross-reference resolvable (the mem_3233 dangling class, at
    * graph scale). Read-only, best-effort.
    */
+  /**
+   * Entries that still LACK a vector for `model` — the embedding-backfill
+   * work list, via SQL anti-join instead of deserializing the whole corpus
+   * and set-diffing in JS. The improvement-signal / hot-file exclusions
+   * mirror `isModelMemory` as SQL pre-filters; callers still apply
+   * `isModelMemory` over the (small) result for authority.
+   */
+  unembeddedEntriesForIndex(projectId: string, model: string): MemoryEntry[] {
+    try {
+      const rows = prjctDb.query<EventRow>(
+        projectId,
+        `SELECT e.id, e.type, e.data, e.timestamp FROM events e
+          WHERE e.type LIKE ?
+            AND e.type != ?
+            AND NOT EXISTS (
+              SELECT 1 FROM memory_embeddings me
+               WHERE me.memory_id = 'mem_' || e.id AND me.model = ?
+            )
+          ORDER BY e.id DESC`,
+        `${REMEMBER_EVENT_PREFIX}%`,
+        `${REMEMBER_EVENT_PREFIX}improvement-signal`,
+        model
+      )
+      const shipped = prjctDb.query<ShippedRow>(
+        projectId,
+        `SELECT s.id, s.name, s.type, s.shipped_at, s.data FROM shipped_features s
+          WHERE NOT EXISTS (
+            SELECT 1 FROM memory_embeddings me
+             WHERE me.memory_id = 'ship_' || s.id AND me.model = ?
+          )
+          ORDER BY s.shipped_at DESC`,
+        model
+      )
+      return [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+    } catch {
+      return []
+    }
+  },
+
   allEntriesForIndex(projectId: string): MemoryEntry[] {
     try {
       const rows = prjctDb.query<EventRow>(

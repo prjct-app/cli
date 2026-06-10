@@ -98,125 +98,6 @@ const _binCommands = new Set([
   'context-restore',
 ])
 
-// v2 verbs registered in the command registry — imported from the single
-// source of truth so adding a verb only requires updating one list.
-const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
-
-// Update notice — print at process exit so the banner appears AFTER the
-// command's own output. Uses a sync read of the cached latest version;
-// the cache is refreshed in a detached background process so the
-// network call never delays the user-visible command. Skipped for
-// machine-consumed paths (`hook`, `--md`/`--json`, `--quiet`) and for
-// the updater itself. Awaited at top-level so the exit handler is
-// installed BEFORE the daemon fast path's `process.exit` runs.
-const _updateSkipCommands = new Set([
-  'update',
-  'upgrade',
-  'daemon',
-  'hook',
-  'version',
-  '-v',
-  '--version',
-])
-if (
-  _fastCommand &&
-  !_updateSkipCommands.has(_fastCommand) &&
-  process.stderr.isTTY &&
-  !_fastArgs.includes('--md') &&
-  !_fastArgs.includes('--json') &&
-  !_fastArgs.includes('--quiet') &&
-  !_fastArgs.includes('-q') &&
-  process.env.PRJCT_NO_UPDATE_NOTICE !== '1'
-) {
-  const { triggerBackgroundRefreshIfStale, getUpdateNotificationSync } = await import(
-    '../core/infrastructure/update-checker'
-  )
-  // Resolve the running version once, synchronously, so the exit
-  // handler (which can't await) has it ready.
-  const _fs = await import('node:fs')
-  const _path = await import('node:path')
-  let _currentVersion = ''
-  try {
-    const pkgPath = _path.resolve(
-      _path.dirname(new URL(import.meta.url).pathname),
-      '..',
-      'package.json'
-    )
-    _currentVersion = JSON.parse(_fs.readFileSync(pkgPath, 'utf-8')).version ?? ''
-  } catch {
-    /* no version, no banner */
-  }
-  try {
-    triggerBackgroundRefreshIfStale()
-  } catch {
-    /* best-effort */
-  }
-  if (_currentVersion) {
-    process.on('exit', () => {
-      try {
-        const banner = getUpdateNotificationSync(_currentVersion)
-        if (banner) process.stderr.write(banner)
-      } catch {
-        /* never block exit on a notification */
-      }
-    })
-  }
-}
-
-// === SELF-HEAL ===
-// Re-install hooks + global CLAUDE.md when the binary version has moved
-// past the last successful sync. Replaces postinstall (which is disabled
-// by --ignore-scripts and corporate security policies on many client
-// machines). Hot path is a single fs read of the stamp file; the slow
-// path (a few writes to settings.json + CLAUDE.md) only fires once per
-// version bump per machine.
-//
-// Skipped for:
-//   - `daemon`/`update`/`version` (would deadlock the upgrade flow)
-//   - `hook` (session-start fires its own self-heal; other hook events
-//     fire too often to pay even the fs-read cost)
-//   - PRJCT_NO_SELF_SYNC=1 (escape hatch)
-const _selfHealSkip = new Set(['daemon', 'update', 'upgrade', 'version', '-v', '--version', 'hook'])
-if (_fastCommand && !_selfHealSkip.has(_fastCommand) && process.env.PRJCT_NO_SELF_SYNC !== '1') {
-  try {
-    const { VERSION } = await import('../core/utils/version')
-    if (VERSION) {
-      const { isSyncCurrent, runSelfHeal } = await import('../core/infrastructure/self-heal')
-      if (!isSyncCurrent(VERSION)) {
-        await runSelfHeal(VERSION)
-      }
-    }
-  } catch {
-    // best-effort — never block the user's command on self-heal
-  }
-}
-
-// v2 auto-route: if the first positional isn't a known verb, treat the
-// whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
-// Explicit verbs still win. Capture is zero-ceremony; if the user
-// wanted a task (branch/worktree), they type `prjct task "..."`
-// explicitly.
-if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
-  const positionals = _fastArgs.filter((a) => !a.startsWith('-'))
-  const description = positionals.join(' ')
-  const flags = _fastArgs.filter((a) => a.startsWith('-'))
-  // A single command-shaped token (e.g. `prjct upgrade`) is almost never a
-  // GTD note — it's a MISROUTED command: a typo, or a stale parallel
-  // install / long-lived daemon that predates the verb. Silently turning it
-  // into an inbox capture buries it with zero feedback (same silent-no-op
-  // class as the WS1 exit-0 bug). Still capture (don't break free-text GTD)
-  // but make it LOUD + actionable so it's never a silent surprise.
-  if (positionals.length === 1 && /^[a-z][a-z0-9:-]+$/.test(positionals[0])) {
-    process.stderr.write(
-      `prjct: '${positionals[0]}' is not a known command in this install — ` +
-        'saving it to the inbox instead. If you meant the command, this prjct ' +
-        'may be stale: run `prjct update`.\n'
-    )
-  }
-  _fastCommand = 'capture'
-  _fastArgs = ['capture', description, ...flags]
-}
-
 // === HOOK FAST PATH (daemon-served) ===
 // Hooks fire on session-start + every prompt + every stop. A cold spawn
 // costs ~300ms (bun) to ~950ms (node) in process + module load alone; the
@@ -226,6 +107,8 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has
 // already read (so it's never read twice), preserving the fail-soft contract.
 // `hook` stays in `_binCommands` so the GTD auto-route + generic daemon block
 // skip it; PRJCT_NO_DAEMON=1 also skips this and falls through to main().
+// Runs BEFORE the verb-registry import and the update/self-heal blocks —
+// hooks are the hottest path and need none of them.
 if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
   const fs = await import('node:fs')
   const { DAEMON_PATHS } = await import('../core/daemon/protocol')
@@ -287,6 +170,99 @@ if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
       process.stdout.write('{}\n')
       process.exit(0)
     }
+  }
+}
+
+// v2 verbs registered in the command registry — imported from the single
+// source of truth so adding a verb only requires updating one list.
+// Imported AFTER the hook fast path: hooks never need it.
+const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
+
+// v2 auto-route: if the first positional isn't a known verb, treat the
+// whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
+// Explicit verbs still win. Capture is zero-ceremony; if the user
+// wanted a task (branch/worktree), they type `prjct task "..."`
+// explicitly. Must run BEFORE the daemon fast path so the rewritten
+// `capture` routes there.
+if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
+  const positionals = _fastArgs.filter((a) => !a.startsWith('-'))
+  const description = positionals.join(' ')
+  const flags = _fastArgs.filter((a) => a.startsWith('-'))
+  // A single command-shaped token (e.g. `prjct upgrade`) is almost never a
+  // GTD note — it's a MISROUTED command: a typo, or a stale parallel
+  // install / long-lived daemon that predates the verb. Silently turning it
+  // into an inbox capture buries it with zero feedback (same silent-no-op
+  // class as the WS1 exit-0 bug). Still capture (don't break free-text GTD)
+  // but make it LOUD + actionable so it's never a silent surprise.
+  if (positionals.length === 1 && /^[a-z][a-z0-9:-]+$/.test(positionals[0])) {
+    process.stderr.write(
+      `prjct: '${positionals[0]}' is not a known command in this install — ` +
+        'saving it to the inbox instead. If you meant the command, this prjct ' +
+        'may be stale: run `prjct update`.\n'
+    )
+  }
+  _fastCommand = 'capture'
+  _fastArgs = ['capture', description, ...flags]
+}
+
+// Update notice — print at process exit so the banner appears AFTER the
+// command's own output. Uses a sync read of the cached latest version;
+// the cache is refreshed in a detached background process so the
+// network call never delays the user-visible command. Skipped for
+// machine-consumed paths (`hook`, `--md`/`--json`, `--quiet`) and for
+// the updater itself. Awaited at top-level so the exit handler is
+// installed BEFORE the daemon fast path's `process.exit` runs.
+const _updateSkipCommands = new Set([
+  'update',
+  'upgrade',
+  'daemon',
+  'hook',
+  'version',
+  '-v',
+  '--version',
+])
+if (
+  _fastCommand &&
+  !_updateSkipCommands.has(_fastCommand) &&
+  process.stderr.isTTY &&
+  !_fastArgs.includes('--md') &&
+  !_fastArgs.includes('--json') &&
+  !_fastArgs.includes('--quiet') &&
+  !_fastArgs.includes('-q') &&
+  process.env.PRJCT_NO_UPDATE_NOTICE !== '1'
+) {
+  const { triggerBackgroundRefreshIfStale, getUpdateNotificationSync } = await import(
+    '../core/infrastructure/update-checker'
+  )
+  // Resolve the running version once, synchronously, so the exit
+  // handler (which can't await) has it ready.
+  const _fs = await import('node:fs')
+  const _path = await import('node:path')
+  let _currentVersion = ''
+  try {
+    const pkgPath = _path.resolve(
+      _path.dirname(new URL(import.meta.url).pathname),
+      '..',
+      'package.json'
+    )
+    _currentVersion = JSON.parse(_fs.readFileSync(pkgPath, 'utf-8')).version ?? ''
+  } catch {
+    /* no version, no banner */
+  }
+  try {
+    triggerBackgroundRefreshIfStale()
+  } catch {
+    /* best-effort */
+  }
+  if (_currentVersion) {
+    process.on('exit', () => {
+      try {
+        const banner = getUpdateNotificationSync(_currentVersion)
+        if (banner) process.stderr.write(banner)
+      } catch {
+        /* never block exit on a notification */
+      }
+    })
   }
 }
 
@@ -373,6 +349,39 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
       }
       // Stale socket / no listener — fall through to direct execution.
     }
+  }
+}
+
+// === SELF-HEAL ===
+// Re-install hooks + global CLAUDE.md when the binary version has moved
+// past the last successful sync. Replaces postinstall (which is disabled
+// by --ignore-scripts and corporate security policies on many client
+// machines). Hot path is a single fs read of the stamp file; the slow
+// path (a few writes to settings.json + CLAUDE.md) only fires once per
+// version bump per machine.
+//
+// Runs AFTER the daemon fast path: daemon-served commands exit above and
+// skip it, which is fine — the SessionStart hook fires its own self-heal
+// every session, so healing coverage is unchanged while the daemon path
+// stops paying the version/stamp reads.
+//
+// Skipped for:
+//   - `daemon`/`update`/`version` (would deadlock the upgrade flow)
+//   - `hook` (session-start fires its own self-heal; other hook events
+//     fire too often to pay even the fs-read cost)
+//   - PRJCT_NO_SELF_SYNC=1 (escape hatch)
+const _selfHealSkip = new Set(['daemon', 'update', 'upgrade', 'version', '-v', '--version', 'hook'])
+if (_fastCommand && !_selfHealSkip.has(_fastCommand) && process.env.PRJCT_NO_SELF_SYNC !== '1') {
+  try {
+    const { VERSION } = await import('../core/utils/version')
+    if (VERSION) {
+      const { isSyncCurrent, runSelfHeal } = await import('../core/infrastructure/self-heal')
+      if (!isSyncCurrent(VERSION)) {
+        await runSelfHeal(VERSION)
+      }
+    }
+  } catch {
+    // best-effort — never block the user's command on self-heal
   }
 }
 

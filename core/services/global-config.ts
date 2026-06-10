@@ -42,21 +42,45 @@ interface GlobalConfig {
   [key: string]: GlobalConfigValue | undefined
 }
 
-function readRaw(): GlobalConfig {
+// Parsed-config cache validated by file identity (path + mtime + size).
+// `resolveGlobalEmbeddings` calls getConfig 7× per invocation, on every
+// Stop hook — each was a readFileSync + JSON.parse. A stat is ~10× cheaper
+// and stays correct across processes (a CLI `prjct embeddings set` bumps
+// the mtime, so a long-lived daemon picks the change up on its next read).
+let _cache: GlobalConfig | null = null
+let _cacheStamp = ''
+
+function fileStamp(file: string): string {
   try {
-    const raw = fs.readFileSync(configFilePath(), 'utf-8')
+    const st = fs.statSync(file)
+    return `${file}|${st.mtimeMs}|${st.size}`
+  } catch {
+    return `${file}|absent`
+  }
+}
+
+function readRaw(): GlobalConfig {
+  const file = configFilePath()
+  const stamp = fileStamp(file)
+  if (_cache !== null && stamp === _cacheStamp) return _cache
+  let cfg: GlobalConfig = {}
+  try {
+    const raw = fs.readFileSync(file, 'utf-8')
     const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
-      return parsed as GlobalConfig
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) cfg = parsed as GlobalConfig
   } catch {
     // missing or malformed → start fresh
   }
-  return {}
+  _cache = cfg
+  _cacheStamp = stamp
+  return cfg
 }
 
 function writeRaw(cfg: GlobalConfig): void {
   fs.mkdirSync(configDir(), { recursive: true })
   fs.writeFileSync(configFilePath(), `${JSON.stringify(cfg, null, 2)}\n`, 'utf-8')
+  _cache = cfg
+  _cacheStamp = fileStamp(configFilePath())
 }
 
 export function getConfig<K extends keyof GlobalConfig>(key: K): GlobalConfig[K] {

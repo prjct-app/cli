@@ -159,29 +159,19 @@ export abstract class StorageManager<T> {
    * Update data with a transform function
    */
   async update(projectId: string, updater: (current: T) => T): Promise<T> {
-    // Optimistic CAS retry. The old read→transform→write was a lost-update
+    // Atomic read-modify-write inside one BEGIN IMMEDIATE transaction
+    // (prjctDb.updateDoc). The old read→transform→write was a lost-update
     // race: the daemon and a concurrent CLI both read `state`, both wrote,
     // the second blind-overwrote the first (a paused/completed task lost).
-    // WAL+busy_timeout does NOT prevent this — it's an application-level
-    // read-modify-write. We re-read the freshest COMMITTED doc (bypassing
-    // the 5s TTL cache, which can be cross-process stale) and only commit
-    // when the row is unchanged since our read; otherwise re-read & retry.
+    // The write lock is taken up front, so a concurrent writer WAITS (up to
+    // busy_timeout=5000ms) and then re-reads committed state — strictly
+    // stronger than the previous 8-attempt optimistic CAS loop, with one
+    // SELECT + one write per update instead of up to 24 round-trips. True
+    // sustained contention surfaces as SQLITE_BUSY from the driver.
     const key = this.getStoreKey()
-    const MAX_ATTEMPTS = 8
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const snap = prjctDb.getDocWithStamp<T>(projectId, key)
-      const base = snap ? snap.data : this.getDefault()
-      const updated = updater(base)
-      if (prjctDb.casSetDoc(projectId, key, updated, snap?.updatedAt ?? null)) {
-        this.cache.set(projectId, updated) // keep cache coherent with the win
-        return updated
-      }
-      // Another writer committed between our read and write — loop re-reads
-      // the now-current state and re-applies the (pure) transform.
-    }
-    throw new Error(
-      `StorageManager.update: unresolved write contention after ${MAX_ATTEMPTS} attempts (key=${key})`
-    )
+    const updated = prjctDb.updateDoc<T>(projectId, key, updater, () => this.getDefault())
+    this.cache.set(projectId, updated) // keep cache coherent with the committed write
+    return updated
   }
 
   /**

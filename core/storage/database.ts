@@ -241,6 +241,36 @@ class PrjctDatabase {
     )
   }
 
+  /**
+   * Atomic read-modify-write for a kv_store doc inside one BEGIN IMMEDIATE
+   * transaction. Replaces the optimistic CAS retry loop in
+   * StorageManager.update: IMMEDIATE takes the write lock up front, so a
+   * concurrent writer (daemon vs CLI, sibling worktree agents) WAITS — up
+   * to busy_timeout (5000ms) — instead of looping read→conflict→re-read.
+   * One SELECT + one write per update instead of up to 8×(2 SELECTs +
+   * UPDATE). The monotonic-stamp rule from nextKvStamp is preserved using
+   * the row already read — no second SELECT.
+   */
+  updateDoc<T>(projectId: string, key: string, updater: (current: T) => T, getDefault: () => T): T {
+    const db = this.getDb(projectId)
+    return runImmediate(db, () => {
+      const row = this.prepareCached(db, 'SELECT data, updated_at FROM kv_store WHERE key = ?').get(
+        key
+      ) as { data: string; updated_at: string } | null
+      const base = row ? (JSON.parse(row.data) as T) : getDefault()
+      const updated = updater(base)
+      const nowIso = new Date().toISOString()
+      const prev = row?.updated_at
+      const stamp =
+        !prev || nowIso > prev ? nowIso : new Date(new Date(prev).getTime() + 1).toISOString()
+      this.prepareCached(
+        db,
+        'INSERT OR REPLACE INTO kv_store (key, data, updated_at) VALUES (?, ?, ?)'
+      ).run(key, JSON.stringify(updated), stamp)
+      return updated
+    })
+  }
+
   deleteDoc(projectId: string, key: string): void {
     const db = this.getDb(projectId)
     this.prepareCached(db, 'DELETE FROM kv_store WHERE key = ?').run(key)
