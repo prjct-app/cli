@@ -21,6 +21,8 @@
 import { describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
+import { COMMANDS } from '../../commands/command-data'
+import { BIN_COMMANDS_SET } from '../../commands/verb-names'
 
 const ROOT = path.resolve(__dirname, '../../..')
 
@@ -35,7 +37,9 @@ function optionBearingColdCommands(): string[] {
 
   // Handler entries look like `  task: (p) =>` / `  'audit-spec': (p) =>` /
   // `  logout: () =>`. Capture each key and the slice up to the next entry.
-  const keyRe = /\n {8}('?[\w-]+'?):\s*\(/g
+  // Indentation-tolerant: the block moved a nesting level when the
+  // manifest-driven generic path landed.
+  const keyRe = /\n\s{8,12}('?[\w-]+'?):\s*\(/g
   const entries: { key: string; index: number }[] = []
   for (const m of block.matchAll(keyRe)) {
     entries.push({ key: m[1].replace(/'/g, ''), index: m.index ?? 0 })
@@ -51,15 +55,6 @@ function optionBearingColdCommands(): string[] {
   return optionBearing
 }
 
-function binCommandsSkipSet(): Set<string> {
-  const src = fs.readFileSync(path.join(ROOT, 'bin/prjct.ts'), 'utf-8')
-  const m = src.match(/_binCommands = new Set\(\[([\s\S]+?)\]\)/)
-  if (!m) throw new Error('Could not find _binCommands in bin/prjct.ts')
-  const out = new Set<string>()
-  for (const s of m[1].matchAll(/['"]([^'"]+)['"]/g)) out.add(s[1])
-  return out
-}
-
 function dispatchCaseLabels(): Set<string> {
   const src = fs.readFileSync(path.join(ROOT, 'core/daemon/dispatch.ts'), 'utf-8')
   const out = new Set<string>()
@@ -67,25 +62,44 @@ function dispatchCaseLabels(): Set<string> {
   return out
 }
 
+function schemaCoveredCommands(): Set<string> {
+  return new Set(COMMANDS.filter((c) => c.optionSchema).map((c) => c.name))
+}
+
 describe('cold ↔ daemon option-forwarding parity', () => {
-  test('every option-bearing cold command is cold-handled or explicitly cased in dispatch', () => {
+  test('every option-bearing cold command is bin-only, schema-covered, or explicitly cased', () => {
     const optionBearing = optionBearingColdCommands()
-    // Sanity: the extractor actually found the known flag-bearing commands.
-    expect(optionBearing).toContain('embeddings')
+    // Sanity: the extractor still finds the known flag-bearing complex commands.
     expect(optionBearing).toContain('init')
-    expect(optionBearing).toContain('ship')
+    expect(optionBearing).toContain('sync')
 
-    const cold = binCommandsSkipSet()
     const cased = dispatchCaseLabels()
+    const schema = schemaCoveredCommands()
 
-    const dropped = optionBearing.filter((c) => !cold.has(c) && !cased.has(c))
+    const dropped = optionBearing.filter(
+      (c) => !BIN_COMMANDS_SET.has(c) && !cased.has(c) && !schema.has(c)
+    )
     expect(dropped).toEqual([])
   })
 
-  test('the previously-broken commands now have dispatch cases', () => {
+  test('the historically-broken commands are schema-covered or explicitly cased', () => {
     const cased = dispatchCaseLabels()
-    for (const c of ['embeddings', 'init', 'regen', 'login', 'logout', 'auth', 'capture']) {
+    const schema = schemaCoveredCommands()
+    // embeddings/capture lost flags via the daemon in 2.34.0/2.37.x —
+    // they're now schema-covered (the generic path), the rest keep cases.
+    for (const c of ['embeddings', 'capture', 'ship', 'task', 'team', 'guard', 'remember']) {
+      expect(schema.has(c)).toBe(true)
+    }
+    for (const c of ['init', 'regen', 'login', 'logout', 'auth']) {
       expect(cased.has(c)).toBe(true)
     }
+  })
+
+  test('no schema-covered command keeps a hand-written dispatch case', () => {
+    // The generic path owns schema-covered commands; a re-added case would
+    // shadow the manifest and reintroduce cold↔daemon divergence.
+    const cased = dispatchCaseLabels()
+    const overlap = [...schemaCoveredCommands()].filter((c) => cased.has(c))
+    expect(overlap).toEqual([])
   })
 })

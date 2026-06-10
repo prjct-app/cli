@@ -355,6 +355,36 @@ export interface CommandRouting {
   method: string
 }
 
+/**
+ * Where a command executes — the single fact that four hand-maintained
+ * lists used to encode independently (`_binCommands` in bin/prjct.ts, the
+ * shim skip-set in scripts/build.js, `standardCommands` in core/index.ts,
+ * and the dispatch.ts switch). All four now DERIVE from this field.
+ *
+ *  - 'bin-only': handled directly in bin/prjct.ts; never forwarded to the
+ *    daemon (TTY needs, daemon lifecycle, or process-level concerns).
+ *  - 'daemon': forwarded to the daemon when its socket exists; falls
+ *    through to cold in-process execution otherwise. The default for any
+ *    entry with `routing` set.
+ */
+export type CommandRoutingMode = 'bin-only' | 'daemon'
+
+/**
+ * Declarative option surface for a daemon-routed command. dispatch.ts and
+ * core/index.ts map raw parsed flags through this schema generically, so a
+ * command can never lose its options by lacking a hand-written case (the
+ * historical daemon "flag-strip" bug class disappears by construction).
+ */
+export interface CommandOptionSchema {
+  /** Flags coerced with `=== true` (e.g. preview, yes, full). `md` is
+   *  always mapped and need not be listed. */
+  booleans?: string[]
+  /** Flags passed through as strings (e.g. tags, package, status). */
+  strings?: string[]
+  /** Flags coerced with Number() (e.g. limit). */
+  numbers?: string[]
+}
+
 export interface CommandMeta {
   name: string
   group: string
@@ -376,6 +406,13 @@ export interface CommandMeta {
    * commands, deprecated verbs whose entries we keep for the user).
    */
   routing?: CommandRouting
+  /** Execution surface. Defaults to 'daemon' when `routing` is present;
+   *  'bin-only' marks bin/prjct.ts-handled commands. */
+  routingMode?: CommandRoutingMode
+  /** Generic flag mapping for daemon/standard dispatch. Commands with a
+   *  complex signature (object params, multi-positional) omit this and
+   *  keep an explicit case. */
+  optionSchema?: CommandOptionSchema
 }
 
 /**

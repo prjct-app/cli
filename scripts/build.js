@@ -159,6 +159,39 @@ var __dirname = __pathDirname(__filename);`,
 }
 
 /**
+ * Legacy/extra shim-only skips. `dev`/`web`/`serve` are inert orphans that
+ * pre-date the manifest; `spec`/`audit-spec` are deliberately served cold
+ * (multi-positional parsing). Everything else derives from the manifest.
+ */
+const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve', 'spec', 'audit-spec']
+
+/**
+ * Evaluate the command manifest (command-data.ts via verb-names.ts) at
+ * build time and return the bin-handled command names the shim must skip.
+ * This is what makes the shim's skip set DERIVE from the single manifest
+ * instead of being a fourth hand-maintained copy — esbuild bundles the
+ * pure-data module and we execute it in-process.
+ */
+function deriveShimSkipSet() {
+  const esbuild = require('esbuild')
+  const result = esbuild.buildSync({
+    entryPoints: [path.join(ROOT, 'core/commands/verb-names.ts')],
+    bundle: true,
+    format: 'cjs',
+    platform: 'node',
+    write: false,
+  })
+  const mod = { exports: {} }
+  new Function('module', 'exports', 'require', result.outputFiles[0].text)(
+    mod,
+    mod.exports,
+    require
+  )
+  const derived = [...mod.exports.BIN_COMMANDS_SET]
+  return [...new Set([...derived, ...SHIM_EXTRA_SKIP])]
+}
+
+/**
  * Generate the daemon shim — a tiny (<3KB) CLI entry point that:
  * 1. Checks if daemon socket exists (fs.existsSync)
  * 2. If yes: connects, sends command, prints output, exits
@@ -193,7 +226,7 @@ import{connect}from"node:net";import{existsSync}from"node:fs";import{randomUUID}
 const sockPath=homedir()+"/.prjct-cli/run/daemon.sock";
 const args=process.argv.slice(2);
 const cmd=args.find(a=>!a.startsWith("-"));
-const skip=new Set(["daemon","stop","restart","start","setup","update","upgrade","dev","web","serve","context","hooks","doctor","uninstall","watch","help","-h","--help","version","-v","--version","claude","hook","seed","install","crew","mcp","prefs","retro","health","skill-adherence","review-risk","context-save","context-restore","spec","audit-spec"]);
+const skip=new Set(${JSON.stringify(deriveShimSkipSet())});
 function refuse(m){console.error("prjct: daemon dropped the request ("+m+"). Retry: prjct "+args.join(" "));process.exit(1)}
 function isSafeRetry(e){const c=e&&e.code||"",m=e&&e.message||"";return c==="ECONNREFUSED"||c==="ENOENT"||m.includes("ECONNREFUSED")||m.includes("ENOENT")}
 // Hook fast path: forward the event (stdin) to the warm daemon and write its
@@ -378,7 +411,13 @@ async function main() {
   console.log('\nBuild complete!')
 }
 
-main().catch((error) => {
-  console.error('Build failed:', error)
-  process.exit(1)
-})
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('Build failed:', error)
+    process.exit(1)
+  })
+}
+
+// Exported for the daemon-shim-sync test, which asserts the generated
+// shim's skip set stays a superset of the manifest's bin-only commands.
+module.exports = { deriveShimSkipSet, generateDaemonShim, SHIM_EXTRA_SKIP }

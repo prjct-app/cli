@@ -55,49 +55,6 @@ async function readAllStdin(timeoutMs: number): Promise<string> {
   })
 }
 
-// Commands that bin/prjct.ts handles directly (NOT routed through daemon).
-// Note: mcp must stay here because its interactive multi-select needs TTY on
-// stdin/stdout — the detached daemon process has no TTY and would silently
-// fall back to plain list output.
-//
-// IMPORTANT: when adding a command to this set, ALSO add it to the shim skip
-// set in scripts/build.js (~line 175). The daemon-shim-sync test enforces it,
-// and CI Release will fail otherwise. The test parses string literals from
-// this array, so keep entries on bare lines without inline comments.
-const _binCommands = new Set([
-  'daemon',
-  'stop',
-  'restart',
-  'start',
-  'setup',
-  'update',
-  'upgrade',
-  'context',
-  'hooks',
-  'doctor',
-  'uninstall',
-  'claude',
-  'hook',
-  'seed',
-  'install',
-  'crew',
-  'watch',
-  'help',
-  '-h',
-  '--help',
-  'version',
-  '-v',
-  '--version',
-  'mcp',
-  'prefs',
-  'retro',
-  'health',
-  'skill-adherence',
-  'review-risk',
-  'context-save',
-  'context-restore',
-])
-
 // === HOOK FAST PATH (daemon-served) ===
 // Hooks fire on session-start + every prompt + every stop. A cold spawn
 // costs ~300ms (bun) to ~950ms (node) in process + module load alone; the
@@ -173,10 +130,15 @@ if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
   }
 }
 
-// v2 verbs registered in the command registry — imported from the single
-// source of truth so adding a verb only requires updating one list.
-// Imported AFTER the hook fast path: hooks never need it.
-const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
+// Verb sets derived from the command manifest (command-data.ts) — the
+// single source of truth for which commands exist and where they route.
+// `_binCommands` (bin-handled, daemon never sees them) used to be a
+// hand-maintained literal here that had to agree with the shim skip-set
+// in scripts/build.js and the registry; all three now derive from
+// `routingMode` in the manifest. Imported AFTER the hook fast path:
+// hooks never need it.
+const { REGISTERED_VERBS_SET, BIN_COMMANDS_SET } = await import('../core/commands/verb-names')
+const _binCommands = BIN_COMMANDS_SET
 
 // v2 auto-route: if the first positional isn't a known verb, treat the
 // whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
@@ -983,41 +945,40 @@ async function main(): Promise<void> {
       fileExists(path.join(cwd, '.windsurf', 'rules', 'prjct.md')),
     ])
 
-    console.log(`
-${chalk.cyan('p/')} prjct v${VERSION}
-${chalk.dim('Context layer for AI coding agents')}
-
-${chalk.dim('Providers:')}`)
-
-    if (detection.claude.installed) {
-      const status = claudeConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-      const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
-      console.log(`  Claude Code   ${status}${chalk.dim(ver)}`)
-    } else {
-      console.log(`  Claude Code   ${chalk.dim('○ not installed')}`)
-    }
-
-    if (detection.gemini.installed) {
-      const status = geminiConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-      const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
-      console.log(`  Gemini CLI    ${status}${chalk.dim(ver)}`)
-    } else {
-      console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
-    }
-
-    if (cursorDetected) {
-      const status = cursorConfigured ? chalk.green('✓ ready') : chalk.yellow('● detected')
-      console.log(`  Cursor IDE    ${status}${chalk.dim(' (project)')}`)
-    } else {
-      console.log(`  Cursor IDE    ${chalk.dim('○ not detected')}`)
-    }
-
-    if (windsurfDetected) {
-      const status = windsurfConfigured ? chalk.green('✓ ready') : chalk.yellow('● detected')
-      console.log(`  Windsurf IDE  ${status}${chalk.dim(' (project)')}`)
-    } else {
-      console.log(`  Windsurf IDE  ${chalk.dim('○ not detected')}`)
-    }
+    const { providerStatusHeader, providerStatusLine } = await import(
+      '../core/utils/provider-status'
+    )
+    console.log(providerStatusHeader(VERSION))
+    console.log(
+      providerStatusLine(
+        'Claude Code',
+        detection.claude.installed ? (claudeConfigured ? 'ready' : 'installed') : 'missing',
+        detection.claude.version ? chalk.dim(` (v${detection.claude.version})`) : ''
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Gemini CLI',
+        detection.gemini.installed ? (geminiConfigured ? 'ready' : 'installed') : 'missing',
+        detection.gemini.version ? chalk.dim(` (v${detection.gemini.version})`) : ''
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Cursor IDE',
+        cursorDetected ? (cursorConfigured ? 'ready' : 'detected') : 'missing',
+        cursorDetected ? chalk.dim(' (project)') : '',
+        '○ not detected'
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Windsurf IDE',
+        windsurfDetected ? (windsurfConfigured ? 'ready' : 'detected') : 'missing',
+        windsurfDetected ? chalk.dim(' (project)') : '',
+        '○ not detected'
+      )
+    )
 
     console.log(`
 ${chalk.dim("Run 'prjct start' to configure (CLI providers)")}

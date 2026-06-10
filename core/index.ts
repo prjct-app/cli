@@ -6,6 +6,7 @@
 
 import { findClosestCommand } from './commands/closest-command'
 import { PrjctCommands } from './commands/commands'
+import { mapOptions } from './commands/option-mapper'
 import { commandRegistry } from './commands/registry'
 import './commands/register' // Ensure commands are registered
 import os from 'node:os'
@@ -22,6 +23,7 @@ import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
 import { fileExists } from './utils/file-helper'
 import out from './utils/output'
+import { providerStatusHeader, providerStatusLine } from './utils/provider-status'
 
 interface ParsedCommandArgs {
   parsedArgs: string[]
@@ -182,117 +184,77 @@ async function main(): Promise<void> {
       // Standard commands - type-safe invocation
       const param = parsedArgs.join(' ') || null
       const md = options.md === true
-      const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
-        // Core workflow
-        task: (p) =>
-          commands.task(p, process.cwd(), {
-            md,
-            spec: options.spec ? String(options.spec) : undefined,
-          }),
-        // SDD: spec verb. The CLI uses `prjct spec ...`, but Claude
-        // typically calls `prjct spec list/show/audit/...` via subcommand
-        // syntax — `parsedArgs[0]` carries the subverb when present.
-        spec: (p) =>
-          routeSpec(
-            commands,
-            (p ?? '').trim().split(/\s+/).filter(Boolean),
-            options,
-            process.cwd()
-          ),
-        'audit-spec': (p) =>
-          p
-            ? commands.specAudit(p, process.cwd(), { md })
-            : Promise.resolve({ success: false, error: 'audit-spec requires a spec id' }),
-        // Planning — init accepts --pack / --persona / --yes to pre-seed
-        // packs and persona without the interactive wizard.
-        init: (p) =>
-          commands.init({
-            idea: p,
-            yes: options.yes === true,
-            pack: options.pack ? String(options.pack) : undefined,
-            persona: options.persona ? String(options.persona) : undefined,
-          }),
-        ship: (p) =>
-          commands.ship(p, process.cwd(), {
-            md,
-            noSpecGate: options['no-spec-gate'] === true,
-          }),
-        // Workflow
-        workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
-        // Setup
-        sync: () =>
-          commands.sync(process.cwd(), {
-            preview: options.preview === true || options['dry-run'] === true,
-            yes: options.yes === true,
-            json: options.json === true,
-            md,
-            package: options.package ? String(options.package) : undefined,
-            full: options.full === true,
-          }),
-        'analysis-save-llm': (p) =>
-          p
-            ? commands.saveLlmAnalysis(p, process.cwd(), { md })
-            : Promise.resolve({
-                success: false,
-                error: 'analysis-save-llm requires a JSON payload as positional arg',
-              }),
-        regen: () => commands.regenVault(process.cwd(), { md }),
-        start: () => commands.start(),
-        // Context (for Claude templates)
-        context: (p) => commands.context(p),
-        // Memory search — registered verb over the context-memory pipeline
-        search: (p) => commands.search(p, process.cwd(), { md }),
-        // v2 primitives
-        status: (p) => commands.status(p, process.cwd(), { md }),
-        tag: (p) => commands.tag(p, process.cwd(), { md }),
-        remember: (p) =>
-          commands.remember(p, process.cwd(), {
-            md,
-            tags: options.tags ? String(options.tags) : undefined,
-          }),
-        // Delete half of remember — forget a memory entry by id
-        forget: (p) => commands.forget(p, process.cwd(), { md }),
-        // Auth (cloud sync)
-        login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
-        logout: () => commands.logout(),
-        auth: (p) => commands.auth(p, { md }),
-        // v2 alpha.8 packs + Claude Code hook install
-        seed: (p) => commands.seed(p, process.cwd(), { md }),
-        install: () => commands.install(null, process.cwd(), { md }),
-        // v2 alpha.9 GTD capture — also target of bare-dispatch auto-route.
-        capture: (p) =>
-          commands.capture(p, process.cwd(), {
-            md,
-            tags: options.tags ? String(options.tags) : undefined,
-            force: options.force === true,
-          }),
-        // Per-project MCP scoping
-        mcp: (p) => commands.mcp(p, process.cwd(), { md }),
-        // Global BYOT embeddings config
-        embeddings: (p) =>
-          commands.embeddings(p, process.cwd(), {
-            md,
-            key: options.key ? String(options.key) : undefined,
-            model: options.model ? String(options.model) : undefined,
-            baseUrl: options['base-url'] ? String(options['base-url']) : undefined,
-            authHeader: options['auth-header'] ? String(options['auth-header']) : undefined,
-            authScheme: options['auth-scheme'] != null ? String(options['auth-scheme']) : undefined,
-            headers: options.headers ? String(options.headers) : undefined,
-            query: options.query ? String(options.query) : undefined,
-          }),
-        // Anticipation primitive (provider-agnostic; Codex/others call directly)
-        guard: (p) =>
-          commands.guard(p, process.cwd(), {
-            md,
-            limit: options.limit ? Number(options.limit) : undefined,
-          }),
-      }
 
-      const handler = standardCommands[commandName]
-      if (handler) {
-        result = await handler(param)
+      // Manifest-driven: a schema-covered command routes through the SAME
+      // generic mapper as the daemon path (dispatch.ts), so cold and daemon
+      // flag handling cannot diverge — the historical "works in terminal,
+      // broken via daemon" class.
+      const meta = commandRegistry.getByName(commandName)
+      if (meta?.optionSchema) {
+        result = await commandRegistry.executeWithOptions(
+          commandName,
+          param,
+          process.cwd(),
+          mapOptions(options, meta.optionSchema)
+        )
       } else {
-        throw new Error(`Command '${commandName}' has no handler`)
+        // Complex-signature commands only (object params, no-projectPath
+        // shapes, multi-positional routing) — everything else belongs in
+        // the manifest's optionSchema.
+        const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
+          // SDD: spec verb. The CLI uses `prjct spec ...`, but Claude
+          // typically calls `prjct spec list/show/audit/...` via subcommand
+          // syntax — `parsedArgs[0]` carries the subverb when present.
+          spec: (p) =>
+            routeSpec(
+              commands,
+              (p ?? '').trim().split(/\s+/).filter(Boolean),
+              options,
+              process.cwd()
+            ),
+          'audit-spec': (p) =>
+            p
+              ? commands.specAudit(p, process.cwd(), { md })
+              : Promise.resolve({ success: false, error: 'audit-spec requires a spec id' }),
+          // Planning — init accepts --pack / --persona / --yes to pre-seed
+          // packs and persona without the interactive wizard.
+          init: (p) =>
+            commands.init({
+              idea: p,
+              yes: options.yes === true,
+              pack: options.pack ? String(options.pack) : undefined,
+              persona: options.persona ? String(options.persona) : undefined,
+            }),
+          sync: () =>
+            commands.sync(process.cwd(), {
+              preview: options.preview === true || options['dry-run'] === true,
+              yes: options.yes === true,
+              json: options.json === true,
+              md,
+              package: options.package ? String(options.package) : undefined,
+              full: options.full === true,
+            }),
+          'analysis-save-llm': (p) =>
+            p
+              ? commands.saveLlmAnalysis(p, process.cwd(), { md })
+              : Promise.resolve({
+                  success: false,
+                  error: 'analysis-save-llm requires a JSON payload as positional arg',
+                }),
+          regen: () => commands.regenVault(process.cwd(), { md }),
+          start: () => commands.start(),
+          // Auth (cloud sync)
+          login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
+          logout: () => commands.logout(),
+          auth: (p) => commands.auth(p, { md }),
+        }
+
+        const handler = standardCommands[commandName]
+        if (handler) {
+          result = await handler(param)
+        } else {
+          throw new Error(`Command '${commandName}' has no handler`)
+        }
       }
     }
 
@@ -433,48 +395,46 @@ async function displayVersion(version: string): Promise<void> {
   // Antigravity status (global, skills-based)
   const antigravityDetection = await detectAntigravity()
 
-  console.log(`
-${chalk.cyan('p/')} prjct v${version}
-${chalk.dim('Context layer for AI coding agents')}
-
-${chalk.dim('Providers:')}`)
-
-  // Claude status
-  if (detection.claude.installed) {
-    const status = claudeConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-    const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
-    console.log(`  Claude Code   ${status}${chalk.dim(ver)}`)
-  } else {
-    console.log(`  Claude Code   ${chalk.dim('○ not installed')}`)
-  }
-
-  // Gemini status
-  if (detection.gemini.installed) {
-    const status = geminiConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-    const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
-    console.log(`  Gemini CLI    ${status}${chalk.dim(ver)}`)
-  } else {
-    console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
-  }
-
-  if (antigravityDetection.installed) {
-    const status = antigravityDetection.skillInstalled
-      ? chalk.green('✓ ready')
-      : chalk.yellow('● detected')
-    const hint = antigravityDetection.skillInstalled ? '' : ` ${chalk.dim('(run prjct start)')}`
-    console.log(`  Antigravity   ${status}${hint}`)
-  } else {
-    console.log(`  Antigravity   ${chalk.dim('○ not installed')}`)
-  }
-
-  // Cursor status (project-level, but shown in same format)
-  if (cursorConfigured) {
-    console.log(`  Cursor IDE    ${chalk.green('✓ ready')} ${chalk.dim('(use /sync, /task)')}`)
-  } else if (cursorExists) {
-    console.log(`  Cursor IDE    ${chalk.yellow('● detected')} ${chalk.dim('(run prjct init)')}`)
-  } else {
-    console.log(`  Cursor IDE    ${chalk.dim('○ no .cursor/ folder')}`)
-  }
+  console.log(providerStatusHeader(version))
+  console.log(
+    providerStatusLine(
+      'Claude Code',
+      detection.claude.installed ? (claudeConfigured ? 'ready' : 'installed') : 'missing',
+      detection.claude.version ? chalk.dim(` (v${detection.claude.version})`) : ''
+    )
+  )
+  console.log(
+    providerStatusLine(
+      'Gemini CLI',
+      detection.gemini.installed ? (geminiConfigured ? 'ready' : 'installed') : 'missing',
+      detection.gemini.version ? chalk.dim(` (v${detection.gemini.version})`) : ''
+    )
+  )
+  console.log(
+    providerStatusLine(
+      'Antigravity',
+      antigravityDetection.installed
+        ? antigravityDetection.skillInstalled
+          ? 'ready'
+          : 'detected'
+        : 'missing',
+      antigravityDetection.installed && !antigravityDetection.skillInstalled
+        ? ` ${chalk.dim('(run prjct start)')}`
+        : ''
+    )
+  )
+  console.log(
+    providerStatusLine(
+      'Cursor IDE',
+      cursorConfigured ? 'ready' : cursorExists ? 'detected' : 'missing',
+      cursorConfigured
+        ? ` ${chalk.dim('(use /sync, /task)')}`
+        : cursorExists
+          ? ` ${chalk.dim('(run prjct init)')}`
+          : '',
+      '○ no .cursor/ folder'
+    )
+  )
 
   console.log(`
 ${chalk.dim("Run 'prjct start' for Claude/Gemini, 'prjct init' for Cursor")}

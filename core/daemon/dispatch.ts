@@ -9,6 +9,7 @@
 
 import { findClosestCommand } from '../commands/closest-command'
 import type { PrjctCommands } from '../commands/commands'
+import { mapOptions } from '../commands/option-mapper'
 import { commandRegistry } from '../commands/registry'
 import { isRemovedVerb, migrationMessage } from '../commands/removed-verbs'
 import { routeSpec } from '../commands/route-spec'
@@ -52,7 +53,25 @@ export async function executeCommand(
     })
   }
 
-  // Commands that need options routed through PrjctCommands
+  // Manifest-driven dispatch: any command with an `optionSchema` gets its
+  // flags mapped generically and is invoked through the option-aware
+  // registry bridge — (param, projectPath, options). A schema-covered
+  // command can never lose its options by missing a hand-written case
+  // (the daemon flag-strip bug class, mem_1102/1103).
+  const meta = commandRegistry.getByName(request.command)
+  if (meta?.optionSchema) {
+    return commandRegistry.executeWithOptions(
+      request.command,
+      param,
+      request.cwd,
+      mapOptions(opts, meta.optionSchema)
+    )
+  }
+
+  // Complex-signature commands: object params, multi-positional routing,
+  // or non-(param, projectPath, options) method shapes. These are the ONLY
+  // commands allowed an explicit case — manifest-completeness.test.ts
+  // fails if a schema-covered command grows one.
   switch (request.command) {
     case 'sync':
       return commands.sync(request.cwd, {
@@ -63,29 +82,6 @@ export async function executeCommand(
         package: opts.package ? String(opts.package) : undefined,
         full: opts.full === true,
       })
-    case 'task':
-      return commands.task(param, request.cwd, {
-        md,
-        spec: opts.spec ? String(opts.spec) : undefined,
-      })
-    case 'ship': {
-      const intent = typeof opts.intent === 'string' ? (opts.intent as string) : undefined
-      return commands.ship(param, request.cwd, {
-        md,
-        intent: intent as 'register-only' | 'seed-code-workflow' | 'proceed' | undefined,
-        skipHooks: opts['skip-hooks'] === true,
-        noSpecGate: opts['no-spec-gate'] === true,
-      })
-    }
-    case 'capture':
-      // Explicit `prjct capture "…" --tags …`: `capture` IS registered, so it
-      // skips the unknown-verb auto-route above and lands here. Without this
-      // case it fell to the option-less registry path, dropping --tags/--force.
-      return commands.capture(param, request.cwd, {
-        md,
-        tags: opts.tags ? String(opts.tags) : undefined,
-        force: opts.force === true,
-      })
     case 'spec':
       return routeSpec(commands, request.args, opts, request.cwd)
     case 'audit-spec':
@@ -93,8 +89,6 @@ export async function executeCommand(
         return { success: false, error: 'audit-spec requires a spec id' }
       }
       return commands.specAudit(param, request.cwd, { md })
-    case 'workflow':
-      return commands.workflowPrefs(param, request.cwd, { md })
     case 'analyze':
       return commands.analyze(opts, request.cwd)
     case 'analysis-save-llm':
@@ -105,56 +99,6 @@ export async function executeCommand(
         }
       }
       return commands.saveLlmAnalysis(param, request.cwd, { md })
-    case 'status':
-      return commands.status(param, request.cwd, { md })
-    case 'tag':
-      return commands.tag(param, request.cwd, { md })
-    case 'remember':
-      return commands.remember(param, request.cwd, {
-        md,
-        tags: opts.tags ? String(opts.tags) : undefined,
-      })
-    case 'mcp':
-      // Explicit case (not registry.execute) because the registry wrapper
-      // calls `mcp(projectPath)` when param is null — which makes `mcp` parse
-      // the cwd as a subcommand. `p. mcp` from Claude Code hits exactly that
-      // path and was returning "Unknown mcp subcommand: /Users/…".
-      return commands.mcp(param, request.cwd, { md })
-    case 'team':
-      return commands.team(param, request.cwd, {
-        md,
-        required: opts.required === true,
-        minVersion: opts['min-version'] ? String(opts['min-version']) : undefined,
-        enforce: opts.enforce === true,
-      })
-    case 'config':
-      return commands.config(param, request.cwd, { md })
-    case 'search':
-      // Explicit case so --md survives the daemon; the default
-      // registry.execute path strips flags (dispatch-option-parity.test.ts).
-      return commands.search(param, request.cwd, { md })
-    case 'forget':
-      // Same as search: explicit case so --md survives the daemon round-trip.
-      return commands.forget(param, request.cwd, { md })
-    case 'guard':
-      return commands.guard(param, request.cwd, {
-        md,
-        limit: opts.limit ? Number(opts.limit) : undefined,
-      })
-    case 'embeddings':
-      // Must mirror the cold path (core/index.ts): the default
-      // registry.execute path drops option flags, so `prjct embeddings set
-      // --key …` via the daemon silently lost the key (set became a no-op).
-      return commands.embeddings(param, request.cwd, {
-        md,
-        key: opts.key ? String(opts.key) : undefined,
-        model: opts.model ? String(opts.model) : undefined,
-        baseUrl: opts['base-url'] ? String(opts['base-url']) : undefined,
-      })
-    // The cases below close the same flag-stripping gap as embeddings: each
-    // is registered + daemon-routed but used to fall through to the
-    // option-less registry path. `dispatch-option-parity.test.ts` guards
-    // against this class of drift recurring.
     case 'init':
       // request.cwd (NOT the daemon's process.cwd) is the project dir.
       return commands.init(
