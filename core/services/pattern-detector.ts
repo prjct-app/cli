@@ -29,6 +29,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
+import type { LocalConfig } from '../types/config'
 
 const execFileP = promisify(execFile)
 
@@ -86,7 +87,10 @@ interface DetectResult {
  * hook awaits this best-effort. Each detector is wrapped so a single
  * failure (e.g. git missing) never breaks the others.
  */
-export async function detectAndPersistPatterns(projectPath: string): Promise<DetectResult> {
+export async function detectAndPersistPatterns(
+  projectPath: string,
+  preloadedConfig?: LocalConfig | null
+): Promise<DetectResult> {
   const result: DetectResult = {
     scanned: 0,
     hotFiles: [],
@@ -95,7 +99,10 @@ export async function detectAndPersistPatterns(projectPath: string): Promise<Det
     errors: [],
   }
 
-  const config = await configManager.readConfig(projectPath).catch(() => null)
+  const config =
+    preloadedConfig !== undefined
+      ? preloadedConfig
+      : await configManager.readConfig(projectPath).catch(() => null)
   if (!config?.projectId) {
     result.errors.push('no project config')
     return result

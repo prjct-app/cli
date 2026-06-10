@@ -32,6 +32,7 @@ import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
+import type { LocalConfig } from '../types/config'
 import type { WorkflowRule } from '../types/storage/extended'
 import { scanForPromptInjection } from '../utils/prompt-injection'
 import { scanForSecrets } from '../utils/secret-scanner'
@@ -490,9 +491,15 @@ interface WorkflowIngestResult {
  * snapshot under _generated/workflows/ on the next run, so the user
  * sees their edits reflected immediately.
  */
-export async function ingestWorkflowEdits(projectPath: string): Promise<WorkflowIngestResult> {
+export async function ingestWorkflowEdits(
+  projectPath: string,
+  preloadedConfig?: LocalConfig | null
+): Promise<WorkflowIngestResult> {
   const result: WorkflowIngestResult = { ingested: [], skipped: [], errors: [] }
-  const config = await configManager.readConfig(projectPath).catch(() => null)
+  const config =
+    preloadedConfig !== undefined
+      ? preloadedConfig
+      : await configManager.readConfig(projectPath).catch(() => null)
   if (!config?.projectId) return result
   const projectId = config.projectId
 

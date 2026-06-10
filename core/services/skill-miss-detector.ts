@@ -34,6 +34,7 @@ import fs from 'node:fs/promises'
 import { projectMemory } from '../memory/project-memory'
 import { getModifiedFiles } from '../session/git-helpers'
 import { crewRunStorage } from '../storage/crew-run-storage'
+import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jsonl'
 import { usefulnessService } from './usefulness'
 
 const SOURCE_TAG = 'skill-miss-detector'
@@ -148,19 +149,26 @@ export interface SkillMissResult {
 export async function detectSkillMisses(
   projectPath: string,
   transcriptPath: string,
-  sessionId: string | null
+  sessionId: string | null,
+  opts: { preloadedLines?: TranscriptJsonlLine[] } = {}
 ): Promise<SkillMissResult> {
-  let raw = ''
-  try {
-    raw = await fs.readFile(transcriptPath, 'utf-8')
-  } catch {
-    return { signalsRecorded: 0, signalsSkipped: 0 }
+  let lines: TranscriptLine[]
+  if (opts.preloadedLines) {
+    lines = opts.preloadedLines as TranscriptLine[]
+  } else {
+    let raw = ''
+    try {
+      raw = await fs.readFile(transcriptPath, 'utf-8')
+    } catch {
+      return { signalsRecorded: 0, signalsSkipped: 0 }
+    }
+    lines = parseJsonl(raw)
   }
 
   const projectId = projectIdFromPath(projectPath)
   if (!projectId) return { signalsRecorded: 0, signalsSkipped: 0 }
 
-  const transcriptText = transcriptTextOf(parseJsonl(raw))
+  const transcriptText = transcriptTextOf(lines)
   if (!transcriptText) return { signalsRecorded: 0, signalsSkipped: 0 }
 
   let candidates: CandidateMemory[]
@@ -220,6 +228,7 @@ export async function detectSkillMisses(
           ...(sessionId ? { session: sessionId } : {}),
         },
         provenance: 'extracted',
+        projectId,
       })
       // The remember() above auto-credited the missed entry via its
       // `relates:` tag — but a miss is not usage. Cancel it + nudge down.
@@ -309,16 +318,7 @@ function analyze(
 }
 
 function parseJsonl(raw: string): TranscriptLine[] {
-  const out: TranscriptLine[] = []
-  for (const line of raw.split('\n')) {
-    if (!line.trim()) continue
-    try {
-      out.push(JSON.parse(line) as TranscriptLine)
-    } catch {
-      /* skip malformed line */
-    }
-  }
-  return out
+  return parseTranscriptJsonl(raw) as TranscriptLine[]
 }
 
 /** Flatten all user + assistant turn text into one lowercased blob. */

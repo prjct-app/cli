@@ -17,12 +17,14 @@
  * delegated capture to Claude instead of doing it ourselves).
  */
 
+import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
 import { embeddingService } from '../services/embeddings'
 import { detectFriction } from '../services/friction-detector'
 import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
 import { detectSkillMisses } from '../services/skill-miss-detector'
+import { parseTranscriptJsonl, type TranscriptJsonlLine } from '../services/transcript-jsonl'
 import { ingestTranscript } from '../services/transcript-learner'
 import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
@@ -43,6 +45,15 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         const config = await configManager.readConfig(p).catch(() => null)
         if (!config?.projectId) return
 
+        // Read + parse the transcript ONCE. Three consumers below
+        // (transcript-learner, friction-detector, skill-miss-detector) each
+        // used to re-read and re-tokenize the same multi-hundred-KB JSONL.
+        let transcriptLines: TranscriptJsonlLine[] | undefined
+        if (input.transcript_path) {
+          const raw = await fs.readFile(input.transcript_path, 'utf-8').catch(() => null)
+          if (raw !== null) transcriptLines = parseTranscriptJsonl(raw)
+        }
+
         // Captured notes → memory entries (existing behavior).
         try {
           await ingestCapturedNotes(p)
@@ -52,7 +63,7 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
 
         // M1b INPUT: workflow overrides → workflow_rules table.
         try {
-          await ingestWorkflowEdits(p)
+          await ingestWorkflowEdits(p, config)
         } catch {
           // Same contract — failed parses leave the file in place for the user.
         }
@@ -61,7 +72,10 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // transcript. Conservative heuristics, hashed-dedup, never blocks.
         if (input.transcript_path) {
           try {
-            await ingestTranscript(p, input.transcript_path, input.session_id ?? null)
+            await ingestTranscript(p, input.transcript_path, input.session_id ?? null, {
+              preloadedConfig: config,
+              preloadedLines: transcriptLines,
+            })
           } catch {
             // Failed parse / unexpected format → swallow. The user can
             // always run `prjct remember` explicitly.
@@ -72,7 +86,7 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // as learning memory entries. Lookup-first protocol means Claude
         // finds them on next session start without inflating context.
         try {
-          await detectAndPersistPatterns(p)
+          await detectAndPersistPatterns(p, config)
         } catch {
           // Git failure / non-repo → swallow; nothing to do here.
         }
@@ -99,7 +113,10 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
             const friction = await detectFriction(
               p,
               input.transcript_path,
-              input.session_id ?? null
+              input.session_id ?? null,
+              {
+                preloadedLines: transcriptLines,
+              }
             )
             // AUTOMATIC negative reinforcement (no command): if the user
             // pushed back this session, demote the memories that were in
@@ -127,7 +144,9 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // best-effort contract as the friction detector above.
         if (input.transcript_path) {
           try {
-            await detectSkillMisses(p, input.transcript_path, input.session_id ?? null)
+            await detectSkillMisses(p, input.transcript_path, input.session_id ?? null, {
+              preloadedLines: transcriptLines,
+            })
           } catch {
             /* silent best-effort — must never block session end */
           }
@@ -140,7 +159,11 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // Best-effort, idempotent (only un-embedded entries are touched), and
         // must never block session end.
         try {
-          await embeddingService.backfill(p, config, new Date().toISOString())
+          // First arg is the projectId, NOT the path: passing `p` here keyed
+          // every query to path.join(projectsDir, <abs path>) — a phantom DB
+          // under ~/.prjct-cli/projects/Users/... that made the session-end
+          // backfill a silent no-op (ghost dirs confirmed on disk).
+          await embeddingService.backfill(config.projectId, config, new Date().toISOString())
         } catch {
           /* never block session end on index maintenance */
         }

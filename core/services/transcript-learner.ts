@@ -25,6 +25,8 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
 import { type MemoryType, projectMemory } from '../memory/project-memory'
+import type { LocalConfig } from '../types/config'
+import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jsonl'
 
 const SOURCE_TAG = 'transcript-auto'
 const MIN_PARAGRAPH_CHARS = 80
@@ -84,25 +86,35 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
 export async function ingestTranscript(
   projectPath: string,
   transcriptPath: string,
-  sessionId: string | null
+  sessionId: string | null,
+  opts: { preloadedConfig?: LocalConfig | null; preloadedLines?: TranscriptJsonlLine[] } = {}
 ): Promise<IngestResult> {
   const result: IngestResult = { scanned: 0, ingested: 0, skipped: [], errors: [] }
 
-  const config = await configManager.readConfig(projectPath).catch(() => null)
+  const config =
+    opts.preloadedConfig !== undefined
+      ? opts.preloadedConfig
+      : await configManager.readConfig(projectPath).catch(() => null)
   if (!config?.projectId) {
     result.errors.push('no project config')
     return result
   }
 
-  let raw: string
-  try {
-    raw = await fs.readFile(transcriptPath, 'utf-8')
-  } catch (err) {
-    result.errors.push(`transcript read failed: ${(err as Error).message}`)
-    return result
+  let lines: TranscriptJsonlLine[]
+  if (opts.preloadedLines) {
+    lines = opts.preloadedLines
+  } else {
+    let raw: string
+    try {
+      raw = await fs.readFile(transcriptPath, 'utf-8')
+    } catch (err) {
+      result.errors.push(`transcript read failed: ${(err as Error).message}`)
+      return result
+    }
+    lines = parseTranscriptJsonl(raw)
   }
 
-  const messages = parseTranscript(raw)
+  const messages = projectMessages(lines)
   result.scanned = messages.length
   if (messages.length === 0) return result
 
@@ -132,6 +144,7 @@ export async function ingestTranscript(
           phrase: cand.matchedPhrase,
         },
         provenance: 'inferred',
+        projectId: config.projectId,
       })
       result.ingested += 1
     } catch (err) {
@@ -158,16 +171,13 @@ interface TranscriptMessage {
  * calls, tool results, and user turns are skipped.
  */
 function parseTranscript(raw: string): TranscriptMessage[] {
+  return projectMessages(parseTranscriptJsonl(raw))
+}
+
+/** Typed projection over shared raw lines: assistant turns with real text. */
+function projectMessages(lines: TranscriptJsonlLine[]): TranscriptMessage[] {
   const out: TranscriptMessage[] = []
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-    let parsed: Record<string, unknown>
-    try {
-      parsed = JSON.parse(trimmed) as Record<string, unknown>
-    } catch {
-      continue
-    }
+  for (const parsed of lines) {
     const role = inferRole(parsed)
     if (role !== 'assistant') continue
     const text = extractText(parsed)

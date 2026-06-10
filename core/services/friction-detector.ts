@@ -25,6 +25,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import { projectMemory } from '../memory/project-memory'
+import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jsonl'
 
 const SOURCE_TAG = 'friction-detector'
 const MAX_SIGNALS_PER_SESSION = 5
@@ -88,16 +89,21 @@ export interface FrictionResult {
 export async function detectFriction(
   projectPath: string,
   transcriptPath: string,
-  sessionId: string | null
+  sessionId: string | null,
+  opts: { preloadedLines?: TranscriptJsonlLine[] } = {}
 ): Promise<FrictionResult> {
-  let raw = ''
-  try {
-    raw = await fs.readFile(transcriptPath, 'utf-8')
-  } catch {
-    return { signalsRecorded: 0, signalsSkipped: 0 }
+  let lines: TranscriptLine[]
+  if (opts.preloadedLines) {
+    lines = opts.preloadedLines as TranscriptLine[]
+  } else {
+    let raw = ''
+    try {
+      raw = await fs.readFile(transcriptPath, 'utf-8')
+    } catch {
+      return { signalsRecorded: 0, signalsSkipped: 0 }
+    }
+    lines = parseJsonl(raw)
   }
-
-  const lines = parseJsonl(raw)
   const signals = extractSignals(lines)
   if (signals.length === 0) {
     return { signalsRecorded: 0, signalsSkipped: 0 }
@@ -105,6 +111,7 @@ export async function detectFriction(
 
   // Dedup against signals already in memory (hashing on excerpt).
   const existing = projectMemoryHashes(projectPath)
+  const projectId = projectIdFromPath(projectPath) ?? undefined
   let recorded = 0
   let skipped = 0
   for (const signal of signals.slice(0, MAX_SIGNALS_PER_SESSION)) {
@@ -128,6 +135,7 @@ export async function detectFriction(
           key: dedupKey, // dedup key for the (type, key) latest-winner rule
         },
         provenance: 'extracted',
+        projectId,
       })
       recorded++
     } catch {
@@ -140,16 +148,7 @@ export async function detectFriction(
 // Helpers — exported for tests via _internal.
 
 function parseJsonl(raw: string): TranscriptLine[] {
-  const out: TranscriptLine[] = []
-  for (const line of raw.split('\n')) {
-    if (!line.trim()) continue
-    try {
-      out.push(JSON.parse(line) as TranscriptLine)
-    } catch {
-      /* skip malformed line */
-    }
-  }
-  return out
+  return parseTranscriptJsonl(raw) as TranscriptLine[]
 }
 
 /**

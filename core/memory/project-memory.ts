@@ -283,6 +283,10 @@ export const projectMemory = {
       source?: string
       /** Defaults to `declared` — user/LLM asserted this directly. */
       provenance?: MemoryProvenance
+      /** Skips the config read when the caller already resolved it — the
+       *  Stop-hook detectors fire several remembers per turn and each used
+       *  to re-read + re-parse prjct.config.json. */
+      projectId?: string
     }
   ): Promise<void> {
     const tags = args.tags ?? {}
@@ -291,12 +295,14 @@ export const projectMemory = {
 
     // Resolve the project once and reuse it for both the dedup guard and the
     // sync publish below (each used to read + parse the config independently).
-    let projectId: string | undefined
-    try {
-      const { default: configManager } = await import('../infrastructure/config-manager')
-      projectId = (await configManager.readConfig(projectPath))?.projectId
-    } catch {
-      /* config unreadable — dedup + sync are best-effort; the local write proceeds */
+    let projectId: string | undefined = args.projectId
+    if (!projectId) {
+      try {
+        const { default: configManager } = await import('../infrastructure/config-manager')
+        projectId = (await configManager.readConfig(projectPath))?.projectId
+      } catch {
+        /* config unreadable — dedup + sync are best-effort; the local write proceeds */
+      }
     }
 
     // Dedup net: a verbatim re-capture of the same (type, content) adds no
