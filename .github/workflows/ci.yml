@@ -22,7 +22,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned via .bun-version (single source): resolving `latest`
+          # queries the bun tags API every run — the 500-prone call that
+          # broke the v2.42.6 release — and silently drifts from local dev.
+          bun-version-file: .bun-version
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -60,7 +63,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned via .bun-version (single source): resolving `latest`
+          # queries the bun tags API every run — the 500-prone call that
+          # broke the v2.42.6 release — and silently drifts from local dev.
+          bun-version-file: .bun-version
 
       - name: Install dependencies
         run: npm install
@@ -80,7 +86,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned via .bun-version (single source): resolving `latest`
+          # queries the bun tags API every run — the 500-prone call that
+          # broke the v2.42.6 release — and silently drifts from local dev.
+          bun-version-file: .bun-version
 
       - name: Cache dependencies
         uses: actions/cache@v4

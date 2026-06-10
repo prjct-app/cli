@@ -5,6 +5,7 @@
 Follow-ups from the v2.42.x range review (the reported-not-fixed list).
 
 ### Fixed
+- **CI/Release no longer resolve bun `latest` per run.** `setup-bun` queried the bun tags API on every workflow run (the 500-prone call that aborted the v2.42.6 release) and silently drifted from local dev. All non-canary jobs now pin via a single `.bun-version` file; the install-compat matrix keeps `latest` deliberately as the canary.
 - **SIGHUP now actually reloads.** The handler refreshed only the explicit-dispatch instance; schema-covered commands kept pre-reload group instances forever (the registry's lazy memos were never reset). Both lazy layers now register resetters and SIGHUP clears them.
 
 ### Changed
