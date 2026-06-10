@@ -14,6 +14,17 @@ Hot-path performance pass over the hooks that fire on every Claude turn.
 - **Global config is stat-cached.** `resolveGlobalEmbeddings` did 7 `readFileSync`+parse of `global.json` per Stop hook; reads now revalidate against mtime+size, so a CLI write is still picked up by a long-lived daemon.
 - **CLI cold-path reorder.** The hook fast path runs before the verb-registry import and the update/self-heal blocks (hooks need none of them); self-heal moved after the daemon fast path (SessionStart's own self-heal keeps coverage).
 
+## [2.42.1] - 2026-06-10
+
+### Performance
+
+- hot paths — Stop hook config/transcript once, CAS→txn, backfill anti-join + ghost-DB fix (#416)
+
+### Refactoring
+
+- perf: hot paths — Stop hook config/transcript once, CAS→txn, backfill anti-join + ghost-DB fix (#416)
+
+
 ## [2.42.0] - 2026-06-10
 
 ### Features
