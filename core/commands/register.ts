@@ -13,48 +13,39 @@
  */
 
 import type { CommandRoutingGroup } from '../types/commands'
-import { AnalysisCommands } from './analysis'
-import { CaptureCommands } from './capture'
 import { CATEGORIES, COMMANDS } from './command-data'
-import { ConfigCommands } from './config'
-import { ContextCommands } from './context'
-import { EmbeddingsCommands } from './embeddings'
-import { GuardCommands } from './guard'
-import { InstallCommands } from './install'
-import { McpCommands } from './mcp'
-import { PlanningCommands } from './planning'
-import { PrimitiveCommands } from './primitives'
 import { commandRegistry } from './registry'
-import { SeedCommands } from './seed'
-import { SetupCommands } from './setup'
-import { ShippingCommands } from './shipping'
-import { SpecCommands } from './spec'
-import { TeamCommands } from './team'
-import { UninstallCommands } from './uninstall'
-import { UpdateCommands } from './update'
-import { WorkflowCommands } from './workflow'
 
-// One singleton per command group — instances live for the process
-// lifetime, so the registry binds methods once and reuses the closure.
-const groupInstances: Record<CommandRoutingGroup, object> = {
-  workflow: new WorkflowCommands(),
-  planning: new PlanningCommands(),
-  shipping: new ShippingCommands(),
-  analysis: new AnalysisCommands(),
-  setup: new SetupCommands(),
-  context: new ContextCommands(),
-  primitives: new PrimitiveCommands(),
-  seed: new SeedCommands(),
-  install: new InstallCommands(),
-  capture: new CaptureCommands(),
-  mcp: new McpCommands(),
-  team: new TeamCommands(),
-  config: new ConfigCommands(),
-  uninstall: new UninstallCommands(),
-  update: new UpdateCommands(),
-  spec: new SpecCommands(),
-  embeddings: new EmbeddingsCommands(),
-  guard: new GuardCommands(),
+// One lazy, memoized loader per command group. The class modules load on
+// FIRST DISPATCH of one of their verbs via dynamic import — importing
+// this module (which the daemon does at startup for its side effect)
+// costs nothing beyond the manifest. Heavy groups (analysis drags in
+// sync-service -> BM25 indexer, import-graph, skill generator) stay
+// unparsed until a request actually needs them.
+function lazy(factory: () => Promise<object>): () => Promise<object> {
+  let memo: Promise<object> | undefined
+  return () => (memo ??= factory())
+}
+
+const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = {
+  workflow: lazy(async () => new (await import('./workflow')).WorkflowCommands()),
+  planning: lazy(async () => new (await import('./planning')).PlanningCommands()),
+  shipping: lazy(async () => new (await import('./shipping')).ShippingCommands()),
+  analysis: lazy(async () => new (await import('./analysis')).AnalysisCommands()),
+  setup: lazy(async () => new (await import('./setup')).SetupCommands()),
+  context: lazy(async () => new (await import('./context')).ContextCommands()),
+  primitives: lazy(async () => new (await import('./primitives')).PrimitiveCommands()),
+  seed: lazy(async () => new (await import('./seed')).SeedCommands()),
+  install: lazy(async () => new (await import('./install')).InstallCommands()),
+  capture: lazy(async () => new (await import('./capture')).CaptureCommands()),
+  mcp: lazy(async () => new (await import('./mcp')).McpCommands()),
+  team: lazy(async () => new (await import('./team')).TeamCommands()),
+  config: lazy(async () => new (await import('./config')).ConfigCommands()),
+  uninstall: lazy(async () => new (await import('./uninstall')).UninstallCommands()),
+  update: lazy(async () => new (await import('./update')).UpdateCommands()),
+  spec: lazy(async () => new (await import('./spec')).SpecCommands()),
+  embeddings: lazy(async () => new (await import('./embeddings')).EmbeddingsCommands()),
+  guard: lazy(async () => new (await import('./guard')).GuardCommands()),
 }
 
 function registerCategories(): void {
@@ -76,15 +67,13 @@ function registerAllCommands(): void {
 
   for (const meta of COMMANDS) {
     if (!meta.routing) continue
-    const instance = groupInstances[meta.routing.group] as Record<string, unknown>
-    // The registry validates `methodName` is a function on the instance at
-    // call time and throws if it isn't, so we widen the type here rather
-    // than maintain a per-group method-name union (which would invert the
-    // single-source-of-truth this refactor is meant to establish).
-    commandRegistry.registerMethod(
+    // The registry resolves the instance + validates the method name at
+    // CALL time (registerLazyMethod) — registration stays import-cheap and
+    // the method-name contract is still enforced, just on first dispatch.
+    commandRegistry.registerLazyMethod(
       meta.name,
-      instance,
-      meta.routing.method as keyof typeof instance,
+      groupLoaders[meta.routing.group],
+      meta.routing.method,
       meta
     )
   }

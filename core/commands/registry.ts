@@ -135,6 +135,45 @@ class CommandRegistry {
   }
 
   /**
+   * Like registerMethod, but the owning instance loads lazily on first
+   * dispatch — register.ts hands a memoized async factory instead of a
+   * constructed instance, so registering every command at import time
+   * costs nothing (the daemon cold-start win). The "method exists"
+   * validation moves from registration to first call.
+   */
+  registerLazyMethod(
+    name: string,
+    loadInstance: () => Promise<object>,
+    methodName: string,
+    meta?: Partial<CommandMeta>
+  ): void {
+    type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
+    const resolve = async (): Promise<{ instance: object; method: LegacyMethod }> => {
+      const instance = await loadInstance()
+      const method = (instance as Record<string, unknown>)[methodName]
+      if (typeof method !== 'function') {
+        throw new Error(`${methodName} is not a function`)
+      }
+      return { instance, method: method as LegacyMethod }
+    }
+
+    const wrapper: HandlerFn<unknown> = async (params, context) => {
+      const { instance, method } = await resolve()
+      if (params !== undefined && params !== null) {
+        return method.call(instance, params, context.projectPath)
+      }
+      return method.call(instance, context.projectPath)
+    }
+
+    this.handlerFns.set(name, wrapper)
+    this.optionFns.set(name, async (param, projectPath, options) => {
+      const { instance, method } = await resolve()
+      return method.call(instance, param, projectPath, options)
+    })
+    this.setMeta(name, meta)
+  }
+
+  /**
    * Check if a command is registered
    */
   has(name: string): boolean {
