@@ -418,7 +418,7 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     if (codexDetection.installed) {
       try {
         const { installCodexSkill, verifyCodexPRouterReady } = await import(
-          '../infrastructure/setup'
+          '../infrastructure/codex-skill'
         )
         await installCodexSkill()
         const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
@@ -516,7 +516,7 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     if (codexDetection.installed) {
       try {
         const { installCodexSkill, verifyCodexPRouterReady } = await import(
-          '../infrastructure/setup'
+          '../infrastructure/codex-skill'
         )
         await installCodexSkill()
         const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })

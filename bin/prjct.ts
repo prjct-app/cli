@@ -502,8 +502,12 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
           }
 
           try {
-            const { default: setup } = await import('../core/infrastructure/setup')
-            await setup.run()
+            // PR #132 removed setup's default export but missed this site
+            // (bin/ is outside core's typecheck): `setup.run()` threw
+            // TypeError into the catch below on EVERY version change since
+            // 2026-02 — the post-upgrade re-setup silently never ran.
+            const { run: runSetup } = await import('../core/infrastructure/setup')
+            await runSetup()
           } catch {
             // setup.run() may fail (e.g. provider detection) — stamp version anyway
             await editorsConfig.updateVersion(VERSION).catch(() => {})
