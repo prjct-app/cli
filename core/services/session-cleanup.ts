@@ -17,7 +17,6 @@
  */
 
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { projectMemory } from '../memory/project-memory'
@@ -145,7 +144,11 @@ async function pruneOldCheckpoints(projectId: string, daysOld: number | null): P
  * fresh) when it's older than 7 days, regardless of TTL.
  */
 async function rotateContext7Cache(): Promise<boolean> {
-  const file = path.join(os.homedir(), '.prjct-cli', 'state', 'context7-verify.json')
+  // Same path the writer uses (context7-service) — they had drifted: this
+  // copy used raw os.homedir() while the writer honors NODE_ENV=test +
+  // PRJCT_CLI_HOME, so test runs rotated the user's REAL cache file.
+  const { getVerifyCachePath } = await import('./context7-service')
+  const file = getVerifyCachePath()
   try {
     const stat = await fs.stat(file)
     const ageDays = (Date.now() - stat.mtimeMs) / (24 * 60 * 60 * 1000)

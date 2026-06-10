@@ -9,8 +9,8 @@
  */
 
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { resolveCliHome } from '../infrastructure/cli-home'
 
 /**
  * Resolve the config dir at call time. Honors `PRJCT_CLI_HOME` (the same
@@ -20,9 +20,7 @@ import path from 'node:path'
  * test that only patched HOME would silently read/write the user's REAL config.
  */
 function configDir(): string {
-  const override = process.env.PRJCT_CLI_HOME?.trim()
-  const base = override ? path.resolve(override) : path.join(os.homedir(), '.prjct-cli')
-  return path.join(base, 'config')
+  return path.join(resolveCliHome(), 'config')
 }
 
 function configFilePath(): string {

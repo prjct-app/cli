@@ -18,6 +18,7 @@ import type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
 import type { SessionInfo } from '../types/session'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
+import { resolveCliHome } from './cli-home'
 import {
   detectMonorepo,
   discoverMonorepoPackages,
@@ -36,11 +37,12 @@ class PathManager {
   globalConfigDir: string
 
   constructor() {
-    // PRJCT_CLI_HOME: Override global storage location (default: ~/.prjct-cli)
-    const envOverride = process.env.PRJCT_CLI_HOME?.trim()
-    this.globalBaseDir = envOverride
-      ? path.resolve(envOverride)
-      : path.join(os.homedir(), '.prjct-cli')
+    // PRJCT_CLI_HOME: Override global storage location (default: ~/.prjct-cli).
+    // NOTE: resolved at construction (singleton import time) — tests must set
+    // the env var in the preload, before any prjct module is imported. The
+    // per-call consumers (global-config, secure-key, …) use resolveCliHome()
+    // directly so late mutation still works there.
+    this.globalBaseDir = resolveCliHome()
     this.globalProjectsDir = path.join(this.globalBaseDir, 'projects')
     this.globalConfigDir = path.join(this.globalBaseDir, 'config')
   }
