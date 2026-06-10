@@ -23,6 +23,7 @@ import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
 import { fileExists } from './utils/file-helper'
 import out from './utils/output'
+import { providerStatusHeader, providerStatusLine } from './utils/provider-status'
 
 interface ParsedCommandArgs {
   parsedArgs: string[]
@@ -394,48 +395,46 @@ async function displayVersion(version: string): Promise<void> {
   // Antigravity status (global, skills-based)
   const antigravityDetection = await detectAntigravity()
 
-  console.log(`
-${chalk.cyan('p/')} prjct v${version}
-${chalk.dim('Context layer for AI coding agents')}
-
-${chalk.dim('Providers:')}`)
-
-  // Claude status
-  if (detection.claude.installed) {
-    const status = claudeConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-    const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
-    console.log(`  Claude Code   ${status}${chalk.dim(ver)}`)
-  } else {
-    console.log(`  Claude Code   ${chalk.dim('○ not installed')}`)
-  }
-
-  // Gemini status
-  if (detection.gemini.installed) {
-    const status = geminiConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-    const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
-    console.log(`  Gemini CLI    ${status}${chalk.dim(ver)}`)
-  } else {
-    console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
-  }
-
-  if (antigravityDetection.installed) {
-    const status = antigravityDetection.skillInstalled
-      ? chalk.green('✓ ready')
-      : chalk.yellow('● detected')
-    const hint = antigravityDetection.skillInstalled ? '' : ` ${chalk.dim('(run prjct start)')}`
-    console.log(`  Antigravity   ${status}${hint}`)
-  } else {
-    console.log(`  Antigravity   ${chalk.dim('○ not installed')}`)
-  }
-
-  // Cursor status (project-level, but shown in same format)
-  if (cursorConfigured) {
-    console.log(`  Cursor IDE    ${chalk.green('✓ ready')} ${chalk.dim('(use /sync, /task)')}`)
-  } else if (cursorExists) {
-    console.log(`  Cursor IDE    ${chalk.yellow('● detected')} ${chalk.dim('(run prjct init)')}`)
-  } else {
-    console.log(`  Cursor IDE    ${chalk.dim('○ no .cursor/ folder')}`)
-  }
+  console.log(providerStatusHeader(version))
+  console.log(
+    providerStatusLine(
+      'Claude Code',
+      detection.claude.installed ? (claudeConfigured ? 'ready' : 'installed') : 'missing',
+      detection.claude.version ? chalk.dim(` (v${detection.claude.version})`) : ''
+    )
+  )
+  console.log(
+    providerStatusLine(
+      'Gemini CLI',
+      detection.gemini.installed ? (geminiConfigured ? 'ready' : 'installed') : 'missing',
+      detection.gemini.version ? chalk.dim(` (v${detection.gemini.version})`) : ''
+    )
+  )
+  console.log(
+    providerStatusLine(
+      'Antigravity',
+      antigravityDetection.installed
+        ? antigravityDetection.skillInstalled
+          ? 'ready'
+          : 'detected'
+        : 'missing',
+      antigravityDetection.installed && !antigravityDetection.skillInstalled
+        ? ` ${chalk.dim('(run prjct start)')}`
+        : ''
+    )
+  )
+  console.log(
+    providerStatusLine(
+      'Cursor IDE',
+      cursorConfigured ? 'ready' : cursorExists ? 'detected' : 'missing',
+      cursorConfigured
+        ? ` ${chalk.dim('(use /sync, /task)')}`
+        : cursorExists
+          ? ` ${chalk.dim('(run prjct init)')}`
+          : '',
+      '○ no .cursor/ folder'
+    )
+  )
 
   console.log(`
 ${chalk.dim("Run 'prjct start' for Claude/Gemini, 'prjct init' for Cursor")}

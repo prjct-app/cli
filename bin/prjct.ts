@@ -945,41 +945,40 @@ async function main(): Promise<void> {
       fileExists(path.join(cwd, '.windsurf', 'rules', 'prjct.md')),
     ])
 
-    console.log(`
-${chalk.cyan('p/')} prjct v${VERSION}
-${chalk.dim('Context layer for AI coding agents')}
-
-${chalk.dim('Providers:')}`)
-
-    if (detection.claude.installed) {
-      const status = claudeConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-      const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
-      console.log(`  Claude Code   ${status}${chalk.dim(ver)}`)
-    } else {
-      console.log(`  Claude Code   ${chalk.dim('○ not installed')}`)
-    }
-
-    if (detection.gemini.installed) {
-      const status = geminiConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
-      const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
-      console.log(`  Gemini CLI    ${status}${chalk.dim(ver)}`)
-    } else {
-      console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
-    }
-
-    if (cursorDetected) {
-      const status = cursorConfigured ? chalk.green('✓ ready') : chalk.yellow('● detected')
-      console.log(`  Cursor IDE    ${status}${chalk.dim(' (project)')}`)
-    } else {
-      console.log(`  Cursor IDE    ${chalk.dim('○ not detected')}`)
-    }
-
-    if (windsurfDetected) {
-      const status = windsurfConfigured ? chalk.green('✓ ready') : chalk.yellow('● detected')
-      console.log(`  Windsurf IDE  ${status}${chalk.dim(' (project)')}`)
-    } else {
-      console.log(`  Windsurf IDE  ${chalk.dim('○ not detected')}`)
-    }
+    const { providerStatusHeader, providerStatusLine } = await import(
+      '../core/utils/provider-status'
+    )
+    console.log(providerStatusHeader(VERSION))
+    console.log(
+      providerStatusLine(
+        'Claude Code',
+        detection.claude.installed ? (claudeConfigured ? 'ready' : 'installed') : 'missing',
+        detection.claude.version ? chalk.dim(` (v${detection.claude.version})`) : ''
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Gemini CLI',
+        detection.gemini.installed ? (geminiConfigured ? 'ready' : 'installed') : 'missing',
+        detection.gemini.version ? chalk.dim(` (v${detection.gemini.version})`) : ''
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Cursor IDE',
+        cursorDetected ? (cursorConfigured ? 'ready' : 'detected') : 'missing',
+        cursorDetected ? chalk.dim(' (project)') : '',
+        '○ not detected'
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Windsurf IDE',
+        windsurfDetected ? (windsurfConfigured ? 'ready' : 'detected') : 'missing',
+        windsurfDetected ? chalk.dim(' (project)') : '',
+        '○ not detected'
+      )
+    )
 
     console.log(`
 ${chalk.dim("Run 'prjct start' to configure (CLI providers)")}
