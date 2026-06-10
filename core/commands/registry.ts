@@ -32,6 +32,17 @@ import { getTimestamp } from '../utils/date-helper'
 class CommandRegistry {
   private handlers: Map<string, CommandHandler<unknown>> = new Map()
   private handlerFns: Map<string, HandlerFn<unknown>> = new Map()
+  /** Option-aware bridges: (param, projectPath, options) → result. Set by
+   *  registerMethod; consumed by executeWithOptions for schema-covered
+   *  commands. */
+  private optionFns: Map<
+    string,
+    (
+      param: string | null,
+      projectPath: string,
+      options: Record<string, unknown>
+    ) => Promise<CommandResult>
+  > = new Map()
   private metadata: Map<string, CommandMeta> = new Map()
   private categories: Map<string, CategoryInfo> = new Map()
   private noProjectCommands: Set<string> = new Set(['init', 'setup', 'start', 'migrateAll'])
@@ -75,6 +86,8 @@ class CommandRegistry {
       isOptional: meta?.isOptional,
       deprecated: meta?.deprecated,
       replacedBy: meta?.replacedBy,
+      routingMode: meta?.routingMode,
+      optionSchema: meta?.optionSchema,
     })
   }
 
@@ -111,6 +124,13 @@ class CommandRegistry {
     }
 
     this.handlerFns.set(name, wrapper)
+    // Option-aware bridge with the uniform group-method shape
+    // (param, projectPath, options). executeWithOptions uses it so flags
+    // survive dispatch without a hand-written case per command.
+    this.optionFns.set(name, (param, projectPath, options) => {
+      type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
+      return (method as LegacyMethod).call(instance, param, projectPath, options)
+    })
     this.setMeta(name, meta)
   }
 
@@ -374,6 +394,33 @@ class CommandRegistry {
       success: false,
       error: `Command not found: ${name}`,
     }
+  }
+
+  /**
+   * Execute a registerMethod-bound command WITH its options object —
+   * (param, projectPath, options), the uniform group-method shape. The
+   * caller maps wire flags through the command's `optionSchema` first
+   * (see option-mapper.ts). Same context rules as execute().
+   */
+  async executeWithOptions(
+    name: string,
+    param: string | null,
+    projectPath: string,
+    options: Record<string, unknown>
+  ): Promise<CommandResult> {
+    const fn = this.optionFns.get(name)
+    if (!fn) {
+      return { success: false, error: `Command not found: ${name}` }
+    }
+    const meta = this.metadata.get(name)
+    if (meta?.requiresProject !== false) {
+      try {
+        await this.buildContext(projectPath)
+      } catch (error) {
+        return { success: false, error: getErrorMessage(error) }
+      }
+    }
+    return fn(param, projectPath, options)
   }
 
   /**

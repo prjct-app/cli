@@ -50,6 +50,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'task',
     group: 'core',
     routing: { group: 'workflow', method: 'now' },
+    optionSchema: { strings: ['spec'] },
     description: 'Register a task (or show the active one)',
     usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
     params: '[description]',
@@ -66,6 +67,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'ship',
     group: 'core',
     routing: { group: 'shipping', method: 'ship' },
+    optionSchema: { booleans: ['skipHooks', 'noSpecGate'], strings: ['intent'] },
     description: 'Commit, push, and celebrate shipped feature',
     usage: { claude: '/p:ship ["feature"]', terminal: 'prjct ship ["feature"]' },
     params: '[feature]',
@@ -123,6 +125,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'status',
     group: 'core',
     routing: { group: 'primitives', method: 'status' },
+    optionSchema: {},
     description: 'Inline status change on the active task (Linear-style escape hatch)',
     usage: { claude: '/p:status <value>', terminal: 'prjct status <value>' },
     params: '[value]',
@@ -138,6 +141,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'tag',
     group: 'core',
     routing: { group: 'primitives', method: 'tag' },
+    optionSchema: {},
     description: 'Attach k:v tags to the active task (type:bug, domain:frontend, …)',
     usage: { claude: '/p:tag type:bug', terminal: 'prjct tag type:bug domain:auth' },
     params: '<pairs...>',
@@ -153,6 +157,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'remember',
     group: 'core',
     routing: { group: 'primitives', method: 'remember' },
+    optionSchema: { strings: ['tags'] },
     description: 'Capture a project memory entry (fact, decision, learning, gotcha, …)',
     usage: {
       claude: '/p:remember learning "message"',
@@ -171,6 +176,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'forget',
     group: 'core',
     routing: { group: 'primitives', method: 'forget' },
+    optionSchema: {},
     description: 'Delete a project memory entry by id (the delete half of `remember`)',
     usage: { claude: 'prjct forget mem_1234', terminal: 'prjct forget mem_1234 [--md]' },
     params: '<id>',
@@ -187,6 +193,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'capture',
     group: 'core',
     routing: { group: 'capture', method: 'capture' },
+    optionSchema: { strings: ['tags'], booleans: ['force'] },
     description: 'GTD-style universal inbox — dump anything to project memory with zero ceremony',
     usage: {
       claude: '/p:capture "<anything>"',
@@ -206,6 +213,8 @@ export const COMMANDS: CommandMeta[] = [
     name: 'seed',
     group: 'core',
     routing: { group: 'seed', method: 'seed' },
+    routingMode: 'bin-only',
+    optionSchema: {},
     description: 'Manage declarative packs (persona, memory types, workflow slots, hook signals)',
     usage: {
       claude: '/p:seed list',
@@ -225,6 +234,8 @@ export const COMMANDS: CommandMeta[] = [
     name: 'mcp',
     group: 'core',
     routing: { group: 'mcp', method: 'mcp' },
+    routingMode: 'bin-only',
+    optionSchema: {},
     description:
       'Toggle MCP servers per-project — interactive multi-select in your terminal, list/deny/allow for scripts',
     usage: {
@@ -246,6 +257,8 @@ export const COMMANDS: CommandMeta[] = [
     name: 'install',
     group: 'core',
     routing: { group: 'install', method: 'install' },
+    routingMode: 'bin-only',
+    optionSchema: {},
     description: 'Install Claude Code hooks (~/.claude/settings.json merge-safe)',
     usage: {
       claude: '/p:install',
@@ -264,6 +277,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'help',
     group: 'core',
+    routingMode: 'bin-only',
     description: 'Contextual help and guidance',
     usage: { claude: '/p:help [topic]', terminal: 'prjct help [topic]' },
     params: '[topic]',
@@ -324,6 +338,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'workflow',
     group: 'optional',
     routing: { group: 'workflow', method: 'workflow' },
+    optionSchema: {},
     description: 'Configure workflow hooks via natural language',
     usage: { claude: '/p:workflow ["config"]', terminal: 'prjct workflow ["config"]' },
     params: '["natural language config"]',
@@ -343,6 +358,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'start',
     group: 'setup',
     routing: { group: 'setup', method: 'start' },
+    routingMode: 'bin-only',
     description: 'First-time setup (install commands to editors)',
     usage: { claude: null, terminal: 'prjct start' },
     implemented: true,
@@ -353,6 +369,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'setup',
     group: 'setup',
     routing: { group: 'setup', method: 'setup' },
+    routingMode: 'bin-only',
     description: 'Reconfigure editor installations',
     usage: { claude: '/p:setup', terminal: 'prjct setup' },
     params: '[--force] [--editor <name>]',
@@ -406,6 +423,8 @@ export const COMMANDS: CommandMeta[] = [
     name: 'context',
     group: 'setup',
     routing: { group: 'context', method: 'context' },
+    routingMode: 'bin-only',
+    optionSchema: {},
     description: 'Smart context filtering tools for AI agents',
     usage: { claude: null, terminal: 'prjct context <tool> [args]' },
     params: '<tool> [args]',
@@ -424,6 +443,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'search',
     group: 'core',
     routing: { group: 'context', method: 'search' },
+    optionSchema: {},
     description:
       'Search project memory (decisions, learnings, gotchas, ships…) — BM25 + semantic + recall',
     usage: { claude: 'prjct search "<query>"', terminal: 'prjct search "<query>" [--md]' },
@@ -441,6 +461,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'update',
     group: 'setup',
     routing: { group: 'update', method: 'update' },
+    routingMode: 'bin-only',
     description: 'Update prjct system-wide: package + migrations + daemon restart',
     usage: { claude: null, terminal: 'prjct update [--dry-run]' },
     params: '[--dry-run]',
@@ -458,6 +479,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'uninstall',
     group: 'setup',
     routing: { group: 'uninstall', method: 'uninstall' },
+    routingMode: 'bin-only',
     description: 'Complete system removal of prjct',
     usage: { claude: null, terminal: 'prjct uninstall' },
     params: '[--force] [--backup] [--dry-run]',
@@ -475,6 +497,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'team',
     group: 'core',
     routing: { group: 'team', method: 'team' },
+    optionSchema: { booleans: ['required', 'enforce'], strings: ['minVersion'] },
     description:
       'Enroll this repo in prjct team mode — commits .prjct/team.json + .claude/CLAUDE.md so teammates pick up shared expectations',
     usage: {
@@ -496,6 +519,9 @@ export const COMMANDS: CommandMeta[] = [
     name: 'embeddings',
     group: 'core',
     routing: { group: 'embeddings', method: 'embeddings' },
+    optionSchema: {
+      strings: ['key', 'model', 'baseUrl', 'authHeader', 'authScheme', 'headers', 'query'],
+    },
     description:
       'Configure the GLOBAL semantic-embeddings provider (BYOT) — one API key, stored securely, used by every project.',
     usage: {
@@ -522,6 +548,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'guard',
     group: 'core',
     routing: { group: 'guard', method: 'guard' },
+    optionSchema: { numbers: ['limit'] },
     description:
       'Surface preventive memory (gotchas, anti-patterns, recurring-bugs) recorded against a file BEFORE you edit it — anticipation, provider-agnostic.',
     usage: {
@@ -544,6 +571,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'config',
     group: 'core',
     routing: { group: 'config', method: 'config' },
+    optionSchema: {},
     description: 'Read/write global prjct config — auto-update opt-in, suggestions toggle, etc.',
     usage: {
       claude: '/p:config list',
@@ -599,4 +627,65 @@ export const COMMANDS: CommandMeta[] = [
       'All three pass → spec auto-promotes draft → reviewed',
     ],
   },
+
+  // ===== BIN-ONLY COMMANDS =====
+  // Handled directly in bin/prjct.ts (daemon lifecycle, TTY needs, or
+  // process-level concerns). These entries used to exist ONLY as members
+  // of the hand-maintained `_binCommands` set — invisible to the registry,
+  // help, and the shim-sync derivations. Minimal metadata; `routingMode`
+  // is the load-bearing field.
+  ...(
+    [
+      ['daemon', 'Run the prjct daemon in the foreground'],
+      ['stop', 'Stop the running prjct daemon'],
+      ['restart', 'Restart the prjct daemon'],
+      ['upgrade', 'Alias of `prjct update`'],
+      ['hook', 'Run a Claude Code hook event (internal; called by the hook scripts)'],
+      ['hooks', 'Inspect or reinstall the Claude Code hooks'],
+      ['claude', 'Claude Code integration management (install/uninstall)'],
+      ['crew', 'Run a crew (multi-subagent) workflow'],
+      ['doctor', 'Diagnose the local prjct installation'],
+      ['watch', 'Watch project files and react to changes'],
+      ['version', 'Print the installed prjct version + provider status'],
+      ['prefs', 'Inspect or set workflow preferences'],
+      ['retro', 'Summarize what shipped over a time window'],
+      ['health', 'Codebase health snapshot'],
+      ['skill-adherence', 'Report how well sessions follow the prjct skill'],
+      ['review-risk', 'Risk-ranked review hints for the working tree'],
+      ['context-save', 'Save the current working context for later restore'],
+      ['context-restore', 'Restore a previously saved working context'],
+    ] as const
+  ).map(
+    ([name, description]): CommandMeta => ({
+      name,
+      group: 'setup',
+      description,
+      usage: { claude: null, terminal: `prjct ${name}` },
+      implemented: true,
+      hasTemplate: false,
+      requiresProject: false,
+      routingMode: 'bin-only',
+    })
+  ),
 ]
+
+/** Flag-style aliases resolved in bin/prjct.ts before dispatch. */
+export const COMMAND_ALIASES: Record<string, string> = {
+  '-h': 'help',
+  '--help': 'help',
+  '-v': 'version',
+  '--version': 'version',
+}
+
+/**
+ * Commands bin/prjct.ts handles directly — NEVER forwarded to the daemon.
+ * Derived from the manifest (plus aliases of bin-only targets); the shim
+ * skip-set in scripts/build.js and `_binCommands` in bin/prjct.ts both
+ * consume this, so routing is declared in exactly one place.
+ */
+export const BIN_ONLY_COMMANDS: ReadonlySet<string> = new Set([
+  ...COMMANDS.filter((c) => c.routingMode === 'bin-only').map((c) => c.name),
+  ...Object.entries(COMMAND_ALIASES)
+    .filter(([, target]) => COMMANDS.some((c) => c.name === target && c.routingMode === 'bin-only'))
+    .map(([alias]) => alias),
+])
