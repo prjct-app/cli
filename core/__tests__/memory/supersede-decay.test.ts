@@ -97,3 +97,59 @@ describe('projectMemory.recall — supersede/duplicate compaction', () => {
     expect(got.length).toBe(2)
   })
 })
+
+describe('projectMemory.searchFts — superseded entries never surface', () => {
+  function seedMirror(
+    id: string,
+    type: string,
+    content: string,
+    tags: Record<string, string> = {}
+  ): void {
+    const now = new Date().toISOString()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memories
+         (id, project_id, title, content, tags, type, provenance, user_triggered,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id,
+      projectId,
+      content.slice(0, 80),
+      content,
+      JSON.stringify(tags),
+      type,
+      'declared',
+      0,
+      now,
+      now
+    )
+  }
+
+  it('drops an entry retired by a superseding entry that BM25 would not co-return', () => {
+    // The superseding entry shares NO keywords with the stale one — the
+    // exact case recall's window-scoped prune cannot catch.
+    seedMirror('mem_1', 'gotcha', 'the widget api requires manual flush', {})
+    seedMirror('mem_2', 'decision', 'migrated renderer to declarative pipeline', {
+      supersedes: 'mem_1',
+    })
+    const got = projectMemory.searchFts(projectId, ['widget'], 5)
+    expect(got.map((e) => e.id)).not.toContain('mem_1')
+  })
+
+  it('drops an entry that self-declares superseded-by', () => {
+    seedMirror('mem_3', 'decision', 'cache responses in redis', {
+      'superseded-by': 'mem_9',
+    })
+    seedMirror('mem_4', 'decision', 'cache responses locally', {})
+    const got = projectMemory.searchFts(projectId, ['cache'], 5)
+    const ids2 = got.map((e) => e.id)
+    expect(ids2).not.toContain('mem_3')
+    expect(ids2).toContain('mem_4')
+  })
+
+  it('live entries still surface, with accented-keyword queries deburred', () => {
+    seedMirror('mem_5', 'gotcha', 'semantic search needs normalized vectors', {})
+    const got = projectMemory.searchFts(projectId, ['semántic'], 5)
+    expect(got.map((e) => e.id)).toContain('mem_5')
+  })
+})

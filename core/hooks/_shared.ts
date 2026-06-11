@@ -13,6 +13,8 @@
  *   - Keyword matcher — simple substring + regex over prompt text.
  */
 
+import { deburr } from '../utils/deburr'
+
 interface HookOutput {
   /** Top-level informational message. Accepted by every Claude Code hook
    *  event — the only safe channel for Stop, SubagentStart, and
@@ -91,46 +93,110 @@ export async function safeRun(fn: () => Promise<void>): Promise<void> {
  * (articles, demonstratives, pronouns) — coding-intent verbs like
  * `need`/`want`/`should` stay, since "should we cache responses?"
  * loses signal otherwise.
+ *
+ * Unicode-aware: tokens are deburred ("búsqueda" → "busqueda", matching
+ * FTS5 unicode61's remove_diacritics indexing) and split on any
+ * non-letter/digit, so Spanish/mixed-language prompts produce real
+ * keywords instead of mangled fragments (the old `[^a-z0-9]` split
+ * turned "qué pasó" into nothing). Spanish function words join the
+ * stopword list — the user prompts in Spanish even though stored
+ * memories are English, and technical terms (daemon, cache, sync) pass
+ * through either way.
  */
+const STOPWORDS = new Set([
+  // English noise
+  'this',
+  'that',
+  'with',
+  'from',
+  'have',
+  'your',
+  'please',
+  'would',
+  'about',
+  'there',
+  'these',
+  'those',
+  'what',
+  'when',
+  'where',
+  'which',
+  'while',
+  'will',
+  'been',
+  'were',
+  'they',
+  'them',
+  'their',
+  // Spanish noise (post-deburr forms; ≥3 chars — shorter never tokenizes)
+  'que',
+  'como',
+  'cuando',
+  'donde',
+  'porque',
+  'para',
+  'pero',
+  'por',
+  'con',
+  'sin',
+  'los',
+  'las',
+  'del',
+  'una',
+  'uno',
+  'unos',
+  'unas',
+  'este',
+  'esta',
+  'esto',
+  'estos',
+  'estas',
+  'eso',
+  'esos',
+  'esas',
+  'mas',
+  'muy',
+  'todo',
+  'toda',
+  'todos',
+  'todas',
+  'sobre',
+  'entre',
+  'hasta',
+  'desde',
+  'hace',
+  'hacer',
+  'tiene',
+  'tienen',
+  'debe',
+  'deben',
+  'puede',
+  'pueden',
+  'esta',
+  'estan',
+  'ser',
+  'son',
+  'algo',
+  'ahora',
+  'aqui',
+  'bien',
+  'cada',
+  'dale',
+])
+
 export function extractKeywords(text: string, maxCount = 8): string[] {
-  const stopwords = new Set([
-    'this',
-    'that',
-    'with',
-    'from',
-    'have',
-    'your',
-    'please',
-    'would',
-    'about',
-    'there',
-    'these',
-    'those',
-    'what',
-    'when',
-    'where',
-    'which',
-    'while',
-    'will',
-    'been',
-    'were',
-    'they',
-    'them',
-    'their',
-  ])
   // setupOAuthCallback → setup OAuth Callback → setup oauth callback,
   // then tokenize on every non-word boundary (dash, space, punctuation).
   // Yields atomic tokens ['setup', 'oauth', 'callback'] so an FTS5 MATCH
   // can OR them and still find a memory entry that mentions any one.
-  const normalized = text
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    .toLowerCase()
+  const normalized = deburr(
+    text.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+  ).toLowerCase()
   const seen = new Set<string>()
   const out: string[] = []
-  for (const tok of normalized.split(/[^a-z0-9]+/)) {
+  for (const tok of normalized.split(/[^\p{L}\p{N}]+/u)) {
     if (tok.length < 3) continue
-    if (stopwords.has(tok)) continue
+    if (STOPWORDS.has(tok)) continue
     if (seen.has(tok)) continue
     seen.add(tok)
     out.push(tok)

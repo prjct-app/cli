@@ -27,9 +27,11 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { BASE_MEMORY_TYPES } from '../../memory/entries'
+import { enrichedRecall } from '../../memory/enriched-recall'
+import { BASE_MEMORY_TYPES, type MemoryType } from '../../memory/entries'
 import { formatMemoryMd } from '../../memory/format'
 import { projectMemory } from '../../memory/project-memory'
+import { recordSurfacedForActiveTask } from '../../services/usefulness/surface-attribution'
 import { scanForPromptInjection } from '../../utils/prompt-injection'
 import { scanForSecrets } from '../../utils/secret-scanner'
 import { resolveProjectId } from '../resolve'
@@ -46,7 +48,7 @@ export function registerMemoryTools(server: McpServer) {
 
   s.tool(
     'prjct_mem_save',
-    `Save a memory entry. ${TYPE_DESCRIPTIONS} Secret-like content is refused unless force=true.`,
+    `Save a memory entry. Author content in ENGLISH regardless of the conversation language. ${TYPE_DESCRIPTIONS} Secret-like content is refused unless force=true.`,
     {
       projectPath: z.string().describe('Project directory path'),
       type: z.string().describe('Memory type (fact/decision/learning/... or user-defined)'),
@@ -145,9 +147,13 @@ export function registerMemoryTools(server: McpServer) {
         limit?: number
       }) => {
         const projectId = await resolveProjectId(args.projectPath)
-        const entries = projectMemory.recall(projectId, {
+        // Same pipeline as `prjct context memory` (FTS-first, semantic
+        // blend, usefulness rerank, link expansion, ship attribution).
+        // Subagents reach memory through THIS tool — a plain recency
+        // recall here gave them strictly worse retrieval than the CLI.
+        const entries = await enrichedRecall(args.projectPath, projectId, {
           topic: args.topic,
-          types: args.types,
+          types: args.types as MemoryType[] | undefined,
           tags: args.tags,
           limit: args.limit,
         })
@@ -168,7 +174,15 @@ export function registerMemoryTools(server: McpServer) {
       'prjct_mem_similar',
       async (args: { projectPath: string; description: string; limit?: number }) => {
         const projectId = await resolveProjectId(args.projectPath)
-        const entries = projectMemory.similar(projectId, args.description, args.limit)
+        // enrichedRecall with the description as topic: BM25 + semantic
+        // beat the old shared-keyword `similar()` heuristic. Link
+        // expansion off — similarity asks "does this exist?", not "give
+        // me its whole neighborhood".
+        const entries = await enrichedRecall(args.projectPath, projectId, {
+          topic: args.description,
+          limit: args.limit ?? 10,
+          expandLinks: false,
+        })
         if (entries.length === 0) {
           return { content: [{ type: 'text', text: 'No similar memories found.' }] }
         }
@@ -190,6 +204,12 @@ export function registerMemoryTools(server: McpServer) {
       async (args: { projectPath: string; file: string; limit?: number }) => {
         const projectId = await resolveProjectId(args.projectPath)
         const hits = projectMemory.recallForFile(projectId, args.file, args.limit ?? 3)
+        // Push-path ship attribution (see surface-attribution.ts).
+        void recordSurfacedForActiveTask(
+          projectId,
+          args.projectPath,
+          hits.map((e) => e.id)
+        )
         if (hits.length === 0) {
           const base = args.file.split('/').pop() ?? args.file
           return {

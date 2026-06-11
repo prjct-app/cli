@@ -47,7 +47,7 @@ When you complete substantive work — analysis, decision, learning, gotcha disc
 - \`prjct remember fact "<verifiable claim>"\` — project facts (paths, conventions, IDs)
 - \`prjct capture "<text>" --tags type:analysis,topic:<x>\` — analytical dumps & inbox items
 
-Tag with \`--tags k:v,k:v\` for searchability. Memory persists to SQLite; vault auto-regenerates. **Default to capturing — under-capture is the failure mode that makes prjct useless.**
+Tag with \`--tags k:v,k:v\` for searchability. Memory persists to SQLite; vault auto-regenerates. **Default to capturing — under-capture is the failure mode that makes prjct useless.** **Author every persisted entry in ENGLISH**, whatever language the user speaks — translate the intent; one canonical language keeps retrieval sharp and token cost flat.
 
 ## Workflow
 

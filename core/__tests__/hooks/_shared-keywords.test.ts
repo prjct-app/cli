@@ -85,3 +85,34 @@ describe('extractKeywords — minimum length', () => {
     expect(kw).toContain('down')
   })
 })
+
+describe('extractKeywords — unicode & Spanish prompts', () => {
+  it('deburrs accents so tokens match the FTS index (remove_diacritics)', () => {
+    const kw = extractKeywords('¿por qué falla la búsqueda semántica?')
+    expect(kw).toContain('busqueda')
+    expect(kw).toContain('semantica')
+    expect(kw).toContain('falla')
+    expect(kw).not.toContain('búsqueda')
+  })
+
+  it('drops Spanish function words but keeps technical terms', () => {
+    const kw = extractKeywords('cuando corre el daemon para todos los proyectos pero sin cache')
+    expect(kw).toContain('daemon')
+    expect(kw).toContain('cache')
+    expect(kw).toContain('proyectos')
+    expect(kw).not.toContain('cuando')
+    expect(kw).not.toContain('para')
+    expect(kw).not.toContain('todos')
+    expect(kw).not.toContain('pero')
+    expect(kw).not.toContain('sin')
+  })
+
+  it('mixed-language prompts keep signal from both sides', () => {
+    const kw = extractKeywords('el Stop hook está reescribiendo el vault otra vez')
+    expect(kw).toContain('stop')
+    expect(kw).toContain('hook')
+    expect(kw).toContain('vault')
+    expect(kw).toContain('reescribiendo')
+    expect(kw).not.toContain('esta')
+  })
+})

@@ -18,6 +18,7 @@
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import out from '../utils/output'
@@ -63,6 +64,14 @@ export class GuardCommands extends PrjctCommandsBase {
     } catch {
       hits = []
     }
+
+    // Push-path ship attribution (see surface-attribution.ts): a guard
+    // that surfaced a trap during a task that ships earned its keep.
+    void recordSurfacedForActiveTask(
+      guard.value,
+      projectPath,
+      hits.map((e) => e.id)
+    )
 
     const base = file.split('/').pop() ?? file
 

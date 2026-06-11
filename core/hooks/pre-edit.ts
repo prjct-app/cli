@@ -23,6 +23,7 @@ import configManager from '../infrastructure/config-manager'
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { type HookIo, runHook } from './_runner'
 import { safeTruncate } from './_shared'
 
@@ -56,6 +57,14 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
     return null
   }
   if (hits.length === 0) return null
+
+  // Push-path ship attribution: this gotcha just reached the agent at the
+  // moment it matters — if the task ships, it earned its keep.
+  void recordSurfacedForActiveTask(
+    config.projectId,
+    projectPath,
+    hits.map((e) => e.id)
+  )
 
   const base = filePath.split('/').pop() ?? filePath
   const lines = [`# prjct: heads-up before editing \`${base}\``, '']

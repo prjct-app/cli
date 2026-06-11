@@ -7,7 +7,7 @@
  * traps) rather than the full session context: SubagentStart emits via
  * `systemMessage` (its schema rejects `additionalContext`), which sits
  * outside the cached prompt prefix, so variable content is safe here.
- * Same rules: describe WHAT, never CÓMO.
+ * Same rules: describe WHAT, never HOW.
  */
 
 import { type HookIo, runHook } from './_runner'

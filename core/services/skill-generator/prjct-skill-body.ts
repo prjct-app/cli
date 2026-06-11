@@ -3,7 +3,7 @@
  *
  * Anti-harness shape: `Use when` + `What's here` + `Gotchas` — zero
  * numbered steps, zero "first X then Y", zero "pre-flight BLOCKING"
- * language. prjct describes state; Claude decides CÓMO.
+ * language. prjct describes state; Claude decides HOW.
  *
  * CONTEXT BUDGET: the SKILL.md body stays in the host model's context for
  * the whole session (Anthropic: "every line is a recurring token cost").
@@ -23,7 +23,7 @@ import type { SkillContext } from './types'
 // rules live in the body, which loads on invoke. Keeping the methodology out
 // of here is the same pull-not-push rule the rest of the runtime follows.
 export const PRJCT_SKILL_DESCRIPTION =
-  'Project memory + spec-driven runtime: recall and capture decisions/learnings/gotchas, run registered workflows, frame and ship work. Recognize intent in any language (es/en) and run the verb yourself — never make the user type commands. Triage every turn: most work is SIMPLE → go direct (`prjct task` → ship); reserve the spec pipeline for genuinely complex or high-stakes work. Over-routing simple work through spec + reviewers is the main failure mode.'
+  'Project memory + spec-driven runtime: recall and capture decisions/learnings/gotchas, run registered workflows, frame and ship work. Recognize intent in any language and run the verb yourself — never make the user type commands. Triage every turn: most work is SIMPLE → go direct (`prjct task` → ship); reserve the spec pipeline for genuinely complex or high-stakes work. Over-routing simple work through spec + reviewers is the main failure mode.'
 
 export const PRJCT_SKILL_ALLOWED_TOOLS = [
   'Bash',
@@ -129,7 +129,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     '## Act: default DIRECT — escalation is the rare exception',
     '',
-    '**The first move on almost every turn is to just do the work DIRECTLY.** A fix, a one-file change, a capture, a question, anything the user calls "fix"/"hoy"/"rápido"/"directo": `prjct task` → implement it yourself → `ship`. **NO spec, NO audit-spec, NO subagents, NO fan-out.** This is the common case and the safe default — when unsure, this is what you pick. Ask at most ONE line; never escalate just to be safe.',
+    '**The first move on almost every turn is to just do the work DIRECTLY.** A fix, a one-file change, a capture, a question, anything the user frames as quick/direct work (in any language): `prjct task` → implement it yourself → `ship`. **NO spec, NO audit-spec, NO subagents, NO fan-out.** This is the common case and the safe default — when unsure, this is what you pick. Ask at most ONE line; never escalate just to be safe.',
     '',
     'Escalate to the spec pipeline ONLY when the test is unambiguous: multi-file + new behavior AND ambiguous scope AND real/irreversible stakes (or the user explicitly frames goals/acceptance/risks). Then, and only then: `spec ─→ audit-spec ─→ task --spec <id> ─→ implement ─→ ship ─→ remember learning`. Forcing simple work through this pipeline is the #1 perf-killer — it burns tokens for zero protection.',
     '',
@@ -137,18 +137,18 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     'Heavy quality workflows (`review`, `qa`, `security`, `investigate`, `audit`, `audit-spec`), the parallel-implementer fan-out rules, decision-briefs, the `prjct prefs` protocol, the spec stations and builder ethos all live in `workflows.md` — **read it on demand when (and only when) you actually run one.** Do not preload it; do not reach for the menu on simple work.',
     '',
-    '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, regardless of the conversation language. When you `capture`/`remember`, translate the intent into a clean English entry (the user may speak Spanish; the persisted knowledge is English). LLMs comprehend English better and embeddings stay high-quality in one canonical language — mixed-language content produces cross-language retrieval noise.',
+    '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, no matter what language the user speaks (Spanish, Japanese, German — any). When you `capture`/`remember`, translate the intent into a clean English entry; the persisted knowledge is always English. LLMs comprehend English better and embeddings stay high-quality in one canonical language — mixed-language content produces cross-language retrieval noise and extra token cost on every later recall.',
     '',
     '## Verb intent map — you run the verb, the user never types it',
     '',
-    'On every turn ask: "what is the user trying to accomplish?" and match to a verb below. Bilingual (es/en) — the verbs are language-agnostic, the intent isn\'t. These are *signals*, not phrase templates. The **Tier** column governs whether you auto-run or confirm first (see Routing).',
+    'On every turn ask: "what is the user trying to accomplish?" and match to a verb below. The user may phrase intent in ANY language — the verbs are language-agnostic. These are *signals*, not phrase templates. The **Tier** column governs whether you auto-run or confirm first (see Routing).',
     '',
     '| Intent / signal | Verb | Tier |',
     '|---|---|---|',
-    '| starting a unit of work — "haceme X", a fix, a change, picking up a queue item (THE DEFAULT, most turns) | `prjct task "<desc>"` (add `--spec <id>` if a spec exists) | 2 |',
+    '| starting a unit of work — "do X for me", a fix, a change, picking up a queue item (THE DEFAULT, most turns) | `prjct task "<desc>"` (add `--spec <id>` if a spec exists) | 2 |',
     '| framing genuinely complex work WITH goals/stakes/acceptance criteria (the exception) | `prjct spec "<title>"` | 2 |',
     '| harden / pressure-test an existing spec before any code | `prjct audit-spec <id>` | 2 |',
-    '| need prior project knowledge — "what did we decide about X", "buscá lo de Y", recall before re-reading source | `prjct search "<query>"` | 1 |',
+    '| need prior project knowledge — "what did we decide about X", "find what we had on Y", recall before re-reading source | `prjct search "<query>"` | 1 |',
     '| an interesting thought to keep, no commitment yet | `prjct capture "<text>" --tags topic:<x>` | 1 |',
     '| a non-trivial choice just got resolved (+ its why) | `prjct remember decision "<choice + one-line why>"` | 1 |',
     '| an insight / "aha" / new mental model | `prjct remember learning "<insight>"` | 1 |',
@@ -161,12 +161,12 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '| "what did we accomplish?" | `prjct retro 7d --md` | 1 |',
     '| pause / resume the working context | `prjct context-save` / `prjct context-restore --md` | 1 |',
     '',
-    'Disambiguators: the "why" separates a `decision` from an `inbox` dump — if you can\'t state it in one line, capture as inbox. A bare "fix X"/"hoy" is `task`, never `spec`. `audit-spec` requires an existing spec. For `ship`, if the active task has a `linked_spec_id`, ship surfaces the spec\'s acceptance_criteria as a PR checklist — STOP on any unmet criterion (override: `prjct ship --no-spec-gate`).',
+    'Disambiguators: the "why" separates a `decision` from an `inbox` dump — if you can\'t state it in one line, capture as inbox. A bare "fix X" is `task`, never `spec`. `audit-spec` requires an existing spec. For `ship`, if the active task has a `linked_spec_id`, ship surfaces the spec\'s acceptance_criteria as a PR checklist — STOP on any unmet criterion (override: `prjct ship --no-spec-gate`).',
     '',
     '## Routing — Tier governs auto-run vs confirm (by blast radius)',
     '',
     '- **Tier 1 — auto-execute, one-line confirm.** `search`, `capture`, `tag`, `remember`, `guard`, `context-save`, `health`, `retro`, `prefs check/list`. Additive/read-only: run IMMEDIATELY, emit one line (`✓ saved as decision: …`). Do not ask "want me to save that?" — just save it; the user corrects afterward. Pausing for permission on routine captures is what makes prjct useless.',
-    '- **Tier 2 — suggest-and-confirm, ONE line.** `task`, `spec`, `audit-spec`, `ship`, `status done|paused`, `prefs set`. State intent + blast radius in one line and wait for a green light (yes/dale/confirma/silence). Never run `ship` without surfacing the plan first — it is un-doable without a force-push.',
+    '- **Tier 2 — suggest-and-confirm, ONE line.** `task`, `spec`, `audit-spec`, `ship`, `status done|paused`, `prefs set`. State intent + blast radius in one line and wait for a green light (an affirmative in any language, or silence). Never run `ship` without surfacing the plan first — it is un-doable without a force-push.',
     '- **Tier 3 — decision-brief** (hard forks costing >5 min to undo): `prjct prefs check <id>` first, then the decision-brief format. Both detailed in `workflows.md`.',
     '',
     '## Gotchas',
@@ -345,7 +345,7 @@ export function buildPrjctSkillReference(): string {
     '',
     'Stop condition: max 3 failed hypotheses per bug — escalate with what was tried. Persist `prjct remember learning "<root cause>"`, `prjct remember decision "<fix + why it works>"`, `prjct remember gotcha "<related bug surfaced>"`.',
     '',
-    '### `ship` (endurecido) — Coverage Gate + Auto-Document',
+    '### `ship` (hardened) — Coverage Gate + Auto-Document',
     '',
     'Use when: ship, deploy, merge, or finalize work.',
     '',

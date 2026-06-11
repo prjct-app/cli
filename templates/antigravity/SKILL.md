@@ -14,6 +14,7 @@ Other: run `prjct <command> --md` and follow CLI output
 Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
 
 Rules:
+- Persist everything (memories, captures, specs) in ENGLISH, whatever language the user speaks
 - prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
 - All commits include footer: `Generated with [p/](https://www.prjct.app/)`
 - All storage through `prjct` CLI (SQLite internally)

@@ -23,6 +23,7 @@
 
 import { memoryService } from '../services/memory-service'
 import prjctDb from '../storage/database'
+import { deburr } from '../utils/deburr'
 import { memoryFingerprint } from './content-fingerprint'
 import {
   collectSupersededIds,
@@ -74,6 +75,38 @@ const DEFAULT_RECALL_LIMIT = 25
 /** Row-count multiplier to give in-memory filters room to work. */
 const OVERFETCH_FACTOR = 4
 const MIN_OVERFETCH = 100
+
+/**
+ * Dead-id set for the FTS mirror: every entry retired by an author-declared
+ * relationship tag, regardless of result window. Scans only live rows whose
+ * tags mention a relationship key (LIKE pre-filter keeps it to a handful of
+ * rows on a hot path that runs per prompt). Best-effort: empty set on error.
+ */
+function collectMirrorSupersededIds(projectId: string): Set<string> {
+  try {
+    const rows = prjctDb.query<{ id: string; tags: string | null }>(
+      projectId,
+      `SELECT id, tags FROM memories
+        WHERE deleted_at IS NULL
+          AND (tags LIKE '%supersede%' OR tags LIKE '%duplicates%')`
+    )
+    const pseudo: Pick<MemoryEntry, 'id' | 'tags'>[] = []
+    for (const row of rows) {
+      if (!row.tags) continue
+      try {
+        const parsed = JSON.parse(row.tags) as unknown
+        if (parsed && typeof parsed === 'object') {
+          pseudo.push({ id: row.id, tags: parsed as Record<string, string> })
+        }
+      } catch {
+        // legacy non-JSON tags — skip
+      }
+    }
+    return collectSupersededIds(pseudo as MemoryEntry[])
+  } catch {
+    return new Set()
+  }
+}
 
 export const projectMemory = {
   /**
@@ -237,11 +270,13 @@ export const projectMemory = {
    */
   searchFts(projectId: string, keywords: string[], limit: number): MemoryEntry[] {
     if (keywords.length === 0 || limit <= 0) return []
-    // Sanitize: keep only token-friendly chars, drop FTS5-reserved
-    // operators so a user prompt with literal "OR"/"AND"/"NEAR" doesn't
-    // hijack the MATCH parse. Trailing-* allows prefix matching.
+    // Sanitize: deburr first (FTS5 unicode61 indexes with
+    // remove_diacritics, so "búsqueda" must query as "busqueda"), then
+    // keep only token-friendly chars and drop FTS5-reserved operators so
+    // a user prompt with literal "OR"/"AND"/"NEAR" doesn't hijack the
+    // MATCH parse. Trailing-* allows prefix matching.
     const sanitized = keywords
-      .map((kw) => kw.replace(/[^a-z0-9-]/gi, ''))
+      .map((kw) => deburr(kw).replace(/[^a-z0-9-]/gi, ''))
       .filter((kw) => kw.length >= 2)
     if (sanitized.length === 0) return []
     const matchExpr = sanitized.map((kw) => `"${kw}"*`).join(' OR ')
@@ -257,6 +292,9 @@ export const projectMemory = {
     }
     let rows: FtsRow[]
     try {
+      // Overfetch: superseded pruning below may drop rows, and this is
+      // the surface that feeds the per-prompt trap cue — a stale decision
+      // must not consume the only result slot.
       rows = prjctDb.query<FtsRow>(
         projectId,
         `SELECT m.id, m.title, m.content, m.tags, m.type, m.provenance, m.created_at
@@ -267,13 +305,13 @@ export const projectMemory = {
          ORDER BY bm25(memories_fts) ASC, m.created_at DESC
          LIMIT ?`,
         matchExpr,
-        limit
+        limit * 2
       )
     } catch {
       return []
     }
 
-    return rows.map((row) => {
+    let entries = rows.map((row) => {
       let tags: Record<string, string> = {}
       if (row.tags) {
         try {
@@ -292,6 +330,16 @@ export const projectMemory = {
         provenance: (row.provenance ?? 'declared') as MemoryProvenance,
       }
     })
+
+    // Author-declared compaction, same contract as recall(): a superseded
+    // or duplicated entry must not surface as live advice. Unlike recall's
+    // window-scoped prune, BM25 ordering rarely returns the SUPERSEDING
+    // entry alongside the stale one, so the dead-id set comes from a scan
+    // of all live mirror rows carrying relationship tags (small, indexed
+    // by the LIKE pre-filter) instead of just the result window.
+    const dead = collectMirrorSupersededIds(projectId)
+    if (dead.size > 0) entries = entries.filter((e) => !dead.has(e.id))
+    return entries.slice(0, limit)
   },
 
   /**
