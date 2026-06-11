@@ -39,7 +39,7 @@ import type { ConditionContext, SkillContext, SkillDefinition } from './skill-ge
  *
  * The body is `Use when` + `What's here` + `Gotchas` — zero numbered
  * steps, zero "first X then Y", zero "pre-flight BLOCKING" language.
- * prjct describes state; Claude decides CÓMO.
+ * prjct describes state; Claude decides HOW.
  */
 const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
