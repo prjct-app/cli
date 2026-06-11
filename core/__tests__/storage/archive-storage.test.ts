@@ -39,6 +39,14 @@ function daysAgoISO(days: number): string {
 
 describe('Archive Storage', () => {
   beforeEach(async () => {
+    // A previous test's fire-and-forget publishCRUDSync can land AFTER its
+    // afterEach restored the real pathManager — opening a REAL-path
+    // connection that stays in prjctDb's cache and hijacks this test's
+    // patched paths (rows then accumulate in ~/.prjct-cli across runs and
+    // assertions read real counts). Drop any cached connections first so
+    // getDb re-resolves through the patch below.
+    prjctDb.close()
+
     tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-archive-test-'))
     testProjectId = 'test-archive-project'
 

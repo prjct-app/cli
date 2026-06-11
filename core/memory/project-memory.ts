@@ -37,7 +37,7 @@ import {
   type ShippedRow,
   shippedRowToEntry,
 } from './entries'
-import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
+import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX, REMEMBER_EVENT_RANGE } from './events'
 
 interface RecallOpts {
   /** Fuzzy-match against content + tag values */
@@ -317,8 +317,8 @@ export const projectMemory = {
     const rows = wantEvents
       ? prjctDb.query<EventRow>(
           projectId,
-          'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC LIMIT ?',
-          `${REMEMBER_EVENT_PREFIX}%`,
+          'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT ?',
+          ...REMEMBER_EVENT_RANGE,
           overfetch
         )
       : []
@@ -603,14 +603,14 @@ export const projectMemory = {
       const rows = prjctDb.query<EventRow>(
         projectId,
         `SELECT e.id, e.type, e.data, e.timestamp FROM events e
-          WHERE e.type LIKE ?
+          WHERE e.type >= ? AND e.type < ?
             AND e.type != ?
             AND NOT EXISTS (
               SELECT 1 FROM memory_embeddings me
                WHERE me.memory_id = 'mem_' || e.id AND me.model = ?
             )
           ORDER BY e.id DESC`,
-        `${REMEMBER_EVENT_PREFIX}%`,
+        ...REMEMBER_EVENT_RANGE,
         `${REMEMBER_EVENT_PREFIX}improvement-signal`,
         model
       )
@@ -634,8 +634,8 @@ export const projectMemory = {
     try {
       const rows = prjctDb.query<EventRow>(
         projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC',
-        `${REMEMBER_EVENT_PREFIX}%`
+        'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC',
+        ...REMEMBER_EVENT_RANGE
       )
       const shipped = prjctDb.query<ShippedRow>(
         projectId,

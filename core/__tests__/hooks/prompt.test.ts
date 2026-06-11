@@ -15,7 +15,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { buildProjectState, buildTopicalCue } from '../../hooks/prompt'
+import {
+  _resetGitSnapshotCacheForTests,
+  buildProjectState,
+  buildTopicalCue,
+} from '../../hooks/prompt'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import prjctDb from '../../storage/database'
@@ -43,6 +47,7 @@ async function freshProject(): Promise<void> {
 
 beforeEach(async () => {
   prjctDb.close()
+  _resetGitSnapshotCacheForTests()
 })
 
 afterEach(async () => {
@@ -109,6 +114,24 @@ describe('UserPromptSubmit — project state', () => {
     const r = await buildProjectState(projectPath)
     expect(r).not.toBeNull()
     expect(r).toContain('# prjct: project state')
+  })
+
+  it('serves the git snapshot from a short TTL cache within a burst', async () => {
+    await freshProject()
+    // Fresh repo has exactly one untracked entry (.prjct/).
+    const first = await buildProjectState(projectPath)
+    expect(first).toMatch(/working tree 1 untracked/)
+
+    // Mutate git state. Within the TTL the hook must NOT re-fork git —
+    // the line stays the cached snapshot (agentic-burst behavior).
+    await fs.writeFile(path.join(projectPath, 'b.txt'), 'hi')
+    const cached = await buildProjectState(projectPath)
+    expect(cached).toMatch(/working tree 1 untracked/)
+
+    // After the cache resets (TTL expiry stand-in) the change is seen.
+    _resetGitSnapshotCacheForTests()
+    const fresh = await buildProjectState(projectPath)
+    expect(fresh).toMatch(/working tree 2 untracked/)
   })
 })
 

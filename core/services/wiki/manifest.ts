@@ -31,10 +31,30 @@ export async function readManifest(root: string): Promise<Manifest> {
   }
 }
 
+// A full regen writes ~150 files into ~14 directories; mkdir-ing the
+// parent on every write is 10× more syscalls than needed. Remember the
+// dirs already ensured (per vault root) and skip the repeat mkdirs.
+// Bounded: cleared when it grows past any realistic vault dir count.
+const ensuredDirs = new Set<string>()
+
 export async function writeFile(root: string, relPath: string, body: string): Promise<void> {
   const fullPath = path.join(root, relPath)
-  await fs.mkdir(path.dirname(fullPath), { recursive: true })
-  await fs.writeFile(fullPath, body, 'utf-8')
+  const dir = path.dirname(fullPath)
+  if (!ensuredDirs.has(dir)) {
+    await fs.mkdir(dir, { recursive: true })
+    if (ensuredDirs.size > 256) ensuredDirs.clear()
+    ensuredDirs.add(dir)
+  }
+  try {
+    await fs.writeFile(fullPath, body, 'utf-8')
+  } catch {
+    // The daemon outlives the cache assumption — a user (or sweep) may
+    // have deleted the dir since it was ensured. Re-create and retry once.
+    ensuredDirs.delete(dir)
+    await fs.mkdir(dir, { recursive: true })
+    ensuredDirs.add(dir)
+    await fs.writeFile(fullPath, body, 'utf-8')
+  }
 }
 
 export async function removeFile(root: string, relPath: string): Promise<void> {

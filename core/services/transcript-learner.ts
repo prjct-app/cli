@@ -296,9 +296,12 @@ function collectExistingAutoHashes(projectId: string): Set<string> {
     // embed the hash in `tags.hash`. Pull recent events and parse out
     // the hashes — same pattern projectMemory.recall uses.
     const { prjctDb } = require('../storage/database') as typeof import('../storage/database')
+    const { REMEMBER_EVENT_RANGE } =
+      require('../memory/events') as typeof import('../memory/events')
     const rows = prjctDb.query<AutoMemoryRow>(
       projectId,
-      "SELECT data FROM events WHERE type LIKE 'memory.remember.%' ORDER BY id DESC LIMIT 500"
+      'SELECT data FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT 500',
+      ...REMEMBER_EVENT_RANGE
     )
     for (const row of rows) {
       let parsed: unknown

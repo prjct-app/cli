@@ -2,14 +2,17 @@
 
 ## [Unreleased]
 
-### Fixed
-- **CRITICAL: Codex support actually works now.** The bin shim self-healed the ~9.5KB Claude skill baseline into `~/.codex/skills/prjct/SKILL.md` — 9× over Codex's HARD ~1024-byte cap, so Codex silently rejected the entire skill. The shim now installs the Codex-specific template (and only when Codex is present); the skill metadata marker was compacted and a size guard + tests keep the built artifact under the cap with headroom.
-- `prjct init` no longer logs `Generated: AGENTS.md` (and friends) for files it never wrote — it reports only what it actually writes.
+### Performance
+- **Hot recall queries now use the type index.** Every `type LIKE 'memory.%'` filter (recall, vault index, embeddings backfill anti-join, memory cap, transcript dedup) was a full `SCAN events` — SQLite can't derive scan bounds from a parameterized LIKE. Rewritten as indexed range predicates with exact-parity tests; cost stays flat as the events table grows.
+- **Prompt hook git snapshot cached for 3s.** The UserPromptSubmit hook forked 3 git processes per turn (~40ms); agentic bursts forked hundreds. The daemon now reuses the snapshot within a 3s TTL per cwd.
+- **Upgrade migration no longer opens every project DB.** A `.cli-version` marker per project dir reduces the post-upgrade scan from a SQLite open per directory (~3ms × tens of thousands of dirs ≈ up to a minute) to one tiny file read each.
+- Vault writes skip redundant per-file `mkdir` syscalls (dir-ensured cache with delete-retry fallback).
 
-### Added
-- **Codex MCP wiring.** Setup and sync now ensure `[mcp_servers.prjct]` in `~/.codex/config.toml` (marker-managed TOML block; user-managed entries are never touched) — the `prjct_*` tools finally exist for Codex sessions.
-- **AGENTS.md generation.** `prjct init` writes a vendor-neutral prjct routing block to the project's `AGENTS.md` (marker-merged, user content preserved) when Codex is detected or wizard-selected — Codex has no hooks, so this block is its session-start context.
-- `prjct doctor` now checks the `codex` binary and the installed Claude hooks count.
+### Fixed
+- **Vault can no longer go stale across upgrades.** The regen fingerprint now includes the CLI version: every upgrade forces one cheap full regen per project, so a builder/format change always renders (previously the old fingerprint blocked new output until unrelated inputs changed).
+- **Codex detected in non-interactive shells.** `detectCodex` accepts `~/.codex/auth.json` (a logged-in install) as evidence alongside binary-on-PATH — hooks/daemon run without the interactive PATH, which silently skipped Codex MCP wiring and skill repair.
+- Removed dead `memoryService.search()` (1,000-row JS substring scan, zero callers — `prjct search` uses the FTS5 + semantic blend).
+- Archive-storage tests no longer leak a real-path SQLite connection across the pathManager patch (stray async sync-publish could cache it and hijack the next test's isolation).
 
 ## [2.43.3] - 2026-06-11
 

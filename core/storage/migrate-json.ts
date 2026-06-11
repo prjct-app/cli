@@ -22,6 +22,7 @@
  *
  */
 
+import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
@@ -37,6 +38,51 @@ import {
   migrateSessionFiles,
 } from './migrate-json/migrate-files'
 import { populateIndexTables, populateNormalized } from './migrate-json/populate-tables'
+
+/** Legacy index/memory files outside STORAGE_FILES/INDEX_FILES that the
+ *  migration also reads. Kept here so `hasLegacyArtifacts` checks the exact
+ *  same set the migration consumes. */
+const LEGACY_INDEX_EXTRA = ['checksums.json', 'file-scores.json']
+const LEGACY_MEMORY_FILES = ['events.jsonl', 'learnings.jsonl']
+
+/**
+ * Fast filesystem check: does this project still have ANY legacy JSON/JSONL
+ * artifact the migration would read? A successful migration deletes them
+ * (`cleanupJsonFiles`), so their absence means the project is already on
+ * SQLite — and we can skip WITHOUT opening its database.
+ *
+ * This is the hot guard for `prjct update`, which calls the migration for
+ * EVERY project. On heavy users (tens of thousands of projects) the old
+ * `prjctDb.hasDoc()` early-return opened each project's DB just to confirm
+ * it was migrated — WAL + SHM + mmap per open, plus a migration pass and a
+ * VACUUM-INTO backup — exhausting file descriptors (EMFILE) and taking
+ * minutes. Pure `existsSync` stats here: no FDs held, no DB touched.
+ */
+export function hasLegacyArtifacts(projectId: string): boolean {
+  const globalPath = pathManager.getGlobalProjectPath(projectId)
+  const storagePath = path.join(globalPath, 'storage')
+  const indexPath = path.join(globalPath, 'index')
+  const memoryPath = path.join(globalPath, 'memory')
+
+  for (const { filename } of STORAGE_FILES) {
+    if (existsSync(path.join(storagePath, filename))) return true
+  }
+  for (const { filename } of INDEX_FILES) {
+    if (existsSync(path.join(indexPath, filename))) return true
+  }
+  for (const filename of LEGACY_INDEX_EXTRA) {
+    if (existsSync(path.join(indexPath, filename))) return true
+  }
+  for (const filename of LEGACY_MEMORY_FILES) {
+    if (existsSync(path.join(memoryPath, filename))) return true
+  }
+  // sessions/*.json — migrated via migrateSessionFiles. Treat a non-empty
+  // sessions dir as a legacy artifact (cheap dir read only when it exists).
+  const sessionsPath = path.join(globalPath, 'sessions')
+  if (existsSync(sessionsPath)) return true
+
+  return false
+}
 
 /**
  * Migrate all JSON files to SQLite for a project.

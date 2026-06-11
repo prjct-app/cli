@@ -154,7 +154,33 @@ interface GitSnapshot {
   ahead: number
 }
 
+// The daemon serves hooks from a long-lived process, so agentic bursts
+// (dozens of prompts per minute) would fork `git status` dozens of times
+// for a snapshot that can't meaningfully change between turns. A short
+// TTL bounds staleness to 3s — far below the rate at which branch/staged
+// state matters in the injected one-liner — and drops the fork rate from
+// O(prompts) to at most one burst per TTL window per cwd.
+const GIT_SNAPSHOT_TTL_MS = 3000
+const gitSnapshotCache = new Map<string, { snapshot: GitSnapshot; expiresAt: number }>()
+
+/** Test-only: drop cached git snapshots so a test can observe fresh state. */
+export function _resetGitSnapshotCacheForTests(): void {
+  gitSnapshotCache.clear()
+}
+
 async function captureGit(projectPath: string): Promise<GitSnapshot> {
+  const cached = gitSnapshotCache.get(projectPath)
+  if (cached && cached.expiresAt > Date.now()) return cached.snapshot
+
+  const snapshot = await captureGitUncached(projectPath)
+  // Bound the map: hooks only ever run for a handful of cwds per daemon,
+  // but a runaway caller must not grow this unbounded.
+  if (gitSnapshotCache.size > 32) gitSnapshotCache.clear()
+  gitSnapshotCache.set(projectPath, { snapshot, expiresAt: Date.now() + GIT_SNAPSHOT_TTL_MS })
+  return snapshot
+}
+
+async function captureGitUncached(projectPath: string): Promise<GitSnapshot> {
   const empty: GitSnapshot = { branch: '', modified: 0, staged: 0, untracked: 0, ahead: 0 }
   const safe = async (args: string[]): Promise<string> => {
     try {

@@ -7,6 +7,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { prjctDb } from '../../storage/database'
+import { VERSION } from '../../utils/version'
 
 export const FINGERPRINT_FILE = '.regen-fingerprint'
 
@@ -52,5 +53,11 @@ export async function computeRegenFingerprint(
     .stat(path.join(projectPath, 'CHANGELOG.md'))
     .then((st) => Math.floor(st.mtimeMs))
     .catch(() => 0)
-  return `v${REGEN_SCHEMA_VERSION}|e${e}|a${a}|s${s}|ls${ls}|c${changelogMtime}|w${wc}/${wmax}`
+  // CLI VERSION is part of the fingerprint: any upgrade forces ONE full
+  // regen per project (~50-80ms) and in exchange a builder change can
+  // never serve a stale vault — the bug class where an installed old
+  // version stamped the fingerprint and the new format never rendered
+  // until unrelated inputs changed. REGEN_SCHEMA_VERSION stays as the
+  // manual escape hatch for same-version invalidation (dev builds).
+  return `v${REGEN_SCHEMA_VERSION}|cli${VERSION}|e${e}|a${a}|s${s}|ls${ls}|c${changelogMtime}|w${wc}/${wmax}`
 }
