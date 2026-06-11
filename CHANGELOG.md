@@ -11,6 +11,13 @@
 - **AGENTS.md generation.** `prjct init` writes a vendor-neutral prjct routing block to the project's `AGENTS.md` (marker-merged, user content preserved) when Codex is detected or wizard-selected — Codex has no hooks, so this block is its session-start context.
 - `prjct doctor` now checks the `codex` binary and the installed Claude hooks count.
 
+## [2.43.3] - 2026-06-11
+
+### Bug Fixes
+
+- Codex first-class — skill under 1KB cap, MCP wiring, real AGENTS.md, doctor checks (#427)
+
+
 ## [2.43.2] - 2026-06-11
 
 ### Bug Fixes
