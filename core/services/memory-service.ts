@@ -162,15 +162,24 @@ class MemoryService {
   }
 
   /**
-   * Cap memory log at max entries (PRJ-267).
+   * Cap memory TELEMETRY at max entries (PRJ-267).
    * Moves overflow entries to archive table, keeps most recent entries.
    * Returns count of archived entries.
+   *
+   * `memory.remember.*` rows are knowledge — the product's reason to
+   * exist — and are NEVER counted or deleted here. The old behavior
+   * counted every `memory.%` event together, so high-churn telemetry
+   * (`memory.post_edit` fires on every file edit) inflated the total
+   * past the cap and the age-ordered delete silently destroyed the
+   * OLDEST remembered decisions/gotchas/learnings while keeping
+   * hundreds of newer telemetry rows. Knowledge leaves the log through
+   * `prjct forget`, deliberately — never through a size cap.
    */
   async capEntries(projectId: string): Promise<number> {
     try {
       const countRow = prjctDb.get<{ cnt: number }>(
         projectId,
-        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%'"
+        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%' AND type NOT LIKE 'memory.remember.%'"
       )
 
       const total = countRow?.cnt ?? 0
@@ -188,7 +197,7 @@ class MemoryService {
         timestamp: string
       }>(
         projectId,
-        "SELECT id, type, data, timestamp FROM events WHERE type LIKE 'memory.%' ORDER BY id ASC LIMIT ?",
+        "SELECT id, type, data, timestamp FROM events WHERE type LIKE 'memory.%' AND type NOT LIKE 'memory.remember.%' ORDER BY id ASC LIMIT ?",
         overflow
       )
 
@@ -204,15 +213,12 @@ class MemoryService {
         }))
       )
 
-      // Delete the oldest overflow entries
-      const maxIdToDelete = oldestRows[oldestRows.length - 1]?.id
-      if (maxIdToDelete !== undefined) {
-        prjctDb.run(
-          projectId,
-          "DELETE FROM events WHERE type LIKE 'memory.%' AND id <= ?",
-          maxIdToDelete
-        )
-      }
+      // Delete exactly the archived rows — never an id-range sweep,
+      // which would take unrelated event types down with it.
+      prjctDb.transaction(projectId, (db) => {
+        const del = db.prepare('DELETE FROM events WHERE id = ?')
+        for (const row of oldestRows) del.run(row.id)
+      })
 
       return overflow
     } catch (error) {
