@@ -11,6 +11,13 @@
 - **Digest slots are proven-first.** The session-start and subagent digests picked the 3 most RECENT gotchas/decisions; they now overfetch and rerank by the usefulness ledger, so knowledge that keeps paying off wins the slots.
 - **Push-surfaced knowledge earns ship credit.** The pre-edit guard hook, the prompt trap cue, `prjct guard`, and `prjct_guard` now log surfaced entries against the active task — previously only PULL recalls did, so the most effective gotchas decayed in ranking precisely because the push delivery worked.
 
+## [2.44.0] - 2026-06-11
+
+### Features
+
+- retrieval quality — superseded filter, proven-first digests, MCP parity, push-path ship credit, unicode keywords (#429)
+
+
 ## [2.43.4] - 2026-06-11
 
 ### Performance
