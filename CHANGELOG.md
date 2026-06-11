@@ -14,6 +14,13 @@
 - Removed dead `memoryService.search()` (1,000-row JS substring scan, zero callers — `prjct search` uses the FTS5 + semantic blend).
 - Archive-storage tests no longer leak a real-path SQLite connection across the pathManager patch (stray async sync-publish could cache it and hijack the next test's isolation).
 
+## [2.43.4] - 2026-06-11
+
+### Performance
+
+- indexed range queries, git TTL cache, version-aware vault fingerprint, upgrade-scan guard (#428)
+
+
 ## [2.43.3] - 2026-06-11
 
 ### Bug Fixes
