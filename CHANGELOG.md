@@ -5,6 +5,13 @@
 ### Fixed
 - **CRITICAL: the memory cap no longer deletes knowledge.** `capEntries` (runs on every `prjct sync`) counted ALL `memory.%` events against the 500-row cap — high-churn telemetry (`memory.post_edit` fires on every file edit) inflated the total and the age-ordered delete silently destroyed the OLDEST remembered decisions/gotchas/learnings while keeping hundreds of newer telemetry rows. `memory.remember.*` is now invisible to the cap (count and delete); knowledge leaves the log only via `prjct forget`. The delete is also exact-id based instead of an id-range sweep. If a past sync capped your project: the `memories` mirror table still holds the rows with their original ids — restorable.
 
+## [2.43.2] - 2026-06-11
+
+### Bug Fixes
+
+- release job is idempotent — recovery path for partial failures + retried npm publish (#426)
+
+
 ## [2.43.1] - 2026-06-11
 
 ### Bug Fixes
