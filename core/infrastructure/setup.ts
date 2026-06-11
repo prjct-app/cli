@@ -381,7 +381,17 @@ async function installAntigravitySkill(): Promise<{
 /**
  * Migrate existing projects to add cliVersion field
  * This clears the status line warning after npm update
+ *
+ * Runs once per upgrade over EVERY directory under the global projects
+ * dir — which on dev machines accumulates tens of thousands of
+ * test-created entries. Opening SQLite per dir (`getDoc` runs the
+ * migration check + a kv query, ~3ms each) made upgrades take up to a
+ * minute. A `.cli-version` marker file per dir records "reconciled with
+ * VERSION": the steady state is one tiny fs read per dir (~µs), and the
+ * DB is only opened for dirs whose marker is missing or stale.
  */
+const CLI_VERSION_MARKER = '.cli-version'
+
 async function migrateProjectsCliVersion(): Promise<void> {
   try {
     const projectsDir = pathManager.globalProjectsDir
@@ -398,17 +408,22 @@ async function migrateProjectsCliVersion(): Promise<void> {
 
     for (const projectId of projectDirs) {
       try {
-        const project = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
-        if (!project) {
+        const markerPath = path.join(projectsDir, projectId, CLI_VERSION_MARKER)
+        const marker = await fs.readFile(markerPath, 'utf-8').catch(() => '')
+        if (marker.trim() === VERSION) {
           continue
         }
 
-        // Only update if cliVersion is missing or different
-        if (project.cliVersion !== VERSION) {
+        const project = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+        if (project && project.cliVersion !== VERSION) {
           project.cliVersion = VERSION
           prjctDb.setDoc(projectId, 'project', project)
           migrated++
         }
+
+        // Mark even doc-less dirs (test artifacts) so the next upgrade
+        // skips them with a single read instead of a DB open.
+        await fs.writeFile(markerPath, VERSION, 'utf-8').catch(() => {})
       } catch {
         // Skip projects with database issues
       }

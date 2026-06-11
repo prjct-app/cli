@@ -6,6 +6,7 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { MEMORY_EVENT_RANGE, REMEMBER_EVENT_RANGE } from '../memory/events'
 import { ARCHIVE_POLICIES, archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
 import type { MemoryServiceEntry } from '../types/services'
@@ -43,7 +44,8 @@ class MemoryService {
 
       const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
         projectId,
-        "SELECT type, data, timestamp FROM events WHERE type LIKE 'memory.%' ORDER BY id DESC LIMIT ?",
+        'SELECT type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT ?',
+        ...MEMORY_EVENT_RANGE,
         limit
       )
 
@@ -61,26 +63,6 @@ class MemoryService {
       console.error(`Memory read error: ${error instanceof Error ? error.message : String(error)}`)
       return []
     }
-  }
-
-  /**
-   * Search memory for entries matching a pattern
-   */
-  async search(
-    projectPath: string,
-    pattern: string,
-    limit: number = 50
-  ): Promise<MemoryServiceEntry[]> {
-    const entries = await this.getRecent(projectPath, 1000)
-    const patternLower = pattern.toLowerCase()
-
-    return entries
-      .filter((entry) => {
-        const actionMatch = entry.action.toLowerCase().includes(patternLower)
-        const dataMatch = JSON.stringify(entry.data).toLowerCase().includes(patternLower)
-        return actionMatch || dataMatch
-      })
-      .slice(-limit)
   }
 
   /**
@@ -126,7 +108,11 @@ class MemoryService {
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) return
 
-      prjctDb.run(projectId, "DELETE FROM events WHERE type LIKE 'memory.%'")
+      prjctDb.run(
+        projectId,
+        'DELETE FROM events WHERE type >= ? AND type < ?',
+        ...MEMORY_EVENT_RANGE
+      )
     } catch (error) {
       console.error(`Memory clear error: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -143,7 +129,8 @@ class MemoryService {
     try {
       const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
         projectId,
-        "SELECT type, data, timestamp FROM events WHERE type LIKE 'memory.%' ORDER BY id DESC LIMIT ?",
+        'SELECT type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT ?',
+        ...MEMORY_EVENT_RANGE,
         limit
       )
 
@@ -179,7 +166,9 @@ class MemoryService {
     try {
       const countRow = prjctDb.get<{ cnt: number }>(
         projectId,
-        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%' AND type NOT LIKE 'memory.remember.%'"
+        'SELECT COUNT(*) as cnt FROM events WHERE type >= ? AND type < ? AND NOT (type >= ? AND type < ?)',
+        ...MEMORY_EVENT_RANGE,
+        ...REMEMBER_EVENT_RANGE
       )
 
       const total = countRow?.cnt ?? 0
@@ -197,7 +186,9 @@ class MemoryService {
         timestamp: string
       }>(
         projectId,
-        "SELECT id, type, data, timestamp FROM events WHERE type LIKE 'memory.%' AND type NOT LIKE 'memory.remember.%' ORDER BY id ASC LIMIT ?",
+        'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? AND NOT (type >= ? AND type < ?) ORDER BY id ASC LIMIT ?',
+        ...MEMORY_EVENT_RANGE,
+        ...REMEMBER_EVENT_RANGE,
         overflow
       )
 

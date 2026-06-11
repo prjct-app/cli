@@ -437,9 +437,12 @@ export async function detectCodex(): Promise<CodexDetection> {
   const skillPath = path.join(configPath, 'skills', 'prjct', 'SKILL.md')
   const skillInstalled = await fileExists(skillPath)
 
-  // Require the CLI binary to be present — a leftover ~/.codex/ directory alone
-  // does not mean Codex is installed and should not block other providers.
-  const installed = !!cliPath
+  // Binary on PATH is the primary signal, but hooks/daemon run in
+  // non-interactive shells where the user's PATH (nvm, app-managed
+  // installs) isn't loaded — `~/.codex/auth.json` is a logged-in Codex
+  // install and counts as evidence too. A bare leftover ~/.codex/
+  // directory alone still does NOT count and won't block other providers.
+  const installed = !!cliPath || (await fileExists(path.join(configPath, 'auth.json')))
 
   return {
     installed,
