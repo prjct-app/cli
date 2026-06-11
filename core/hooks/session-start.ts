@@ -93,11 +93,13 @@ export async function buildSessionContext(
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
+    // One advisory line only — the recall verbs already live in the skill's
+    // Primitives section; repeating them here cost tokens on every cold
+    // start for zero new information (token-cache audit R5).
     sections.push(
       formatPersona(persona),
       '',
-      '> Exposed as state, not prescription. Decide whether any of this matters for the current turn.',
-      '> For recall, run `prjct context memory [topic]` (per-turn topical memory is already injected by the prompt hook).'
+      '> Exposed as state, not prescription. Decide whether any of this matters for the current turn.'
     )
   }
   if (digest) {

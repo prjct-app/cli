@@ -61,7 +61,9 @@ describe('review-risk — integration (git)', () => {
     // Regression: the no-signal early-return must still carry `geometry`
     // (was omitted → undefined for structured-result consumers).
     expect(r.geometry).toBe('direct')
-  })
+    // 15s: this spawns several git processes; under CI runner load the
+    // default 5s timeout flakes (it failed a RELEASE run on 2026-06-11).
+  }, 15_000)
 
   it('flags a large changeset on a feature branch and suggests split', async () => {
     await fs.writeFile(path.join(dir, 'seed.txt'), 'x')
@@ -77,5 +79,5 @@ describe('review-risk — integration (git)', () => {
     expect(r.success).toBe(true)
     expect(r.tier).toBe('large')
     expect(r.geometry).toBe('split')
-  })
+  }, 15_000)
 })

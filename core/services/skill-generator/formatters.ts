@@ -103,29 +103,19 @@ ${rows.map(([action, cmd]) => `| ${action} | \`${cmd}\` |`).join('\n')}
 }
 
 export function formatState(ctx: SkillContext): string {
-  const lines: string[] = []
-  if (ctx.hasActiveTask) {
-    lines.push(`Active task: **${ctx.activeTaskDescription}**`)
-  }
-  if (ctx.pausedTasks.length > 0) {
-    for (const t of ctx.pausedTasks.slice(0, 3)) {
-      lines.push(`Paused: ${t.description} (${t.pausedAt})`)
-    }
-  }
-  if (ctx.backlogCount > 0) {
-    const topItems = ctx.topBacklog
-      .slice(0, 3)
-      .map((t) => `${t.description} [${t.priority}]`)
-      .join(', ')
-    lines.push(`Backlog: ${ctx.backlogCount} items${topItems ? ` — ${topItems}` : ''}`)
-  }
-  const extras: string[] = []
-  if (ctx.ideasCount > 0) extras.push(`Ideas: ${ctx.ideasCount} pending`)
-  if (ctx.shippedCount > 0) extras.push(`Shipped: ${ctx.shippedCount}`)
-  if (extras.length > 0) lines.push(extras.join(' | '))
+  // Counts only. Task DESCRIPTIONS are stale by the next sync, and the
+  // per-turn prompt hook already injects the LIVE active task — baking
+  // text snippets into a body that sits in context every turn burned
+  // tokens on duplicated, aging data. Pull the detail on demand:
+  // `prjct context --md`.
+  const parts: string[] = []
+  if (ctx.pausedTasks.length > 0) parts.push(`Paused: ${ctx.pausedTasks.length}`)
+  if (ctx.backlogCount > 0) parts.push(`Backlog: ${ctx.backlogCount}`)
+  if (ctx.ideasCount > 0) parts.push(`Ideas: ${ctx.ideasCount} pending`)
+  if (ctx.shippedCount > 0) parts.push(`Shipped: ${ctx.shippedCount}`)
 
-  if (lines.length === 0) return ''
-  return `\n## State\n${lines.join('\n')}\n`
+  if (parts.length === 0) return ''
+  return `\n## State\n${parts.join(' | ')} — detail via \`prjct context --md\`\n`
 }
 
 export function formatUserPatterns(ctx: SkillContext): string {

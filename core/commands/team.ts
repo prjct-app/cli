@@ -397,11 +397,11 @@ function teamClaudeMdBlock(cfg: TeamConfig): string {
     '',
     `This repo is enrolled in prjct team mode (required: ${cfg.required}, minVersion: ${cfg.minVersion}, enrolled: ${cfg.enrolledAt}).`,
     '',
-    'When working in this repo:',
-    '- prjct stores project memory (decisions, learnings, gotchas, patterns) per project.',
-    '- The vault lives at `~/Documents/prjct/<slug>/_generated/`.',
-    '- Always lookup the vault before re-reading source for project context.',
-    '- Capture substantive analysis back via `prjct remember <type> "..."` — authored in ENGLISH, whatever language the contributor speaks.',
+    // One line instead of a bullet list: contributors WITH prjct installed
+    // already get the full contract from the global CLAUDE.md + skill —
+    // repeating it here doubled ~100 tokens in every repo session
+    // (token-cache audit R7).
+    'Lookup the vault (`~/Documents/prjct/<slug>/_generated/`) before re-reading source; capture analysis back via `prjct remember <type> "..."` — in ENGLISH, whatever language the contributor speaks.',
     '',
     "Don't have prjct? Install once: `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash`",
     `${cfg.required ? 'This repo *requires* prjct — please install before contributing.' : ''}`,

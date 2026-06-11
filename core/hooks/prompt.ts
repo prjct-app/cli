@@ -91,9 +91,12 @@ export async function buildProjectState(
       if (git.modified > 0) wtBits.push(`${git.modified} modified`)
       if (git.staged > 0) wtBits.push(`${git.staged} staged`)
       if (git.untracked > 0) wtBits.push(`${git.untracked} untracked`)
-      const wt = wtBits.length > 0 ? wtBits.join(', ') : 'clean'
-      const ahead = git.ahead > 0 ? `, ${git.ahead} unpushed` : ''
-      lines.push(`- Branch: ${git.branch} — working tree ${wt}${ahead}`)
+      // A clean tree with nothing unpushed carries no signal — emit just
+      // the branch. Repeating "working tree clean" every turn was pure
+      // token noise (token-cache audit R2).
+      const wt = wtBits.length > 0 ? ` — working tree ${wtBits.join(', ')}` : ''
+      const ahead = git.ahead > 0 ? `${wt ? ',' : ' —'} ${git.ahead} unpushed` : ''
+      lines.push(`- Branch: ${git.branch}${wt}${ahead}`)
       hasContent = true
     }
   }
@@ -228,17 +231,17 @@ async function captureGitUncached(projectPath: string): Promise<GitSnapshot> {
   return { branch, modified, staged, untracked, ahead }
 }
 
+// Coarse buckets on purpose: minute/hour-level strings ("47m ago",
+// "3h ago") flip constantly between turns — diff-noise the model must
+// re-read for zero added signal (token-cache audit R1). Day-level
+// resolution is all the state block needs.
 function formatRelative(isoTimestamp: string): string {
   if (!isoTimestamp) return 'unknown'
   const t = Date.parse(isoTimestamp)
   if (Number.isNaN(t)) return 'unknown'
-  const seconds = Math.max(0, Math.floor((Date.now() - t) / 1000))
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
+  const days = Math.max(0, Math.floor((Date.now() - t) / 86_400_000))
+  if (days < 1) return 'today'
+  if (days < 2) return 'yesterday'
   if (days < 30) return `${days}d ago`
   return `${Math.floor(days / 30)}mo ago`
 }

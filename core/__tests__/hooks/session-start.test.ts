@@ -109,10 +109,10 @@ describe('SessionStart hook — buildSessionContext', () => {
     expect(ctx).toContain('Exposed as state, not prescription')
   })
 
-  test('points the model at on-demand recall (`prjct context memory`)', async () => {
+  test('does NOT repeat the recall verbs (they live in the skill — token diet R5)', async () => {
     await freshProject({ role: 'DEV' })
     const ctx = await buildSessionContext(projectPath)
-    expect(ctx).toContain('prjct context memory')
+    expect(ctx).not.toContain('prjct context memory')
   })
 
   test('NEVER includes memory entry content (cache-stability invariant)', async () => {
