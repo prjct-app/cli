@@ -3,7 +3,13 @@
 ## [Unreleased]
 
 ### Fixed
-- **CRITICAL: the memory cap no longer deletes knowledge.** `capEntries` (runs on every `prjct sync`) counted ALL `memory.%` events against the 500-row cap — high-churn telemetry (`memory.post_edit` fires on every file edit) inflated the total and the age-ordered delete silently destroyed the OLDEST remembered decisions/gotchas/learnings while keeping hundreds of newer telemetry rows. `memory.remember.*` is now invisible to the cap (count and delete); knowledge leaves the log only via `prjct forget`. The delete is also exact-id based instead of an id-range sweep. If a past sync capped your project: the `memories` mirror table still holds the rows with their original ids — restorable.
+- **CRITICAL: Codex support actually works now.** The bin shim self-healed the ~9.5KB Claude skill baseline into `~/.codex/skills/prjct/SKILL.md` — 9× over Codex's HARD ~1024-byte cap, so Codex silently rejected the entire skill. The shim now installs the Codex-specific template (and only when Codex is present); the skill metadata marker was compacted and a size guard + tests keep the built artifact under the cap with headroom.
+- `prjct init` no longer logs `Generated: AGENTS.md` (and friends) for files it never wrote — it reports only what it actually writes.
+
+### Added
+- **Codex MCP wiring.** Setup and sync now ensure `[mcp_servers.prjct]` in `~/.codex/config.toml` (marker-managed TOML block; user-managed entries are never touched) — the `prjct_*` tools finally exist for Codex sessions.
+- **AGENTS.md generation.** `prjct init` writes a vendor-neutral prjct routing block to the project's `AGENTS.md` (marker-merged, user content preserved) when Codex is detected or wizard-selected — Codex has no hooks, so this block is its session-start context.
+- `prjct doctor` now checks the `codex` binary and the installed Claude hooks count.
 
 ## [2.43.2] - 2026-06-11
 

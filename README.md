@@ -509,6 +509,14 @@ Codex is detected by the `codex` CLI on PATH (context file `AGENTS.md`). The
 sandbox is non-interactive/non-TTY, so prjct-cli emits the same static, prompt-free
 status line as any agent; add `--md` for fully markdown-structured output.
 
+**What does Codex get from prjct?**
+Three surfaces, all installed/healed automatically: a compact skill at
+`~/.codex/skills/prjct/SKILL.md` (kept under Codex's ~1KB skill cap), the
+prjct MCP server wired into `~/.codex/config.toml` (`prjct_*` tools), and a
+vendor-neutral routing block in the project's `AGENTS.md` written by
+`prjct init`. Codex has no lifecycle hooks, so AGENTS.md + MCP are its
+session-start context and live tool surface.
+
 **How do I quickly find the local `.prjct/` directory?**
 It's in your **project repo root** (created by `prjct init` / first `prjct`
 command) and is `.gitignore`d — that's why `git status` never shows it. Find it:

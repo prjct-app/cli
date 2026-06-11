@@ -91,15 +91,19 @@ ensure_setup() {
   # postinstall is unreliable (--ignore-scripts, npm policies), so the
   # bin shim self-heals on every invocation. mtime-based: source newer
   # than dest → overwrite. Common case (skill up-to-date) = two stats.
-  SKILL_SRC="$ROOT_DIR/templates/skills/prjct/SKILL.md"
-  if [ -f "$SKILL_SRC" ]; then
-    for SKILL_DEST in "$HOME/.claude/skills/prjct/SKILL.md" "$HOME/.codex/skills/prjct/SKILL.md"; do
-      SKILL_DIR=$(dirname "$SKILL_DEST")
-      if [ ! -f "$SKILL_DEST" ] || [ "$SKILL_SRC" -nt "$SKILL_DEST" ]; then
-        mkdir -p "$SKILL_DIR" 2>/dev/null
-        cp "$SKILL_SRC" "$SKILL_DEST" 2>/dev/null
-      fi
-    done
+  # Each agent gets ITS OWN template: Codex enforces a hard ~1KB limit
+  # on the whole SKILL.md and silently rejects the entire skill when
+  # the (much larger) Claude baseline lands there.
+  install_skill() {
+    if [ -f "$1" ] && { [ ! -f "$2" ] || [ "$1" -nt "$2" ]; }; then
+      mkdir -p "$(dirname "$2")" 2>/dev/null
+      cp "$1" "$2" 2>/dev/null
+    fi
+  }
+  install_skill "$ROOT_DIR/templates/skills/prjct/SKILL.md" "$HOME/.claude/skills/prjct/SKILL.md"
+  # Codex only if present — don't create ~/.codex on machines without it
+  if [ -d "$HOME/.codex" ] || command -v codex >/dev/null 2>&1; then
+    install_skill "$ROOT_DIR/templates/codex/SKILL.md" "$HOME/.codex/skills/prjct/SKILL.md"
   fi
 }
 

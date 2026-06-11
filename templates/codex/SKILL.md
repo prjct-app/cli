@@ -10,7 +10,7 @@ Run `prjct <command> --md` and follow its output. Pull context on demand; never 
 - Flow: `task` → work → `done` → `ship`
 - Memory: `prjct remember <decision|gotcha|learning|fact> "<text>"`, `prjct context memory <topic>` (recall), `prjct guard <file>` (preventive memory before editing)
 - Capture stray thoughts: `prjct capture "<text>"`
-- Worktree hygiene: if working in a git worktree, remove it AFTER its PR merges — `git worktree remove` from the main worktree; never with uncommitted/unpushed work, never `--force`.
+- Worktrees: remove only AFTER the PR merges, from the main worktree; never with unpushed work.
 - Run `prjct --help` for the full command list; prefer the prjct MCP tools (`prjct_*`) when available.
 
 Commit footer: `Generated with [p/](https://www.prjct.app/)`

@@ -112,6 +112,9 @@ class DoctorService {
       this.checkCommand('gemini', 'gemini --version', /gemini ([\d.]+)/, true, 'Google Gemini CLI')
     )
 
+    // OpenAI Codex CLI (optional)
+    checks.push(this.checkCommand('codex', 'codex --version', /([\d.]+)/, true, 'OpenAI Codex CLI'))
+
     return checks
   }
 
@@ -163,7 +166,36 @@ class DoctorService {
     // Codex p. router
     checks.push(await this.checkCodexPRouter())
 
+    // Claude Code hooks (the capture/apply loop runs through them)
+    checks.push(await this.checkClaudeHooks())
+
     return checks
+  }
+
+  private async checkClaudeHooks(): Promise<CheckResult> {
+    try {
+      const settingsInstaller = await import('./settings-installer')
+      const { installed, expected } = await settingsInstaller.status()
+
+      if (installed === expected) {
+        return {
+          name: 'claude hooks',
+          status: 'ok',
+          message: `${installed}/${expected} installed`,
+        }
+      }
+      return {
+        name: 'claude hooks',
+        status: 'warn',
+        message: `${installed}/${expected} installed - run "prjct setup" to repair`,
+      }
+    } catch {
+      return {
+        name: 'claude hooks',
+        status: 'warn',
+        message: 'could not read ~/.claude/settings.json',
+      }
+    }
   }
 
   private async checkPrjctConfig(): Promise<CheckResult> {
