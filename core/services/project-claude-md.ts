@@ -28,7 +28,8 @@ that travel with this project:
 - **Routine captures auto-execute, no permission.** When the user mentions
   a decision, learning, gotcha, or random thought, save it via
   \`prjct remember <type>\` or \`prjct capture\` immediately and confirm in
-  one line. Asking "want me to save that?" is the failure mode.
+  one line. Asking "want me to save that?" is the failure mode. Author
+  every entry in ENGLISH, whatever language the user speaks.
 - **Destructive verbs suggest first.** \`ship\`, \`status done\`, \`prefs set\`,
   and the audit/security/investigate workflows surface a one-line plan
   ("I'll run \`prjct ship\` — bumps version, opens PR. Ok?") and wait for

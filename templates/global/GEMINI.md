@@ -7,6 +7,7 @@ Other commands: run `prjct <command> --md` and follow CLI output
 Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
 
 Data:
+- Persist everything (memories, captures, specs) in ENGLISH, whatever language the user speaks
 - prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
 - prjct remembers and shows the path; the agent decides how to execute with its own native tools
 - Treat prjct output as signals, not a prescriptive harness

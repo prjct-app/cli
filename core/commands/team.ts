@@ -401,7 +401,7 @@ function teamClaudeMdBlock(cfg: TeamConfig): string {
     '- prjct stores project memory (decisions, learnings, gotchas, patterns) per project.',
     '- The vault lives at `~/Documents/prjct/<slug>/_generated/`.',
     '- Always lookup the vault before re-reading source for project context.',
-    '- Capture substantive analysis back via `prjct remember <type> "..."`.',
+    '- Capture substantive analysis back via `prjct remember <type> "..."` — authored in ENGLISH, whatever language the contributor speaks.',
     '',
     "Don't have prjct? Install once: `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash`",
     `${cfg.required ? 'This repo *requires* prjct — please install before contributing.' : ''}`,

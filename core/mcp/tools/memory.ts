@@ -48,7 +48,7 @@ export function registerMemoryTools(server: McpServer) {
 
   s.tool(
     'prjct_mem_save',
-    `Save a memory entry. ${TYPE_DESCRIPTIONS} Secret-like content is refused unless force=true.`,
+    `Save a memory entry. Author content in ENGLISH regardless of the conversation language. ${TYPE_DESCRIPTIONS} Secret-like content is refused unless force=true.`,
     {
       projectPath: z.string().describe('Project directory path'),
       type: z.string().describe('Memory type (fact/decision/learning/... or user-defined)'),

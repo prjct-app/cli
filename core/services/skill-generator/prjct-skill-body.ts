@@ -137,7 +137,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     'Heavy quality workflows (`review`, `qa`, `security`, `investigate`, `audit`, `audit-spec`), the parallel-implementer fan-out rules, decision-briefs, the `prjct prefs` protocol, the spec stations and builder ethos all live in `workflows.md` — **read it on demand when (and only when) you actually run one.** Do not preload it; do not reach for the menu on simple work.',
     '',
-    '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, regardless of the conversation language. When you `capture`/`remember`, translate the intent into a clean English entry (the user may speak Spanish; the persisted knowledge is English). LLMs comprehend English better and embeddings stay high-quality in one canonical language — mixed-language content produces cross-language retrieval noise.',
+    '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, no matter what language the user speaks (Spanish, Japanese, German — any). When you `capture`/`remember`, translate the intent into a clean English entry; the persisted knowledge is always English. LLMs comprehend English better and embeddings stay high-quality in one canonical language — mixed-language content produces cross-language retrieval noise and extra token cost on every later recall.',
     '',
     '## Verb intent map — you run the verb, the user never types it',
     '',
