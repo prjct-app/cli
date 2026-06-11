@@ -200,23 +200,52 @@ jobs:
             IS_PRERELEASE=true
           fi
 
+          RECOVERY=false
           # If package.json was bumped manually (prjct ship / manual edit), honour it.
           # This is the v2-alpha path: pkg = 2.0.0-alpha.12, last tag = v1.56.12.
           if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            NEW_VERSION="$PKG_VERSION"
-            CURRENT_VERSION="$TAG_VERSION"
-            if [ "$IS_PRERELEASE" = "true" ]; then
-              BUMP="prerelease"
-              NPM_TAG=$(echo "$PKG_VERSION" | sed -E 's/^[0-9]+\.[0-9]+\.[0-9]+-([a-zA-Z0-9]+)\..*/\1/')
-              # Fallback if extraction failed
-              if [ -z "$NPM_TAG" ] || [ "$NPM_TAG" = "$PKG_VERSION" ]; then
-                NPM_TAG="alpha"
+            # Manual path ONLY when pkg is semver-NEWER than the tag. A pkg
+            # OLDER than the tag means a stale checkout: a rerun of a
+            # partially-failed release (bump commit + tag already pushed,
+            # publish died) re-runs from the pre-bump sha. The old code took
+            # the manual path and tried to re-release the OLD version —
+            # "fatal: tag already exists", unrecoverable red runs forever.
+            HIGHEST=$(printf '%s\n%s\n' "$TAG_VERSION" "$PKG_VERSION" | sort -V | tail -1)
+            if [ "$HIGHEST" = "$PKG_VERSION" ]; then
+              NEW_VERSION="$PKG_VERSION"
+              CURRENT_VERSION="$TAG_VERSION"
+              if [ "$IS_PRERELEASE" = "true" ]; then
+                BUMP="prerelease"
+                NPM_TAG=$(echo "$PKG_VERSION" | sed -E 's/^[0-9]+\.[0-9]+\.[0-9]+-([a-zA-Z0-9]+)\..*/\1/')
+                # Fallback if extraction failed
+                if [ -z "$NPM_TAG" ] || [ "$NPM_TAG" = "$PKG_VERSION" ]; then
+                  NPM_TAG="alpha"
+                fi
+              else
+                BUMP="manual"
+                NPM_TAG="latest"
               fi
+              echo "📦 Manual bump path: last=$TAG_VERSION pkg=$PKG_VERSION → $NEW_VERSION (npm tag: $NPM_TAG)"
             else
-              BUMP="manual"
+              # Recovery path: re-release exactly what the existing tag
+              # points at. Materialize the tagged tree so build+publish ship
+              # the tag's content; all bump/commit/tag/push steps are
+              # skipped via the `recovery` output.
+              RECOVERY=true
+              NEW_VERSION="$TAG_VERSION"
+              CURRENT_VERSION="$PKG_VERSION"
+              BUMP="recovery"
               NPM_TAG="latest"
+              if [[ "$TAG_VERSION" == *"-"* ]]; then
+                IS_PRERELEASE=true
+                NPM_TAG=$(echo "$TAG_VERSION" | sed -E 's/^[0-9]+\.[0-9]+\.[0-9]+-([a-zA-Z0-9]+)\..*/\1/')
+                if [ -z "$NPM_TAG" ] || [ "$NPM_TAG" = "$TAG_VERSION" ]; then
+                  NPM_TAG="alpha"
+                fi
+              fi
+              git checkout "$LAST_TAG" -- .
+              echo "♻️ Recovery path: stale checkout (pkg=$PKG_VERSION < tag=$TAG_VERSION) — re-publishing $LAST_TAG as tagged"
             fi
-            echo "📦 Manual bump path: last=$TAG_VERSION pkg=$PKG_VERSION → $NEW_VERSION (npm tag: $NPM_TAG)"
           else
             # Auto-bump path: compute next patch/minor/major from last tag.
             # Works only for non-prerelease baselines — prerelease bumps must go manual.
@@ -245,6 +274,7 @@ jobs:
           echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "recovery=$RECOVERY" >> $GITHUB_OUTPUT
 
       - name: Generate changelog entry
         id: changelog
@@ -300,6 +330,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Update CHANGELOG.md
+        if: ${{ steps.version.outputs.recovery != 'true' }}
         run: |
           VERSION=${{ steps.version.outputs.new }}
           DATE=$(date +%Y-%m-%d)
@@ -344,6 +375,7 @@ jobs:
           CHANGELOG_ENTRY: ${{ steps.changelog.outputs.ENTRY }}
 
       - name: Update version in package.json
+        if: ${{ steps.version.outputs.recovery != 'true' }}
         run: |
           VERSION=${{ steps.version.outputs.new }}
           node -e "
@@ -354,6 +386,7 @@ jobs:
           "
 
       - name: Update version in version.ts
+        if: ${{ steps.version.outputs.recovery != 'true' }}
         run: |
           VERSION=${{ steps.version.outputs.new }}
           sed -i "s/export const VERSION = '[^']*'/export const VERSION = '$VERSION'/" core/utils/version.ts
@@ -362,7 +395,7 @@ jobs:
         run: npm run build
 
       - name: Commit and tag
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.version.outputs.recovery != 'true' }}
         run: |
           VERSION=${{ steps.version.outputs.new }}
           TAG=${{ steps.version.outputs.tag }}
@@ -383,7 +416,7 @@ jobs:
 
       - name: Push changes
         id: push
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.version.outputs.recovery != 'true' }}
         run: |
           # A concurrent release run can still win the race to `main` even
           # after the debounce gate — the 90s window can't cover every
@@ -407,8 +440,27 @@ jobs:
         # No token: the OIDC ID-token from `id-token: write` is sent by the
         # npm CLI and validated against the package's Trusted Publisher
         # configuration. `--provenance` attaches a signed attestation.
+        #
+        # Idempotent + retried: the sigstore transparency log
+        # (rekor.sigstore.dev) flakes (TLOG_CREATE_ENTRY_ERROR killed the
+        # v2.43.1 release); provenance signing happens before the tarball
+        # upload, so a failed attempt is safe to retry. The version check
+        # makes reruns of an already-published release a clean no-op.
         run: |
-          npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}"
+          VERSION=${{ steps.version.outputs.new }}
+          for attempt in 1 2 3; do
+            if npm view "prjct-cli@$VERSION" version >/dev/null 2>&1; then
+              echo "prjct-cli@$VERSION already on npm — nothing to publish."
+              exit 0
+            fi
+            if npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}"; then
+              exit 0
+            fi
+            echo "publish attempt $attempt failed; retrying in $((attempt * 30))s…"
+            sleep $((attempt * 30))
+          done
+          echo "::error title=npm publish failed::3 attempts exhausted"
+          exit 1
 
       - name: Verify npm publication
         if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
