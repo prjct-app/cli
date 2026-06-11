@@ -20,14 +20,25 @@ import { detectCodex } from './ai-provider'
 
 const CODEX_SKILL_META_MARKER = 'prjct-codex-router'
 
+/**
+ * Codex enforces a HARD limit of ~1024 bytes on the whole SKILL.md file
+ * (not just the description field). Over the limit, the ENTIRE skill is
+ * silently rejected and prjct disappears from Codex. Everything written
+ * to ~/.codex/skills/prjct/SKILL.md must stay under this — enforced by
+ * the size guard below and by codex-skill tests.
+ */
+export const CODEX_SKILL_MAX_BYTES = 1024
+
 function getCodexSkillPath(): string {
   return path.join(os.homedir(), '.codex', 'skills', 'prjct', 'SKILL.md')
 }
 
+// Compact on purpose: every metadata byte counts against the 1024-byte
+// Codex cap, so keys are single letters and the hash is truncated.
 function getCodexSkillMetadata(templateHash: string): string {
   return `<!-- ${CODEX_SKILL_META_MARKER}: ${JSON.stringify({
-    version: VERSION,
-    templateHash,
+    v: VERSION,
+    h: templateHash,
   })} -->`
 }
 
@@ -39,14 +50,23 @@ function parseCodexSkillMetadata(
   )
   if (!match) return null
   try {
-    return JSON.parse(match[1]) as { version?: string; templateHash?: string }
+    const raw = JSON.parse(match[1]) as {
+      v?: string
+      h?: string
+      version?: string
+      templateHash?: string
+    }
+    return {
+      version: raw.v ?? raw.version,
+      templateHash: raw.h ?? raw.templateHash,
+    }
   } catch {
     return null
   }
 }
 
 function hashContent(content: string): string {
-  return sha256(content)
+  return sha256(content).slice(0, 12)
 }
 
 async function loadCodexSkillTemplate(): Promise<string | null> {
@@ -61,7 +81,7 @@ async function loadCodexSkillTemplate(): Promise<string | null> {
   return fs.readFile(templatePath, 'utf-8')
 }
 
-function buildCodexSkillContent(templateContent: string): {
+export function buildCodexSkillContent(templateContent: string): {
   content: string
   templateHash: string
 } {
@@ -101,6 +121,15 @@ export async function installCodexSkill(): Promise<{
     }
 
     const built = buildCodexSkillContent(templateContent)
+
+    const bytes = Buffer.byteLength(built.content, 'utf-8')
+    if (bytes > CODEX_SKILL_MAX_BYTES) {
+      // Install anyway (Codex may relax the cap), but surface it loudly:
+      // over the cap, Codex rejects the whole skill with no error shown.
+      log.warn(
+        `Codex SKILL.md is ${bytes} bytes — over Codex's ~${CODEX_SKILL_MAX_BYTES}-byte hard limit; the skill may be rejected. Trim templates/codex/SKILL.md.`
+      )
+    }
 
     if (skillExists) {
       const existing = await fs.readFile(skillMdPath, 'utf-8').catch(() => '')

@@ -7,8 +7,10 @@
  *    setup commands.
  */
 
+import { detectCodex } from '../../infrastructure/ai-provider'
 import context7Service from '../../services/context7-service'
 import { getErrorMessage } from '../../types/fs'
+import { ensureCodexMcpServer } from '../../utils/codex-mcp'
 import {
   getClaudeMcpConfigPath,
   hasMcpServer,
@@ -64,6 +66,30 @@ export async function setupMcpServers(
         console.log(`⚠️  ${server.failed}: ${getErrorMessage(error)}`)
         console.log(server.manual)
       }
+    }
+  }
+
+  // Codex reads MCP servers from ~/.codex/config.toml — without this
+  // entry the prjct_* tools never exist for Codex sessions, even though
+  // its SKILL.md tells it to prefer them.
+  try {
+    const codex = await detectCodex()
+    if (codex.installed) {
+      const result = await ensureCodexMcpServer()
+      if (!options.silent) {
+        if (result.skipped === 'user-managed') {
+          console.log('✅ prjct MCP already configured for Codex (user-managed)')
+        } else if (result.changed) {
+          console.log('✅ prjct MCP added to ~/.codex/config.toml')
+        } else {
+          console.log('✅ prjct MCP already configured for Codex')
+        }
+      }
+    }
+  } catch (error) {
+    if (!options.silent) {
+      console.log(`⚠️  Codex MCP setup failed: ${getErrorMessage(error)}`)
+      console.log('   Run `prjct start` again to retry.')
     }
   }
 }
