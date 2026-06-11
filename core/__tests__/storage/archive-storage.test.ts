@@ -407,6 +407,42 @@ describe('Archive Storage', () => {
       expect(records).toHaveLength(50)
     })
 
+    it('NEVER deletes memory.remember.* knowledge, regardless of age or volume', async () => {
+      // The real-world incident: hundreds of memory.post_edit telemetry
+      // rows pushed the combined count past the cap, and the age-ordered
+      // delete destroyed the OLDEST remembered decisions/gotchas while
+      // keeping newer telemetry. Knowledge must be invisible to the cap
+      // (both the count and the delete) — it leaves via `prjct forget`.
+      for (let i = 0; i < 30; i++) {
+        prjctDb.appendEvent(testProjectId, 'memory.remember.decision', {
+          content: `old precious decision ${i}`,
+          tags: {},
+        })
+      }
+      const total = ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES + 20
+      for (let i = 0; i < total; i++) {
+        prjctDb.appendEvent(testProjectId, 'memory.post_edit', { file: `f${i}.ts` })
+      }
+
+      const { memoryService } = await import('../../services/memory-service')
+      const capped = await memoryService.capEntries(testProjectId)
+      expect(capped).toBe(20)
+
+      // Every remember row survives — even though they are the oldest.
+      const remembered = prjctDb.get<{ cnt: number }>(
+        testProjectId,
+        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.remember.%'"
+      )
+      expect(remembered!.cnt).toBe(30)
+
+      // Telemetry got capped to the limit.
+      const telemetry = prjctDb.get<{ cnt: number }>(
+        testProjectId,
+        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%' AND type NOT LIKE 'memory.remember.%'"
+      )
+      expect(telemetry!.cnt).toBe(ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
+    })
+
     it('should not cap if under limit', async () => {
       // Write a few entries under the limit to SQLite
       for (let i = 0; i < 10; i++) {

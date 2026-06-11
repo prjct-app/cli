@@ -2,63 +2,8 @@
 
 ## [Unreleased]
 
-Vault v2 — signal-first RAG. The generated vault now renders knowledge, not telemetry: on this repo it dropped from 326 files to ~113 with zero information loss (everything stays in SQLite).
-
-### Changed
-- **Machine signals quarantined to one `signals.md` dashboard.** Detector output (hot-file churn, skill-miss, friction, recurring bugs — 45% of all entries on a busy project) no longer spawns per-entry notes or tag pages. One page, grouped by section, hot files deduped per path, every row block-anchored so `[[signals#^mem-N|title]]` refs still resolve. The graph shows one hub instead of a dust cloud of `hot-file-NNN` nodes.
-- **Tag pages are link-only.** The old `tags/<key>/<value>.md` model copied every entry's full content into every tag page it appeared on (54% of vault files, all duplicated content). Now: one `tags/<key>.md` index per dimension with values as sections and entries as wikilinks, plus a `tags.md` master index. Dimensions used by fewer than 2 entries get no page (orphan-node guard).
-- **Native Obsidian frontmatter tags.** `tags: { topic: "x" }` (a YAML flow map Obsidian ignores) → `tags: [topic/x]` — graph coloring/filtering and the tag pane now work. Machine bookkeeping keys (source/session/touches/hash/…) are excluded from note bodies and frontmatter; they stay queryable in SQLite.
-- **index.md is a dashboard.** Recent decisions and known traps surface as wikilinks on the landing page; signals get their own section.
-- **Readable filenames.** Slugs cut at word boundaries (no more `…-porque-la-key-guardada-es-de.md`); `retro` entries get per-entry notes.
-
 ### Fixed
-- **CI/Release no longer resolve bun `latest` per run.** `setup-bun` queried the bun tags API on every workflow run (the 500-prone call that aborted the v2.42.6 release) and silently drifted from local dev. All non-canary jobs now pin via a single `.bun-version` file; the install-compat matrix keeps `latest` deliberately as the canary.
-- **SIGHUP now actually reloads.** The handler refreshed only the explicit-dispatch instance; schema-covered commands kept pre-reload group instances forever (the registry's lazy memos were never reset). Both lazy layers now register resetters and SIGHUP clears them.
-
-### Changed
-- **`routingMode: 'cold-only'`** — spec/audit-spec's "shim must serve these cold" condition moves from a side list in scripts/build.js into the manifest; the generated shim skip set is byte-identical, but the truth now lives where a manifest cleanup can't accidentally delete it.
-- **Subagents get the repeat-miss slot** — the "Keeps being missed" entry the session digest gained now reaches subagent digests too (they do most of the editing and were blind to it).
-- **Prune throttle is in-process** — the kv-store counter paid a read+write per session Stop just to decide "skip pruning" 9/10 times; per-process counting is the safe direction (cold runs prune more often, never less).
-
-Fixes from a full code review of the v2.42.0–v2.42.4 range (7 review angles, 42 candidates, verified).
-
-### Fixed
-- **Lazy command loaders no longer memoize rejected promises.** A transient import/constructor error during the first dispatch of a command group used to be cached forever — every later command in that group replayed the same error for the daemon's lifetime (the old eager loading failed loud at startup instead). Both layers fixed (registry group loaders + the 17 `PrjctCommands` getters); the next dispatch now retries.
-- **`mapOptions` numbers**: non-numeric input for a numeric flag maps to `undefined` (flag ignored) instead of `NaN`.
-
-### Changed
-- New CI guard: `manifest-completeness` instantiates every command group and verifies each manifest `routing.method` actually exists — restoring the registration-time validation the lazy refactor deferred to first dispatch.
-- `registerLazyMethod` memoizes the resolved instance+method pair (was re-resolving per dispatch); dead `registerMethod` deleted (single registration mechanism).
-- `runBinCommand` imports moved into the branches that use them — every bin command was paying the `version` branch's chalk/ai-provider/file-helper imports.
-- `compareSemver` deduped to the `schemas/model.ts` implementation; the monotonic-stamp rule shared between `nextKvStamp` and `updateDoc`; `cosineSimilarity` single-sourced over `dot`/`l2Norm`.
-
-
-Optimization backlog pass (the items deferred since v2.37.x, consolidated in mem_1814).
-
-### Fixed
-- **Post-upgrade re-setup silently never ran.** `bin/prjct.ts` invoked `setup.run()` through a default export that the ESM-standardization PR (#132, 2026-02) deleted — `bin/` sits outside core's typecheck, so the call threw `TypeError` into its own catch and only stamped the version, on every upgrade, for four months. `run()` is a named export now and bin imports it directly.
-
-### Performance
-- **FTS5 prefix indexes** (migration 29): `searchFts` matches every keyword as a prefix query, but the FTS table had no prefix indexes — each term scanned the full-term index. Recreated with `prefix='2 3 4'` + content rebuild.
-
-### Changed
-- **MCP tool descriptions are intent-led.** Six tools (analysis, workflow rules/list/status, signatures, history) were noun phrases with no "when to reach for this"; each now states what it returns and when to use it.
-- **`package.json` overrides documented** in CONTRIBUTING.md — vulnerability class, the PR that introduced each pin (#251/#326), and the removal condition.
-
-### Refactoring
-- **God-files split.** `infrastructure/setup.ts` (892 → 472) extracted `codex-skill.ts` + `statusline-installer.ts`; `memory/project-memory.ts` (1086 → 660) extracted `entries.ts` (types + row mapping + pure filters) and `format.ts` (markdown rendering). All importers updated per the no-re-export rule.
-- **Dropped the `glob` dependency** — the single call site (monorepo workspace discovery) uses native `node:fs` `globSync` (node ≥22 / bun; the engine floor is already 22.5). `@types/node@22` pinned as a devDependency (types resolved to a transitive v20 that predates `globSync`).
-
-### Performance
-- **Daemon command groups load lazily.** `PrjctCommands` and the registry bindings eagerly imported and instantiated all ~18 command-group classes at daemon startup; both now use memoized dynamic-import loaders (new `registerLazyMethod`), so the first socket request stops paying for the whole command tree (daemon module import: 67ms → 40ms warm).
-
-### Fixed
-- **All prjct data paths honor `PRJCT_CLI_HOME`.** New shared lazy resolver (`core/infrastructure/cli-home.ts`); fixed the four sites with no override at all — the embeddings key file, the auto-updater state dir, the context7 verify cache, and session-cleanup's rotation, which had drifted from the writer's path and rotated the user's *real* cache file from test runs.
-- Dropped the dead `daemon start --port/--no-http` flags — parsed for years but never accepted by `startDaemon` (the latent type error only surfaced when the handler moved under core's typecheck).
-
-### Refactoring
-- **`bin/prjct.ts` split**: the ~550 lines of bin-only command handlers moved to `core/cli/bin-commands.ts` (1082 → 536 lines); the entry point keeps startup concerns only.
-- **`core/workflow/` → `core/workflow-engine/`** — disambiguates the rule engine from `core/workflows/` (implementations).
+- **CRITICAL: the memory cap no longer deletes knowledge.** `capEntries` (runs on every `prjct sync`) counted ALL `memory.%` events against the 500-row cap — high-churn telemetry (`memory.post_edit` fires on every file edit) inflated the total and the age-ordered delete silently destroyed the OLDEST remembered decisions/gotchas/learnings while keeping hundreds of newer telemetry rows. `memory.remember.*` is now invisible to the cap (count and delete); knowledge leaves the log only via `prjct forget`. The delete is also exact-id based instead of an id-range sweep. If a past sync capped your project: the `memories` mirror table still holds the rows with their original ids — restorable.
 
 ## [2.43.0] - 2026-06-10
 
