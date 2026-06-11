@@ -61,14 +61,11 @@ export type ReleaseEntry = {
   body: string
 }
 
-/**
- * Strip diacritics so accented words slug cleanly:
- * "función detección" → "funcion deteccion" (not "funci-n detecci-n").
- * NFD splits a letter from its combining mark, then we drop the marks.
- */
-export function deburr(value: string): string {
-  return value.normalize('NFD').replace(/[̀-ͯ]/g, '')
-}
+// Moved to utils so retrieval (FTS keyword sanitizing) can share it
+// without importing wiki internals. Re-exported to keep this module's API.
+import { deburr } from '../../utils/deburr'
+
+export { deburr }
 
 export function slugify(value: string, max = 60): string {
   let slug = deburr(value)

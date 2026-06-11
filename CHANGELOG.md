@@ -2,17 +2,14 @@
 
 ## [Unreleased]
 
-### Performance
-- **Hot recall queries now use the type index.** Every `type LIKE 'memory.%'` filter (recall, vault index, embeddings backfill anti-join, memory cap, transcript dedup) was a full `SCAN events` — SQLite can't derive scan bounds from a parameterized LIKE. Rewritten as indexed range predicates with exact-parity tests; cost stays flat as the events table grows.
-- **Prompt hook git snapshot cached for 3s.** The UserPromptSubmit hook forked 3 git processes per turn (~40ms); agentic bursts forked hundreds. The daemon now reuses the snapshot within a 3s TTL per cwd.
-- **Upgrade migration no longer opens every project DB.** A `.cli-version` marker per project dir reduces the post-upgrade scan from a SQLite open per directory (~3ms × tens of thousands of dirs ≈ up to a minute) to one tiny file read each.
-- Vault writes skip redundant per-file `mkdir` syscalls (dir-ensured cache with delete-retry fallback).
-
 ### Fixed
-- **Vault can no longer go stale across upgrades.** The regen fingerprint now includes the CLI version: every upgrade forces one cheap full regen per project, so a builder/format change always renders (previously the old fingerprint blocked new output until unrelated inputs changed).
-- **Codex detected in non-interactive shells.** `detectCodex` accepts `~/.codex/auth.json` (a logged-in install) as evidence alongside binary-on-PATH — hooks/daemon run without the interactive PATH, which silently skipped Codex MCP wiring and skill repair.
-- Removed dead `memoryService.search()` (1,000-row JS substring scan, zero callers — `prjct search` uses the FTS5 + semantic blend).
-- Archive-storage tests no longer leak a real-path SQLite connection across the pathManager patch (stray async sync-publish could cache it and hijack the next test's isolation).
+- **Superseded knowledge can no longer surface as live advice.** `searchFts` (the per-prompt trap cue + the FTS leg of every recall) only filtered soft-deletes — an obsolete decision/gotcha could still inject as current. It now prunes author-declared retirements (`supersedes:` / `superseded-by:` / `duplicates:`) using a mirror-wide dead-id set, catching the case where BM25 never co-returns the superseding entry.
+- **Spanish prompts now produce real retrieval signal.** Keyword extraction was ASCII-only ("búsqueda" → mangled, "qué pasó" → nothing); it now tokenizes unicode, deburrs to match FTS5's diacritic-stripped index, and drops Spanish function words. FTS query sanitizing deburrs too.
+
+### Improved
+- **MCP memory tools retrieve like the CLI.** `prjct_mem_list` used plain recency recall and `prjct_mem_similar` a shared-keyword heuristic — subagents (who do the bulk of the editing) got strictly worse retrieval than `prjct context memory`. Both now run the shared `enrichedRecall` pipeline: FTS-first, semantic blend, usefulness rerank, link expansion, ship attribution.
+- **Digest slots are proven-first.** The session-start and subagent digests picked the 3 most RECENT gotchas/decisions; they now overfetch and rerank by the usefulness ledger, so knowledge that keeps paying off wins the slots.
+- **Push-surfaced knowledge earns ship credit.** The pre-edit guard hook, the prompt trap cue, `prjct guard`, and `prjct_guard` now log surfaced entries against the active task — previously only PULL recalls did, so the most effective gotchas decayed in ranking precisely because the push delivery worked.
 
 ## [2.43.4] - 2026-06-11
 

@@ -26,6 +26,7 @@ import configManager from '../infrastructure/config-manager'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { collectActiveTasks } from '../services/task-overview'
+import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { shippedStorage } from '../storage/shipped-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
@@ -133,13 +134,21 @@ export async function buildProjectState(
  * BM25-matches the prompt's keywords, as a one-line cue. Best-effort —
  * any failure returns null and the state block ships without it.
  */
-export function buildTopicalCue(projectId: string, prompt: string): string | null {
+export function buildTopicalCue(
+  projectId: string,
+  prompt: string,
+  projectPath?: string
+): string | null {
   try {
     const keywords = extractKeywords(prompt)
     if (keywords.length === 0) return null
     const hits = projectMemory.searchFts(projectId, keywords, CUE_CANDIDATES)
     const trap = hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
     if (!trap) return null
+    // Push-path ship attribution: the cue surfaced this trap during the
+    // active task — if the task ships, it earned its keep (otherwise the
+    // most effective gotchas DECAY precisely because the push works).
+    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [trap.id])
     return `> Trap on this topic: ${deriveTitle(trap)}  \`${trap.id}\``
   } catch {
     return null
@@ -256,7 +265,7 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
         // The ONE push exception: a single trap cue when the prompt's
         // keywords hit a gotcha/anti-pattern (see header). State leads;
         // the cue is appended and shares the same hard budget.
-        const cue = config?.projectId ? buildTopicalCue(config.projectId, prompt) : null
+        const cue = config?.projectId ? buildTopicalCue(config.projectId, prompt, p) : null
         return safeTruncate(cue ? `${state}\n\n${cue}` : state, STATE_BUDGET)
       },
     },

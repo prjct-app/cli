@@ -232,3 +232,31 @@ describe('SessionStart hook — knowledge digest (cold-start only)', () => {
     expect(ctx).toContain('prjct search')
   })
 })
+
+describe('SessionStart hook — digest slots are proven-first (usefulness rerank)', () => {
+  test('a proven-useful old gotcha beats a newer unproven one for a digest slot', async () => {
+    await freshProject({ role: 'DEV' })
+    // 6 gotchas, oldest first. Pure recency would pick g5,g4,g3.
+    for (let i = 0; i < 6; i++) insertMemory('gotcha', `trap number ${i} in module-${i}`)
+
+    // The OLDEST entry is the only one with usefulness signal — it should
+    // climb into the 3 digest slots, displacing the 3rd-newest.
+    const { usefulnessService } = await import('../../services/usefulness')
+    const oldest = prjctDb.query<{ id: number }>(
+      projectId,
+      "SELECT id FROM events WHERE type = 'memory.remember.gotcha' ORDER BY id ASC LIMIT 1"
+    )[0]
+    // Three deliberate fetches (≈ a genuinely proven entry). A single
+    // fetch (0.4) stays under the rerank's normalization floor of 1 by
+    // design — weak signals shouldn't reshuffle the digest.
+    usefulnessService.recordFetch(projectId, `mem_${oldest.id}`)
+    usefulnessService.recordFetch(projectId, `mem_${oldest.id}`)
+    usefulnessService.recordFetch(projectId, `mem_${oldest.id}`)
+
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('trap number 0')
+    expect(ctx).toContain('trap number 5')
+    expect(ctx).not.toContain('trap number 3')
+  })
+})

@@ -13,12 +13,11 @@
  */
 
 import configManager from '../../infrastructure/config-manager'
-import type { MemoryEntry, MemoryType } from '../../memory/entries'
+import { enrichedRecall } from '../../memory/enriched-recall'
+import type { MemoryType } from '../../memory/entries'
 import { formatMemoryMd } from '../../memory/format'
 import { projectMemory } from '../../memory/project-memory'
-import { embeddingService } from '../../services/embeddings'
 import { usefulnessService } from '../../services/usefulness'
-import { stateStorage } from '../../storage/state-storage'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -203,86 +202,11 @@ async function runMemoryTool(
   const LEARNINGS_TYPES: MemoryType[] = ['learning', 'anti-pattern', 'gotcha']
   const types = opts.kind === 'learnings' ? LEARNINGS_TYPES : undefined
 
-  // FTS5 BM25 first when a topic is present (relevance beats recency), then
-  // backfill with the recency + substring `recall()` so a fresh/unindexed DB
-  // or a cross-vocabulary topic still returns something. This mirrors the
-  // UserPromptSubmit hook's dual-path: previously this CLI/MCP path used
-  // `recall()` only, ignoring the BM25 index entirely — so on-demand lookups
-  // (the path Claude actually uses) were strictly worse than the hook's.
-  const LIMIT = 30
-  let entries: MemoryEntry[] = []
-  if (topic) {
-    const keywords = topic.split(/\s+/).filter(Boolean)
-    try {
-      const fts = projectMemory.searchFts(projectId, keywords, LIMIT)
-      entries = types ? fts.filter((e) => types.includes(e.type as MemoryType)) : fts
-    } catch {
-      entries = []
-    }
-  }
-  if (entries.length < LIMIT) {
-    const seen = new Set(entries.map((e) => e.id))
-    const pool = projectMemory.recall(projectId, { topic, types, limit: LIMIT })
-    for (const e of pool) {
-      if (seen.has(e.id)) continue
-      entries.push(e)
-      if (entries.length >= LIMIT) break
-    }
-  }
-  // Semantic layer (opt-in): when the project configured an embeddings
-  // provider, blend cosine-ranked matches AHEAD of the lexical results so a
-  // cross-vocabulary hit ("oauth" → an entry about "authentication") surfaces
-  // that BM25 would miss. Disabled by default → this whole block is a no-op
-  // and recall stays pure lexical. Best-effort: any failure leaves the BM25
-  // results standing.
-  if (topic) {
-    try {
-      const config = await configManager.readConfig(projectPath)
-      if (config && embeddingService.isEnabled(config)) {
-        const semantic = await embeddingService.semanticSearch(projectId, topic, config, 10)
-        if (semantic.length > 0) {
-          const seen = new Set(entries.map((e) => e.id))
-          const fresh = semantic.filter((e) => !seen.has(e.id))
-          entries = [...fresh, ...entries].slice(0, LIMIT)
-        }
-      }
-    } catch {
-      /* best-effort — lexical results stand */
-    }
-  }
-
-  // Reinforcement: nudge proven-useful entries up (bounded — relevance still
-  // leads). This is how recall gets smarter with use: knowledge the project
-  // keeps referencing / pulling rises over time; unused knowledge decays out
-  // of the boost on its own.
-  if (entries.length > 1) {
-    entries = usefulnessService.rerank(projectId, entries)
-  }
-
-  // One hop of relationship-graph traversal: append entries the results
-  // resolve / relate to / supersede so a recall carries its own context
-  // instead of dangling `mem_N` pointers the agent must chase manually.
-  if (entries.length > 0) {
-    const linked = projectMemory.expandWithLinks(projectId, entries, 5)
-    if (linked.length > 0) entries = entries.concat(linked)
-  }
-
-  // Ship-success attribution: note that these entries were surfaced during the
-  // active task. If that task reaches a successful `prjct ship`, each earns the
-  // strong ship-credit (see usefulnessService.creditShippedTask). No active
-  // task → nothing recorded.
-  try {
-    const task = await stateStorage.getCurrentTask(projectId)
-    if (task?.id) {
-      usefulnessService.recordSurfaced(
-        projectId,
-        entries.map((e) => e.id),
-        task.id
-      )
-    }
-  } catch {
-    /* best-effort — attribution telemetry must never break a recall */
-  }
+  // The full pipeline (FTS-first, recall backfill, semantic blend,
+  // usefulness rerank, link expansion, surface attribution) lives in
+  // enrichedRecall — shared with the MCP memory tools so every agent
+  // surface retrieves identically.
+  const entries = await enrichedRecall(projectPath, projectId, { topic, types, limit: 30 })
 
   return {
     tool: opts.kind,

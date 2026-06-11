@@ -35,6 +35,7 @@ import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'
@@ -116,11 +117,25 @@ function buildKnowledgeDigest(projectId: string): string | null {
   let gotchas: MemoryEntry[] = []
   let decisions: MemoryEntry[] = []
   try {
-    gotchas = projectMemory.recall(projectId, {
-      types: ['gotcha', 'anti-pattern'],
-      limit: DIGEST_PER_TYPE,
-    })
-    decisions = projectMemory.recall(projectId, { types: ['decision'], limit: DIGEST_PER_TYPE })
+    // Overfetch recency-ordered candidates, then let the usefulness
+    // ledger reorder before taking the few digest slots: the 3 most
+    // PROVEN entries (referenced, fetched, shipped-with) beat the 3 most
+    // recently captured. Bounded rerank — recency still leads on ties.
+    gotchas = usefulnessService
+      .rerank(
+        projectId,
+        projectMemory.recall(projectId, {
+          types: ['gotcha', 'anti-pattern'],
+          limit: DIGEST_PER_TYPE * 4,
+        })
+      )
+      .slice(0, DIGEST_PER_TYPE)
+    decisions = usefulnessService
+      .rerank(
+        projectId,
+        projectMemory.recall(projectId, { types: ['decision'], limit: DIGEST_PER_TYPE * 4 })
+      )
+      .slice(0, DIGEST_PER_TYPE)
   } catch {
     return null
   }
@@ -228,10 +243,19 @@ export async function buildSubagentDigest(projectPath: string): Promise<string |
   }
 
   try {
-    const gotchas = projectMemory.recall(config.projectId, {
-      types: ['gotcha', 'anti-pattern'],
-      limit: SUBAGENT_GOTCHA_COUNT,
-    })
+    // Same proven-first selection as the session digest (see
+    // buildKnowledgeDigest) — subagents do the bulk of the editing, so
+    // their 2 trap slots should carry the entries that keep paying off,
+    // not just the newest.
+    const gotchas = usefulnessService
+      .rerank(
+        config.projectId,
+        projectMemory.recall(config.projectId, {
+          types: ['gotcha', 'anti-pattern'],
+          limit: SUBAGENT_GOTCHA_COUNT * 4,
+        })
+      )
+      .slice(0, SUBAGENT_GOTCHA_COUNT)
     if (gotchas.length > 0) {
       lines.push('Traps to avoid:')
       for (const e of gotchas) lines.push(`- ${deriveTitle(e)}  \`${e.id}\``)
