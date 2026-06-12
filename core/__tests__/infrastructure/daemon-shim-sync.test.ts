@@ -56,6 +56,23 @@ describe('daemon-shim ↔ manifest sync', () => {
     expect(BIN_COMMANDS_SET.has('crew')).toBe(true)
     expect(extractShimSkip().has('crew')).toBe(true)
   })
+
+  test('detached-child internals are skipped by the shim (never routed to the daemon)', () => {
+    // `__internal-auto-update` and `__post-upgrade` are handled at the very
+    // top of bin/prjct.ts. The shim's default for unknown commands is the
+    // daemon — which has no registry handler for them, so routing there
+    // makes the detached children silently fail (stdio is ignored).
+    const shim = extractShimSkip()
+    expect(shim.has('__internal-auto-update')).toBe(true)
+    expect(shim.has('__post-upgrade')).toBe(true)
+
+    const src = extractBinUsage()
+    expect(src).toContain("_fastCommand === '__post-upgrade'")
+    // The upgrade block must NOT run setup synchronously on the user's
+    // command path (the regression this guards: ~30s stall on the first
+    // command after every upgrade).
+    expect(src).toContain("spawn(process.execPath, [process.argv[1], '__post-upgrade']")
+  })
 })
 
 /**
