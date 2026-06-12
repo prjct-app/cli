@@ -8,6 +8,13 @@
 ### Fixed
 - The `review-risk` git-integration tests carry a 15s timeout — the default 5s flaked under CI runner load and took down a release run.
 
+## [2.44.1] - 2026-06-12
+
+### Performance
+
+- token diet — coarse timestamps, quiet state lines, counts-only skill State, instruction dedupe (#430)
+
+
 ## [2.44.0] - 2026-06-11
 
 ### Features
