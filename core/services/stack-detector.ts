@@ -213,5 +213,3 @@ export class StackDetector {
     return fileExists(path.join(this.projectPath, filename))
   }
 }
-
-export default StackDetector

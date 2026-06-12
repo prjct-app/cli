@@ -18,6 +18,7 @@ import { completeActiveTask, resolveActiveTask, setTaskStatus } from '../../serv
 import { deriveWorkspace } from '../../services/workspace-id'
 import { prjctDb } from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
+import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 const execAsync = promisify(exec)
 
@@ -26,17 +27,10 @@ let mainRepo: string
 let wt: string
 let projectId: string
 
-const origGlobal = pathManager.getGlobalProjectPath.bind(pathManager)
-const origStorage = pathManager.getStoragePath.bind(pathManager)
-const origFile = pathManager.getFilePath.bind(pathManager)
-
 beforeEach(async () => {
   tmpRoot = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-tsw-')))
   projectId = `test-tsw-${Date.now()}`
-  pathManager.getGlobalProjectPath = (id: string) => path.join(tmpRoot, id)
-  pathManager.getStoragePath = (id: string, f: string) => path.join(tmpRoot, id, 'storage', f)
-  pathManager.getFilePath = (id: string, layer: string, f: string) =>
-    path.join(tmpRoot, id, layer, f)
+  patchPathManager(tmpRoot)
   await fs.mkdir(pathManager.getStoragePath(projectId, ''), { recursive: true })
   await fs.mkdir(path.join(tmpRoot, projectId, 'sync'), { recursive: true })
 
@@ -55,9 +49,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   prjctDb.close()
-  pathManager.getGlobalProjectPath = origGlobal
-  pathManager.getStoragePath = origStorage
-  pathManager.getFilePath = origFile
+  restorePathManager()
   await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
 })
 

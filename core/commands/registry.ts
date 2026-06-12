@@ -501,4 +501,3 @@ class CommandRegistry {
 
 // Singleton instance
 export const commandRegistry = new CommandRegistry()
-export default commandRegistry

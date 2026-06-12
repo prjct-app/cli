@@ -11,16 +11,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
+import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 let tmpRoot: string
 let projectId: string
-
-const origGlobal = pathManager.getGlobalProjectPath.bind(pathManager)
-const origStorage = pathManager.getStoragePath.bind(pathManager)
-const origFile = pathManager.getFilePath.bind(pathManager)
 
 /** Write a memory entry and return its `mem_<rowid>` id. */
 function write(type: string, content: string, tags: Record<string, string> = {}): string {
@@ -37,17 +33,11 @@ function write(type: string, content: string, tags: Record<string, string> = {})
 beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-expand-links-'))
   projectId = `test-expand-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  pathManager.getGlobalProjectPath = (id: string) => path.join(tmpRoot, id)
-  pathManager.getStoragePath = (id: string, filename: string) =>
-    path.join(tmpRoot, id, 'storage', filename)
-  pathManager.getFilePath = (id: string, layer: string, filename: string) =>
-    path.join(tmpRoot, id, layer, filename)
+  patchPathManager(tmpRoot)
 })
 
 afterEach(async () => {
-  pathManager.getGlobalProjectPath = origGlobal
-  pathManager.getStoragePath = origStorage
-  pathManager.getFilePath = origFile
+  restorePathManager()
   await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
 })
 

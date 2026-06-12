@@ -204,4 +204,3 @@ class MetricsStorage extends StorageManager<MetricsJson> {
 }
 
 export const metricsStorage = new MetricsStorage()
-export default metricsStorage

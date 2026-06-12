@@ -12,17 +12,13 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import configManager from '../../infrastructure/config-manager'
-import pathManager from '../../infrastructure/path-manager'
 import { enrichedRecall } from '../../memory/enriched-recall'
 import prjctDb from '../../storage/database'
+import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 let tmpRoot: string
 let projectPath: string
 let projectId: string
-
-const origGlobal = pathManager.getGlobalProjectPath.bind(pathManager)
-const origStorage = pathManager.getStoragePath.bind(pathManager)
-const origFile = pathManager.getFilePath.bind(pathManager)
 
 function write(type: string, content: string, tags: Record<string, string> = {}): void {
   prjctDb.appendEvent(projectId, `memory.remember.${type}`, {
@@ -37,11 +33,7 @@ beforeEach(async () => {
   projectPath = path.join(tmpRoot, 'repo')
   await fs.mkdir(path.join(projectPath, '.prjct'), { recursive: true })
   projectId = `test-enr-${Math.random().toString(36).slice(2, 8)}`
-  pathManager.getGlobalProjectPath = (id: string) => path.join(tmpRoot, 'global', id)
-  pathManager.getStoragePath = (id: string, filename: string) =>
-    path.join(tmpRoot, 'global', id, 'storage', filename)
-  pathManager.getFilePath = (id: string, layer: string, filename: string) =>
-    path.join(tmpRoot, 'global', id, layer, filename)
+  patchPathManager(path.join(tmpRoot, 'global'))
   await configManager.writeConfig(projectPath, {
     projectId,
     dataPath: path.join(projectPath, '.prjct-data'),
@@ -50,9 +42,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   prjctDb.close()
-  pathManager.getGlobalProjectPath = origGlobal
-  pathManager.getStoragePath = origStorage
-  pathManager.getFilePath = origFile
+  restorePathManager()
   await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
 })
 

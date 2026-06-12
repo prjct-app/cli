@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import pathManager from '../../infrastructure/path-manager'
 import { isModelMemory } from '../../memory/entries'
 import { projectMemory } from '../../memory/project-memory'
 import {
@@ -26,14 +25,11 @@ import {
 } from '../../services/embeddings'
 import prjctDb from '../../storage/database'
 import type { LocalConfig } from '../../types/config'
+import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 let tmpRoot: string
 let projectId: string
 let origCliHome: string | undefined
-
-const origGlobal = pathManager.getGlobalProjectPath.bind(pathManager)
-const origStorage = pathManager.getStoragePath.bind(pathManager)
-const origFile = pathManager.getFilePath.bind(pathManager)
 
 const NOW = '2026-05-30T00:00:00.000Z'
 
@@ -70,19 +66,13 @@ beforeEach(async () => {
   // "falls back to the local default" cases fail on any BYOT-configured machine.
   origCliHome = process.env.PRJCT_CLI_HOME
   process.env.PRJCT_CLI_HOME = tmpRoot
-  pathManager.getGlobalProjectPath = (id: string) => path.join(tmpRoot, id)
-  pathManager.getStoragePath = (id: string, filename: string) =>
-    path.join(tmpRoot, id, 'storage', filename)
-  pathManager.getFilePath = (id: string, layer: string, filename: string) =>
-    path.join(tmpRoot, id, layer, filename)
+  patchPathManager(tmpRoot)
 })
 
 afterEach(async () => {
   if (origCliHome === undefined) delete process.env.PRJCT_CLI_HOME
   else process.env.PRJCT_CLI_HOME = origCliHome
-  pathManager.getGlobalProjectPath = origGlobal
-  pathManager.getStoragePath = origStorage
-  pathManager.getFilePath = origFile
+  restorePathManager()
   await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
 })
 

@@ -119,9 +119,6 @@ export interface ProviderSelectionResult {
   /** Selected provider */
   provider: AIProviderName
 
-  /** Whether user was prompted to choose (multiple installed) */
-  userSelected: boolean
-
   /** Detection details for CLI-based providers */
   detection: {
     claude: ProviderDetectionResult

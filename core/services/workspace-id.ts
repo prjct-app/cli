@@ -145,8 +145,3 @@ async function computeWorkspace(cwd: string): Promise<WorkspaceContext> {
     label: buildLabel(shortId, branch),
   }
 }
-
-/** Convenience: just the id (most call sites only need the key). */
-export async function deriveWorkspaceId(cwd: string): Promise<string> {
-  return (await deriveWorkspace(cwd)).workspaceId
-}

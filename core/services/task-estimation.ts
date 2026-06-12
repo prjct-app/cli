@@ -48,5 +48,3 @@ export async function estimateTaskForStart(
     source: 'heuristic',
   }
 }
-
-export default estimateTaskForStart

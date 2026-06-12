@@ -589,8 +589,4 @@ class PrjctCommands {
   }
 }
 
-// Export both class and singleton instance
-const instance = new PrjctCommands()
-
-export default instance
 export { PrjctCommands }

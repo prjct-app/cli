@@ -55,16 +55,16 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
 
 // HELPERS
 
-function buildFrontmatter(skill: SkillDefinition, ctx: SkillContext): string {
+// CRITICAL — cache stability: the description appears verbatim in the
+// host model's system prompt. Project-specific suffixes like
+// `(${name}, ${stack})` change every time `prjct sync` runs in a
+// different cwd, busting the entire system-prompt prefix and forcing
+// a full re-tokenization on the next turn. The frontmatter therefore
+// takes NO project context — it must stay static by construction.
+// Project metadata still ships in the skill body (loaded on skill
+// invocation), so Claude sees it when it actually needs it.
+function buildFrontmatter(skill: SkillDefinition): string {
   const isUserInvocable = skill.userInvocable !== false
-  // CRITICAL — cache stability: the description appears verbatim in the
-  // host model's system prompt. Project-specific suffixes like
-  // `(${name}, ${stack})` change every time `prjct sync` runs in a
-  // different cwd, busting the entire system-prompt prefix and forcing
-  // a full re-tokenization on the next turn. Keep the description
-  // STATIC. Project metadata still ships in the skill body (loaded on
-  // skill invocation), so Claude sees it when it actually needs it.
-  void ctx
   return `---
 description: "${skill.description}"
 allowed-tools: [${skill.allowedTools.map((t) => `"${t}"`).join(', ')}]
@@ -73,7 +73,7 @@ user-invocable: ${isUserInvocable}
 }
 
 function buildSkillContent(def: SkillDefinition, ctx: SkillContext): string {
-  return `${buildFrontmatter(def, ctx)}\n\n${def.body(ctx)}`
+  return `${buildFrontmatter(def)}\n\n${def.body(ctx)}`
 }
 
 function homeDir(): string {
@@ -116,14 +116,9 @@ class SkillGenerator {
       recentShipped: richContext?.recentShipped ?? [],
       velocity: richContext?.velocity ?? null,
       backlogCount: richContext?.backlogCount ?? conditionContext.backlogCount,
-      completedTaskCount: richContext?.completedTaskCount ?? conditionContext.completedTaskCount,
-      pausedTaskCount: richContext?.pausedTaskCount ?? conditionContext.pausedTaskCount,
       knownGotchas: richContext?.knownGotchas ?? [],
 
-      hasActiveTask: richContext?.hasActiveTask ?? conditionContext.hasActiveTask,
-      activeTaskDescription: richContext?.activeTaskDescription ?? '',
       pausedTasks: richContext?.pausedTasks ?? [],
-      topBacklog: richContext?.topBacklog ?? [],
       ideasCount: richContext?.ideasCount ?? 0,
       shippedCount: richContext?.shippedCount ?? 0,
       userPatterns: richContext?.userPatterns ?? [],

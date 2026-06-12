@@ -100,6 +100,23 @@ function linkLabel(s: string): string {
 }
 
 /**
+ * Severity-ish label for a preventive entry — shared by every guard
+ * surface (pre-edit hook, `prjct guard`, `prjct_guard`) so the wording
+ * can't silently desync between them.
+ */
+export function preventiveLabel(e: Pick<MemoryEntry, 'type' | 'tags'>): string {
+  if (e.type === 'gotcha') return 'gotcha'
+  if (e.tags?.pattern === 'recurring-bug') return 'recurring-bug'
+  return e.type
+}
+
+/** One-line detail: whitespace-flattened content, ellipsis-truncated. */
+export function flatDetail(content: string, max = 220): string {
+  const flat = content.replace(/\s+/g, ' ').trim()
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+/**
  * Deterministic, LLM-free human title for an entry, derived from its
  * content. Used as the per-entry note filename slug, H1, and every
  * wikilink's display text so the vault graph is legible knowledge, not

@@ -9,7 +9,6 @@ import configManager from '../infrastructure/config-manager'
 import { MEMORY_EVENT_RANGE, REMEMBER_EVENT_RANGE } from '../memory/events'
 import { ARCHIVE_POLICIES, archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
-import type { MemoryServiceEntry } from '../types/services'
 
 class MemoryService {
   /**
@@ -31,72 +30,6 @@ class MemoryService {
       // Non-critical - don't fail the command
       console.error(`Memory log error: ${error instanceof Error ? error.message : String(error)}`)
       return null
-    }
-  }
-
-  /**
-   * Get recent memory entries
-   */
-  async getRecent(projectPath: string, limit: number = 100): Promise<MemoryServiceEntry[]> {
-    try {
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) return []
-
-      const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
-        projectId,
-        'SELECT type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT ?',
-        ...MEMORY_EVENT_RANGE,
-        limit
-      )
-
-      return rows.reverse().map((row) => {
-        const parsed = JSON.parse(row.data)
-        const { author, ...data } = parsed
-        return {
-          timestamp: row.timestamp,
-          action: row.type.replace('memory.', ''),
-          data,
-          author,
-        } as MemoryServiceEntry
-      })
-    } catch (error) {
-      console.error(`Memory read error: ${error instanceof Error ? error.message : String(error)}`)
-      return []
-    }
-  }
-
-  /**
-   * Get entries for a specific action type
-   */
-  async getByAction(
-    projectPath: string,
-    action: string,
-    limit: number = 50
-  ): Promise<MemoryServiceEntry[]> {
-    try {
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) return []
-
-      const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
-        projectId,
-        'SELECT type, data, timestamp FROM events WHERE type = ? ORDER BY id DESC LIMIT ?',
-        `memory.${action}`,
-        limit
-      )
-
-      return rows.reverse().map((row) => {
-        const parsed = JSON.parse(row.data)
-        const { author, ...data } = parsed
-        return {
-          timestamp: row.timestamp,
-          action: row.type.replace('memory.', ''),
-          data,
-          author,
-        } as MemoryServiceEntry
-      })
-    } catch (error) {
-      console.error(`Memory read error: ${error instanceof Error ? error.message : String(error)}`)
-      return []
     }
   }
 
@@ -220,4 +153,3 @@ class MemoryService {
 }
 
 export const memoryService = new MemoryService()
-export default memoryService

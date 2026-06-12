@@ -16,7 +16,7 @@
  */
 
 import type { MemoryEntry } from '../memory/entries'
-import { deriveTitle } from '../memory/format'
+import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import type { MdOption } from '../types/cli'
@@ -27,17 +27,6 @@ import { requireProject } from './guards'
 
 interface GuardOptions extends MdOption {
   limit?: number
-}
-
-function labelFor(e: MemoryEntry): string {
-  if (e.type === 'gotcha') return 'gotcha'
-  if (e.tags?.pattern === 'recurring-bug') return 'recurring-bug'
-  return e.type
-}
-
-function flatDetail(content: string, max = 220): string {
-  const flat = content.replace(/\s+/g, ' ').trim()
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
 }
 
 export class GuardCommands extends PrjctCommandsBase {
@@ -91,7 +80,7 @@ export class GuardCommands extends PrjctCommandsBase {
       ]
       for (const e of hits) {
         lines.push(
-          `- **[${labelFor(e)}] ${deriveTitle(e)}** — ${flatDetail(e.content)}  \`${e.id}\``
+          `- **[${preventiveLabel(e)}] ${deriveTitle(e)}** — ${flatDetail(e.content)}  \`${e.id}\``
         )
       }
       lines.push('', '> Surfaced as prevention. Apply if relevant; ignore if not.')
@@ -101,7 +90,9 @@ export class GuardCommands extends PrjctCommandsBase {
         `⚠ ${hits.length} preventive memory entr${hits.length === 1 ? 'y' : 'ies'} for ${base}:`
       )
       for (const e of hits) {
-        out.info(`  • [${labelFor(e)}] ${deriveTitle(e)} — ${flatDetail(e.content, 120)} (${e.id})`)
+        out.info(
+          `  • [${preventiveLabel(e)}] ${deriveTitle(e)} — ${flatDetail(e.content, 120)} (${e.id})`
+        )
       }
     }
 

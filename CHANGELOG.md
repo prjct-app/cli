@@ -2,11 +2,8 @@
 
 ## [Unreleased]
 
-### Improved
-- **Token diet across every injected surface** (~17% less per session). Per-turn state block: timestamps use day-level buckets (`today`/`yesterday`/`Nd ago` — minute-level strings flipped every turn for zero signal) and a clean tree with nothing unpushed emits just the branch name. Skill body: the State section is counts-only (task descriptions were stale by the next sync and duplicated by the live prompt hook — detail moves to `prjct context --md`). Session-start: dropped the recall-verb line the skill already carries. Global CLAUDE.md: capture/workflow sections collapsed to the parts the skill doesn't cover. Team-mode block: one-line contract instead of repeating the global instructions.
-
-### Fixed
-- The `review-risk` git-integration tests carry a 15s timeout — the default 5s flaked under CI runner load and took down a release run.
+### Internal
+- **Dead-code and anti-pattern sweep** (no user-visible behavior change). Removed: 29 redundant `export default` aliases, the orphaned OAuth token validation/migration family (`tokens.ts` shrinks to the version pin; `system-database.ts` and its write-only MCP-health table die with it), `projectMemory.similar()`, `memoryService.getRecent`/`getByAction`, `hasIndexesAll`, `aggregateHookSignals`, `deriveWorkspaceId`, and five write-only `SkillContext` fields (task/backlog descriptions deliberately never enter the skill body). Deduplicated: the guard label/detail helpers (one canonical pair in `memory/format.ts`), the CLAUDE.md/AGENTS.md routing writers (shared `routing-block.ts` skeleton), and the pathManager test sandbox (one `_setup/path-manager-mock.ts` instead of eight hand-copied patch/restore blocks). Simplified: `selectProvider` (the never-built `userSelected` prompt path removed), static skill frontmatter takes no context by construction.
 
 ## [2.44.1] - 2026-06-12
 

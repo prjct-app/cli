@@ -21,7 +21,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import type { MemoryEntry } from '../memory/entries'
-import { deriveTitle } from '../memory/format'
+import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { type HookIo, runHook } from './_runner'
@@ -33,17 +33,6 @@ const MAX_ENTRIES = 3
 interface HookInput {
   tool_name?: string
   tool_input?: { file_path?: string }
-}
-
-function labelFor(e: MemoryEntry): string {
-  if (e.type === 'gotcha') return 'gotcha'
-  if (e.tags?.pattern === 'recurring-bug') return 'recurring-bug'
-  return e.type
-}
-
-function flatDetail(content: string, max = 220): string {
-  const flat = content.replace(/\s+/g, ' ').trim()
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
 }
 
 async function buildPreEditContext(projectPath: string, filePath: string): Promise<string | null> {
@@ -73,7 +62,9 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
   )
   lines.push('')
   for (const e of hits) {
-    lines.push(`- **[${labelFor(e)}] ${deriveTitle(e)}** — ${flatDetail(e.content)}  \`${e.id}\``)
+    lines.push(
+      `- **[${preventiveLabel(e)}] ${deriveTitle(e)}** — ${flatDetail(e.content)}  \`${e.id}\``
+    )
   }
   lines.push('')
   lines.push('> Nudge, not block. Apply if it still holds; proceed if not.')

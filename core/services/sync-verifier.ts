@@ -206,4 +206,3 @@ class SyncVerifier {
 // EXPORTS
 
 export const syncVerifier = new SyncVerifier()
-export default syncVerifier

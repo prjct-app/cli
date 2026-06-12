@@ -64,4 +64,3 @@ class AgentService {
 }
 
 export const agentService = new AgentService()
-export default agentService

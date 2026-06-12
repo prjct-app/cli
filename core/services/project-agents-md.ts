@@ -2,21 +2,18 @@
  * Project AGENTS.md — routing block writer.
  *
  * AGENTS.md is the cross-agent convention (OpenAI Codex et al.) for
- * project instructions. This writes (or refreshes between markers) a
- * compact prjct block so non-Claude agents pick up the prjct contract
- * on project load — the Codex counterpart of `writeProjectClaudeMd`.
+ * project instructions — the Codex counterpart of `writeProjectClaudeMd`.
  * Vendor-neutral wording: Codex has no hooks injecting context, so the
- * block must stand on its own. Idempotent via `mergeWithMarkers`; user
- * content outside the markers is never touched.
+ * block must stand on its own. The read-merge-write skeleton lives in
+ * `routing-block.ts`, shared with the CLAUDE.md writer.
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import { mergeWithMarkers } from '../infrastructure/ide-project-installer'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
-
-const START_MARKER = '<!-- prjct:routing - do not edit between markers -->'
-const END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
+import {
+  ROUTING_END_MARKER,
+  ROUTING_START_MARKER,
+  type RoutingWriteResult,
+  writeRoutingBlock,
+} from './routing-block'
 
 const ROUTING_BODY = `## prjct — project memory & workflow
 
@@ -36,46 +33,19 @@ ask them to type prjct commands.
 Routine captures auto-execute (confirm in one line); \`ship\` and other
 destructive verbs surface a one-line plan and wait for a green light.`
 
-const FULL_BLOCK = `${START_MARKER}
+const FULL_BLOCK = `${ROUTING_START_MARKER}
 ${ROUTING_BODY}
-${END_MARKER}
+${ROUTING_END_MARKER}
 `
 
-/**
- * Write or refresh the prjct routing block at `<projectPath>/AGENTS.md`.
- *
- * - File missing → create with just the block + trailing newline.
- * - File present without markers → append (with separator).
- * - File present with markers → replace block content; user content
- *   outside markers is preserved.
- */
-export async function writeProjectAgentsMd(
-  projectPath: string
-): Promise<{ action: 'created' | 'updated' | 'unchanged'; path: string }> {
-  const file = path.join(projectPath, 'AGENTS.md')
-  let existing = ''
-  let fileExists = true
-  try {
-    existing = await fs.readFile(file, 'utf-8')
-  } catch (error) {
-    if (!isNotFoundError(error)) {
-      throw new Error(`Could not read ${file}: ${getErrorMessage(error)}`)
-    }
-    fileExists = false
-  }
-
-  const merged = mergeWithMarkers(fileExists ? existing : '', FULL_BLOCK, START_MARKER, END_MARKER)
-
-  if (fileExists && merged.content === existing) {
-    return { action: 'unchanged', path: file }
-  }
-
-  await fs.writeFile(file, merged.content, 'utf-8')
-  return {
-    action: fileExists ? 'updated' : 'created',
-    path: file,
-  }
+/** Write or refresh the prjct routing block at `<projectPath>/AGENTS.md`. */
+export async function writeProjectAgentsMd(projectPath: string): Promise<RoutingWriteResult> {
+  return writeRoutingBlock(projectPath, 'AGENTS.md', FULL_BLOCK)
 }
 
 // Exposed for test-only assertions on the exact block shape.
-export const _routing = { START_MARKER, END_MARKER, FULL_BLOCK }
+export const _routing = {
+  START_MARKER: ROUTING_START_MARKER,
+  END_MARKER: ROUTING_END_MARKER,
+  FULL_BLOCK,
+}

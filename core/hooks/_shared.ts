@@ -172,7 +172,6 @@ const STOPWORDS = new Set([
   'deben',
   'puede',
   'pueden',
-  'esta',
   'estan',
   'ser',
   'son',

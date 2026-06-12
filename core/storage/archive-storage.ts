@@ -187,4 +187,3 @@ class ArchiveStorage {
 }
 
 export const archiveStorage = new ArchiveStorage()
-export default archiveStorage
