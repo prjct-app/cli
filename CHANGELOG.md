@@ -2,14 +2,11 @@
 
 ## [Unreleased]
 
-### Fixed
-- **Superseded knowledge can no longer surface as live advice.** `searchFts` (the per-prompt trap cue + the FTS leg of every recall) only filtered soft-deletes — an obsolete decision/gotcha could still inject as current. It now prunes author-declared retirements (`supersedes:` / `superseded-by:` / `duplicates:`) using a mirror-wide dead-id set, catching the case where BM25 never co-returns the superseding entry.
-- **Spanish prompts now produce real retrieval signal.** Keyword extraction was ASCII-only ("búsqueda" → mangled, "qué pasó" → nothing); it now tokenizes unicode, deburrs to match FTS5's diacritic-stripped index, and drops Spanish function words. FTS query sanitizing deburrs too.
-
 ### Improved
-- **MCP memory tools retrieve like the CLI.** `prjct_mem_list` used plain recency recall and `prjct_mem_similar` a shared-keyword heuristic — subagents (who do the bulk of the editing) got strictly worse retrieval than `prjct context memory`. Both now run the shared `enrichedRecall` pipeline: FTS-first, semantic blend, usefulness rerank, link expansion, ship attribution.
-- **Digest slots are proven-first.** The session-start and subagent digests picked the 3 most RECENT gotchas/decisions; they now overfetch and rerank by the usefulness ledger, so knowledge that keeps paying off wins the slots.
-- **Push-surfaced knowledge earns ship credit.** The pre-edit guard hook, the prompt trap cue, `prjct guard`, and `prjct_guard` now log surfaced entries against the active task — previously only PULL recalls did, so the most effective gotchas decayed in ranking precisely because the push delivery worked.
+- **Token diet across every injected surface** (~17% less per session). Per-turn state block: timestamps use day-level buckets (`today`/`yesterday`/`Nd ago` — minute-level strings flipped every turn for zero signal) and a clean tree with nothing unpushed emits just the branch name. Skill body: the State section is counts-only (task descriptions were stale by the next sync and duplicated by the live prompt hook — detail moves to `prjct context --md`). Session-start: dropped the recall-verb line the skill already carries. Global CLAUDE.md: capture/workflow sections collapsed to the parts the skill doesn't cover. Team-mode block: one-line contract instead of repeating the global instructions.
+
+### Fixed
+- The `review-risk` git-integration tests carry a 15s timeout — the default 5s flaked under CI runner load and took down a release run.
 
 ## [2.44.0] - 2026-06-11
 

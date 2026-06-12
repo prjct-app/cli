@@ -39,20 +39,7 @@ Only fall through to source/repo reading when the vault does not contain the ans
 
 ## Capture analyses BACK to prjct
 
-When you complete substantive work — analysis, decision, learning, gotcha discovered — persist it so the next session benefits:
-
-- \`prjct remember decision "<choice + why>"\` — choices made, with rationale
-- \`prjct remember learning "<insight>"\` — non-obvious insights gained
-- \`prjct remember gotcha "<trap + how to avoid>"\` — bugs/traps found
-- \`prjct remember fact "<verifiable claim>"\` — project facts (paths, conventions, IDs)
-- \`prjct capture "<text>" --tags type:analysis,topic:<x>\` — analytical dumps & inbox items
-
-Tag with \`--tags k:v,k:v\` for searchability. Memory persists to SQLite; vault auto-regenerates. **Default to capturing — under-capture is the failure mode that makes prjct useless.** **Author every persisted entry in ENGLISH**, whatever language the user speaks — translate the intent; one canonical language keeps retrieval sharp and token cost flat.
-
-## Workflow
-
-\`prjct task "<desc>"\` → work → \`prjct status done\` → \`prjct ship\`
-Pause/resume: \`prjct status paused\` | \`prjct status active\` (also reopens completed tasks)
+When you complete substantive work — analysis, decision, learning, gotcha — persist it: \`prjct remember <decision|learning|gotcha|fact> "..."\` or \`prjct capture "<text>" --tags k:v\`. **Author every entry in ENGLISH**, whatever language the user speaks. **Default to capturing — under-capture is the failure mode that makes prjct useless.** The full verb map and task workflow live in the \`prjct\` skill.
 
 ## Where things live
 

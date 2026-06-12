@@ -262,14 +262,18 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('Storage Layer Abstraction')
     })
 
-    it('includes active task when present', async () => {
+    it('State is counts-only — no task description text (token diet R3)', async () => {
       const result = await generator.generateAndInstall(
         makeSyncResult(),
         makeConditionContext(),
         makeRichContext()
       )
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('Wire alpha.11 hooks')
+      // Task DESCRIPTIONS are stale by the next sync and duplicated by the
+      // per-turn prompt hook — the body must never bake them in.
+      expect(content).not.toContain('Wire alpha.11 hooks')
+      expect(content).toContain('## State')
+      expect(content).toContain('detail via `prjct context --md`')
     })
 
     it('omits rich sections gracefully when empty', async () => {
