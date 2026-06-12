@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **The first command after an upgrade no longer stalls.** The post-upgrade re-setup (provider installers, Context7 verification, the per-project migration over the whole projects dir) ran synchronously inside whatever command the user happened to run first — up to ~30s of silent blocking on machines with large project dirs. It now runs in a detached `__post-upgrade` child (the auto-updater pattern): the command returns immediately (measured 31.6s → 0.10s) and a one-line banner says setup is finishing in the background. Explicit `prjct update` keeps its synchronous, progress-printing behavior. Both detached-child internals are now in the daemon shim's skip set — routing them to the daemon silently failed them.
+
 ### Internal
 - **Dead-code and anti-pattern sweep** (no user-visible behavior change). Removed: 29 redundant `export default` aliases, the orphaned OAuth token validation/migration family (`tokens.ts` shrinks to the version pin; `system-database.ts` and its write-only MCP-health table die with it), `projectMemory.similar()`, `memoryService.getRecent`/`getByAction`, `hasIndexesAll`, `aggregateHookSignals`, `deriveWorkspaceId`, and five write-only `SkillContext` fields (task/backlog descriptions deliberately never enter the skill body). Deduplicated: the guard label/detail helpers (one canonical pair in `memory/format.ts`), the CLAUDE.md/AGENTS.md routing writers (shared `routing-block.ts` skeleton), and the pathManager test sandbox (one `_setup/path-manager-mock.ts` instead of eight hand-copied patch/restore blocks). Simplified: `selectProvider` (the never-built `userSelected` prompt path removed), static skill frontmatter takes no context by construction.
 

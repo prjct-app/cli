@@ -162,8 +162,12 @@ var __dirname = __pathDirname(__filename);`,
  * Legacy shim-only skips: inert orphans that pre-date the manifest and have
  * no handler anywhere. Everything real derives from the manifest
  * (routingMode 'bin-only' + 'cold-only' via SHIM_SKIP_SET).
+ *
+ * The `__`-prefixed internals are detached-child entry points handled at
+ * the very top of bin/prjct.ts — routing them to the daemon (the shim's
+ * default for unknown commands) would error: no registry handler exists.
  */
-const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve']
+const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve', '__internal-auto-update', '__post-upgrade']
 
 /**
  * Evaluate the command manifest (command-data.ts via verb-names.ts) at

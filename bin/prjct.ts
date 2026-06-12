@@ -35,6 +35,25 @@ if (_fastCommand === '__internal-auto-update') {
   process.exit(0)
 }
 
+// Internal hook — `prjct __post-upgrade` is spawned as a detached child by
+// the auto-update block in main() after a version change. It runs the full
+// post-upgrade re-setup (provider installers, Context7 verification, the
+// per-project cliVersion migration over the whole projects dir) OFF the
+// user's critical path: this work took ~30s on machines with large project
+// dirs and used to stall the user's FIRST command after every upgrade.
+if (_fastCommand === '__post-upgrade') {
+  try {
+    const { run: runSetup } = await import('../core/infrastructure/setup')
+    await runSetup()
+  } catch {
+    // Detached child — never crash visibly. Every piece of this setup is
+    // also covered by an idempotent self-heal (shim skills, settings
+    // hooks, sync's MCP/codex repair), so a failed child converges on
+    // later invocations.
+  }
+  process.exit(0)
+}
+
 // Read all of stdin (the hook event JSON) as a string, with a timeout
 // safety net. Used only on the hook fast path to forward the event to the
 // daemon. Returns whatever arrived if stdin never closes.
@@ -498,18 +517,35 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
           const isUpgrade = cmp(VERSION, lastVersion) > 0
 
           if (!userInvokedUpdate && isUpgrade) {
-            console.log(`\n${chalk.yellow('ℹ')} Updating prjct v${lastVersion} → v${VERSION}...\n`)
+            console.log(
+              `\n${chalk.yellow('ℹ')} prjct updated to v${VERSION} — finishing setup in the background\n`
+            )
           }
 
           try {
-            // PR #132 removed setup's default export but missed this site
-            // (bin/ is outside core's typecheck): `setup.run()` threw
-            // TypeError into the catch below on EVERY version change since
-            // 2026-02 — the post-upgrade re-setup silently never ran.
-            const { run: runSetup } = await import('../core/infrastructure/setup')
-            await runSetup()
+            if (userInvokedUpdate) {
+              // Explicit `prjct update`: the user asked for maintenance, so
+              // run the re-setup synchronously with its own progress output.
+              const { run: runSetup } = await import('../core/infrastructure/setup')
+              await runSetup()
+            } else {
+              // Any other command: the re-setup (installers, Context7
+              // verification, per-project migration over the whole projects
+              // dir) took ~30s on big machines and used to stall the user's
+              // FIRST command after every upgrade. Stamp the version FIRST so
+              // rapid consecutive invocations don't each spawn a child, then
+              // hand the work to a detached `__post-upgrade` child (same
+              // pattern as the auto-updater's `__internal-auto-update`).
+              await editorsConfig.updateVersion(VERSION).catch(() => {})
+              const { spawn } = await import('node:child_process')
+              const child = spawn(process.execPath, [process.argv[1], '__post-upgrade'], {
+                detached: true,
+                stdio: 'ignore',
+              })
+              child.unref()
+            }
           } catch {
-            // setup.run() may fail (e.g. provider detection) — stamp version anyway
+            // setup/spawn may fail (e.g. provider detection) — stamp version anyway
             await editorsConfig.updateVersion(VERSION).catch(() => {})
           }
         }
