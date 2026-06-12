@@ -38,4 +38,3 @@ class BreakdownService {
 }
 
 export const breakdownService = new BreakdownService()
-export default breakdownService

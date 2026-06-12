@@ -16,7 +16,9 @@ export interface SkillContext {
   commands: ProjectCommands
   projectId: string
 
-  // Rich data from SQLite
+  // Rich data from SQLite. State is rendered counts-only (see
+  // formatState) — task/backlog DESCRIPTIONS deliberately never enter
+  // the skill body, so this type carries none.
   version: string
   fileCount: number
   patterns: { name: string; description: string; location?: string }[]
@@ -24,16 +26,10 @@ export interface SkillContext {
   recentShipped: { name: string; type: string; duration?: string; filesChanged?: number }[]
   velocity: { avgPoints?: number; trend?: string; accuracy?: number } | null
   backlogCount: number
-  completedTaskCount: number
-  pausedTaskCount: number
   knownGotchas: string[]
 
   // Task state (from stateStorage)
-  hasActiveTask: boolean
-  activeTaskDescription: string
   pausedTasks: { description: string; pausedAt: string }[]
-  // Backlog (top items from queueStorage)
-  topBacklog: { description: string; priority: string }[]
   // Counts
   ideasCount: number
   shippedCount: number

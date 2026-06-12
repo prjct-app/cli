@@ -101,24 +101,6 @@ export interface ProviderMcpPath {
   mergeIntoExisting: boolean
 }
 
-export interface TokenValidationResult {
-  valid: boolean
-  reason?: string
-}
-
-export interface TokenDirScan {
-  version: string
-  path: string
-  isCurrent: boolean
-  files: string[]
-  tokenFile: string | null
-  valid: boolean
-  reason?: string
-  hasAccessToken: boolean
-  hasRefreshToken: boolean
-  expiresIn?: number
-}
-
 // Constants Types
 
 export type RoadmapStatusKey = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'

@@ -291,5 +291,3 @@ export class OnboardingWizard {
     return this.preferences
   }
 }
-
-export default OnboardingWizard

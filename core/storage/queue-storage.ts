@@ -309,4 +309,3 @@ class QueueStorage extends StorageManager<QueueJson> {
 }
 
 export const queueStorage = new QueueStorage()
-export default queueStorage

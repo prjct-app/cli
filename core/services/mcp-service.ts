@@ -284,4 +284,3 @@ class McpService {
 }
 
 export const mcpService = new McpService()
-export default mcpService

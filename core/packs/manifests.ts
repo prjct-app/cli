@@ -187,21 +187,3 @@ export function aggregateSlots(
   }
   return out
 }
-
-/**
- * Aggregate hook signals across packs. Event-keyed so the hook runtime
- * can pull the right ones for the event it's handling.
- */
-export function aggregateHookSignals(packNames: string[]): Record<string, HookSignal[]> {
-  const out: Record<string, HookSignal[]> = {}
-  for (const name of packNames) {
-    const m = PACK_MANIFESTS[name]
-    if (!m) continue
-    for (const signal of m.hookSignals) {
-      const list = out[signal.event] ?? []
-      list.push(signal)
-      out[signal.event] = list
-    }
-  }
-  return out
-}

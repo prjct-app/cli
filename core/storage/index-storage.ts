@@ -394,4 +394,3 @@ class IndexStorage {
 }
 
 export const indexStorage = new IndexStorage()
-export default indexStorage

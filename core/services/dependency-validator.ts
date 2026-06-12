@@ -300,4 +300,3 @@ export class DependencyError extends Error {
 // EXPORTS
 
 export const dependencyValidator = new DependencyValidator()
-export default dependencyValidator

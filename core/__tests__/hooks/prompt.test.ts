@@ -70,7 +70,10 @@ describe('UserPromptSubmit — project state', () => {
     const r = await buildProjectState(projectPath)
     expect(r).not.toBeNull()
     expect(r).toContain('# prjct: project state')
-    expect(r).toMatch(/Branch: main — working tree (clean|\d+ untracked)/)
+    // Fresh repo always has exactly one untracked entry (.prjct/) — the
+    // "clean" wording no longer exists (suppressed as token noise), so
+    // pin the only branch this regex can take.
+    expect(r).toMatch(/Branch: main — working tree \d+ untracked/)
   })
 
   it('surfaces an active task when one exists', async () => {

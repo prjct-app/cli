@@ -3,17 +3,17 @@
  *
  * Writes (or refreshes between markers) a small block at the project's
  * `CLAUDE.md` that tells Claude "this project uses prjct — refer to
- * the global skill, don't make the user type commands". Idempotent
- * via the same `mergeWithMarkers` helper used by the global config.
+ * the global skill, don't make the user type commands". The
+ * read-merge-write skeleton lives in `routing-block.ts`, shared with
+ * the AGENTS.md writer.
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import { mergeWithMarkers } from '../infrastructure/ide-project-installer'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
-
-const START_MARKER = '<!-- prjct:routing - do not edit between markers -->'
-const END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
+import {
+  ROUTING_END_MARKER,
+  ROUTING_START_MARKER,
+  type RoutingWriteResult,
+  writeRoutingBlock,
+} from './routing-block'
 
 const ROUTING_BODY = `## prjct usage
 
@@ -37,46 +37,19 @@ that travel with this project:
 
 When in doubt: capture is always safe; ship is never silent.`
 
-const FULL_BLOCK = `${START_MARKER}
+const FULL_BLOCK = `${ROUTING_START_MARKER}
 ${ROUTING_BODY}
-${END_MARKER}
+${ROUTING_END_MARKER}
 `
 
-/**
- * Write or refresh the prjct routing block at `<projectPath>/CLAUDE.md`.
- *
- * - File missing → create with just the block + trailing newline.
- * - File present without markers → append (with separator).
- * - File present with markers → replace block content; user content
- *   outside markers is preserved.
- */
-export async function writeProjectClaudeMd(
-  projectPath: string
-): Promise<{ action: 'created' | 'updated' | 'unchanged'; path: string }> {
-  const file = path.join(projectPath, 'CLAUDE.md')
-  let existing = ''
-  let fileExists = true
-  try {
-    existing = await fs.readFile(file, 'utf-8')
-  } catch (error) {
-    if (!isNotFoundError(error)) {
-      throw new Error(`Could not read ${file}: ${getErrorMessage(error)}`)
-    }
-    fileExists = false
-  }
-
-  const merged = mergeWithMarkers(fileExists ? existing : '', FULL_BLOCK, START_MARKER, END_MARKER)
-
-  if (fileExists && merged.content === existing) {
-    return { action: 'unchanged', path: file }
-  }
-
-  await fs.writeFile(file, merged.content, 'utf-8')
-  return {
-    action: fileExists ? 'updated' : 'created',
-    path: file,
-  }
+/** Write or refresh the prjct routing block at `<projectPath>/CLAUDE.md`. */
+export async function writeProjectClaudeMd(projectPath: string): Promise<RoutingWriteResult> {
+  return writeRoutingBlock(projectPath, 'CLAUDE.md', FULL_BLOCK)
 }
 
 // Exposed for test-only assertions on the exact block shape.
-export const _routing = { START_MARKER, END_MARKER, FULL_BLOCK }
+export const _routing = {
+  START_MARKER: ROUTING_START_MARKER,
+  END_MARKER: ROUTING_END_MARKER,
+  FULL_BLOCK,
+}

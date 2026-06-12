@@ -402,21 +402,14 @@ class SyncService {
               }
             : null,
           backlogCount: backlog.length,
-          completedTaskCount: taskHistory.length,
-          pausedTaskCount: allPausedTasks.length,
           knownGotchas: feedbackForSkills?.knownGotchas ?? [],
           userPatterns: feedbackForSkills?.patternsDiscovered ?? [],
 
-          // Task state for rich skills
-          hasActiveTask: !!currentTask,
-          activeTaskDescription: currentTask?.description ?? '',
+          // Task state for rich skills — counts only; descriptions
+          // deliberately never enter the skill body (formatState).
           pausedTasks: allPausedTasks.map((t) => ({
             description: t.description,
             pausedAt: ((t as Record<string, unknown>).pausedAt as string) ?? '',
-          })),
-          topBacklog: backlog.slice(0, 3).map((t) => ({
-            description: t.description,
-            priority: ((t as Record<string, unknown>).priority as string) ?? 'medium',
           })),
           ideasCount: ideaCounts?.pending ?? 0,
           shippedCount: shippedCount,

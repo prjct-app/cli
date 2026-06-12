@@ -121,27 +121,6 @@ export interface MigrationResult {
   duration: number
 }
 
-// System Database Types (from system-database.ts)
-
-export interface McpHealthRow {
-  provider: string
-  status: 'healthy' | 'unhealthy' | 'unconfigured'
-  last_checked: string
-  last_error: string | null
-  token_version: string | null
-  config_valid: number
-  oauth_valid: number
-  updated_at: string
-}
-
-export interface McpHealthStatus {
-  status: 'healthy' | 'unhealthy' | 'unconfigured'
-  lastError?: string | null
-  tokenVersion?: string | null
-  configValid?: boolean
-  oauthValid?: boolean
-}
-
 // Index Storage Types (from index-storage.ts)
 
 export interface LanguageStats {

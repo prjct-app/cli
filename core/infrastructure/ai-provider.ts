@@ -460,42 +460,8 @@ export async function detectCodex(): Promise<CodexDetection> {
 export async function selectProvider(): Promise<ProviderSelectionResult> {
   const detection = await detectAllProviders()
 
-  const claudeInstalled = detection.claude.installed
-  const geminiInstalled = detection.gemini.installed
-
-  // Neither installed
-  if (!claudeInstalled && !geminiInstalled) {
-    // Default to Claude, setup will prompt to install
-    return {
-      provider: 'claude',
-      userSelected: false,
-      detection,
-    }
-  }
-
-  // Only Claude installed
-  if (claudeInstalled && !geminiInstalled) {
-    return {
-      provider: 'claude',
-      userSelected: false,
-      detection,
-    }
-  }
-
-  // Only Gemini installed
-  if (geminiInstalled && !claudeInstalled) {
-    return {
-      provider: 'gemini',
-      userSelected: false,
-      detection,
-    }
-  }
-
-  // Both installed - will need user selection
-  // For now, default to Claude (caller should prompt user)
-  return {
-    provider: 'claude',
-    userSelected: true, // Indicates user should be prompted
-    detection,
-  }
+  // Gemini only when it's the sole CLI installed; Claude is the default
+  // everywhere else (not installed → setup prompts to install it).
+  const provider = detection.gemini.installed && !detection.claude.installed ? 'gemini' : 'claude'
+  return { provider, detection }
 }

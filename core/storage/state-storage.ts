@@ -482,4 +482,3 @@ class StateStorage extends StorageManager<StateJson> {
 }
 
 export const stateStorage = new StateStorage()
-export default stateStorage

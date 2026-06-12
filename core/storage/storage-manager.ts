@@ -260,5 +260,3 @@ export abstract class StorageManager<T> {
     return this.cache.stats()
   }
 }
-
-export default StorageManager

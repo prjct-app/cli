@@ -119,16 +119,3 @@ export function hasIndexes(projectId: string): {
     cochange: presence.cochange ?? false,
   }
 }
-
-/**
- * Generic counterpart of {@link hasIndexes} — returns presence keyed
- * by every registered indexer name. Use this when a new signal has
- * been added to the registry and you need to inspect it.
- */
-export function hasIndexesAll(projectId: string): Record<string, boolean> {
-  const out: Record<string, boolean> = {}
-  for (const idx of indexerRegistry) {
-    out[idx.name] = idx.hasIndex(projectId)
-  }
-  return out
-}

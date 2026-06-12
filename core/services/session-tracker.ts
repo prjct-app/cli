@@ -216,4 +216,3 @@ class SessionTracker {
 // EXPORTS
 
 export const sessionTracker = new SessionTracker()
-export default sessionTracker

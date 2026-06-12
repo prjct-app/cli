@@ -203,5 +203,3 @@ function getPreviousAnalysisSummary(
     return Promise.resolve(null)
   }
 }
-
-export default { buildAnalysisPayload }

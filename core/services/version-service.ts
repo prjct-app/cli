@@ -432,5 +432,3 @@ function parseCsprojVersion(content: string): string | null {
   const match = content.match(/<Version>([^<]+)<\/Version>/)
   return match?.[1]?.trim() ?? null
 }
-
-export default VersionService

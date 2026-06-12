@@ -254,4 +254,3 @@ class CustomWorkflowStorage {
 
 // Singleton export
 export const customWorkflowStorage = new CustomWorkflowStorage()
-export default customWorkflowStorage

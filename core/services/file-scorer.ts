@@ -227,4 +227,3 @@ export class FileScorer {
 }
 
 export const fileScorer = new FileScorer()
-export default FileScorer

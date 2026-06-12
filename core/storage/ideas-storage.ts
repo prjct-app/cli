@@ -235,4 +235,3 @@ class IdeasStorage extends StorageManager<IdeasJson> {
 }
 
 export const ideasStorage = new IdeasStorage()
-export default ideasStorage

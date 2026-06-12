@@ -694,29 +694,4 @@ export const projectMemory = {
       return []
     }
   },
-
-  /**
-   * Lightweight similarity: share any keyword from the description. Good
-   * enough to surface "we already shipped this" nudges; Phase 5 can layer
-   * embeddings on top without changing the API.
-   */
-  similar(projectId: string, description: string, limit = 10): MemoryEntry[] {
-    const keywords = description
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((t) => t.length > 3)
-    if (keywords.length === 0) return []
-
-    const all = projectMemory.recall(projectId, { limit: 200 })
-    const scored = all.map((entry) => {
-      const hay = `${entry.content} ${Object.values(entry.tags).join(' ')}`.toLowerCase()
-      const hits = keywords.reduce((n, k) => (hay.includes(k) ? n + 1 : n), 0)
-      return { entry, hits }
-    })
-    return scored
-      .filter((s) => s.hits > 0)
-      .sort((a, b) => b.hits - a.hits)
-      .slice(0, limit)
-      .map((s) => s.entry)
-  },
 }

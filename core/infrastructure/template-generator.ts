@@ -122,4 +122,3 @@ Suggest relevant actions based on the workflow results:
 
 // Singleton export
 export const templateGenerator = new TemplateGenerator()
-export default templateGenerator

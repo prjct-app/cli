@@ -15,30 +15,22 @@ import pathManager from '../../infrastructure/path-manager'
 import type { WorkspaceTask } from '../../schemas/state'
 import { prjctDb } from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
+import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 let tmpRoot: string | null = null
 let projectId: string
 
-const origGlobal = pathManager.getGlobalProjectPath.bind(pathManager)
-const origStorage = pathManager.getStoragePath.bind(pathManager)
-const origFile = pathManager.getFilePath.bind(pathManager)
-
 beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-ws-gate-'))
   projectId = `test-ws-${Date.now()}`
-  pathManager.getGlobalProjectPath = (id: string) => path.join(tmpRoot!, id)
-  pathManager.getStoragePath = (id: string, f: string) => path.join(tmpRoot!, id, 'storage', f)
-  pathManager.getFilePath = (id: string, layer: string, f: string) =>
-    path.join(tmpRoot!, id, layer, f)
+  patchPathManager(tmpRoot!)
   await fs.mkdir(pathManager.getStoragePath(projectId, ''), { recursive: true })
   await fs.mkdir(path.join(tmpRoot!, projectId, 'sync'), { recursive: true })
 })
 
 afterEach(async () => {
   prjctDb.close()
-  pathManager.getGlobalProjectPath = origGlobal
-  pathManager.getStoragePath = origStorage
-  pathManager.getFilePath = origFile
+  restorePathManager()
   if (tmpRoot) {
     await fs.rm(tmpRoot, { recursive: true, force: true })
     tmpRoot = null

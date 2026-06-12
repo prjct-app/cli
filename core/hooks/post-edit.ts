@@ -31,9 +31,9 @@ export function runPostEditHook(projectPath: string = process.cwd(), io?: HookIo
         if (!file) return
         const config = await configManager.readConfig(p)
         if (!config?.projectId) return
-        // Event-sourced — downstream hooks/workflows can query via
-        // `memoryService.getRecent()` filtering on `post_edit`. Fire and
-        // forget; any failure is non-critical.
+        // Event-sourced — downstream consumers query the events table
+        // (`memoryService.getRecentEvents`). Fire and forget; any
+        // failure is non-critical.
         try {
           await memoryService.log(p, 'post_edit', {
             file,

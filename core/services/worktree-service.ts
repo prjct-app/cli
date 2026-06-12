@@ -276,4 +276,3 @@ class WorktreeService {
 // Singleton Export
 
 export const worktreeService = new WorktreeService()
-export default worktreeService

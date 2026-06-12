@@ -151,4 +151,3 @@ class LocalStateGenerator {
 }
 
 export const localStateGenerator = new LocalStateGenerator()
-export default localStateGenerator
