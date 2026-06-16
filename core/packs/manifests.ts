@@ -129,6 +129,27 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
     },
   },
 
+  lean: {
+    name: 'lean',
+    description: 'Anti-over-engineering: minimal-code review, debt ledger, intensity modes.',
+    memoryTypes: ['over-engineering', 'lean-debt'],
+    workflowSlots: {
+      review: { description: 'Flag over-engineering in the current diff.' },
+      audit: { description: 'Repo-wide over-engineering assessment.' },
+      debt: { description: 'Harvest deferred-simplification (lean:) markers.' },
+    },
+    hookSignals: [
+      {
+        event: 'UserPromptSubmit',
+        ifMatches: 'simplif|over-?engineer|yagni|too complex|leaner',
+        inject: ['type=over-engineering', 'type=lean-debt'],
+      },
+    ],
+    suggestedTags: {
+      intensity: ['lite', 'full', 'ultra'],
+    },
+  },
+
   research: {
     name: 'research',
     description: 'Research: deep-dives, literature review, competitive scans.',

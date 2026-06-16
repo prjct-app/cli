@@ -67,6 +67,7 @@ export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = 
   spec: lazy(async () => new (await import('./spec')).SpecCommands()),
   embeddings: lazy(async () => new (await import('./embeddings')).EmbeddingsCommands()),
   guard: lazy(async () => new (await import('./guard')).GuardCommands()),
+  lean: lazy(async () => new (await import('./lean')).LeanCommands()),
 }
 
 function registerCategories(): void {

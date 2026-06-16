@@ -21,6 +21,7 @@ import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
 import { embeddingService } from '../services/embeddings'
 import { detectFriction } from '../services/friction-detector'
+import { detectAndPersistLeanDebt } from '../services/lean-detector'
 import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
 import { detectSkillMisses } from '../services/skill-miss-detector'
@@ -89,6 +90,14 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           await detectAndPersistPatterns(p, config)
         } catch {
           // Git failure / non-repo → swallow; nothing to do here.
+        }
+
+        // Lean-debt growth (opt-in via config.lean.mode): flag when `lean:`
+        // simplification markers accumulate. No-op when lean mode is off.
+        try {
+          await detectAndPersistLeanDebt(p, config)
+        } catch {
+          // Same contract — git failure / non-repo → swallow.
         }
 
         // Session-end housekeeping (Phase A): age-out inbox, prune archives

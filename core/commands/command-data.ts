@@ -335,6 +335,27 @@ export const COMMANDS: CommandMeta[] = [
     requiresLlm: true,
   },
   {
+    name: 'lean',
+    group: 'optional',
+    routing: { group: 'lean', method: 'lean' },
+    optionSchema: {},
+    description: 'Anti-over-engineering: set intensity, review/audit/debt (read-only)',
+    usage: {
+      claude: '/p:lean [review|audit|debt|off|lite|full|ultra]',
+      terminal: 'prjct lean [sub]',
+    },
+    params: '[review|audit|debt|off|lite|full|ultra]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'No arg → show active intensity mode + a one-screen summary',
+      'review/audit/debt are advisory — no gate, no source writes',
+      'off|lite|full|ultra sets the intensity (mirrors ponytail modes)',
+    ],
+  },
+  {
     name: 'workflow',
     group: 'optional',
     routing: { group: 'workflow', method: 'workflow' },

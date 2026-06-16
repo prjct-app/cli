@@ -30,7 +30,7 @@ import { requireProject } from './guards'
 const ANALYSIS_SCHEMA_COMPACT = `{version:1, commitHash, analyzedAt,
   architecture:{style:"monolith|monorepo|microservices|modular-monolith", insights:[], domains:[]},
   patterns:[{name, description, locations:[], confidence:0-1, category:"architecture|data-flow|error-handling|testing"}],
-  antiPatterns:[{issue, reasoning, files:[], suggestion, severity:"low|medium|high", confidence:0-1}],
+  antiPatterns:[{issue, reasoning, files:[], suggestion, severity:"low|medium|high", confidence:0-1}] (flag over-engineering too: speculative abstractions, premature config, needless deps),
   techDebt:[{description, area, effort:"small|medium|large", impact, priority:"low|medium|high"}],
   riskAreas:[{path, reason, risk, severity}], refactorSuggestions:[{description, files:[], benefit, effort}],
   projectInsights:[], conventions:[{category, rule, example}],

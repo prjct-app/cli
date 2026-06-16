@@ -144,6 +144,15 @@ describe('pack-manager', () => {
     expect(count).toBe(1)
   })
 
+  test('lean pack declares its memory types and review/audit/debt slots', () => {
+    expect(PACK_MANIFESTS.lean).toBeDefined()
+    const types = aggregateMemoryTypes(['lean'])
+    expect(types).toContain('over-engineering')
+    expect(types).toContain('lean-debt')
+    const slots = aggregateSlots(['lean'])
+    expect(Object.keys(slots).sort()).toEqual(['audit', 'debt', 'review'])
+  })
+
   test('aggregateSlots first-pack-wins precedence', () => {
     // Both `code` and `founder` have 'ship' slot (via code + via founder 'investor-update'...)
     // Actually `code` has `ship`; `founder` has `investor-update`. Use daily+code which share `review`.
