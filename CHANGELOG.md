@@ -8,6 +8,13 @@
 ### Internal
 - **Dead-code and anti-pattern sweep** (no user-visible behavior change). Removed: 29 redundant `export default` aliases, the orphaned OAuth token validation/migration family (`tokens.ts` shrinks to the version pin; `system-database.ts` and its write-only MCP-health table die with it), `projectMemory.similar()`, `memoryService.getRecent`/`getByAction`, `hasIndexesAll`, `aggregateHookSignals`, `deriveWorkspaceId`, and five write-only `SkillContext` fields (task/backlog descriptions deliberately never enter the skill body). Deduplicated: the guard label/detail helpers (one canonical pair in `memory/format.ts`), the CLAUDE.md/AGENTS.md routing writers (shared `routing-block.ts` skeleton), and the pathManager test sandbox (one `_setup/path-manager-mock.ts` instead of eight hand-copied patch/restore blocks). Simplified: `selectProvider` (the never-built `userSelected` prompt path removed), static skill frontmatter takes no context by construction.
 
+## [2.45.0] - 2026-06-16
+
+### Features
+
+- lean — anti-over-engineering capability (prjct-native ponytail) (#434)
+
+
 ## [2.44.2] - 2026-06-12
 
 ### Bug Fixes
