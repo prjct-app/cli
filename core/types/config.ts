@@ -57,6 +57,20 @@ export interface LocalConfig {
    */
   persona?: ProjectPersona
   /**
+   * Anti-over-engineering ("lean") intensity. Unset / `off` keeps the
+   * lean guidance and the Stop-hook lean-debt detector dormant — the
+   * capability is strictly opt-in so projects that want completeness
+   * over minimalism see zero behaviour change. Higher modes bias the
+   * skill guidance toward YAGNI/KISS and arm the detector:
+   *   - `lite`  — suggest the leaner alternative, never enforce
+   *   - `full`  — apply the decision ladder by default
+   *   - `ultra` — YAGNI absolutist; challenge non-essential scope
+   * The non-negotiables carve-out (security, input validation,
+   * data-loss handling, accessibility, edge-case correctness) holds at
+   * every mode. Mirrors ponytail's intensity levels.
+   */
+  lean?: { mode: 'off' | 'lite' | 'full' | 'ultra' }
+  /**
    * Override for the Obsidian-compatible wiki vault location.
    * - Absolute path (e.g. "/Users/jj/Documents/prjct/my-app")
    * - Or tilde-prefixed ("~/Documents/prjct/my-app")
