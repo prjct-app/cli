@@ -22,12 +22,21 @@ describe('renderAuditDispatch — points reviewers at prjct, never embeds the sp
     expect(out).not.toContain('```json')
   })
 
-  it('instructs every reviewer to read the spec from prjct by id', () => {
-    const out = renderAuditDispatch('spec-abc123', 'Rate limiting', emptySpecContent('g'))
-    // One per reviewer (A/B/C) + the "where it lives" block.
+  it('instructs every selected reviewer to read the spec from prjct by id', () => {
+    // Goal triggers ≥3 lenses (auth→security, api/endpoint→design, db/migration→data, +architecture).
+    const c = emptySpecContent('Add auth to the API endpoint with a DB schema migration')
+    const out = renderAuditDispatch('spec-abc123', 'X', c)
+    // One per selected lens + the "where it lives" block.
     const occurrences = out.split('prjct spec show spec-abc123 --md').length - 1
     expect(occurrences).toBeGreaterThanOrEqual(3)
     expect(out).toContain('it is NOT in this prompt')
+  })
+
+  it('honors an explicit lens override (fewer lenses → fewer reviewers)', () => {
+    const out = renderAuditDispatch('spec-x', 'X', emptySpecContent('g'), ['architecture'])
+    expect(out).toContain('Reviewer A — architecture')
+    expect(out).not.toContain('Reviewer B')
+    expect(out).toContain('Selected lenses for this spec: **architecture**')
   })
 
   it('still hands reviewers codebase PATHS (pointers, not pasted source)', () => {

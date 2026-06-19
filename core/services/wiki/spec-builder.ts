@@ -13,7 +13,7 @@
 
 import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
 import type { QueueTask } from '../../schemas/state'
-import { SPEC_REVIEWERS, type Spec } from '../../types/spec'
+import type { Spec } from '../../types/spec'
 import { slugify } from './_shared'
 
 export function buildSpecFiles(
@@ -118,14 +118,10 @@ function formatSpecBody(spec: Spec, taskById: Map<string, QueueTask>): string {
     for (const t of c.test_plan) lines.push(`- ${t}`)
   }
 
-  if (c.reviews) {
-    const haveAny = SPEC_REVIEWERS.some((r) => c.reviews?.[r])
-    if (haveAny) {
-      lines.push('', '## Reviews')
-      for (const reviewer of SPEC_REVIEWERS) {
-        const r = c.reviews[reviewer]
-        if (r) lines.push(`- **${reviewer}:** ${r.verdict} — ${r.notes} _(${r.ts})_`)
-      }
+  if (c.reviews && Object.keys(c.reviews).length > 0) {
+    lines.push('', '## Reviews')
+    for (const [reviewer, r] of Object.entries(c.reviews)) {
+      lines.push(`- **${reviewer}:** ${r.verdict} — ${r.notes} _(${r.ts})_`)
     }
   }
 

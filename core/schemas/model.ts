@@ -62,6 +62,7 @@ export type AgentRole =
   | 'strategic-review'
   | 'architecture-review'
   | 'design-review'
+  | 'spec-review'
   | 'review'
   | 'security'
   | 'investigate'
@@ -85,6 +86,7 @@ export const AGENT_MODEL_POLICY: Record<AgentRole, AgentModelPolicy> = {
   'strategic-review': REVIEWER_POLICY,
   'architecture-review': REVIEWER_POLICY,
   'design-review': REVIEWER_POLICY,
+  'spec-review': REVIEWER_POLICY,
   review: REVIEWER_POLICY,
   security: REVIEWER_POLICY,
   investigate: REVIEWER_POLICY,

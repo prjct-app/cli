@@ -21,11 +21,11 @@ import {
   type SpecContent,
   SpecContentSchema,
   type SpecReview,
-  type SpecReviewer,
   type SpecStatus,
 } from '../types/spec'
 import { getTimestamp } from '../utils/date-helper'
 import { execFileAsync } from '../utils/exec'
+import { reviewsGatePassed } from './spec-audit-dispatch'
 
 /**
  * Read git HEAD sha at `projectPath`. Returns null when not a git repo
@@ -145,7 +145,7 @@ class SpecService {
   async recordReview(
     projectPath: string,
     id: string,
-    reviewer: SpecReviewer,
+    reviewer: string,
     review: Omit<SpecReview, 'ts'>
   ): Promise<Spec | null> {
     const projectId = await this.requireProjectId(projectPath)
@@ -193,8 +193,8 @@ class SpecService {
       )
     }
 
-    if (updated && this.allReviewsPass(updated.content)) {
-      // All three reviewers pass → auto-promote draft to reviewed.
+    if (updated && reviewsGatePassed(updated.content)) {
+      // All SELECTED lenses pass → auto-promote draft to reviewed.
       if (updated.status === 'draft') {
         const promoted = specStorage.setStatus(projectId, id, 'reviewed')
         // Auto-breakdown: materialize acceptance_criteria as granular
@@ -245,14 +245,23 @@ class SpecService {
     return spec.content.acceptance_criteria.filter((c) => !met.has(c))
   }
 
-  private allReviewsPass(content: SpecContent): boolean {
-    const r = content.reviews
-    if (!r) return false
-    return (
-      r.strategic?.verdict === 'pass' &&
-      r.architecture?.verdict === 'pass' &&
-      r.design?.verdict === 'pass'
-    )
+  /**
+   * Persist the lens set chosen at audit time so the auto-promote gate
+   * (`reviewsGatePassed`) knows the expected set. Called by `prjct spec
+   * audit` before it emits the dispatch.
+   */
+  async setSelectedReviewers(
+    projectPath: string,
+    id: string,
+    lenses: string[]
+  ): Promise<Spec | null> {
+    const projectId = await this.requireProjectId(projectPath)
+    const spec = specStorage.get(projectId, id)
+    if (!spec) return null
+    return specStorage.updateContent(projectId, id, {
+      ...spec.content,
+      selected_reviewers: lenses,
+    })
   }
 
   private async requireProjectId(projectPath: string): Promise<string> {

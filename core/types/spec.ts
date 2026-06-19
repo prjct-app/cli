@@ -45,13 +45,15 @@ export const SpecContentSchema = z.object({
   out_of_scope: z.array(z.string()).default([]),
   risks: z.array(SpecRiskSchema).default([]),
   test_plan: z.array(z.string()).default([]),
-  reviews: z
-    .object({
-      strategic: SpecReviewSchema.optional(),
-      architecture: SpecReviewSchema.optional(),
-      design: SpecReviewSchema.optional(),
-    })
-    .optional(),
+  // Open vocabulary: lens name → verdict. Defaults to the three baseline
+  // lenses (strategic / architecture / design) but any lens the audit selects
+  // (security, data, performance, …) is a valid key. Legacy specs keyed
+  // strategic/architecture/design still parse unchanged.
+  reviews: z.record(z.string(), SpecReviewSchema).optional(),
+  // Lens set chosen for THIS spec at audit time — the auto-promote gate's
+  // expected set. Empty ⇒ legacy spec audited before dynamic lenses; the gate
+  // then falls back to the three baseline lenses. See spec-audit-dispatch.ts.
+  selected_reviewers: z.array(z.string()).default([]),
   linked_tasks: z.array(z.string()).default([]),
   notes: z.string().default(''),
   // Set ONLY after breakdownSpecToTasks completes its full loop. Acts as a

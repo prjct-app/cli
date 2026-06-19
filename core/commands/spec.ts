@@ -18,21 +18,18 @@
  */
 
 import configManager from '../infrastructure/config-manager'
-import { renderModelDirective } from '../schemas/model'
+import { renderAuditDispatch, selectReviewers } from '../services/spec-audit-dispatch'
 import { specService } from '../services/spec-service'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import {
-  SPEC_REVIEWERS,
-  SPEC_STATUSES,
-  type SpecContent,
-  SpecContentSchema,
-  type SpecReviewer,
-  type SpecStatus,
-} from '../types/spec'
+import { SPEC_STATUSES, type SpecContent, SpecContentSchema, type SpecStatus } from '../types/spec'
 import { failHard, failWith } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
+
+// Re-exported so existing importers (and tests) can reach the dispatch
+// renderer through the command module; the impl lives in spec-audit-dispatch.
+export { renderAuditDispatch }
 
 interface SpecCmdOptions {
   md?: boolean
@@ -281,13 +278,15 @@ export class SpecCommands extends PrjctCommandsBase {
     try {
       if (!id) {
         return failWith(
-          'Usage: prjct spec record-review <id> --reviewer <strategic|architecture|design> --verdict <pass|fail> --notes "..."'
+          'Usage: prjct spec record-review <id> --reviewer <lens> --verdict <pass|fail> --notes "..."'
         )
       }
-      const reviewer = options.reviewer
+      // Open lens vocabulary — accept any non-empty lowercase token, not just
+      // the fixed trio. The audit picks the lens set per spec dynamically.
+      const reviewer = options.reviewer?.trim().toLowerCase()
       const verdict = options.verdict
-      if (!reviewer || !(SPEC_REVIEWERS as readonly string[]).includes(reviewer)) {
-        return failWith(`--reviewer must be one of: ${SPEC_REVIEWERS.join(', ')}`)
+      if (!reviewer) {
+        return failWith('--reviewer is required (the lens name, e.g. architecture, security)')
       }
       if (verdict !== 'pass' && verdict !== 'fail') {
         return failWith('--verdict must be `pass` or `fail`')
@@ -296,13 +295,20 @@ export class SpecCommands extends PrjctCommandsBase {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      const updated = await specService.recordReview(projectPath, id, reviewer as SpecReviewer, {
+      const updated = await specService.recordReview(projectPath, id, reviewer, {
         verdict,
         notes: options.notes ?? '',
       })
       if (!updated) return failWith(`spec not found: ${id}`)
 
-      const msg = `${reviewer} → ${verdict}${updated.status === 'reviewed' ? ' (all reviewers passed → status: reviewed)' : ''}`
+      // Light guard: warn (don't fail) if the lens wasn't in the audit's
+      // selected set — a typo'd lens would never satisfy the promote gate.
+      const selected = updated.content.selected_reviewers
+      if (selected.length > 0 && !selected.includes(reviewer)) {
+        out.warn(`lens "${reviewer}" is not in this spec's selected set (${selected.join(', ')})`)
+      }
+
+      const msg = `${reviewer} → ${verdict}${updated.status === 'reviewed' ? ' (all selected lenses passed → status: reviewed)' : ''}`
       if (options.md) console.log(`✓ ${msg}`)
       else out.done(msg)
       return { success: true, specId: id, status: updated.status }
@@ -372,17 +378,29 @@ export class SpecCommands extends PrjctCommandsBase {
   async audit(
     id: string | null = null,
     projectPath: string = process.cwd(),
-    _options: SpecCmdOptions = {}
+    options: SpecCmdOptions & { lenses?: string } = {}
   ): Promise<CommandResult> {
     try {
-      if (!id) return failWith('Usage: prjct spec audit <id>')
+      if (!id) return failWith('Usage: prjct spec audit <id> [--lenses a,b,c]')
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
       const spec = await specService.get(projectPath, id)
       if (!spec) return failWith(`spec not found: ${id}`)
 
-      const dispatch = renderAuditDispatch(spec.id, spec.title, spec.content)
+      // Dynamic lenses: `--lenses` overrides; otherwise prjct computes a
+      // deterministic baseline from the spec. Persist the chosen set so the
+      // auto-promote gate (`reviewsGatePassed`) knows what to expect.
+      const lenses =
+        typeof options.lenses === 'string' && options.lenses.trim() !== ''
+          ? options.lenses
+              .split(',')
+              .map((s) => s.trim().toLowerCase())
+              .filter(Boolean)
+          : selectReviewers(spec.content)
+      await specService.setSelectedReviewers(projectPath, id, lenses)
+
+      const dispatch = renderAuditDispatch(spec.id, spec.title, spec.content, lenses)
       console.log(dispatch)
       return { success: true, specId: id, dispatch: 'emitted' }
     } catch (error) {
@@ -575,11 +593,10 @@ function renderSpecMarkdown(spec: {
     lines.push('', '## Test plan')
     for (const t of c.test_plan) lines.push(`- ${t}`)
   }
-  if (c.reviews) {
+  if (c.reviews && Object.keys(c.reviews).length > 0) {
     lines.push('', '## Reviews')
-    for (const reviewer of SPEC_REVIEWERS) {
-      const r = c.reviews[reviewer]
-      if (r) lines.push(`- **${reviewer}:** ${r.verdict} — ${r.notes} _(${r.ts})_`)
+    for (const [reviewer, r] of Object.entries(c.reviews)) {
+      lines.push(`- **${reviewer}:** ${r.verdict} — ${r.notes} _(${r.ts})_`)
     }
   }
   if (c.linked_tasks.length > 0) {
@@ -587,65 +604,4 @@ function renderSpecMarkdown(spec: {
   }
   if (c.notes) lines.push('', '## Notes', c.notes)
   return lines.join('\n')
-}
-
-/**
- * The dispatch prompt emitted by `prjct spec audit`. Claude reads this,
- * runs three Agent calls in PARALLEL (one tool-use block per reviewer,
- * all in the same message), then writes each verdict back via
- * `prjct spec record-review`.
- */
-export function renderAuditDispatch(id: string, title: string, content: SpecContent): string {
-  // Phase 1.6 / B-RVW: extract scope paths so each reviewer can read
-  // the actual codebase via the Read tool instead of judging the spec
-  // in isolation.
-  const scopePaths = extractScopePaths(content.scope)
-  const scopeBlock =
-    scopePaths.length > 0
-      ? `\n\n## Codebase paths to read (from spec.scope)\n${scopePaths.map((p) => `- \`${p}\``).join('\n')}\n\nEach reviewer SHOULD use the Read tool on these paths (cap 10 per reviewer) to ground the verdict in the actual code. Cite specific symbols / files / line numbers in notes when applicable.`
-      : '\n\n## Codebase paths\n_No path-shaped scope entries found. Reviewers judge the spec body alone._'
-  return [
-    `# audit-spec dispatch — ${title}`,
-    '',
-    `Spec id: \`${id}\``,
-    '',
-    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.',
-    '',
-    '## Where the spec lives — read it from prjct, it is NOT in this prompt',
-    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer subagent runs \`prjct spec show ${id} --md\` itself, in its own fresh context window, to read the full spec. Do NOT paste the spec body into the subagent prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the subagent, not pre-pasted by you.)`,
-    '',
-    '## Model policy (perf — read before dispatching)',
-    `${renderModelDirective('strategic-review')} The SAME applies to all three reviewers (strategic, architecture, design) — they judge a spec, they do not implement, so they must NOT run on the parent's max model. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,
-    scopeBlock,
-    '',
-    '## Reviewer A — strategic (scope sanity)',
-    `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. Review it for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory via \`prjct context memory <topic>\` if useful. Return verdict (pass|fail) and 2-4 sentence notes."`,
-    '',
-    '## Reviewer B — architecture (eng feasibility)',
-    `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. Then read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable. Return verdict (pass|fail) and 2-4 sentence notes."`,
-    '',
-    '## Reviewer C — design (UX/DX)',
-    `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Return verdict (pass if all dimensions ≥6, fail otherwise) + the four scores."`,
-    '',
-    '## After dispatch',
-    'For each reviewer that returns:',
-    `  prjct spec record-review ${id} --reviewer <strategic|architecture|design> --verdict <pass|fail> --notes "<their notes>"`,
-    '',
-    'When all three are recorded, the spec auto-promotes from `draft` → `reviewed`.',
-  ].join('\n')
-}
-
-/**
- * Pull file/dir paths from spec.scope entries (entries are typically
- * "core/sync/sync-manager.ts — desc" — peel off the path-like prefix).
- * Cap to 12 to stay within reviewer-tool budgets.
- */
-function extractScopePaths(scope: string[]): string[] {
-  const out: string[] = []
-  for (const entry of scope) {
-    const m = entry.match(/[a-zA-Z0-9_./-]+\.[a-zA-Z]+/) ?? entry.match(/[a-zA-Z0-9_./-]+\//)
-    if (m && !out.includes(m[0])) out.push(m[0])
-    if (out.length >= 12) break
-  }
-  return out
 }
