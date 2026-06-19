@@ -214,7 +214,10 @@ async function main(): Promise<void> {
             ),
           'audit-spec': (p) =>
             p
-              ? commands.specAudit(p, process.cwd(), { md })
+              ? commands.specAudit(p, process.cwd(), {
+                  md,
+                  lenses: options.lenses ? String(options.lenses) : undefined,
+                })
               : Promise.resolve({ success: false, error: 'audit-spec requires a spec id' }),
           // Planning — init accepts --pack / --persona / --yes to pre-seed
           // packs and persona without the interactive wizard.

@@ -88,7 +88,10 @@ export async function executeCommand(
       if (!param) {
         return { success: false, error: 'audit-spec requires a spec id' }
       }
-      return commands.specAudit(param, request.cwd, { md })
+      return commands.specAudit(param, request.cwd, {
+        md,
+        lenses: opts.lenses ? String(opts.lenses) : undefined,
+      })
     case 'analyze':
       return commands.analyze(opts, request.cwd)
     case 'analysis-save-llm':
