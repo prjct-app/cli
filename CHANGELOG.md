@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.46.0] - 2026-06-19
+
+### Added
+- dynamic audit-spec lenses (deterministic baseline + agent override)
+
 ### Fixed
 - **The first command after an upgrade no longer stalls.** The post-upgrade re-setup (provider installers, Context7 verification, the per-project migration over the whole projects dir) ran synchronously inside whatever command the user happened to run first — up to ~30s of silent blocking on machines with large project dirs. It now runs in a detached `__post-upgrade` child (the auto-updater pattern): the command returns immediately (measured 31.6s → 0.10s) and a one-line banner says setup is finishing in the background. Explicit `prjct update` keeps its synchronous, progress-printing behavior. Both detached-child internals are now in the daemon shim's skip set — routing them to the daemon silently failed them.
 
@@ -14,7 +19,6 @@
 
 - lean — anti-over-engineering capability (prjct-native ponytail) (#434)
 
-
 ## [2.44.2] - 2026-06-12
 
 ### Bug Fixes
@@ -25,13 +29,11 @@
 
 - dead-code + anti-pattern sweep — DRY/KISS pass (#431)
 
-
 ## [2.44.1] - 2026-06-12
 
 ### Performance
 
 - token diet — coarse timestamps, quiet state lines, counts-only skill State, instruction dedupe (#430)
-
 
 ## [2.44.0] - 2026-06-11
 
@@ -39,13 +41,11 @@
 
 - retrieval quality — superseded filter, proven-first digests, MCP parity, push-path ship credit, unicode keywords (#429)
 
-
 ## [2.43.4] - 2026-06-11
 
 ### Performance
 
 - indexed range queries, git TTL cache, version-aware vault fingerprint, upgrade-scan guard (#428)
-
 
 ## [2.43.3] - 2026-06-11
 
@@ -53,13 +53,11 @@
 
 - Codex first-class — skill under 1KB cap, MCP wiring, real AGENTS.md, doctor checks (#427)
 
-
 ## [2.43.2] - 2026-06-11
 
 ### Bug Fixes
 
 - release job is idempotent — recovery path for partial failures + retried npm publish (#426)
-
 
 ## [2.43.1] - 2026-06-11
 
@@ -67,13 +65,11 @@
 
 - memory cap never deletes knowledge — exclude memory.remember.* from capEntries (#425)
 
-
 ## [2.43.0] - 2026-06-10
 
 ### Features
 
 - vault v2 — signal-first RAG (telemetry quarantine, link-only tags, dashboard index) (#424)
-
 
 ## [2.42.6] - 2026-06-10
 
@@ -85,13 +81,11 @@
 
 - pin bun via .bun-version — stop resolving 'latest' on every run (#423)
 
-
 ## [2.42.5] - 2026-06-10
 
 ### Bug Fixes
 
 - confirmed findings from the v2.42.x range code review (#421)
-
 
 ## [2.42.4] - 2026-06-10
 
@@ -99,20 +93,17 @@
 
 - optimization backlog — FTS5 prefix indexes, god-file splits, glob removal + broken post-upgrade setup fixed (#420)
 
-
 ## [2.42.3] - 2026-06-10
 
 ### Refactoring
 
 - follow-ups — workflow-engine rename, PRJCT_CLI_HOME everywhere, bin split, lazy daemon groups (#419)
 
-
 ## [2.42.2] - 2026-06-10
 
 ### Refactoring
 
 - single command manifest — quadruple dispatch eliminated, flag-strip class gone by construction (#418)
-
 
 ## [2.42.1] - 2026-06-10
 
@@ -133,7 +124,6 @@
 ### Refactoring
 
 - feat: LLM-first surface — untruncated agent output, subagent digest, skill-miss loop, indexed recall (#415)
-
 
 ## [2.41.0] - 2026-06-09
 

@@ -15,14 +15,13 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { renderAuditDispatch, selectReviewers } from '../../services/spec-audit-dispatch'
 import { specService } from '../../services/spec-service'
 import { specStorage } from '../../storage/spec-storage'
 import {
-  SPEC_REVIEWERS,
   SPEC_STATUSES,
   type SpecContent,
   SpecContentSchema,
-  type SpecReviewer,
   type SpecStatus,
 } from '../../types/spec'
 import { resolveProjectId } from '../resolve'
@@ -244,8 +243,14 @@ export function registerSpecTools(server: McpServer) {
       if (!spec) {
         return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
       }
+      // Dynamic lenses: deterministic baseline from the spec, persisted so
+      // the auto-promote gate knows the expected set.
+      const lenses = selectReviewers(spec.content)
+      await specService.setSelectedReviewers(args.projectPath, args.id, lenses)
       return {
-        content: [{ type: 'text', text: renderAuditDispatch(spec.id, spec.title, spec.content) }],
+        content: [
+          { type: 'text', text: renderAuditDispatch(spec.id, spec.title, spec.content, lenses) },
+        ],
       }
     })
   )
@@ -256,7 +261,7 @@ export function registerSpecTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
       id: z.string().describe('Spec id'),
-      reviewer: z.enum(SPEC_REVIEWERS).describe('Which reviewer'),
+      reviewer: z.string().min(1).describe('Which lens (e.g. architecture, security, data)'),
       verdict: z.enum(['pass', 'fail']).describe('Verdict'),
       notes: z.string().describe('2-4 sentence notes from the subagent'),
     },
@@ -265,7 +270,7 @@ export function registerSpecTools(server: McpServer) {
       async (args: {
         projectPath: string
         id: string
-        reviewer: SpecReviewer
+        reviewer: string
         verdict: 'pass' | 'fail'
         notes: string
       }) => {
@@ -374,11 +379,10 @@ function renderSpecMarkdown(spec: {
     lines.push('', '## Test plan')
     for (const t of c.test_plan) lines.push(`- ${t}`)
   }
-  if (c.reviews) {
+  if (c.reviews && Object.keys(c.reviews).length > 0) {
     lines.push('', '## Reviews')
-    for (const reviewer of SPEC_REVIEWERS) {
-      const r = c.reviews[reviewer]
-      if (r) lines.push(`- **${reviewer}:** ${r.verdict} — ${r.notes} _(${r.ts})_`)
+    for (const [reviewer, r] of Object.entries(c.reviews)) {
+      lines.push(`- **${reviewer}:** ${r.verdict} — ${r.notes} _(${r.ts})_`)
     }
   }
   if (c.linked_tasks.length > 0) {
@@ -386,35 +390,4 @@ function renderSpecMarkdown(spec: {
   }
   if (c.notes) lines.push('', '## Notes', c.notes)
   return lines.join('\n')
-}
-
-function renderAuditDispatch(id: string, title: string, content: SpecContent): string {
-  const summary = JSON.stringify(content)
-  return [
-    `# audit-spec dispatch — ${title}`,
-    '',
-    `Spec id: \`${id}\``,
-    '',
-    'Run three review subagents IN PARALLEL via your Agent / Task tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec body and applies its rubric, then returns a structured verdict (pass | fail + 2-4 sentence notes).',
-    '',
-    '## Reviewer A — strategic (scope sanity)',
-    'Subagent prompt: "Review this spec for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Return verdict (pass|fail) and 2-4 sentence notes."',
-    '',
-    '## Reviewer B — architecture (eng feasibility)',
-    'Subagent prompt: "Review this spec for engineering feasibility. Can this be built? Is the data flow / state machine implicit in the acceptance criteria coherent? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram of the proposed architecture in notes if applicable. Return verdict (pass|fail) and 2-4 sentence notes."',
-    '',
-    '## Reviewer C — design (UX/DX)',
-    'Subagent prompt: "Review this spec for design quality. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface this spec defines. Note the lowest-scoring dimension and why. Return verdict (pass if all dimensions ≥6, fail otherwise) and notes including the four scores."',
-    '',
-    '## Spec body (verbatim, pass to each reviewer)',
-    '```json',
-    summary,
-    '```',
-    '',
-    '## After dispatch',
-    'For each reviewer that returns:',
-    `  Call \`prjct_spec_record_review\` with id="${id}", reviewer=<strategic|architecture|design>, verdict=<pass|fail>, notes="<their notes>"`,
-    '',
-    'When all three are recorded with verdict=pass, the spec auto-promotes from `draft` → `reviewed`.',
-  ].join('\n')
 }
