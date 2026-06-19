@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Internal
+- Test isolation (mem_1560): `pathManager.globalProjectsDir` now honors `PRJCT_PROJECTS_DIR` (resolved at access time), and a new bun preload points `PRJCT_CLI_HOME` at a throwaway temp dir for the whole run. The suite no longer leaks fixture projects into the real `~/.prjct-cli/projects` — verified: full suite (1580 tests) adds 0 dirs to the real projects dir (previously ~116/run). No production impact (prod never sets `PRJCT_PROJECTS_DIR`).
+
 ## [2.46.1] - 2026-06-19
 
 ### Fixed

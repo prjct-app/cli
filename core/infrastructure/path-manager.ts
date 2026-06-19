@@ -33,7 +33,6 @@ import {
 
 class PathManager {
   globalBaseDir: string
-  globalProjectsDir: string
   globalConfigDir: string
 
   constructor() {
@@ -43,8 +42,20 @@ class PathManager {
     // per-call consumers (global-config, secure-key, …) use resolveCliHome()
     // directly so late mutation still works there.
     this.globalBaseDir = resolveCliHome()
-    this.globalProjectsDir = path.join(this.globalBaseDir, 'projects')
     this.globalConfigDir = path.join(this.globalBaseDir, 'config')
+  }
+
+  /**
+   * Global projects dir. Honors `PRJCT_PROJECTS_DIR` (test isolation — point it
+   * at a temp dir so a test run never writes into the real
+   * `~/.prjct-cli/projects`), else `<globalBaseDir>/projects`. Resolved at
+   * ACCESS time, so tests that set the env var in `beforeEach` (i.e. after
+   * import) are honored. Production never sets `PRJCT_PROJECTS_DIR`, so this is
+   * unchanged there. See mem_1560 (test vault pollution root cause).
+   */
+  get globalProjectsDir(): string {
+    const override = process.env.PRJCT_PROJECTS_DIR
+    return override ? path.resolve(override) : path.join(this.globalBaseDir, 'projects')
   }
 
   /**
@@ -52,7 +63,6 @@ class PathManager {
    */
   setGlobalBaseDir(globalBaseDir: string): void {
     this.globalBaseDir = path.resolve(globalBaseDir)
-    this.globalProjectsDir = path.join(this.globalBaseDir, 'projects')
     this.globalConfigDir = path.join(this.globalBaseDir, 'config')
   }
 
