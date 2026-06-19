@@ -568,7 +568,7 @@ class PrjctCommands {
   async specAudit(
     id: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: { md?: boolean; lenses?: string } = {}
   ): Promise<CommandResult> {
     return (await this.specCmdsG()).audit(id, projectPath, options)
   }

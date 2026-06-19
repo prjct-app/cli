@@ -105,7 +105,10 @@ export async function routeSpec(
         pr: options.pr ? String(options.pr) : undefined,
       })
     case 'audit':
-      return commands.specAudit(rest, cwd, { md })
+      return commands.specAudit(rest, cwd, {
+        md,
+        lenses: options.lenses ? String(options.lenses) : undefined,
+      })
     case 'breakdown':
       return commands.specBreakdown(rest, cwd, { md, force: options.force === true })
     case 'inventory':

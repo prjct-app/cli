@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.46.1] - 2026-06-19
+
+### Fixed
+- `prjct spec audit <id> --lenses a,b,c` now actually overrides the lens set. The flag was dropped by every CLI dispatch path (`route-spec`, daemon `dispatch`, and the `audit-spec` alias), which forwarded only `{ md }` — so the documented override silently fell back to the deterministic baseline (shipped that way in 2.46.0). Now forwarded through all paths, with a router-level test that drives `routeSpec` (the earlier tests called the method directly and missed the gap).
+
 ## [2.46.0] - 2026-06-19
 
 ### Added

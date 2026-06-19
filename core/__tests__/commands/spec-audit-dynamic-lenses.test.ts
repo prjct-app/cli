@@ -49,6 +49,16 @@ afterEach(async () => {
   if (originalProjectsDir === undefined) delete process.env.PRJCT_PROJECTS_DIR
   else process.env.PRJCT_PROJECTS_DIR = originalProjectsDir
   if (projectPath) await fs.rm(projectPath, { recursive: true, force: true }).catch(() => {})
+  // PRJCT_PROJECTS_DIR is not honored by pathManager (mem_1560), so project
+  // data lands in ~/.prjct-cli/projects/<id>; clean it to avoid polluting the
+  // real projects dir.
+  if (projectId)
+    await fs
+      .rm(path.join(os.homedir(), '.prjct-cli', 'projects', projectId), {
+        recursive: true,
+        force: true,
+      })
+      .catch(() => {})
   prjctDb.close()
 })
 
