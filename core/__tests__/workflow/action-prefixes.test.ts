@@ -200,4 +200,38 @@ describe('action prefix: git:commit / git:push', () => {
     // "No changes to commit" lie.
     expect(result.output).not.toMatch(/No changes to commit/)
   })
+
+  test('git:push sets upstream on a fresh branch with no upstream', async () => {
+    // A bare repo acts as `origin`.
+    const remotePath = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-prefix-remote-'))
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main'], { cwd: remotePath })
+
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: projectPath })
+    execFileSync('git', ['config', 'user.email', 'test@prjct.local'], { cwd: projectPath })
+    execFileSync('git', ['config', 'user.name', 'test'], { cwd: projectPath })
+    execFileSync('git', ['remote', 'add', 'origin', remotePath], { cwd: projectPath })
+    await fs.writeFile(path.join(projectPath, 'README.md'), '# tmp\n')
+    execFileSync('git', ['add', '.'], { cwd: projectPath })
+    execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: projectPath })
+    // Feature branch with NO upstream — the case a bare `git push` choked on.
+    execFileSync('git', ['checkout', '-q', '-b', 'feat/x'], { cwd: projectPath })
+
+    addStep(projectId, 'git:push')
+
+    const result = await executeWorkflowRules(projectId, 'ship', 'before', {
+      projectPath,
+      runContext: {},
+    })
+
+    expect(result.success).toBe(true)
+    // Upstream is now set to origin/feat/x.
+    const upstream = execFileSync(
+      'git',
+      ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
+      { cwd: projectPath, encoding: 'utf-8' }
+    )
+    expect(upstream.trim()).toBe('origin/feat/x')
+
+    await fs.rm(remotePath, { recursive: true, force: true })
+  })
 })

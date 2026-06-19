@@ -233,7 +233,20 @@ async function runGitCommit(
 }
 
 async function runGitPush(projectPath: string): Promise<void> {
-  await execFileAsync('git', ['push'], { cwd: projectPath })
+  // A bare `git push` fails on a branch with no upstream (any fresh feature
+  // branch) — and it fails AFTER git:commit already ran, leaving the ship
+  // half-done. So: respect a configured upstream when one exists (custom
+  // remotes keep working), but set `-u origin HEAD` on the first push so new
+  // branches ship cleanly.
+  const hasUpstream = await execFileAsync(
+    'git',
+    ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
+    { cwd: projectPath }
+  )
+    .then(() => true)
+    .catch(() => false)
+  const args = hasUpstream ? ['push'] : ['push', '-u', 'origin', 'HEAD']
+  await execFileAsync('git', args, { cwd: projectPath })
 }
 
 async function runRuleAction(
