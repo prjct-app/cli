@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.49.0] - 2026-06-20
+
+### Added
+- **Cloud sync — workflows round-trip + hardening.** Added pull handlers for `custom_workflows` (keyed by the stable workflow `name`) and `workflow_rules` (mirrored by source id via `INSERT OR REPLACE`, matching the cloud's upsert-by-id model), so a project's custom workflows + their hooks/gates/steps now sync across machines (both write directly to the tables — no echo back to the queue). A one-line `prjct cloud` pointer was added to the generated skill so agents surface it.
+
+### Changed
+- Cloud `include` defaults: `metrics` and `archives` are now **off by default** (opt-in). Neither round-trips yet — `metrics` has no producer, and `archives` ships a lossy summary (no `entity_data`) with no local apply handler — so they're not pushed by default rather than sending data nothing consumes. `archives`/`subtasks`/`metrics_daily`/`velocity_sprints` are now listed as known-skipped entity types (no "no local handler" warn on pull).
+
 ## [2.48.0] - 2026-06-19
 
 ### Added

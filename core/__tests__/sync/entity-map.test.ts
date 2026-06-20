@@ -55,7 +55,9 @@ describe('isTableIncluded', () => {
     expect(isTableIncluded('subtasks')).toBe(true)
     expect(isTableIncluded('queue_tasks')).toBe(true)
     expect(isTableIncluded('custom_workflows')).toBe(true)
-    expect(isTableIncluded('metrics_daily')).toBe(true)
+    // metrics + archives have no round-trip yet → opt-in (off by default).
+    expect(isTableIncluded('metrics_daily')).toBe(false)
+    expect(isTableIncluded('archives')).toBe(false)
     expect(DEFAULT_INCLUDE.user_prompts).toBe(false)
     expect(DEFAULT_INCLUDE.agent_sessions).toBe(false)
     expect(DEFAULT_INCLUDE.analysis).toBe(false)
