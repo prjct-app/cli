@@ -118,6 +118,33 @@ export interface LocalConfig {
     /** Raw query string appended to the URL, e.g. `api-version=2023-05-15`. */
     query?: string
   }
+
+  /**
+   * Cloud sync opt-in for THIS project. Absent / `enabled: false` ⇒ the
+   * project is local-only and NOTHING leaves the machine — the local-first
+   * default. `prjct cloud link` flips `enabled` on; the CLI then pushes the
+   * pending queue to the storage API (token in `auth.json`, never here) and
+   * pulls remote changes. Safe to commit if a team wants a shared opt-in.
+   *
+   * Paid enforcement is 100% server-side: the CLI only carries the token and
+   * surfaces whatever the API returns (e.g. an upgrade message). There is no
+   * paywall logic in this open-source client.
+   *
+   * `include` is a per-group whitelist (memories, tasks, ideas, shipped,
+   * workflows, metrics, archives + the opt-in-only user_prompts /
+   * agent_sessions / analysis). Unset groups fall back to the cross-device
+   * defaults (sensitive groups off). See `core/sync/entity-map.ts`.
+   */
+  cloud?: {
+    /** Master switch. `false`/absent ⇒ local-only; nothing is pushed/pulled. */
+    enabled: boolean
+    /** Temporarily stop sync without unlinking (preserves `include`/`linkedAt`). */
+    paused?: boolean
+    /** ISO timestamp of the first `prjct cloud link`. */
+    linkedAt?: string
+    /** Per-group sync overrides; merged over the cross-device defaults. */
+    include?: Record<string, boolean>
+  }
 }
 
 /**

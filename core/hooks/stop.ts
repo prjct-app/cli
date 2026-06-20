@@ -177,6 +177,17 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           /* never block session end on index maintenance */
         }
 
+        // Cloud sync (opt-in): flush this project's pending queue at session
+        // end. Gated on cloud.enabled — a no-op for local-only projects.
+        // Awaited here (inside afterEmit) so it completes before teardown,
+        // avoiding the fire-and-forget-after-teardown trap (mem_1988).
+        try {
+          const { flushIfLinked } = await import('../sync/auto-flush')
+          await flushIfLinked(p, config)
+        } catch {
+          /* never block session end on cloud sync */
+        }
+
         await regenerateWikiDeferred(p, config.projectId).catch(() => undefined)
       },
     },

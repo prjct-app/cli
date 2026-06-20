@@ -17,6 +17,7 @@ import type {
 } from '../types/sync'
 import authConfig from './auth-config'
 import { entityHandlers, UNKNOWN_ENTITY_TYPES } from './entity-handlers'
+import { isTableIncluded, toCloudTable } from './entity-map'
 import { clearApplied, getApplied, recordApplied } from './sync-applied-hashes'
 import { syncClient } from './sync-client'
 
@@ -89,17 +90,9 @@ function normalizeEventShape(event: Record<string, unknown>): NormalizedEvent {
 
   // Legacy CLI format: type = "entity.action"
   const [entity, action] = ((event.type as string) || '').split('.')
-  const legacyEntityMap: Record<string, string> = {
-    task: 'tasks',
-    idea: 'ideas',
-    feature: 'roadmap_features',
-    shipped: 'shipped_items',
-    queue: 'queue_tasks',
-    project: 'projects',
-  }
   const tombstone = action === 'deleted' || action === 'archived' || action === 'removed'
   return {
-    entityType: legacyEntityMap[entity] || entity || 'unknown',
+    entityType: toCloudTable(entity) || entity || 'unknown',
     eventType: tombstone ? 'delete' : 'upsert',
     data,
     contentHash,
@@ -107,6 +100,26 @@ function normalizeEventShape(event: Record<string, unknown>): NormalizedEvent {
 }
 
 // Sync Manager
+
+/** Options threaded from the cloud command / autoSync into a sync run. */
+export interface SyncOptions {
+  /** Per-group whitelist from `config.cloud.include`; filters the push batch. */
+  include?: Record<string, boolean>
+}
+
+/**
+ * Extract a human message from a thrown value. SyncClient rejects with a
+ * plain `SyncClientError` object (NOT an Error instance), so the naive
+ * `error instanceof Error` check dropped the server's message — including
+ * the 402 upgrade text. This recovers it from either shape.
+ */
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return 'Unknown error'
+}
 
 class SyncManager {
   /**
@@ -132,9 +145,14 @@ class SyncManager {
   }
 
   /**
-   * Full sync: push local changes, then pull remote changes
+   * Full sync: push local changes, then pull remote changes.
+   *
+   * `opts.include` is the project's per-group whitelist (from
+   * `config.cloud.include`); when supplied, push filters the pending
+   * queue to the included entity groups. Omit it (e.g. legacy callers /
+   * tests) to push everything mappable.
    */
-  async sync(projectId: string): Promise<SyncResult> {
+  async sync(projectId: string, opts?: SyncOptions): Promise<SyncResult> {
     // Check auth first
     if (!(await this.hasAuth())) {
       return { success: true, skipped: true, reason: 'no_auth' }
@@ -143,7 +161,7 @@ class SyncManager {
     const result: SyncResult = { success: true, skipped: false }
 
     // Push first
-    const pushResult = await this.push(projectId)
+    const pushResult = await this.push(projectId, opts)
     if (pushResult.success && !pushResult.skipped) {
       result.pushed = {
         count: pushResult.count || 0,
@@ -170,17 +188,29 @@ class SyncManager {
   }
 
   /**
-   * Push local pending events to the server
+   * Push local pending events to the server.
+   *
+   * When `opts.include` is set, events whose canonical storage table is not
+   * in an included group are dropped from this batch (the per-project
+   * opt-out). They stay in `sync_pending` only if still unconfirmed — here
+   * we clear the full queue on success, so excluded events are dropped for
+   * good, which is the intended "don't sync this group" behaviour.
    */
-  async push(projectId: string): Promise<PushResult> {
+  async push(projectId: string, opts?: SyncOptions): Promise<PushResult> {
     // Check auth first
     if (!(await this.hasAuth())) {
       return { success: true, skipped: true, reason: 'no_auth' }
     }
 
     try {
-      // Get pending events
-      const pending = await syncEventBus.getPending(projectId)
+      // Get pending events, applying the per-project include filter.
+      const allPending = await syncEventBus.getPending(projectId)
+      const pending = opts?.include
+        ? allPending.filter((e) => {
+            const table = toCloudTable(e.entityType) ?? toCloudTable(e.type?.split('.')[0])
+            return table ? isTableIncluded(table, opts.include) : true
+          })
+        : allPending
 
       if (pending.length === 0) {
         return { success: true, skipped: true, reason: 'no_pending' }
@@ -219,12 +249,11 @@ class SyncManager {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
       return {
         success: false,
         skipped: false,
         reason: 'error',
-        error: message,
+        error: errorMessage(error),
       }
     }
   }
@@ -295,12 +324,11 @@ class SyncManager {
         syncedAt: result.syncedAt,
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
       return {
         success: false,
         skipped: false,
         reason: 'error',
-        error: message,
+        error: errorMessage(error),
       }
     }
   }

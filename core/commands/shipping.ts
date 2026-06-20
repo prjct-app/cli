@@ -271,6 +271,20 @@ export class ShippingCommands extends PrjctCommandsBase {
         }
       }
 
+      // Cloud sync (opt-in): push this ship + pull remote in the background.
+      // Fire-and-forget — ship must never block on the network. Safe to not
+      // await: the pending queue is durable, so an interrupted flush is
+      // retried by the Stop hook / next `prjct cloud sync`. No-op unless the
+      // project is linked.
+      void (async () => {
+        try {
+          const { flushIfLinked } = await import('../sync/auto-flush')
+          await flushIfLinked(projectPath)
+        } catch {
+          /* best-effort */
+        }
+      })()
+
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {
       out.fail(getErrorMessage(error))
