@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.49.1] - 2026-06-20
+
+### Fixed
+- **`prjct login` now targets the prjct cloud web app's device-authorization flow.** It opens the SPA's `/auth/cli?port=…&device_id=…&hostname=…` route (was the old `/login?redirect=/api/auth/cli-login` shape) and passes this machine's stable `deviceId` + `hostname`, so the key the web mints is bound to the same device id the CLI later sends as `X-Device-Id` — no "device mismatch" rejection on first sync. Default web URL is now `http://localhost:5173` (the web SPA); override with `--url` or `PRJCT_WEB_URL`.
+
 ## [2.49.0] - 2026-06-20
 
 ### Added

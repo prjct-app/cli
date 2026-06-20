@@ -137,7 +137,7 @@ export class SetupCommands extends PrjctCommandsBase {
       }
     }
 
-    const webUrl = options.url || process.env.PRJCT_WEB_URL || 'http://localhost:3000'
+    const webUrl = options.url || process.env.PRJCT_WEB_URL || 'http://localhost:5173'
 
     return new Promise<CommandResult>((resolve) => {
       const server = http.createServer(async (req, res) => {
@@ -215,7 +215,17 @@ export class SetupCommands extends PrjctCommandsBase {
         }
 
         const port = addr.port
-        const loginUrl = `${webUrl}/login?redirect=${encodeURIComponent(`/api/auth/cli-login?port=${port}`)}`
+        // Open the web SPA's device-authorization route, passing THIS device's
+        // stable id + hostname so the minted key is bound to the same deviceId
+        // the CLI sends as X-Device-Id (no "device mismatch" on later sync).
+        const deviceId = await authConfig.getDeviceId()
+        const hostname = await authConfig.getHostname()
+        const loginParams = new URLSearchParams({
+          port: String(port),
+          device_id: deviceId,
+          hostname,
+        })
+        const loginUrl = `${webUrl}/auth/cli?${loginParams.toString()}`
 
         out.step(1, 3, 'Opening browser...')
         out.stop()
