@@ -11,6 +11,7 @@ import type {
   PullResult,
   PushResult,
   SyncBatchResult,
+  SyncErrorCode,
   SyncPullResult,
   SyncManagerResult as SyncResult,
   SyncStatus,
@@ -121,6 +122,19 @@ function errorMessage(error: unknown): string {
   return 'Unknown error'
 }
 
+/**
+ * Recover the SyncClientError `code` (e.g. PAYMENT_REQUIRED for the server's
+ * 402 paid gate) so the cloud command can show a tailored message instead of a
+ * generic error. Same caveat as errorMessage: the client rejects with a plain
+ * object, not an Error.
+ */
+function errorCode(error: unknown): SyncErrorCode | undefined {
+  if (error && typeof error === 'object' && 'code' in error) {
+    return (error as { code?: SyncErrorCode }).code
+  }
+  return undefined
+}
+
 class SyncManager {
   /**
    * Check if user is authenticated
@@ -182,6 +196,7 @@ class SyncManager {
     if (!pushResult.success || !pullResult.success) {
       result.success = false
       result.error = pushResult.error || pullResult.error
+      result.code = pushResult.code || pullResult.code
     }
 
     return result
@@ -254,6 +269,7 @@ class SyncManager {
         skipped: false,
         reason: 'error',
         error: errorMessage(error),
+        code: errorCode(error),
       }
     }
   }
@@ -329,6 +345,7 @@ class SyncManager {
         skipped: false,
         reason: 'error',
         error: errorMessage(error),
+        code: errorCode(error),
       }
     }
   }

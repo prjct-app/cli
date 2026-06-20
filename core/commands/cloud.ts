@@ -138,6 +138,8 @@ export class CloudCommands extends PrjctCommandsBase {
     try {
       const result = await syncManager.pull(config.projectId)
       if (!result.success) {
+        if (result.code === 'PAYMENT_REQUIRED')
+          return this.subscriptionRequired(result.error, options)
         return failWith(`Pull failed: ${result.error ?? 'unknown error'}`, options)
       }
       const msg = `Pulled ${result.count ?? 0} change(s) (${result.applied ?? 0} applied).`
@@ -249,6 +251,25 @@ export class CloudCommands extends PrjctCommandsBase {
     return null
   }
 
+  /**
+   * Subscription lapsed/absent — the server's 402 paid gate. The message text
+   * is authored server-side (the CLI has zero paywall logic) and surfaced here
+   * as a clear, dedicated notice rather than a generic sync error.
+   */
+  private subscriptionRequired(reason: string | undefined, options: MdOption): CommandResult {
+    const msg =
+      reason ??
+      'Cloud sync needs an active prjct subscription. Your local data is safe — only cloud backup is paused.'
+    if (options.md) {
+      console.log(mdOutput('## Subscription required', `> 💳 ${msg}`))
+    } else {
+      out.warn('Cloud backup paused — subscription required')
+      out.info(msg)
+    }
+    // Not a hard failure: local-first work continues; only cloud sync is gated.
+    return { success: false, paymentRequired: true, message: msg }
+  }
+
   /** Render a push+pull SyncResult (also used by link). */
   private reportSync(
     label: string,
@@ -257,7 +278,10 @@ export class CloudCommands extends PrjctCommandsBase {
     opts?: { extra?: string }
   ): CommandResult {
     if (!result.success) {
-      // Server-side gating / errors surface verbatim (e.g. 402 upgrade text).
+      // The server's 402 paid gate gets a dedicated, friendly notice.
+      if (result.code === 'PAYMENT_REQUIRED')
+        return this.subscriptionRequired(result.error, options)
+      // Other server-side errors surface verbatim.
       return failWith(`${label} with errors: ${result.error ?? 'unknown error'}`, options)
     }
     const pushed = result.pushed?.count ?? 0
