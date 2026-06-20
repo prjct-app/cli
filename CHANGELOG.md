@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.49.2] - 2026-06-20
+
+### Changed
+- **Clear "subscription required" message when cloud backup is gated.** The server's 402 paid gate now reaches `prjct cloud sync`/`pull` as a dedicated, friendly notice (`💳 Cloud backup paused — subscription required`) instead of a generic "synced with errors", and it's flagged as a soft failure so local-first work continues. The message text stays server-authored — the CLI keeps zero paywall logic (a `PAYMENT_REQUIRED` code is threaded through `SyncResult`/`PushResult`/`PullResult`).
+
 ## [2.49.1] - 2026-06-20
 
 ### Fixed

@@ -52,6 +52,8 @@ export interface SyncManagerResult {
     syncedAt: string
   }
   error?: string
+  /** Classified failure code (e.g. PAYMENT_REQUIRED) for tailored messaging. */
+  code?: SyncErrorCode
 }
 
 /**
@@ -64,6 +66,7 @@ export interface PushResult {
   count?: number
   syncedAt?: string
   error?: string
+  code?: SyncErrorCode
 }
 
 /**
@@ -77,6 +80,7 @@ export interface PullResult {
   applied?: number
   syncedAt?: string
   error?: string
+  code?: SyncErrorCode
 }
 
 // Sync Client Types
@@ -114,11 +118,19 @@ export interface SyncStatus {
   hasConflicts: boolean
 }
 
+/** Classified sync failure. PAYMENT_REQUIRED = the server's 402 paid gate. */
+export type SyncErrorCode =
+  | 'AUTH_REQUIRED'
+  | 'PAYMENT_REQUIRED'
+  | 'NETWORK_ERROR'
+  | 'API_ERROR'
+  | 'UNKNOWN'
+
 /**
  * Error from sync client
  */
 export interface SyncClientError {
-  code: 'AUTH_REQUIRED' | 'PAYMENT_REQUIRED' | 'NETWORK_ERROR' | 'API_ERROR' | 'UNKNOWN'
+  code: SyncErrorCode
   message: string
   status?: number
 }
