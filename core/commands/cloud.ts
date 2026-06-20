@@ -20,7 +20,9 @@
 import { syncEventBus } from '../events/sync-events'
 import configManager from '../infrastructure/config-manager'
 import authConfig from '../sync/auth-config'
+import { addLinkedProject, removeLinkedProject } from '../sync/cloud-registry'
 import { DEFAULT_INCLUDE } from '../sync/entity-map'
+import realtimeManager from '../sync/realtime-manager'
 import syncManager from '../sync/sync-manager'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -85,6 +87,10 @@ export class CloudCommands extends PrjctCommandsBase {
       include: config.cloud?.include,
     }
     await configManager.writeConfig(projectPath, config)
+    await addLinkedProject(config.projectId, projectPath)
+    // Open the realtime connection (no-op outside the daemon — the daemon
+    // reopens it from the registry on its next boot).
+    await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
 
     const result = await syncManager.sync(config.projectId, { include: config.cloud.include ?? {} })
     return this.reportSync('Linked', result, options, {
@@ -103,6 +109,8 @@ export class CloudCommands extends PrjctCommandsBase {
     }
     config.cloud = { ...config.cloud, enabled: false, paused: false }
     await configManager.writeConfig(projectPath, config)
+    realtimeManager.stop(config.projectId)
+    await removeLinkedProject(config.projectId)
     const msg = 'Unlinked — this project is local-only again. Local data was not touched.'
     if (options.md) console.log(mdOutput('## Cloud', `> ${msg}`))
     else out.done(msg)
@@ -157,6 +165,8 @@ export class CloudCommands extends PrjctCommandsBase {
     }
     config.cloud = { ...config.cloud, paused }
     await configManager.writeConfig(projectPath, config)
+    if (paused) realtimeManager.stop(config.projectId)
+    else await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
     const msg = paused
       ? 'Cloud sync paused. Resume with `prjct cloud resume`.'
       : 'Cloud sync resumed.'
@@ -189,6 +199,14 @@ export class CloudCommands extends PrjctCommandsBase {
           ? 'linked, paused'
           : 'linked, active'
 
+    // Realtime only runs inside the daemon; report its live connection state
+    // there, otherwise say it needs the daemon (pull-based sync still works).
+    const realtime = !linked
+      ? 'n/a'
+      : realtimeManager.available()
+        ? realtimeManager.status(config.projectId)
+        : 'requires daemon'
+
     if (options.md) {
       console.log(
         mdOutput(
@@ -197,6 +215,7 @@ export class CloudCommands extends PrjctCommandsBase {
           [
             `- Authenticated: ${authed ? 'yes' : 'no'}`,
             `- Linked: ${linked ? 'yes' : 'no'}${cloud?.linkedAt ? ` (since ${cloud.linkedAt})` : ''}`,
+            `- Realtime: ${realtime}`,
             `- Pending events: ${pending}`,
             `- Last sync: ${lastSync?.timestamp ?? 'never'}`,
             `- Syncing groups: ${onGroups.join(', ')}`,
@@ -209,13 +228,14 @@ export class CloudCommands extends PrjctCommandsBase {
           `Cloud — ${state}`,
           `  Authenticated: ${authed ? 'yes' : 'no'}`,
           `  Linked: ${linked ? 'yes' : 'no'}${cloud?.linkedAt ? ` (since ${cloud.linkedAt})` : ''}`,
+          `  Realtime: ${realtime}`,
           `  Pending events: ${pending}`,
           `  Last sync: ${lastSync?.timestamp ?? 'never'}`,
           `  Syncing groups: ${onGroups.join(', ')}`,
         ].join('\n')
       )
     }
-    return { success: true, linked, paused, authed, pending }
+    return { success: true, linked, paused, authed, pending, realtime }
   }
 
   /** Shared gate for sync/pull: linked + not paused + authenticated. */

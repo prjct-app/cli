@@ -358,6 +358,50 @@ class SyncManager {
   }
 
   /**
+   * Apply a single event delivered over the realtime channel. Returns true
+   * if applied, false if skipped (echo from this device) or on apply error.
+   *
+   * Echo-loop guard: events whose `origin_device_id` is THIS device are
+   * skipped (the server already filters them; this is defence-in-depth). On
+   * success the pull cursor is advanced to the event's server id so a later
+   * pull doesn't re-fetch what realtime already applied.
+   */
+  async applyRealtimeEvent(projectId: string, event: Record<string, unknown>): Promise<boolean> {
+    try {
+      const auth = await authConfig.read()
+      const selfDevice = auth.deviceId ?? null
+      const origin =
+        (event.origin_device_id as string | undefined) ??
+        (event.originDeviceId as string | undefined)
+      if (selfDevice && origin && origin === selfDevice) return false
+
+      await this.applyEvent(projectId, event)
+
+      const evId =
+        typeof event.event_id === 'number'
+          ? event.event_id
+          : typeof event.eventId === 'number'
+            ? event.eventId
+            : null
+      if (evId !== null) {
+        const { syncCursorStorage } = await import('../storage/sync-cursor-storage')
+        const userId = auth.userId ?? null
+        const deviceId = auth.deviceId ?? null
+        if (deviceId) {
+          const cursor = syncCursorStorage.get(projectId, userId, deviceId)
+          if (!cursor || evId > cursor.lastEventId) {
+            syncCursorStorage.advance(projectId, evId, { userId, deviceId })
+          }
+        }
+      }
+      return true
+    } catch (error) {
+      console.error('[realtime] apply failed:', error instanceof Error ? error.message : error)
+      return false
+    }
+  }
+
+  /**
    * Apply a single pulled event to local storage.
    *
    * Phase 1.5 / B2 + handler-registry refactor:
