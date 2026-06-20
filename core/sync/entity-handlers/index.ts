@@ -11,12 +11,14 @@
  * is generic over the registry.
  */
 
+import { customWorkflowsHandler } from './custom-workflows'
 import { ideasHandler } from './ideas'
 import { memoriesHandler } from './memories'
 import { queueTasksHandler } from './queue-tasks'
 import { shippedHandler } from './shipped'
 import { tasksHandler } from './tasks'
 import type { EntityHandler } from './types'
+import { workflowRulesHandler } from './workflow-rules'
 
 /**
  * Map of canonical `entity_type` → handler. The keys mirror the
@@ -29,6 +31,8 @@ export const entityHandlers: Record<string, EntityHandler> = {
   queue_tasks: queueTasksHandler,
   shipped_items: shippedHandler,
   shipped_features: shippedHandler,
+  custom_workflows: customWorkflowsHandler,
+  workflow_rules: workflowRulesHandler,
 }
 
 /** Read-only list of supported entity types — useful for telemetry. */
@@ -52,6 +56,15 @@ export const UNKNOWN_ENTITY_TYPES: ReadonlySet<string> = new Set([
   'projects',
   'sessions',
   'agents',
+  // Pushed by a producer but intentionally not applied locally yet:
+  //  - archives: the wire payload omits `entity_data` (lossy); default-off.
+  //  - subtasks / metrics_daily / velocity_sprints: no producer emits them
+  //    today, but they're in the canonical table map — list them so the
+  //    exhaustiveness test treats them as known-skipped, not a missed handler.
+  'archives',
+  'subtasks',
+  'metrics_daily',
+  'velocity_sprints',
 ])
 
 export type { EntityHandler } from './types'

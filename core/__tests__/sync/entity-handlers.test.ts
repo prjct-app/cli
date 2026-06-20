@@ -37,7 +37,16 @@ describe('entity-handlers registry', () => {
 
   test('exposes the canonical entity_types as keys', () => {
     expect(SUPPORTED_ENTITY_TYPES.sort()).toEqual(
-      ['ideas', 'memories', 'queue_tasks', 'shipped_features', 'shipped_items', 'tasks'].sort()
+      [
+        'custom_workflows',
+        'ideas',
+        'memories',
+        'queue_tasks',
+        'shipped_features',
+        'shipped_items',
+        'tasks',
+        'workflow_rules',
+      ].sort()
     )
     for (const type of SUPPORTED_ENTITY_TYPES) {
       expect(entityHandlers[type]).toBeDefined()

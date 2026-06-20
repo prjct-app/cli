@@ -103,8 +103,11 @@ export const DEFAULT_INCLUDE: Record<IncludeGroup, boolean> = {
   ideas: true,
   shipped: true,
   workflows: true,
-  metrics: true,
-  archives: true,
+  // `metrics` has no producer yet and `archives` syncs a lossy summary with
+  // no local apply handler — keep both off by default (opt-in) so we don't
+  // push data nothing consumes. Flip on once they round-trip.
+  metrics: false,
+  archives: false,
   user_prompts: false,
   agent_sessions: false,
   analysis: false,

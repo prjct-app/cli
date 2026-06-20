@@ -154,11 +154,19 @@ describe('exhaustiveness: every wire entity_type is categorized', () => {
     // job is to FAIL when a new entry is added — that's the trigger
     // for someone to register a handler or list it as unknown.
     const wireEntityTypes = [
+      'memories',
       'tasks',
+      'subtasks',
       'ideas',
       'roadmap_features',
       'shipped_items',
+      'shipped_features',
       'queue_tasks',
+      'custom_workflows',
+      'workflow_rules',
+      'archives',
+      'metrics_daily',
+      'velocity_sprints',
       'projects',
       'sessions',
       'agents',

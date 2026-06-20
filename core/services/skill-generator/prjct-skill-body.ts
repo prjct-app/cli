@@ -156,6 +156,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '| "what did we accomplish?" | `prjct retro 7d --md` | 1 |',
     '| pause / resume the working context | `prjct context-save` / `prjct context-restore --md` | 1 |',
     '| reduce over-engineering — "make it leaner" / YAGNI review / cut complexity | `prjct lean review` (or `audit` / `debt`) | 1 |',
+    '| sync this project across machines / "share with my other machine" / "is cloud on?" | `prjct cloud link` (then `status` / `sync` / `pull` / `pause`) | 2 |',
     '',
     'Disambiguators: the "why" separates a `decision` from an `inbox` dump — if you can\'t state it in one line, capture as inbox. A bare "fix X" is `task`, never `spec`. `audit-spec` requires an existing spec. For `ship`, if the active task has a `linked_spec_id`, ship surfaces the spec\'s acceptance_criteria as a PR checklist — STOP on any unmet criterion (override: `prjct ship --no-spec-gate`).',
     '',
