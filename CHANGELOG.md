@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.48.0] - 2026-06-19
+
+### Added
+- **Cloud sync — realtime (WebSocket).** Linked projects now propagate changes across machines in near-real-time (target <5s), on top of the pull-based sync from 2.47.0. A new realtime client (`core/sync/realtime-client.ts`) uses the **platform global `WebSocket`** (RFC 6455, stable in Node ≥22.5 and Bun) — **no `ws` dependency and no backend SDK**; the token/device/project are passed as `wss://` query params (TLS-encrypted) since the WHATWG WebSocket API can't set headers. Connections live in the **warm daemon** (`RealtimeManager`), reopened on boot from a tiny linked-projects registry (`core/sync/cloud-registry.ts`) instead of scanning every project dir. `prjct cloud link` / `resume` open a connection; `pause` / `unlink` close it; `prjct cloud status` shows the live connection state. Inbound events apply through `syncManager.applyRealtimeEvent` with an **echo-loop guard** (events originating from this device are skipped) and cursor advance so a later pull doesn't re-fetch. Reconnect uses exponential backoff with jitter. Realtime runs only inside the daemon; in `PRJCT_NO_DAEMON` mode sync stays pull-based (no behavior change). The engine-agnostic CI guard now covers the realtime files too.
+
 ## [2.47.0] - 2026-06-19
 
 ### Added
