@@ -20,6 +20,7 @@ import { commandRegistry } from '../commands/registry'
 import type { HookIo } from '../hooks/_runner'
 import { getHookRunner } from '../hooks/registry'
 import prjctDb from '../storage/database'
+import { realtimeManager } from '../sync/realtime-manager'
 import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
 import { executeCommand } from './dispatch'
 import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from './protocol'
@@ -137,6 +138,10 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     if (entryPath) console.log(`  Watching: ${entryPath}`)
 
     resetIdleTimer()
+
+    // Open realtime connections for linked projects (cloud sync). Best-effort,
+    // non-blocking — a failure here must never stop the daemon from serving.
+    void realtimeManager.startAll().catch(() => undefined)
   })
 
   ipcServer.on('error', (err) => {
@@ -480,6 +485,13 @@ function resetIdleTimer(): void {
 
 function shutdown(exitCode: number): void {
   console.log('Daemon shutting down...')
+
+  // Close realtime connections before tearing down storage.
+  try {
+    realtimeManager.stopAll()
+  } catch {
+    /* ignore */
+  }
 
   if (state?.idleTimer) clearTimeout(state.idleTimer)
 
