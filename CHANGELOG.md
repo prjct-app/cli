@@ -1,9 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [2.47.0] - 2026-06-19
+
+### Added
+- **Cloud sync — client foundation (paid, opt-in, local-first).** New `prjct cloud` command group: `link` / `unlink` / `sync` / `pull` / `pause` / `resume` / `status`. A project stays 100% local until you `prjct cloud link` it (`config.cloud.enabled`); then the durable local queue (`sync_pending`) pushes to a token API and pulls remote changes. Linked projects also flush best-effort on `prjct ship` and at session end. **Memories now sync** — the highest-value cross-device entity (decisions/learnings/gotchas) was silently dropped before: the push mapper keyed off legacy `type` strings, so `memories`, `queue_task`, `custom_workflows`, `workflow_rules` and `archives` never reached the wire. Push is now driven by a single canonical entity→table map shared with the pull path, and a new `memories` pull handler applies remote memories into the events table (the source of truth) without echoing back. Per-project `include` whitelist (cross-device groups on; sensitive prompts/sessions/analysis off by default). The client carries only a token (`X-Api-Key` + `X-Device-Id`) and talks to a storage API — **no backend-engine reference anywhere in the client (CI-guarded), and zero paywall logic: paid limits are enforced server-side and surfaced verbatim** (e.g. a 402 upgrade message). Backend lives in a separate repo. No behavior change for projects that never link.
 
 ### Internal
-- Test isolation (mem_1560): `pathManager.globalProjectsDir` now honors `PRJCT_PROJECTS_DIR` (resolved at access time), and a new bun preload points `PRJCT_CLI_HOME` at a throwaway temp dir for the whole run. The suite no longer leaks fixture projects into the real `~/.prjct-cli/projects` — verified: full suite (1580 tests) adds 0 dirs to the real projects dir (previously ~116/run). No production impact (prod never sets `PRJCT_PROJECTS_DIR`).
+- Test isolation (mem_1560): `pathManager.globalProjectsDir` now honors `PRJCT_PROJECTS_DIR` (resolved at access time), and a new bun preload points `PRJCT_CLI_HOME` at a throwaway temp dir for the whole run. The suite no longer leaks fixture projects into the real `~/.prjct-cli/projects` — verified: full suite adds 0 dirs to the real projects dir (previously ~116/run). No production impact (prod never sets `PRJCT_PROJECTS_DIR`).
 
 ## [2.46.1] - 2026-06-19
 

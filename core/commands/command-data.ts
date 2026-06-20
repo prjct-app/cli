@@ -356,6 +356,27 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'cloud',
+    group: 'optional',
+    routing: { group: 'cloud', method: 'cloud' },
+    optionSchema: {},
+    description: 'Cloud sync (paid): link/unlink a project, sync/pull, pause/resume, status',
+    usage: {
+      claude: '/p:cloud [link|unlink|sync|pull|pause|resume|status]',
+      terminal: 'prjct cloud [sub]',
+    },
+    params: '[link|unlink|sync|pull|pause|resume|status]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Local-first: nothing leaves the machine until `prjct cloud link`',
+      'Token API only — no backend engine details, no client-side paywall',
+      'Auto-syncs on `prjct ship` and at session end once linked',
+    ],
+  },
+  {
     name: 'workflow',
     group: 'optional',
     routing: { group: 'workflow', method: 'workflow' },

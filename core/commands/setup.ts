@@ -281,11 +281,17 @@ export class SetupCommands extends PrjctCommandsBase {
    */
   private async autoSync(): Promise<void> {
     try {
-      const projectId = await configManager.getProjectId(process.cwd())
+      const config = await configManager.readConfig(process.cwd()).catch(() => null)
+      const projectId = config?.projectId
       if (!projectId) return
 
+      // Local-first gate: only sync projects the user explicitly linked
+      // (and hasn't paused). An unlinked project stays entirely local even
+      // right after login.
+      if (!config.cloud?.enabled || config.cloud.paused) return
+
       out.spin('Syncing project...')
-      const result = await syncManager.sync(projectId)
+      const result = await syncManager.sync(projectId, { include: config.cloud.include ?? {} })
       out.stop()
 
       if (result.success && !result.skipped) {

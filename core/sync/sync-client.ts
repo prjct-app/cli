@@ -26,7 +26,7 @@ class SyncClient {
    * Push local events to the server
    */
   async pushEvents(projectId: string, events: SyncEvent[]): Promise<SyncBatchResult> {
-    const { apiUrl, apiKey } = await this.getAuthHeaders()
+    const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
 
     if (!apiKey) {
       throw this.createError('AUTH_REQUIRED', 'No API key configured')
@@ -39,7 +39,7 @@ class SyncClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
+        ...this.authHeaders(apiKey, deviceId),
       },
       body: JSON.stringify({
         projectId,
@@ -74,7 +74,7 @@ class SyncClient {
     sinceEventId?: number,
     _sinceTimestamp?: string
   ): Promise<SyncPullResult> {
-    const { apiUrl, apiKey } = await this.getAuthHeaders()
+    const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
 
     if (!apiKey) {
       throw this.createError('AUTH_REQUIRED', 'No API key configured')
@@ -89,7 +89,7 @@ class SyncClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
+        ...this.authHeaders(apiKey, deviceId),
       },
       body: JSON.stringify(body),
     })
@@ -106,7 +106,7 @@ class SyncClient {
    * Get sync status for a project
    */
   async getStatus(projectId: string): Promise<SyncStatus> {
-    const { apiUrl, apiKey } = await this.getAuthHeaders()
+    const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
 
     if (!apiKey) {
       throw this.createError('AUTH_REQUIRED', 'No API key configured')
@@ -115,7 +115,7 @@ class SyncClient {
     const response = await this.fetchWithRetry(`${apiUrl}/sync/status/${projectId}`, {
       method: 'GET',
       headers: {
-        'X-Api-Key': apiKey,
+        ...this.authHeaders(apiKey, deviceId),
       },
     })
 
@@ -136,7 +136,7 @@ class SyncClient {
     const timeoutId = setTimeout(() => controller.abort(), getTimeout('API_REQUEST'))
 
     try {
-      const { apiUrl, apiKey } = await this.getAuthHeaders()
+      const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
 
       if (!apiKey) {
         clearTimeout(timeoutId)
@@ -146,7 +146,7 @@ class SyncClient {
       const response = await fetch(`${apiUrl}/health`, {
         method: 'GET',
         headers: {
-          'X-Api-Key': apiKey,
+          ...this.authHeaders(apiKey, deviceId),
         },
         signal: controller.signal,
       })
@@ -169,9 +169,26 @@ class SyncClient {
 
   // Private helpers
 
-  private async getAuthHeaders(): Promise<{ apiUrl: string; apiKey: string | null }> {
-    const [apiUrl, apiKey] = await Promise.all([authConfig.getApiUrl(), authConfig.getApiKey()])
-    return { apiUrl, apiKey }
+  private async getAuthHeaders(): Promise<{
+    apiUrl: string
+    apiKey: string | null
+    deviceId: string
+  }> {
+    const [apiUrl, apiKey, deviceId] = await Promise.all([
+      authConfig.getApiUrl(),
+      authConfig.getApiKey(),
+      authConfig.getDeviceId(),
+    ])
+    return { apiUrl, apiKey, deviceId }
+  }
+
+  /**
+   * Token + device identity sent on every request. The server maps the
+   * API key → user and scopes the cursor / echo-loop filter by device. The
+   * CLI never sees anything about how the data is stored — just these headers.
+   */
+  private authHeaders(apiKey: string, deviceId: string): Record<string, string> {
+    return { 'X-Api-Key': apiKey, 'X-Device-Id': deviceId }
   }
 
   private async fetchWithRetry(
@@ -246,6 +263,12 @@ class SyncClient {
 
       if (response.status === 401 || response.status === 403) {
         return this.createError('AUTH_REQUIRED', message, response.status)
+      }
+
+      // Server-side paid gating: surface the upgrade message verbatim. The
+      // CLI has no paywall logic of its own — it only relays what the API says.
+      if (response.status === 402) {
+        return this.createError('PAYMENT_REQUIRED', message, response.status)
       }
 
       return this.createError('API_ERROR', message, response.status)

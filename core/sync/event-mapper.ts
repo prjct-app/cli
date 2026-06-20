@@ -16,6 +16,7 @@
  */
 
 import type { SyncEvent } from '../types/events'
+import { toCloudTable } from './entity-map'
 
 interface WebSyncEvent {
   event_type: 'upsert' | 'delete'
@@ -31,20 +32,6 @@ interface WebSyncEvent {
   revision_count?: number
   /** ISO timestamp from the CLI emit (Phase 1.6/B1). */
   ts?: string
-}
-
-/**
- * Entity type mapping: CLI entity name → cloud entity table
- */
-const ENTITY_TYPE_MAP: Record<string, string> = {
-  task: 'tasks',
-  idea: 'ideas',
-  feature: 'roadmap_features',
-  shipped: 'shipped_items',
-  queue: 'queue_tasks',
-  project: 'projects',
-  session: 'sessions',
-  agent: 'agents',
 }
 
 /**
@@ -69,21 +56,30 @@ function snakeCaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
  * Map a single CLI SyncEvent to web format
  */
 export function mapCliEventToWebFormat(projectId: string, event: SyncEvent): WebSyncEvent | null {
-  const [entity, action] = event.type.split('.') as [string, string]
+  const [legacyEntity, legacyAction] = event.type.split('.') as [string, string]
 
-  const entityType = ENTITY_TYPE_MAP[entity]
+  // Prefer the wire-ready top-level `entityType` (set by every publishCRUD
+  // producer); fall back to the legacy `type` split for pre-1.5 events.
+  // Both resolve through the single canonical table map so no producer is
+  // silently dropped (the old map missed memories, queue_task, workflows…).
+  const entityType = toCloudTable(event.entityType) ?? toCloudTable(legacyEntity)
   if (!entityType) {
     return null
   }
 
-  const isDelete = action === 'deleted'
+  // Prefer the explicit `eventType`; else infer a tombstone from the action.
+  const isDelete =
+    event.eventType === 'delete' ||
+    legacyAction === 'deleted' ||
+    legacyAction === 'archived' ||
+    legacyAction === 'removed'
   const eventType: 'upsert' | 'delete' = isDelete ? 'delete' : 'upsert'
 
   const rawData = (event.data || {}) as Record<string, unknown>
   const data = snakeCaseKeys(rawData)
 
-  // Extract entity_id from data
-  const entityId = (data.id as string) || (rawData.id as string) || ''
+  // Extract entity_id: explicit field wins, then the payload id.
+  const entityId = event.entityId || (data.id as string) || (rawData.id as string) || ''
 
   const out: WebSyncEvent = {
     event_type: eventType,

@@ -76,6 +76,71 @@ describe('mapCliEventToWebFormat', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// entityType-driven mapping — the fix that stopped silently dropping memories,
+// queue_task, workflows and archives (the old mapper keyed only off the legacy
+// `type` split through a partial table).
+// ---------------------------------------------------------------------------
+describe('mapCliEventToWebFormat — entityType-driven', () => {
+  function publishedEvent(
+    entityType: string,
+    eventType: 'upsert' | 'delete',
+    data: Record<string, unknown>
+  ): SyncEvent {
+    return {
+      // publishCRUD always sets these top-level fields…
+      type: `${entityType}.${eventType === 'delete' ? 'deleted' : 'updated'}`,
+      path: [entityType, (data.id as string) ?? ''],
+      data,
+      timestamp: '2026-06-19T00:00:00Z',
+      projectId: 'proj-1',
+      entityType,
+      eventType,
+      entityId: (data.id as string) ?? '',
+    }
+  }
+
+  it('maps a memory upsert to the memories table (was dropped before)', () => {
+    const result = mapCliEventToWebFormat(
+      'proj-1',
+      publishedEvent('memories', 'upsert', { id: 'mem-1', type: 'decision', content: 'use X' })
+    )
+    expect(result).not.toBeNull()
+    expect(result?.entity_type).toBe('memories')
+    expect(result?.event_type).toBe('upsert')
+    expect(result?.entity_id).toBe('mem-1')
+  })
+
+  it('maps queue_task / custom_workflows / archives producers (all previously dropped)', () => {
+    expect(
+      mapCliEventToWebFormat('proj-1', publishedEvent('queue_task', 'upsert', { id: 'q1' }))
+        ?.entity_type
+    ).toBe('queue_tasks')
+    expect(
+      mapCliEventToWebFormat('proj-1', publishedEvent('custom_workflows', 'upsert', { id: 'w1' }))
+        ?.entity_type
+    ).toBe('custom_workflows')
+    expect(
+      mapCliEventToWebFormat('proj-1', publishedEvent('archives', 'upsert', { id: 'a1' }))
+        ?.entity_type
+    ).toBe('archives')
+  })
+
+  it('honors the explicit eventType=delete over the legacy action', () => {
+    const result = mapCliEventToWebFormat(
+      'proj-1',
+      publishedEvent('memories', 'delete', { id: 'mem-1', type: 'decision', content: 'use X' })
+    )
+    expect(result?.event_type).toBe('delete')
+  })
+
+  it('prefers the explicit entityId field over data.id', () => {
+    const ev = publishedEvent('memories', 'upsert', { id: 'data-id' })
+    ev.entityId = 'explicit-id'
+    expect(mapCliEventToWebFormat('proj-1', ev)?.entity_id).toBe('explicit-id')
+  })
+})
+
 describe('mapCliEventsToWebFormat', () => {
   it('maps all valid events and drops unknown ones', () => {
     const events: SyncEvent[] = [

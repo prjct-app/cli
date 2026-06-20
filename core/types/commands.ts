@@ -348,6 +348,7 @@ export type CommandRoutingGroup =
   | 'embeddings'
   | 'guard'
   | 'lean'
+  | 'cloud'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */

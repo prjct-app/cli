@@ -118,7 +118,7 @@ export interface SyncStatus {
  * Error from sync client
  */
 export interface SyncClientError {
-  code: 'AUTH_REQUIRED' | 'NETWORK_ERROR' | 'API_ERROR' | 'UNKNOWN'
+  code: 'AUTH_REQUIRED' | 'PAYMENT_REQUIRED' | 'NETWORK_ERROR' | 'API_ERROR' | 'UNKNOWN'
   message: string
   status?: number
 }

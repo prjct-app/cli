@@ -12,6 +12,7 @@
  */
 
 import { ideasHandler } from './ideas'
+import { memoriesHandler } from './memories'
 import { queueTasksHandler } from './queue-tasks'
 import { shippedHandler } from './shipped'
 import { tasksHandler } from './tasks'
@@ -22,6 +23,7 @@ import type { EntityHandler } from './types'
  * cloud's table names (plural, snake_case).
  */
 export const entityHandlers: Record<string, EntityHandler> = {
+  memories: memoriesHandler,
   tasks: tasksHandler,
   ideas: ideasHandler,
   queue_tasks: queueTasksHandler,
