@@ -101,6 +101,25 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
       if (!featureName) featureName = 'current work'
 
+      // SDD strict gate (opt-in via config.sdd.mode === 'strict'): refuse to
+      // ship work with no linked spec — the pipeline is mandatory in strict.
+      // advisory/off never block here. `--no-spec-gate` is the override.
+      if (!options.noSpecGate && !linkedSpecId) {
+        try {
+          const sddConfig = await configManager.readConfig(projectPath).catch(() => null)
+          const { effectiveSddMode } = await import('./sdd')
+          if (effectiveSddMode(sddConfig) === 'strict') {
+            return {
+              success: false,
+              error:
+                'Strict SDD: this work has no linked spec. Start it via `prjct spec` → `audit-spec` → `prjct task --spec <id>`, or override with `prjct ship --no-spec-gate`.',
+            }
+          }
+        } catch {
+          // best-effort — never crash ship on the gate lookup
+        }
+      }
+
       // SDD acceptance gate: surface the linked spec's acceptance_criteria
       // before ship proceeds. The CLI doesn't decide whether each criterion
       // is met — Claude (or the human) does, per the skill body's `ship`

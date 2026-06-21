@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.52.0] - 2026-06-20
+
+### Added
+- **`prjct sdd` — opt-in Spec-Driven Development mode.** Gates the spec pipeline prjct already has (`spec → audit-spec → task --spec → ship`), per project, mirroring `lean`/`tdd`: `off` (default, escalate-only — no change), `advisory` (nudge + the existing ship acceptance surface), or `strict`. In **strict**, every `prjct task` must link a **reviewed** spec — enforced in `task-service` so the CLI and the MCP write-path share the gate — and `ship` blocks work with no linked spec (`prjct ship --no-spec-gate` overrides). `prjct sdd` shows the mode + the active task's pipeline station as a checklist. No new pipeline; this only gates the existing one.
+
 ## [2.51.0] - 2026-06-20
 
 ### Added

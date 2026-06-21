@@ -350,6 +350,7 @@ export type CommandRoutingGroup =
   | 'lean'
   | 'cloud'
   | 'tdd'
+  | 'sdd'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */
