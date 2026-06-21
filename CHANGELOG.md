@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.50.0] - 2026-06-20
+
+### Added
+- **Loop-discipline triggers in the always-loaded skill body.** A compact trigger table now tells the agent exactly when to stop going direct: delegate exploration when reading 4+ files, keep one writer + a fresh `review` when touching 2+ non-trivial files, run `review` before any commit/push/PR (trivial diffs excepted), and **STOP and re-orient/`audit` on a wrong cwd, worktree/git accident, merge recovery, or confusing test/env failure** — never debug forward over a broken state. The per-dispatch model quick-reference (implementer→opus, reviewer/judge→sonnet, routing→haiku) now lives in the always-loaded body too, not just in on-demand `workflows.md`, and `ship` documents the pre-PR review gate. (Adopted from patterns observed in Gentleman-Programming/gentle-ai's delegation triggers; kept as lean guidance — no new config.)
+
 ## [2.49.2] - 2026-06-20
 
 ### Changed
