@@ -349,6 +349,7 @@ export type CommandRoutingGroup =
   | 'guard'
   | 'lean'
   | 'cloud'
+  | 'tdd'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */

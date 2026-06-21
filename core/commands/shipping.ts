@@ -13,6 +13,7 @@
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import configManager from '../infrastructure/config-manager'
 import { syncService } from '../services/sync-service'
 import { completeActiveTask, resolveActiveTask } from '../services/task-service'
 import { prjctDb } from '../storage/database'
@@ -27,6 +28,7 @@ import { failFromError } from '../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
+import { detectProjectCommands } from '../utils/project-commands'
 import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
@@ -51,6 +53,8 @@ interface ShipOptions {
   intent?: ShipIntent
   /** SDD: skip the spec acceptance gate (use only on explicit user override) */
   noSpecGate?: boolean
+  /** TDD: skip the test gate surfaced in strict mode (explicit override) */
+  noTestGate?: boolean
 }
 
 export class ShippingCommands extends PrjctCommandsBase {
@@ -127,6 +131,46 @@ export class ShippingCommands extends PrjctCommandsBase {
           }
         } catch {
           // ignore — spec lookup is best-effort
+        }
+      }
+
+      // TDD gate (opt-in via config.tdd.mode): in `strict`, surface a hard
+      // reminder to run the project's tests before shipping. Mirrors the spec
+      // gate above — the CLI surfaces, the agent honours (running the real
+      // red/green via `prjct tdd check`). `assist` is a softer nudge; `off`
+      // (the default) is silent. `--no-test-gate` is the explicit override.
+      if (!options.noTestGate) {
+        try {
+          const { effectiveTddMode } = await import('./tdd')
+          const tddConfig = await configManager.readConfig(projectPath).catch(() => null)
+          const tddMode = effectiveTddMode(tddConfig)
+          if (tddMode !== 'off') {
+            const detected = await detectProjectCommands(projectPath).catch(() => null)
+            const testCmd = detected?.test?.command
+            const lines: string[] = ['']
+            if (tddMode === 'strict') {
+              lines.push('## TDD gate (strict) — tests must be green before ship')
+              lines.push('')
+              lines.push(
+                testCmd
+                  ? `Run \`prjct tdd check\` (\`${testCmd}\`). STOP and fix if RED.`
+                  : 'No test command detected — add tests (strict TDD expects them).'
+              )
+              lines.push('Override (only with explicit user consent): `prjct ship --no-test-gate`.')
+            } else {
+              lines.push('## TDD reminder (assist)')
+              lines.push('')
+              lines.push(
+                testCmd
+                  ? `Did the change ship with tests? Verify green: \`prjct tdd check\` (\`${testCmd}\`).`
+                  : 'Consider adding a test for this change.'
+              )
+            }
+            lines.push('')
+            console.log(lines.join('\n'))
+          }
+        } catch {
+          // ignore — TDD gate is best-effort surfacing
         }
       }
 

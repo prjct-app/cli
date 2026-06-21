@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.51.0] - 2026-06-20
+
+### Added
+- **`prjct tdd` — opt-in Test-Driven Development mode.** For dev teams that want test-first discipline, set an intensity per project (mirrors `lean`): `off` (default, zero change), `assist` (skill biases the implement loop test-first; `ship` reminds), or `strict` (test-first expected; `ship` surfaces a hard gate). `prjct tdd check` runs the auto-detected test command (per-stack via `detectProjectCommands`) and reports red/green — the real teeth; `prjct tdd` alone shows the mode + detected command. Enforcement stays consistent with prjct's model: the CLI surfaces the gate, `prjct tdd check` is the actual red/green, the agent honours it (no new engine). `prjct ship --no-test-gate` overrides.
+
 ## [2.50.1] - 2026-06-20
 
 ### Security
