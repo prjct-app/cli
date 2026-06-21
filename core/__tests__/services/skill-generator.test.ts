@@ -178,6 +178,20 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('## Gotchas')
     })
 
+    it('always-loaded body carries the loop-discipline triggers + model quick-ref', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      // Stop/delegate triggers (the codified loop-safety net).
+      expect(content).toContain('## Loop discipline')
+      expect(content).toContain('Reading **4+ files**')
+      expect(content).toContain('Touching **2+ non-trivial files**')
+      expect(content).toContain('commit / push / open a PR')
+      expect(content).toContain('worktree/git accident')
+      // Model policy reachable without pulling workflows.md.
+      expect(content).toContain('never omit `model:`')
+      expect(content).toContain('`model: "sonnet"`')
+    })
+
     it('states the portable agent contract for Claude and GPT', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
