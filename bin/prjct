@@ -167,21 +167,14 @@ main() {
   # ALWAYS ensure setup first (self-healing)
   ensure_setup
 
-  # Prefer bun if available (faster, native TS support)
+  # Prefer bun if available (faster, native TS support); otherwise fall back to
+  # node. We deliberately do NOT auto-install bun: fetching an unpinned
+  # `curl | bash` installer at runtime is a supply-chain risk (it triggered the
+  # MAL-2026-4647 false-positive). Node is a first-class runtime here — if a
+  # user wants bun for speed, they install it themselves (https://bun.sh).
   if check_bun; then
     run_with_bun "$@"
   elif check_node; then
-    # Bun not found but Node available — try auto-install Bun (one-time)
-    ENSURE_BUN="$ROOT_DIR/scripts/ensure-bun.sh"
-    if [ -f "$ENSURE_BUN" ]; then
-      sh "$ENSURE_BUN"
-      # Re-source PATH in case Bun was just installed
-      export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-      export PATH="$BUN_INSTALL/bin:$PATH"
-      if check_bun; then
-        run_with_bun "$@"
-      fi
-    fi
     run_with_node "$@"
   else
     echo "Error: Neither bun nor node is installed."
