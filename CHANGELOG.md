@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.50.1] - 2026-06-20
+
+### Security
+- **Removed the runtime Bun auto-installer (supply-chain hardening).** The CLI no longer runs `scripts/ensure-bun.sh` (an unpinned, unverified `curl -fsSL https://bun.sh/install | bash`) on first invocation when only Node is present — `bin/prjct` now falls straight back to Node (a first-class runtime). The script is deleted and dropped from the published tarball (`files[]`), so the package ships **zero `curl | bash`**. The install-time variant was already gone (no `postinstall` since #391); this closes the same pattern on the runtime path. Addresses the OSV **MAL-2026-4647** false-positive (Amazon Inspector "alternate-runtime-dropper", pinned to 2.21.0) at its root. Bun is still preferred when already installed; users who want it install it themselves (https://bun.sh).
+
 ## [2.50.0] - 2026-06-20
 
 ### Added

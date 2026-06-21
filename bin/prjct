@@ -153,9 +153,22 @@ run_with_node() {
     fi
   fi
 
-  # prjct uses node's built-in `node:sqlite` (zero native deps, no postinstall).
-  # On Node 22.5–23.x it lives behind `--experimental-sqlite`; on Node 24+ it's
-  # unflagged and the flag is a tolerated no-op. Exporting it (vs passing as an
+  # prjct uses node's built-in `node:sqlite` (zero native deps, no postinstall),
+  # which requires Node >=22.5. Below that — and since we no longer auto-install
+  # Bun (MAL-2026-4647) — prjct can't run: fail with a clear, actionable message
+  # instead of a cryptic `--experimental-sqlite` flag error.
+  NODE_VER="$(node -v 2>/dev/null | sed 's/^v//')"
+  NODE_MAJ="${NODE_VER%%.*}"
+  NODE_MIN_REST="${NODE_VER#*.}"
+  NODE_MIN="${NODE_MIN_REST%%.*}"
+  if [ "${NODE_MAJ:-0}" -lt 22 ] || { [ "${NODE_MAJ:-0}" -eq 22 ] && [ "${NODE_MIN:-0}" -lt 5 ]; }; then
+    echo "Error: prjct needs Node >=22.5 (for node:sqlite) or Bun — found Node ${NODE_VER:-unknown}."
+    echo "  Upgrade Node (https://nodejs.org) or install Bun (https://bun.sh)."
+    exit 1
+  fi
+
+  # On Node 22.5–23.x node:sqlite lives behind `--experimental-sqlite`; on Node
+  # 24+ it's unflagged and the flag is a tolerated no-op. Exporting it (vs an
   # argv flag) means the daemon + any node child prjct spawns inherit it too.
   # Prepended so a user's existing NODE_OPTIONS is preserved.
   export NODE_OPTIONS="--experimental-sqlite${NODE_OPTIONS:+ $NODE_OPTIONS}"
@@ -167,21 +180,14 @@ main() {
   # ALWAYS ensure setup first (self-healing)
   ensure_setup
 
-  # Prefer bun if available (faster, native TS support)
+  # Prefer bun if available (faster, native TS support); otherwise fall back to
+  # node. We deliberately do NOT auto-install bun: fetching an unpinned
+  # `curl | bash` installer at runtime is a supply-chain risk (it triggered the
+  # MAL-2026-4647 false-positive). Node is a first-class runtime here — if a
+  # user wants bun for speed, they install it themselves (https://bun.sh).
   if check_bun; then
     run_with_bun "$@"
   elif check_node; then
-    # Bun not found but Node available — try auto-install Bun (one-time)
-    ENSURE_BUN="$ROOT_DIR/scripts/ensure-bun.sh"
-    if [ -f "$ENSURE_BUN" ]; then
-      sh "$ENSURE_BUN"
-      # Re-source PATH in case Bun was just installed
-      export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-      export PATH="$BUN_INSTALL/bin:$PATH"
-      if check_bun; then
-        run_with_bun "$@"
-      fi
-    fi
     run_with_node "$@"
   else
     echo "Error: Neither bun nor node is installed."
