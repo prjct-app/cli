@@ -14,6 +14,7 @@
 
 import type { HookIo } from './_runner'
 import { runCwdChangedHook } from './cwd-changed'
+import { runNotificationHook } from './notification'
 import { runPostEditHook } from './post-edit'
 import { runPreCommitHook } from './pre-commit'
 import { runPreEditHook } from './pre-edit'
@@ -21,6 +22,7 @@ import { runPromptHook } from './prompt'
 import { runSessionStartHook } from './session-start'
 import { runStopHook } from './stop'
 import { runSubagentStartHook } from './subagent-start'
+import { runSubagentStopHook } from './subagent-stop'
 
 /** A hook runner: runs the hook for `projectPath`. With `io` it runs in
  *  daemon (warm) mode; without, in process (cold) mode. */
@@ -34,6 +36,8 @@ export const HOOK_RUNNERS: Record<string, HookRunner> = {
   'post-edit': runPostEditHook,
   stop: runStopHook,
   'subagent-start': runSubagentStartHook,
+  'subagent-stop': runSubagentStopHook,
+  notification: runNotificationHook,
   'cwd-changed': runCwdChangedHook,
 }
 

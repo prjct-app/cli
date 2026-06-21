@@ -351,6 +351,7 @@ export type CommandRoutingGroup =
   | 'cloud'
   | 'tdd'
   | 'sdd'
+  | 'notify'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */

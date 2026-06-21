@@ -46,6 +46,11 @@ export const PRJCT_HOOKS = [
   { event: 'PostToolUse', matcher: 'Edit|Write', subcommand: 'post-edit' },
   { event: 'Stop', matcher: '', subcommand: 'stop' },
   { event: 'SubagentStart', matcher: '', subcommand: 'subagent-start' },
+  // Ping the user (best-effort OS notification, default on) when a subagent
+  // finishes or Claude is waiting on them — so a background wait never hangs
+  // silently. Gated by config.notify; the handler no-ops when off.
+  { event: 'SubagentStop', matcher: '', subcommand: 'subagent-stop' },
+  { event: 'Notification', matcher: '', subcommand: 'notification' },
   { event: 'CwdChanged', matcher: '', subcommand: 'cwd-changed' },
 ] as const
 
