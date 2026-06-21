@@ -15,6 +15,22 @@ export const DEFAULT_EMBEDDINGS_BASE_URL = 'https://api.openai.com/v1'
 export const DEFAULT_EMBEDDINGS_MODEL = 'text-embedding-3-small'
 
 /**
+ * OpenRouter namespaces EVERY model as `vendor/model`; a bare OpenAI-style id
+ * (e.g. `text-embedding-3-small`) returns "model not found" there. Prefix the
+ * implied vendor so a zero-config OpenRouter setup (`--key sk-or-…`, which
+ * auto-detects the OpenRouter base URL) just works — the user shouldn't need to
+ * know OpenRouter's namespacing. No-op for any other base URL or an
+ * already-namespaced (`vendor/…`) model. Applied on read, on set, and on the
+ * wire so old, per-project, and global configs all resolve correctly.
+ */
+export function normalizeModelForBaseUrl(model: string, baseUrl: string): string {
+  if (/openrouter\.ai/i.test(baseUrl) && model && !model.includes('/')) {
+    return `openai/${model}`
+  }
+  return model
+}
+
+/**
  * Infer the provider's base URL from an API-key prefix, so users can paste just
  * `--key` and skip `--base-url`. API keys are provider-stamped at the prefix:
  * `sk-or-…` is OpenRouter, `sk-ant-…` is Anthropic, etc. Returns undefined when
@@ -81,10 +97,11 @@ export function resolveGlobalEmbeddings(): GlobalEmbeddingsSettings | null {
   const authScheme = getConfig(K_AUTH_SCHEME)
   const authHeader = getConfig(K_AUTH_HEADER)
   const query = getConfig(K_QUERY)
+  const baseUrl = String(getConfig(K_BASE_URL) ?? DEFAULT_EMBEDDINGS_BASE_URL)
   return {
     provider: 'openai-compatible',
-    baseUrl: String(getConfig(K_BASE_URL) ?? DEFAULT_EMBEDDINGS_BASE_URL),
-    model: String(model),
+    baseUrl,
+    model: normalizeModelForBaseUrl(String(model), baseUrl),
     authHeader: authHeader != null ? String(authHeader) : undefined,
     authScheme: authScheme != null ? String(authScheme) : undefined,
     extraHeaders: parseHeaders(getConfig(K_HEADERS)),
@@ -127,7 +144,12 @@ export function setGlobalEmbeddings(opts: {
 
   const settings = resolveGlobalEmbeddings()
   // resolveGlobalEmbeddings can't be null here — we just set provider+model.
-  return settings as GlobalEmbeddingsSettings
+  // It also normalizes the model for the base URL (e.g. OpenRouter needs the
+  // `openai/` prefix); persist that so the stored config reflects what we'll
+  // actually send, instead of the bare id the user (or the default) provided.
+  const resolved = settings as GlobalEmbeddingsSettings
+  if (resolved.model !== getConfig(K_MODEL)) setConfig(K_MODEL, resolved.model)
+  return resolved
 }
 
 /** Forget the global embeddings settings (semantic falls back to local). */

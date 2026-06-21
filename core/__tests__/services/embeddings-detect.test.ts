@@ -65,7 +65,9 @@ describe('setGlobalEmbeddings partial-update preservation', () => {
     setGlobalEmbeddings({ model: 'text-embedding-3-large' })
     const g = resolveGlobalEmbeddings()
     expect(g?.baseUrl).toBe('https://openrouter.ai/api/v1')
-    expect(g?.model).toBe('text-embedding-3-large')
+    // Base URL preserved across the partial set; the model is namespaced for
+    // OpenRouter (bare id → `openai/…`).
+    expect(g?.model).toBe('openai/text-embedding-3-large')
   })
 
   test('a set with neither base URL nor model on first config uses defaults', () => {
