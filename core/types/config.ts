@@ -71,6 +71,19 @@ export interface LocalConfig {
    */
   lean?: { mode: 'off' | 'lite' | 'full' | 'ultra' }
   /**
+   * Test-Driven Development intensity. Unset / `off` = zero behaviour change
+   * (opt-in, like `lean`). prjct's users are developers, so the discipline is
+   * available but never forced:
+   *   - `assist` — the skill biases the implement loop test-first
+   *     (red → green → refactor); `ship` surfaces a TDD reminder.
+   *   - `strict` — test-first is expected; `ship` surfaces a hard TDD gate
+   *     pointing at `prjct tdd check` (which runs the project's test command).
+   * The test command is auto-detected per stack (`detectProjectCommands`), so
+   * no command config is needed. Enforcement is server-of-truth-free: the gate
+   * surfaces, `prjct tdd check` is the real red/green, the agent honours it.
+   */
+  tdd?: { mode: 'off' | 'assist' | 'strict' }
+  /**
    * Override for the Obsidian-compatible wiki vault location.
    * - Absolute path (e.g. "/Users/jj/Documents/prjct/my-app")
    * - Or tilde-prefixed ("~/Documents/prjct/my-app")
