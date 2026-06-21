@@ -377,6 +377,27 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'sdd',
+    group: 'optional',
+    routing: { group: 'sdd', method: 'sdd' },
+    optionSchema: {},
+    description: 'Spec-Driven Development: gate the spec pipeline (off/advisory/strict)',
+    usage: {
+      claude: '/p:sdd [off|advisory|strict]',
+      terminal: 'prjct sdd [sub]',
+    },
+    params: '[off|advisory|strict]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'No arg → show mode + the active task spec station (pipeline checklist)',
+      'off|advisory|strict sets the intensity (opt-in, like lean)',
+      'strict: every task needs a reviewed spec; ship blocks unspecced work',
+    ],
+  },
+  {
     name: 'cloud',
     group: 'optional',
     routing: { group: 'cloud', method: 'cloud' },

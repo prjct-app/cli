@@ -84,6 +84,18 @@ export interface LocalConfig {
    */
   tdd?: { mode: 'off' | 'assist' | 'strict' }
   /**
+   * Spec-Driven Development intensity. Unset / `off` = zero behaviour change
+   * (the spec pipeline stays escalate-only). Opt-in, like `lean`/`tdd`:
+   *   - `advisory` — the skill nudges toward a spec for complex work; `ship`
+   *     surfaces the linked spec's acceptance criteria (≈ today's behaviour).
+   *   - `strict` — every `prjct task` must link a REVIEWED spec (enforced in
+   *     task-service, so CLI + MCP share it) and `ship` blocks work that has no
+   *     linked spec. `prjct ship --no-spec-gate` is the explicit override.
+   * The spec pipeline (spec → audit-spec → task --spec → ship) already exists;
+   * this only gates it. Mode is surfaced by `prjct sdd`.
+   */
+  sdd?: { mode: 'off' | 'advisory' | 'strict' }
+  /**
    * Override for the Obsidian-compatible wiki vault location.
    * - Absolute path (e.g. "/Users/jj/Documents/prjct/my-app")
    * - Or tilde-prefixed ("~/Documents/prjct/my-app")

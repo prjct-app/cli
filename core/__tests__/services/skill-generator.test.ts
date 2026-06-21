@@ -178,11 +178,13 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('## Gotchas')
     })
 
-    it('surfaces the opt-in tdd verb in the always-loaded body', async () => {
+    it('surfaces the opt-in tdd + sdd verbs in the always-loaded body', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       expect(content).toContain('`prjct tdd`')
       expect(content).toMatch(/test-first|TDD/)
+      expect(content).toContain('`prjct sdd`')
+      expect(content).toMatch(/spec-first|SDD/)
     })
 
     it('always-loaded body carries the loop-discipline triggers + model quick-ref', async () => {

@@ -16,6 +16,7 @@
  *    so it is safe under MCP stdio.
  */
 
+import configManager from '../infrastructure/config-manager'
 import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { generateUUID } from '../schemas/schemas'
 import type { CurrentTask, TaskFeedback } from '../schemas/state'
@@ -65,6 +66,38 @@ export async function startTask(
         ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
         : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
     return { ok: false, blocked }
+  }
+
+  // SDD strict gate (opt-in via config.sdd.mode === 'strict'): a task must link
+  // a REVIEWED spec. Enforced here so `prjct task` and the MCP write-path share
+  // it. `off`/`advisory` never block (advisory only nudges via the skill).
+  {
+    const sddConfig = await configManager.readConfig(projectPath).catch(() => null)
+    const { effectiveSddMode } = await import('../commands/sdd')
+    if (effectiveSddMode(sddConfig) === 'strict') {
+      if (!options.spec) {
+        return {
+          ok: false,
+          blocked:
+            'Strict SDD: a spec is required before a task. Run `prjct spec "<title>"`, pass `prjct audit-spec <id>`, then `prjct task --spec <id>`. (Relax with `prjct sdd advisory`.)',
+        }
+      }
+      try {
+        const { specService } = await import('./spec-service')
+        const spec = await specService.get(projectPath, options.spec)
+        if (!spec) {
+          return { ok: false, blocked: `Strict SDD: spec ${options.spec} not found.` }
+        }
+        if (spec.status === 'draft') {
+          return {
+            ok: false,
+            blocked: `Strict SDD: spec "${spec.title}" hasn't passed audit-spec yet (status: draft). Run \`prjct audit-spec ${options.spec}\` first.`,
+          }
+        }
+      } catch {
+        // spec lookup failed internally — don't hard-block on our own error
+      }
+    }
   }
 
   // Optional Linear issue linkage — matches e.g. `PRJ-42`. Pure tag.
