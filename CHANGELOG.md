@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.53.0] - 2026-06-20
+
+### Added
+- **Desktop notifications + sharper work-state — never lose track of a background wait.** prjct now pings you (best-effort OS notification, **default on**) the moment **Claude is waiting on you** and when a **subagent finishes** — so a wait no longer hangs silently while you've tabbed away. New Claude Code hooks (`Notification`, `SubagentStop`) fire the ping with the active task + pending count; macOS (`osascript`) and Linux (`notify-send`) supported, silent elsewhere. Toggle with **`prjct notify on|off`** (`config.notify.mode`). Separately, the per-prompt "project state" block now shows a **`Pending: N · Next: "…"`** line (from the task queue) on top of the existing active-task + owner (worktree) + inbox lines — so "what's active, what's pending, who's working it" is always in view. Notifications are best-effort and `safeRun`-wrapped: they never disturb the session.
+
 ## [2.52.0] - 2026-06-20
 
 ### Added

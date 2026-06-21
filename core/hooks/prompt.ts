@@ -27,6 +27,7 @@ import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
+import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
@@ -75,6 +76,19 @@ export async function buildProjectState(
     const others = overview.all.filter((v) => !v.isCurrent)
     if (others.length > 0) {
       lines.push(`- ${others.length} task(s) active in other workspace(s)`)
+      hasContent = true
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  // Queue — what's pending + what's next, so "what's left / what's next" is
+  // always visible without asking. Active-section tasks only; backlog stays
+  // quiet. Omitted when the queue is empty (no noise).
+  try {
+    const pending = await queueStorage.getActiveTasks(config.projectId)
+    if (pending.length > 0) {
+      lines.push(`- Pending: ${pending.length} · Next: "${pending[0]!.description}"`)
       hasContent = true
     }
   } catch {

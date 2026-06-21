@@ -96,6 +96,14 @@ export interface LocalConfig {
    */
   sdd?: { mode: 'off' | 'advisory' | 'strict' }
   /**
+   * Desktop notifications. **Default ON** (absent / `on`) — prjct pings you
+   * when Claude is waiting for input and when a subagent finishes, so a wait
+   * never hangs silently. `off` (via `prjct notify off`) silences the OS
+   * notifications (the per-prompt work-state block is unaffected). Best-effort:
+   * silent if the OS has no notifier. Resolved by `effectiveNotifyMode`.
+   */
+  notify?: { mode: 'on' | 'off' }
+  /**
    * Override for the Obsidian-compatible wiki vault location.
    * - Absolute path (e.g. "/Users/jj/Documents/prjct/my-app")
    * - Or tilde-prefixed ("~/Documents/prjct/my-app")

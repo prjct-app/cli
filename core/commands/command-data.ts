@@ -398,6 +398,27 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'notify',
+    group: 'optional',
+    routing: { group: 'notify', method: 'notify' },
+    optionSchema: {},
+    description: 'Desktop notifications (default on): ping on Claude-waiting + subagent-finished',
+    usage: {
+      claude: '/p:notify [on|off]',
+      terminal: 'prjct notify [on|off]',
+    },
+    params: '[on|off]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Default ON — pings when Claude is waiting or a subagent finishes',
+      'No arg → show mode + what fires',
+      'off silences OS notifications (per-prompt work-state block stays)',
+    ],
+  },
+  {
     name: 'cloud',
     group: 'optional',
     routing: { group: 'cloud', method: 'cloud' },

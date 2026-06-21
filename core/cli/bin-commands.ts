@@ -407,6 +407,16 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
           await runSubagentStartHook(projectPath)
           break
         }
+        case 'subagent-stop': {
+          const { runSubagentStopHook } = await import('../hooks/subagent-stop')
+          await runSubagentStopHook(projectPath)
+          break
+        }
+        case 'notification': {
+          const { runNotificationHook } = await import('../hooks/notification')
+          await runNotificationHook(projectPath)
+          break
+        }
         case 'cwd-changed': {
           const { runCwdChangedHook } = await import('../hooks/cwd-changed')
           await runCwdChangedHook(projectPath)
