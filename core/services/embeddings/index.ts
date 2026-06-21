@@ -23,7 +23,7 @@ import { isModelMemory, type MemoryEntry } from '../../memory/entries'
 import { projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 import type { LocalConfig } from '../../types/config'
-import { resolveGlobalEmbeddings } from './global'
+import { normalizeModelForBaseUrl, resolveGlobalEmbeddings } from './global'
 import { getEmbeddingsKey } from './secure-key'
 
 // Global BYOT config surface — re-exported so callers use one import path.
@@ -103,6 +103,10 @@ export function buildEmbeddingsRequest(
   const root = baseUrl.replace(/\/+$/, '')
   const q = auth.query?.trim().replace(/^\?/, '')
   const url = `${root}/embeddings${q ? `?${q}` : ''}`
+  // Wire-level safety net: normalize the model for the base URL (OpenRouter
+  // needs `vendor/model`), so even an older/per-project config that stored a
+  // bare id reaches OpenRouter correctly. No-op for OpenAI/Ollama/etc.
+  const wireModel = normalizeModelForBaseUrl(model, root)
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -116,7 +120,7 @@ export function buildEmbeddingsRequest(
 
   return {
     url,
-    init: { method: 'POST', headers, body: JSON.stringify({ model, input: texts }) },
+    init: { method: 'POST', headers, body: JSON.stringify({ model: wireModel, input: texts }) },
   }
 }
 

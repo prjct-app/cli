@@ -7,13 +7,14 @@
 
 import { describe, expect, test } from 'bun:test'
 import { buildEmbeddingsRequest } from '../../services/embeddings'
+import { normalizeModelForBaseUrl } from '../../services/embeddings/global'
 
 function headers(init: RequestInit): Record<string, string> {
   return init.headers as Record<string, string>
 }
 
 describe('buildEmbeddingsRequest', () => {
-  test('default: OpenAI/OpenRouter shape — Bearer on authorization', () => {
+  test('default: OpenRouter shape — Bearer auth + model namespaced to openai/', () => {
     const { url, init } = buildEmbeddingsRequest(
       'https://openrouter.ai/api/v1',
       'text-embedding-3-small',
@@ -23,10 +24,34 @@ describe('buildEmbeddingsRequest', () => {
     expect(url).toBe('https://openrouter.ai/api/v1/embeddings')
     expect(headers(init).authorization).toBe('Bearer sk-or-v1-abc')
     expect(headers(init)['content-type']).toBe('application/json')
+    // OpenRouter requires `vendor/model`; the bare id is prefixed on the wire.
+    expect(JSON.parse(init.body as string)).toEqual({
+      model: 'openai/text-embedding-3-small',
+      input: ['hi'],
+    })
+  })
+
+  test('OpenAI base: bare model is sent as-is (no namespacing)', () => {
+    const { init } = buildEmbeddingsRequest(
+      'https://api.openai.com/v1',
+      'text-embedding-3-small',
+      ['hi'],
+      'sk-abc'
+    )
     expect(JSON.parse(init.body as string)).toEqual({
       model: 'text-embedding-3-small',
       input: ['hi'],
     })
+  })
+
+  test('OpenRouter base: an already-namespaced model is left untouched', () => {
+    const { init } = buildEmbeddingsRequest(
+      'https://openrouter.ai/api/v1',
+      'qwen/qwen3-embedding',
+      ['hi'],
+      'sk-or-v1-abc'
+    )
+    expect(JSON.parse(init.body as string).model).toBe('qwen/qwen3-embedding')
   })
 
   test('trailing slashes on baseUrl are normalized', () => {
@@ -83,5 +108,26 @@ describe('buildEmbeddingsRequest', () => {
     )
     expect(headers(init).authorization).toBeUndefined()
     expect(headers(init)['content-type']).toBe('application/json')
+  })
+})
+
+describe('normalizeModelForBaseUrl', () => {
+  test('OpenRouter + bare OpenAI id → prefixes openai/', () => {
+    expect(normalizeModelForBaseUrl('text-embedding-3-small', 'https://openrouter.ai/api/v1')).toBe(
+      'openai/text-embedding-3-small'
+    )
+  })
+  test('OpenRouter + already-namespaced id → unchanged', () => {
+    expect(
+      normalizeModelForBaseUrl('openai/text-embedding-3-large', 'https://openrouter.ai/api/v1')
+    ).toBe('openai/text-embedding-3-large')
+  })
+  test('non-OpenRouter base → unchanged', () => {
+    expect(normalizeModelForBaseUrl('text-embedding-3-small', 'https://api.openai.com/v1')).toBe(
+      'text-embedding-3-small'
+    )
+    expect(normalizeModelForBaseUrl('nomic-embed-text', 'http://localhost:11434/v1')).toBe(
+      'nomic-embed-text'
+    )
   })
 })

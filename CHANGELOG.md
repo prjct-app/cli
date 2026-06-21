@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.53.1] - 2026-06-21
+
+### Fixed
+- **Embeddings now work with OpenRouter out of the box.** OpenRouter namespaces every model as `vendor/model`, so a bare OpenAI-style id (`text-embedding-3-small`) returned "model not found" — even though zero-config correctly auto-detected the OpenRouter base URL from an `sk-or-…` key. prjct now auto-prefixes the implied vendor (`text-embedding-3-small` → `openai/text-embedding-3-small`) whenever the base URL is OpenRouter, applied on read, on `embeddings set`, and on the wire (so existing, per-project, and global configs all resolve correctly). No-op for OpenAI / Ollama / any other base, and an already-namespaced id is left untouched. (OpenRouter *does* serve `/embeddings`; the earlier assumption it didn't was wrong.)
+
 ## [2.53.0] - 2026-06-20
 
 ### Added
