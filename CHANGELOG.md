@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.56.0] - 2026-06-22
+
+### Added
+- paid-tier product proof surfaces
+
 ## [2.55.0] - 2026-06-21
 
 ### Added

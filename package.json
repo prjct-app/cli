@@ -1,7 +1,7 @@
 {
   "name": "prjct-cli",
-  "version": "2.55.0",
-  "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
+  "version": "2.56.0",
+  "description": "Project memory and workflow context for AI coding agents.",
   "main": "dist/bin/prjct.mjs",
   "bin": {
     "prjct": "bin/prjct"

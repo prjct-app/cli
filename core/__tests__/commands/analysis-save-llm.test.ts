@@ -57,7 +57,10 @@ describe('analysis-save-llm', () => {
   test('saves freeform Markdown notes as safe LLM analysis', async () => {
     const notes = [
       '# Project notes',
+      '- current work',
+      '- WIP',
       '- Commands should route through the manifest.',
+      '- ---',
       '- AGENTS.md is the universal agent surface.',
     ].join('\n')
 
@@ -68,6 +71,8 @@ describe('analysis-save-llm', () => {
     expect(saved?.architecture.style).toBe('unknown')
     expect(saved?.projectInsights).toContain('Commands should route through the manifest.')
     expect(saved?.projectInsights).toContain('AGENTS.md is the universal agent surface.')
+    expect(saved?.projectInsights).not.toContain('current work')
+    expect(saved?.projectInsights).not.toContain('WIP')
   })
 
   test('reads a JSON analysis file path instead of parsing the path string as JSON', async () => {

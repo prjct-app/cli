@@ -1,5 +1,6 @@
 import os from 'node:os'
 import path from 'node:path'
+import { execFileAsync } from '../utils/exec'
 import { dirExists, fileExists } from '../utils/file-helper'
 
 export type AgentRuntimeId =
@@ -12,6 +13,7 @@ export type AgentRuntimeId =
   | 'antigravity'
   | 'opencode'
   | 'qwen-code'
+  | 'kimi-cli'
   | 'goose'
   | 'aider'
   | 'cursor'
@@ -76,6 +78,14 @@ export interface RuntimeDetection {
   runtime: AgentRuntimeDefinition
   detected: boolean
   reason?: string
+}
+
+export type RuntimeSupportLevel = 'full' | 'good' | 'baseline' | 'manual' | 'hosted'
+
+export interface AgentRuntimeStatus extends RuntimeDetection {
+  supportLevel: RuntimeSupportLevel
+  detectedSignals: string[]
+  writableMcpTargets: AgentRuntimeMcpTarget[]
 }
 
 const home = os.homedir()
@@ -231,13 +241,31 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
     supports: {
       agentsMd: true,
       mcp: true,
-      skills: true,
-      hooks: true,
-      acp: true,
+      skills: false,
+      hooks: false,
+      acp: false,
       projectRules: true,
     },
     notes:
       'Qwen-family coding runtime; treat model/provider choice as separate from runtime setup.',
+  },
+  {
+    id: 'kimi-cli',
+    displayName: 'Kimi CLI',
+    kind: 'model-runtime',
+    status: 'emerging',
+    detectsBy: { homeDirs: ['.kimi'], projectDirs: ['.kimi'], commands: ['kimi'] },
+    contextFiles: ['AGENTS.md'],
+    supports: {
+      agentsMd: true,
+      mcp: true,
+      skills: false,
+      hooks: false,
+      acp: false,
+      projectRules: false,
+    },
+    notes:
+      'Kimi-family coding runtime; AGENTS.md and MCP/CLI markdown output are the portable contract.',
   },
   {
     id: 'goose',
@@ -605,6 +633,22 @@ export function listProjectRuleTargets(): AgentRuntimeRuleTarget[] {
   return AGENT_RUNTIME_REGISTRY.flatMap((runtime) => runtime.projectRuleTargets ?? [])
 }
 
+export async function detectAgentRuntimes(projectPath: string): Promise<AgentRuntimeStatus[]> {
+  return Promise.all(
+    AGENT_RUNTIME_REGISTRY.map(async (runtime): Promise<AgentRuntimeStatus> => {
+      const detectedSignals = await detectRuntimeSignals(runtime, projectPath)
+      return {
+        runtime,
+        detected: detectedSignals.length > 0 || runtime.id === 'agents-md' || runtime.id === 'mcp',
+        reason: detectedSignals[0],
+        detectedSignals,
+        writableMcpTargets: (runtime.mcpTargets ?? []).filter((target) => target.writable),
+        supportLevel: supportLevelFor(runtime),
+      }
+    })
+  )
+}
+
 export async function detectRuntimeProjectSurfaces(
   projectPath: string
 ): Promise<RuntimeDetection[]> {
@@ -634,4 +678,46 @@ export async function detectRuntimeProjectSurfaces(
       return { runtime, detected: false }
     })
   )
+}
+
+async function detectRuntimeSignals(
+  runtime: AgentRuntimeDefinition,
+  projectPath: string
+): Promise<string[]> {
+  const signals: string[] = []
+
+  for (const file of runtime.detectsBy?.projectFiles ?? []) {
+    if (await fileExists(path.join(projectPath, file))) signals.push(file)
+  }
+
+  for (const dir of runtime.detectsBy?.projectDirs ?? []) {
+    if (await dirExists(path.join(projectPath, dir))) signals.push(`${dir}/`)
+  }
+
+  for (const dir of runtime.detectsBy?.homeDirs ?? []) {
+    if (await dirExists(path.join(home, dir))) signals.push(`~/${dir}/`)
+  }
+
+  for (const command of runtime.detectsBy?.commands ?? []) {
+    if (await commandExists(command)) signals.push(`command:${command}`)
+  }
+
+  return signals
+}
+
+async function commandExists(command: string): Promise<boolean> {
+  try {
+    await execFileAsync('which', [command])
+    return true
+  } catch {
+    return false
+  }
+}
+
+function supportLevelFor(runtime: AgentRuntimeDefinition): RuntimeSupportLevel {
+  if (runtime.status === 'hosted') return 'hosted'
+  if (runtime.id === 'claude') return 'full'
+  if (runtime.supports.agentsMd && runtime.supports.mcp) return 'good'
+  if (runtime.supports.agentsMd) return 'baseline'
+  return 'manual'
 }

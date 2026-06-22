@@ -164,7 +164,7 @@ function textToInsights(text: string): string[] {
         .replace(/^\s*\d+[.)]\s+/, '')
         .trim()
     )
-    .filter(Boolean)
+    .filter(isUsefulInsight)
 
   const unique: string[] = []
   const seen = new Set<string>()
@@ -177,6 +177,34 @@ function textToInsights(text: string): string[] {
   }
 
   return unique.length > 0 ? unique : [text.slice(0, 2000)]
+}
+
+function isUsefulInsight(line: string): boolean {
+  if (!line) return false
+  if (!/[\p{L}\p{N}]/u.test(line)) return false
+
+  const normalized = line.toLowerCase().replace(/\s+/g, ' ').trim()
+  if (
+    [
+      'current work',
+      'wip',
+      'misc',
+      'todo',
+      'n/a',
+      'none',
+      'latest',
+      'unreleased',
+      'changelog',
+    ].includes(normalized)
+  ) {
+    return false
+  }
+
+  if (/^[-=_]{3,}$/.test(normalized)) return false
+  if (/^(added|changed|fixed|removed)$/i.test(normalized)) return false
+  if (/^v?\d+\.\d+\.\d+(?:-[\w.-]+)?$/i.test(normalized)) return false
+
+  return true
 }
 
 async function resolveCurrentCommit(projectPath: string): Promise<string | null> {

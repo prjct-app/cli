@@ -419,6 +419,8 @@ async function main(): Promise<void> {
     const { setQuietMode } = await import('../core/utils/output')
     setQuietMode(true)
   }
+  const machineReadableOutput =
+    isQuietMode || args.includes('--md') || args.includes('--json') || !process.stdout.isTTY
 
   // Parse --refresh flag
   const refreshIndex = args.indexOf('--refresh')
@@ -516,7 +518,7 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
           }
           const isUpgrade = cmp(VERSION, lastVersion) > 0
 
-          if (!userInvokedUpdate && isUpgrade) {
+          if (!userInvokedUpdate && isUpgrade && !machineReadableOutput) {
             console.log(
               `\n${chalk.yellow('ℹ')} prjct updated to v${VERSION} — finishing setup in the background\n`
             )

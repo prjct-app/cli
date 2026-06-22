@@ -7,6 +7,9 @@
  * touched.
  */
 
+import { detectAgentRuntimes } from '../infrastructure/agent-runtime-registry'
+import configManager from '../infrastructure/config-manager'
+import { writeProjectAgentSurfaces } from '../services/project-agent-surfaces'
 import {
   status as hookStatus,
   install as installHooks,
@@ -26,19 +29,37 @@ export class InstallCommands extends PrjctCommandsBase {
    */
   async install(
     _arg: string | null = null,
-    _projectPath: string = process.cwd(),
+    projectPath: string = process.cwd(),
     options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const result = await installHooks()
+      const config = await configManager.readConfig(projectPath).catch(() => null)
+      const projectSurfaces = config?.projectId
+        ? await writeProjectAgentSurfaces(projectPath)
+        : null
+      const runtimes = await detectAgentRuntimes(projectPath)
+      const detected = runtimes.filter((runtime) => runtime.detected)
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
-      const msg = `installed ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
+      const msg = `installed Claude hooks adapter: ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
       if (options.md) {
         console.log(
           [
-            `# prjct hooks installed`,
+            `# prjct install`,
             ``,
+            `## Universal project surface`,
+            projectSurfaces
+              ? `- AGENTS.md: ${projectSurfaces.agentsMd.action}`
+              : `- skipped: not inside an initialized prjct project`,
+            ...(projectSurfaces?.claudeMd
+              ? [`- CLAUDE.md adapter: ${projectSurfaces.claudeMd.action}`]
+              : []),
+            ...(projectSurfaces?.ideRules.length
+              ? projectSurfaces.ideRules.map((rule) => `- project rule adapter: \`${rule}\``)
+              : []),
+            ``,
+            `## Claude hooks adapter`,
             `Wrote to \`${result.settingsPath}\`.`,
             ``,
             `- new: ${result.hooksWritten}`,
@@ -46,14 +67,31 @@ export class InstallCommands extends PrjctCommandsBase {
             `- retired removed: ${result.hooksPruned}`,
             `- total expected: ${total}`,
             ``,
-            `> Only \`_prjctManaged: true\` entries were touched. Your other hooks are untouched.`,
+            `## Runtime detection`,
+            ...detected.map(
+              (runtime) => `- ${runtime.runtime.displayName}: ${runtime.supportLevel}`
+            ),
+            ``,
+            `> Claude hooks are an adapter, not the universal layer. AGENTS.md + MCP/CLI --md are the portable baseline.`,
+            `> Only \`_prjctManaged: true\` hook entries were touched. Your other hooks are untouched.`,
           ].join('\n')
         )
       } else {
         out.done(msg)
         out.info(`settings: ${result.settingsPath}`)
+        if (projectSurfaces) {
+          out.info(`AGENTS.md: ${projectSurfaces.agentsMd.action}`)
+          for (const rule of projectSurfaces.ideRules) out.info(`adapter: ${rule}`)
+        } else {
+          out.info('project surface: skipped (not inside an initialized prjct project)')
+        }
       }
-      return { success: true, hooksWritten: result.hooksWritten }
+      return {
+        success: true,
+        hooksWritten: result.hooksWritten,
+        projectSurface: projectSurfaces?.agentsMd.action ?? 'skipped',
+        detectedRuntimes: detected.length,
+      }
     } catch (error) {
       const msg = getErrorMessage(error)
       return failHard(msg)

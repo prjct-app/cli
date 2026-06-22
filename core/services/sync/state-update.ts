@@ -97,11 +97,12 @@ export async function updateStateDoc(args: {
 
   await stateStorage.write(projectId, state as StateJson)
 
-  // Also generate local .prjct-state.md (PRJ-112). Best-effort.
+  // v2 source of truth is SQLite + generated vault. Remove the legacy
+  // repo-local state stub if an older install created it; never refresh it.
   try {
-    await localStateGenerator.generate(projectPath, state as StateJson)
+    await localStateGenerator.remove(projectPath)
   } catch (error) {
-    log.debug('Local state generation failed (optional)', { error: getErrorMessage(error) })
+    log.debug('Legacy local state cleanup failed (optional)', { error: getErrorMessage(error) })
   }
 }
 
