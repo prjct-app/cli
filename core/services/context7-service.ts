@@ -1,3 +1,4 @@
+import { constants as fsConstants } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -56,6 +57,25 @@ interface Context7TemplateConfig {
 const CONTEXT7_DEFAULT = MCP_SERVER_PRESETS.context7
 let cachedVerify: { at: number; status: Context7Status } | null = null
 
+const CONTEXT7_SMOKE_SYSTEM_PATH_DIRS = [
+  path.dirname(process.execPath),
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  '/opt/local/bin',
+  '/usr/bin',
+  '/bin',
+]
+
+const CONTEXT7_SMOKE_HOME_RELATIVE_PATH_DIRS = [
+  ['.bun', 'bin'],
+  ['.local', 'bin'],
+  ['.volta', 'bin'],
+  ['.asdf', 'shims'],
+  ['.local', 'share', 'mise', 'shims'],
+  ['.rtx', 'shims'],
+  ['.npm-global', 'bin'],
+]
+
 function parseTemplateConfig(): Context7TemplateConfig {
   const raw = getTemplateContent('mcp-config.json')
   if (!raw) return { mcpServers: { context7: CONTEXT7_DEFAULT } }
@@ -69,6 +89,84 @@ function parseTemplateConfig(): Context7TemplateConfig {
 function getContext7Config() {
   const template = parseTemplateConfig()
   return template.mcpServers?.context7 || CONTEXT7_DEFAULT
+}
+
+async function listChildDirs(parent: string): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(parent, { withFileTypes: true })
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+async function discoverNodeManagerBinDirs(homeDir: string): Promise<string[]> {
+  const dirs: string[] = []
+  const nvmRoot = process.env.NVM_DIR || path.join(homeDir, '.nvm')
+  const nvmVersions = path.join(nvmRoot, 'versions', 'node')
+  for (const version of await listChildDirs(nvmVersions)) {
+    dirs.push(path.join(nvmVersions, version, 'bin'))
+  }
+
+  const fnmRoot = process.env.FNM_DIR || path.join(homeDir, '.local', 'share', 'fnm')
+  const fnmVersions = path.join(fnmRoot, 'node-versions')
+  for (const version of await listChildDirs(fnmVersions)) {
+    dirs.push(path.join(fnmVersions, version, 'installation', 'bin'))
+  }
+
+  return dirs
+}
+
+export async function buildContext7SmokePath(
+  basePath: string = process.env.PATH || '',
+  homeDir: string = os.homedir()
+): Promise<string> {
+  const seen = new Set<string>()
+  const dirs: string[] = []
+  const homeDirs = CONTEXT7_SMOKE_HOME_RELATIVE_PATH_DIRS.map((segments) =>
+    path.join(homeDir, ...segments)
+  )
+  const extraDirs = [
+    ...CONTEXT7_SMOKE_SYSTEM_PATH_DIRS,
+    ...homeDirs,
+    ...(process.env.NVM_BIN ? [process.env.NVM_BIN] : []),
+    ...(process.env.VOLTA_HOME ? [path.join(process.env.VOLTA_HOME, 'bin')] : []),
+    ...(process.env.ASDF_DIR ? [path.join(process.env.ASDF_DIR, 'shims')] : []),
+    ...(process.env.MISE_DATA_DIR ? [path.join(process.env.MISE_DATA_DIR, 'shims')] : []),
+    ...(await discoverNodeManagerBinDirs(homeDir)),
+  ]
+
+  for (const raw of [...basePath.split(path.delimiter), ...extraDirs]) {
+    const dir = raw.trim()
+    if (!dir || seen.has(dir)) continue
+    seen.add(dir)
+    dirs.push(dir)
+  }
+  return dirs.join(path.delimiter)
+}
+
+async function resolveExecutable(command: string, searchPath: string): Promise<string> {
+  if (path.isAbsolute(command) || command.includes(path.sep)) return command
+
+  const extensions =
+    process.platform === 'win32'
+      ? (process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean)
+      : ['']
+
+  for (const dir of searchPath.split(path.delimiter)) {
+    if (!dir) continue
+    for (const ext of extensions) {
+      const candidate = path.join(dir, command + ext)
+      try {
+        await fs.access(candidate, fsConstants.X_OK)
+        return candidate
+      } catch {
+        // keep searching
+      }
+    }
+  }
+
+  return command
 }
 
 function getConfigPath(): string {
@@ -94,7 +192,12 @@ async function runSmokeCheck(): Promise<void> {
 
   const cfg = getContext7Config()
   const args = [...(cfg.args || []), '--help']
-  await execFileAsync(cfg.command || 'npx', args, { timeout: 15000 })
+  const smokePath = await buildContext7SmokePath()
+  const command = await resolveExecutable(cfg.command || 'npx', smokePath)
+  await execFileAsync(command, args, {
+    timeout: 15000,
+    env: { ...process.env, PATH: smokePath },
+  })
 }
 
 class Context7Service {
