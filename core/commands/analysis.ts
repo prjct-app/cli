@@ -92,8 +92,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log('✅ Analysis complete!\n')
       console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}\n`)
       console.log('Next steps:')
-      console.log('• /p:sync → Generate agents based on stack')
-      console.log('• /p:feature → Add a new feature')
+      console.log('• p. sync → Generate agents based on stack')
+      console.log('• p. feature → Add a new feature')
 
       return {
         success: true,
@@ -107,7 +107,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:sync - Comprehensive project sync with diff preview
+   * p. sync - Comprehensive project sync with diff preview
    *
    * Uses syncService to do ALL operations in one TypeScript execution:
    * - Git analysis

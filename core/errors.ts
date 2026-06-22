@@ -32,7 +32,7 @@ export class ProjectError extends PrjctError {
   }
 
   static notInitialized(): ProjectError {
-    return new ProjectError('Project not initialized. Run /p:init first.', 'PROJECT_NOT_INIT')
+    return new ProjectError('Project not initialized. Run p. init first.', 'PROJECT_NOT_INIT')
   }
 
   static notFound(projectId: string): ProjectError {

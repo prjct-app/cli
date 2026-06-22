@@ -82,7 +82,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     routing: { group: 'analysis', method: 'sync' },
     description: 'Sync project state and update workflow agents',
-    usage: { claude: '/p:sync', terminal: 'prjct sync [--package=<name>] [--full]' },
+    usage: { claude: 'p. sync', terminal: 'prjct sync [--package=<name>] [--full]' },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,

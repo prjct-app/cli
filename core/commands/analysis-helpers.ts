@@ -394,11 +394,11 @@ export function generateAnalysisSummary(
   }
 
   lines.push('## Recommendations\n')
-  lines.push('Based on detected stack, consider generating specialized agents using `/p:sync`.\n')
+  lines.push('Based on detected stack, consider generating specialized agents using `p. sync`.\n')
 
   lines.push('---\n')
   lines.push(
-    '*This analysis was generated automatically. For updated information, run `/p:analyze` again.*\n'
+    '*This analysis was generated automatically. For updated information, run `p. analyze` again.*\n'
   )
 
   return lines.join('\n')
