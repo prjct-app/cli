@@ -98,7 +98,7 @@ export async function executeCommand(
       if (!param) {
         return {
           success: false,
-          error: 'analysis-save-llm requires a JSON payload as positional arg',
+          error: 'analysis-save-llm requires analysis text, JSON, or a file path',
         }
       }
       return commands.saveLlmAnalysis(param, request.cwd, { md })

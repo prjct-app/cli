@@ -138,3 +138,24 @@ applies to **any** agent/LLM, not just Claude.
   doubt, leave it and clean up on a later pass once the PR is merged.
 - Do not `--force` a removal to override a dirty tree — that silently discards
   work. A dirty/unpushed worktree means cleanup is not yet safe.
+
+
+<!-- prjct:routing - do not edit between markers -->
+## prjct — project memory & workflow
+
+This project uses prjct for persistent memory + workflow tracking.
+Recognize the user's intent and run the right verb yourself — do not
+ask them to type prjct commands.
+
+- Recall before re-reading source: `prjct search "<query>"` or
+  `prjct context memory <topic>` (decisions, gotchas, learnings).
+- Flow: `prjct task "<desc>"` → work → `prjct status done` → `prjct ship`.
+- Persist outcomes as you go: `prjct remember <decision|gotcha|learning|fact> "<text>"`
+  (author entries in English), `prjct capture "<text>"` for stray thoughts.
+- Before editing a risky file: `prjct guard <file>` surfaces known traps.
+- Prefer the `prjct_*` MCP tools when available; otherwise run the CLI
+  with `--md` for agent-readable output.
+
+Routine captures auto-execute (confirm in one line); `ship` and other
+destructive verbs surface a one-line plan and wait for a green light.
+<!-- /prjct:routing - managed by prjct -->

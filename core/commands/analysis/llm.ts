@@ -6,16 +6,21 @@
  * from the guards module + the storage layer; no `this` access.
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { parseLlmAnalysis } from '../../schemas/llm-analysis'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import type { MdOption } from '../../types/cli'
 import type { CommandResult } from '../../types/commands'
+import type { LLMAnalysis } from '../../types/llm-analysis'
+import { getTimestamp } from '../../utils/date-helper'
+import { execFileAsync } from '../../utils/exec'
 import { failFromError } from '../../utils/md-aware'
 import { mdDone, mdList, mdOutput, mdSection, mdStats } from '../../utils/md-formatter'
 import { requireProject } from '../guards'
 
 export async function saveLlmAnalysis(
-  analysisJson: string,
+  analysisInput: string,
   projectPath: string = process.cwd(),
   options: MdOption = {}
 ): Promise<CommandResult> {
@@ -24,24 +29,8 @@ export async function saveLlmAnalysis(
     if (!proj.ok) return proj.result
     const projectId = proj.value
 
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(analysisJson)
-    } catch (error) {
-      return {
-        success: false,
-        error: `Invalid JSON: ${error instanceof Error ? error.message : 'parse failed'}`,
-      }
-    }
-
-    const validation = parseLlmAnalysis(parsed)
-    if (!validation.ok) {
-      return {
-        success: false,
-        error: `Invalid LLM analysis schema: ${validation.error}`,
-      }
-    }
-    const analysis = validation.value
+    const resolved = await resolveAnalysisInput(analysisInput, projectPath)
+    const analysis = await normalizeAnalysis(resolved.content, projectPath)
 
     llmAnalysisStorage.save(projectId, analysis)
 
@@ -56,6 +45,7 @@ export async function saveLlmAnalysis(
         mdOutput(
           mdDone('LLM Analysis Saved'),
           mdStats({
+            Input: resolved.source,
             Architecture: analysis.architecture.style,
             Patterns: analysis.patterns.length,
             'Anti-patterns': analysis.antiPatterns?.length || 0,
@@ -70,6 +60,7 @@ export async function saveLlmAnalysis(
         JSON.stringify({
           success: true,
           message: 'LLM analysis saved',
+          input: resolved.source,
           stats: {
             patterns: analysis.patterns.length,
             antiPatterns: analysis.antiPatterns?.length || 0,
@@ -82,6 +73,118 @@ export async function saveLlmAnalysis(
     return { success: true }
   } catch (error) {
     return failFromError(error)
+  }
+}
+
+type ResolvedAnalysisInput = {
+  content: string
+  source: 'file' | 'inline'
+}
+
+async function resolveAnalysisInput(
+  input: string,
+  projectPath: string
+): Promise<ResolvedAnalysisInput> {
+  const trimmed = input.trim()
+  if (!trimmed) {
+    throw new Error('analysis-save-llm requires analysis text, JSON, or a file path')
+  }
+
+  const candidate = path.isAbsolute(trimmed) ? trimmed : path.resolve(projectPath, trimmed)
+  try {
+    const stat = await fs.stat(candidate)
+    if (stat.isFile()) {
+      return { content: await fs.readFile(candidate, 'utf-8'), source: 'file' }
+    }
+  } catch {
+    // Not a readable file path; treat the argument as inline analysis text.
+  }
+
+  return { content: input, source: 'inline' }
+}
+
+async function normalizeAnalysis(input: string, projectPath: string): Promise<LLMAnalysis> {
+  const text = input.trim()
+  if (!text) throw new Error('analysis-save-llm received an empty analysis')
+
+  const parsed = tryParseJson(text)
+  if (parsed.ok) {
+    const validation = parseLlmAnalysis(parsed.value)
+    if (validation.ok) return validation.value
+    return analysisFromText(
+      `Structured analysis did not match the legacy schema; preserved as LLM notes.\n\n${JSON.stringify(
+        parsed.value,
+        null,
+        2
+      )}`,
+      projectPath
+    )
+  }
+
+  return analysisFromText(text, projectPath)
+}
+
+function tryParseJson(text: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(text) }
+  } catch {
+    return { ok: false }
+  }
+}
+
+async function analysisFromText(text: string, projectPath: string): Promise<LLMAnalysis> {
+  const insights = textToInsights(text)
+  return {
+    version: 1,
+    commitHash: await resolveCurrentCommit(projectPath),
+    analyzedAt: getTimestamp(),
+    architecture: {
+      style: 'unknown',
+      insights: insights.slice(0, 8),
+      domains: [],
+    },
+    patterns: [],
+    antiPatterns: [],
+    techDebt: [],
+    riskAreas: [],
+    refactorSuggestions: [],
+    projectInsights: insights,
+    conventions: [],
+  }
+}
+
+function textToInsights(text: string): string[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}#{1,6}\s+/, '')
+        .replace(/^\s*[-*]\s+\[[ xX]\]\s+/, '')
+        .replace(/^\s*[-*]\s+/, '')
+        .replace(/^\s*\d+[.)]\s+/, '')
+        .trim()
+    )
+    .filter(Boolean)
+
+  const unique: string[] = []
+  const seen = new Set<string>()
+  for (const line of lines) {
+    const key = line.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(line)
+    if (unique.length >= 40) break
+  }
+
+  return unique.length > 0 ? unique : [text.slice(0, 2000)]
+}
+
+async function resolveCurrentCommit(projectPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: projectPath })
+    return stdout.trim() || null
+  } catch {
+    return null
   }
 }
 

@@ -26,15 +26,11 @@ import { generateAnalysisSummary, showSyncResult } from './analysis-helpers'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
 
-/** Compact schema reference for LLM — avoids dumping 50+ lines of JSON examples */
-const ANALYSIS_SCHEMA_COMPACT = `{version:1, commitHash, analyzedAt,
-  architecture:{style:"monolith|monorepo|microservices|modular-monolith", insights:[], domains:[]},
-  patterns:[{name, description, locations:[], confidence:0-1, category:"architecture|data-flow|error-handling|testing"}],
-  antiPatterns:[{issue, reasoning, files:[], suggestion, severity:"low|medium|high", confidence:0-1}] (flag over-engineering too: speculative abstractions, premature config, needless deps),
-  techDebt:[{description, area, effort:"small|medium|large", impact, priority:"low|medium|high"}],
-  riskAreas:[{path, reason, risk, severity}], refactorSuggestions:[{description, files:[], benefit, effort}],
-  projectInsights:[], conventions:[{category, rule, example}],
-  commands:{build, test, lint, dev, format, install}, stack:{languages:[], frameworks:[], packageManager}}`
+const ANALYSIS_NOTES_INSTRUCTIONS = [
+  `> Review this project data and save concise notes for future AI agents.`,
+  `> Focus on architecture, conventions, risks, and gotchas. Markdown/text is fine; JSON is optional.`,
+  `> Most compatible save path: write notes to a temp file, then run \`prjct analysis-save-llm <file> --md\`.`,
+].join('\n')
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -245,16 +241,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
             )
             llmAnalysisInstructions = [
               `## Analysis Payload`,
-              `> Analyze this project data. Return JSON matching the schema.`,
-              '### Schema',
-              '```',
-              ANALYSIS_SCHEMA_COMPACT,
-              '```',
+              ANALYSIS_NOTES_INSTRUCTIONS,
               '### Data',
               '```json',
               JSON.stringify(payload),
               '```',
-              `> Save: \`prjct analysis-save-llm '<JSON>' --md\``,
             ].join('\n')
           } catch {
             // Fall back to manual instruction if payload build fails
@@ -341,16 +332,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
         console.log(
           mdOutput(
             `## Analysis Payload`,
-            `> Analyze this project data. Return JSON matching the schema.`,
-            '### Schema',
-            '```',
-            ANALYSIS_SCHEMA_COMPACT,
-            '```',
+            ANALYSIS_NOTES_INSTRUCTIONS,
             '### Data',
             '```json',
             JSON.stringify(payload),
-            '```',
-            `> Save: \`prjct analysis-save-llm '<JSON>' --md\``
+            '```'
           )
         )
       } else {
