@@ -55,10 +55,10 @@ export async function setupMcpServers(
     try {
       const configPath = getClaudeMcpConfigPath()
       const configured = await hasMcpServer(server.name, configPath)
-      if (configured) {
+      const result = await upsertMcpServer(server.name, MCP_SERVER_PRESETS[server.name], configPath)
+      if (configured && !result.changed) {
         if (!options.silent) console.log(server.ready)
       } else {
-        await upsertMcpServer(server.name, MCP_SERVER_PRESETS[server.name])
         if (!options.silent) console.log(server.added)
       }
     } catch (error) {

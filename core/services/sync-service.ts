@@ -40,6 +40,7 @@ import type { VerificationReport } from '../types/sync-verifier'
 import { readJson } from '../utils/file-helper'
 import log from '../utils/logger'
 import context7Service from './context7-service'
+import { writeProjectAgentSurfaces } from './project-agent-surfaces'
 import { skillGenerator } from './skill-generator'
 import { emptyCommands, emptyGitData, emptyStack, emptyStats } from './sync/defaults'
 import { detectIncrementalChanges } from './sync/incremental'
@@ -487,6 +488,10 @@ class SyncService {
       await phase('install-global', async () => {
         await commandInstaller.installGlobalConfig()
         await commandInstaller.syncCommands()
+      })
+
+      await phase('install-agent-surfaces', async () => {
+        await writeProjectAgentSurfaces(this.projectPath)
       })
 
       // 11. Run verification checks (built-in + custom from config)

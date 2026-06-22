@@ -35,4 +35,30 @@ describe('setup MCP defaults', () => {
     expect(config.mcpServers?.linear).toBeUndefined()
     expect(config.mcpServers?.jira).toBeUndefined()
   })
+
+  test('repairs stale prjct MCP command instead of only checking presence', async () => {
+    await fs.mkdir(path.dirname(TEST_MCP_PATH), { recursive: true })
+    await fs.writeFile(
+      TEST_MCP_PATH,
+      JSON.stringify({
+        mcpServers: {
+          prjct: {
+            command: 'npx',
+            args: ['-y', 'prjct-cli', 'mcp'],
+          },
+        },
+      }),
+      'utf-8'
+    )
+
+    await setupMcpServers({ silent: true, verifyContext7: false })
+
+    const raw = await fs.readFile(TEST_MCP_PATH, 'utf-8')
+    const config = JSON.parse(raw) as {
+      mcpServers?: Record<string, { command?: string; args?: string[] }>
+    }
+
+    expect(config.mcpServers?.prjct?.args).not.toEqual(['-y', 'prjct-cli', 'mcp'])
+    expect(config.mcpServers?.prjct?.args?.join(' ')).toContain('mcp-server')
+  })
 })

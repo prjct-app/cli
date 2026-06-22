@@ -395,17 +395,20 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     const status = await commandInstaller.checkInstallation()
     const aiProvider = require('../infrastructure/ai-provider')
     const codexDetection = await aiProvider.detectCodex()
+    const antigravityDetection = await aiProvider.detectAntigravity()
     const hasCliProvider = status.providerDetected
     const activeProvider = hasCliProvider ? await aiProvider.getActiveProvider() : null
-    const primaryName = hasCliProvider ? activeProvider.displayName : 'OpenAI Codex'
+    const primaryName = hasCliProvider
+      ? activeProvider.displayName
+      : codexDetection.installed
+        ? 'OpenAI Codex'
+        : 'AI agents'
 
     console.log(`🚀 Setting up prjct for ${primaryName}...\n`)
 
-    if (!hasCliProvider && !codexDetection.installed) {
-      return {
-        success: false,
-        message: `❌ No supported AI provider detected.\n\nPlease install one first:\n  - Claude Code: https://docs.anthropic.com/claude-code\n  - Gemini CLI: https://geminicli.com/docs\n  - OpenAI Codex: https://github.com/openai/codex`,
-      }
+    if (!hasCliProvider && !codexDetection.installed && !antigravityDetection.installed) {
+      console.log('ℹ️  No local CLI runtime detected.')
+      console.log('   prjct will still use AGENTS.md + MCP-compatible surfaces after init.')
     }
 
     if (hasCliProvider) {
@@ -431,28 +434,19 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
       }
     }
 
-    if (codexDetection.installed) {
-      try {
-        const { installCodexSkill, verifyCodexPRouterReady } = await import(
-          '../infrastructure/codex-skill'
-        )
-        await installCodexSkill()
-        const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
-        if (codexRouter.verified) {
-          console.log('✅ Installed Codex skill: ~/.codex/skills/prjct/SKILL.md')
-          console.log('✅ Codex p. router ready')
-        } else {
-          console.log(
-            `⚠️  Codex skill setup incomplete: ${codexRouter.message || 'router verification failed'}`
-          )
-          console.log('   Run `prjct setup` to retry Codex configuration.')
-        }
-      } catch (error) {
-        console.log(`⚠️  Codex skill setup failed (non-blocking): ${getErrorMessage(error)}`)
-      }
-    }
+    await this.installCodexSurface(codexDetection.installed, 'Installed Codex skill')
+    await this.installAntigravitySurface(antigravityDetection.installed)
 
     await this.setupMcpServers()
+    await this.installProjectAgentSurfacesIfConfigured()
+    await this.saveSetupStamp(
+      activeProvider?.name ??
+        (codexDetection.installed
+          ? 'codex'
+          : antigravityDetection.installed
+            ? 'antigravity'
+            : 'claude')
+    )
 
     console.log('\n🎉 Setup complete!')
     console.log('\nNext steps:')
@@ -472,54 +466,69 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
   async setup(options: SetupOptions = {}): Promise<CommandResult> {
     console.log('🔧 Reconfiguring prjct...\n')
 
+    const aiProvider = require('../infrastructure/ai-provider')
+    const codexDetection = await aiProvider.detectCodex()
+    const antigravityDetection = await aiProvider.detectAntigravity()
+    const status = await commandInstaller.checkInstallation()
+    const hasGlobalCliProvider = status.providerDetected
+
     if (options.force) {
       console.log('🗑️  Removing existing installation...')
       await commandInstaller.uninstallCommands()
     }
 
-    console.log('📦 Installing /p:* commands...')
-    const result = await commandInstaller.installCommands()
-
-    if (!result.success) {
-      return {
-        success: false,
-        message: `❌ Setup failed: ${result.error}`,
-      }
+    if (!hasGlobalCliProvider && !codexDetection.installed && !antigravityDetection.installed) {
+      console.log('ℹ️  No local CLI runtime detected.')
+      console.log('   Continuing with universal AGENTS.md/MCP-compatible setup.')
     }
 
-    console.log(`\n✅ Installed ${result.installed?.length ?? 0} commands`)
+    if (hasGlobalCliProvider) {
+      console.log('📦 Installing /p:* commands...')
+      const result = await commandInstaller.installCommands()
 
-    if ((result.errors?.length ?? 0) > 0) {
-      console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
-      for (const e of result.errors ?? []) {
-        console.log(`   - ${e.file}: ${e.error}`)
+      if (!result.success) {
+        return {
+          success: false,
+          message: `❌ Setup failed: ${result.error}`,
+        }
       }
-    }
 
-    console.log('\n📝 Installing global configuration...')
-    const configResult = await commandInstaller.installGlobalConfig()
-    const displayPath = configResult.path
-      ? pathManager.getDisplayPath(configResult.path)
-      : 'global config'
+      console.log(`\n✅ Installed ${result.installed?.length ?? 0} commands`)
 
-    if (configResult.success) {
-      if (configResult.action === 'created') {
-        console.log(`✅ Created ${displayPath}`)
-      } else if (configResult.action === 'updated') {
-        console.log(`✅ Updated ${displayPath}`)
-      } else if (configResult.action === 'appended') {
-        console.log(`✅ Added prjct config to ${displayPath}`)
+      if ((result.errors?.length ?? 0) > 0) {
+        console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
+        for (const e of result.errors ?? []) {
+          console.log(`   - ${e.file}: ${e.error}`)
+        }
+      }
+
+      console.log('\n📝 Installing global configuration...')
+      const configResult = await commandInstaller.installGlobalConfig()
+      const displayPath = configResult.path
+        ? pathManager.getDisplayPath(configResult.path)
+        : 'global config'
+
+      if (configResult.success) {
+        if (configResult.action === 'created') {
+          console.log(`✅ Created ${displayPath}`)
+        } else if (configResult.action === 'updated') {
+          console.log(`✅ Updated ${displayPath}`)
+        } else if (configResult.action === 'appended') {
+          console.log(`✅ Added prjct config to ${displayPath}`)
+        }
+      } else {
+        console.log(`⚠️  ${configResult.error}`)
       }
     } else {
-      console.log(`⚠️  ${configResult.error}`)
+      console.log(
+        'ℹ️  No Claude/Gemini global command surface detected; skipping CLI router cleanup.'
+      )
     }
 
-    const aiProvider = require('../infrastructure/ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
-    const codexDetection = await aiProvider.detectCodex()
+    const activeProvider = hasGlobalCliProvider ? await aiProvider.getActiveProvider() : null
 
     // Status line is currently Claude-only
-    if (activeProvider.name === 'claude') {
+    if (activeProvider?.name === 'claude') {
       console.log('\n⚡ Installing status line...')
       const statusLineResult = await this.installStatusLine()
       if (statusLineResult.success) {
@@ -529,28 +538,19 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
       }
     }
 
-    if (codexDetection.installed) {
-      try {
-        const { installCodexSkill, verifyCodexPRouterReady } = await import(
-          '../infrastructure/codex-skill'
-        )
-        await installCodexSkill()
-        const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
-        if (codexRouter.verified) {
-          console.log('✅ Codex skill installed')
-          console.log('✅ Codex p. router ready')
-        } else {
-          console.log(
-            `⚠️  Codex skill setup incomplete: ${codexRouter.message || 'router verification failed'}`
-          )
-          console.log('   Run `prjct setup` again to retry Codex configuration.')
-        }
-      } catch (error) {
-        console.log(`⚠️  Codex skill setup failed (non-blocking): ${getErrorMessage(error)}`)
-      }
-    }
+    await this.installCodexSurface(codexDetection.installed, 'Codex skill installed')
+    await this.installAntigravitySurface(antigravityDetection.installed)
 
     await this.setupMcpServers()
+    await this.installProjectAgentSurfacesIfConfigured()
+    await this.saveSetupStamp(
+      activeProvider?.name ??
+        (codexDetection.installed
+          ? 'codex'
+          : antigravityDetection.installed
+            ? 'antigravity'
+            : 'claude')
+    )
 
     console.log('\n🎉 Setup complete!\n')
 
@@ -570,6 +570,90 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
    */
   private async setupMcpServers(): Promise<void> {
     await configureDefaultMcpServers()
+  }
+
+  private async saveSetupStamp(
+    provider: import('../types/provider').AIProviderName
+  ): Promise<void> {
+    try {
+      const editorsConfig = (await import('../infrastructure/editors-config')).default
+      const installPath = path.join(pathManager.globalConfigDir, 'runtime-surfaces')
+      await editorsConfig.saveConfig(VERSION, installPath, provider)
+    } catch (error) {
+      console.log(`⚠️  Setup stamp failed (non-blocking): ${getErrorMessage(error)}`)
+    }
+  }
+
+  private async installProjectAgentSurfacesIfConfigured(): Promise<void> {
+    try {
+      const projectPath = process.cwd()
+      const isConfigured = await configManager.isConfigured(projectPath)
+      if (!isConfigured) return
+
+      const { writeProjectAgentSurfaces } = await import('../services/project-agent-surfaces')
+      const { detectInstalledAgents } = await import('../workflows/onboarding/detection')
+      const result = await writeProjectAgentSurfaces(projectPath, {
+        agents: await detectInstalledAgents(projectPath),
+      })
+      console.log('✅ Project AGENTS.md ready')
+      if (result.claudeMd) console.log('✅ Project CLAUDE.md ready')
+      if (result.ideRules.length > 0) {
+        console.log(`✅ Project IDE rules ready: ${result.ideRules.join(', ')}`)
+      }
+    } catch (error) {
+      console.log(`⚠️  Project agent surface setup failed (non-blocking): ${getErrorMessage(error)}`)
+    }
+  }
+
+  private async installCodexSurface(installed: boolean, successLabel: string): Promise<void> {
+    if (!installed) return
+    try {
+      const { installCodexSkill, verifyCodexPRouterReady } = await import(
+        '../infrastructure/codex-skill'
+      )
+      await installCodexSkill()
+      const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
+      if (codexRouter.verified) {
+        console.log(`✅ ${successLabel}`)
+        console.log('✅ Codex p. router ready')
+      } else {
+        console.log(
+          `⚠️  Codex skill setup incomplete: ${codexRouter.message || 'router verification failed'}`
+        )
+        console.log('   Run `prjct setup` to retry Codex configuration.')
+      }
+    } catch (error) {
+      console.log(`⚠️  Codex skill setup failed (non-blocking): ${getErrorMessage(error)}`)
+    }
+  }
+
+  private async installAntigravitySurface(installed: boolean): Promise<void> {
+    if (!installed) return
+    try {
+      const os = await import('node:os')
+      const { getTemplateContent } = await import('../agentic/template-loader')
+      const { PACKAGE_ROOT } = await import('../utils/version')
+      const antigravitySkillDir = path.join(
+        os.homedir(),
+        '.gemini',
+        'antigravity',
+        'skills',
+        'prjct'
+      )
+      const skillPath = path.join(antigravitySkillDir, 'SKILL.md')
+      let templateContent = getTemplateContent('antigravity/SKILL.md')
+      if (!templateContent) {
+        templateContent = await fs.readFile(
+          path.join(PACKAGE_ROOT, 'templates', 'antigravity', 'SKILL.md'),
+          'utf-8'
+        )
+      }
+      await fs.mkdir(antigravitySkillDir, { recursive: true })
+      await fs.writeFile(skillPath, templateContent, 'utf-8')
+      console.log('✅ Antigravity skill installed')
+    } catch (error) {
+      console.log(`⚠️  Antigravity skill setup failed (non-blocking): ${getErrorMessage(error)}`)
+    }
   }
 
   /**

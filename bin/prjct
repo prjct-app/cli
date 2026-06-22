@@ -43,6 +43,26 @@ SCRIPT_PATH="$(resolve_symlink "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Stdio MCP entry point for `npx -y prjct-cli mcp-server`.
+# Keep this before self-healing setup so MCP stdout stays protocol-only.
+if [ "$1" = "mcp-server" ]; then
+  MCP_SERVER="$ROOT_DIR/dist/mcp/server.mjs"
+  if [ ! -f "$MCP_SERVER" ]; then
+    echo "Error: MCP server entry point not found. Run 'npm run build' first." >&2
+    exit 1
+  fi
+  NODE_VER="$(node -v 2>/dev/null | sed 's/^v//')"
+  NODE_MAJ="${NODE_VER%%.*}"
+  NODE_MIN_REST="${NODE_VER#*.}"
+  NODE_MIN="${NODE_MIN_REST%%.*}"
+  if [ "${NODE_MAJ:-0}" -lt 22 ] || { [ "${NODE_MAJ:-0}" -eq 22 ] && [ "${NODE_MIN:-0}" -lt 5 ]; }; then
+    echo "Error: prjct MCP needs Node >=22.5 (for node:sqlite) — found Node ${NODE_VER:-unknown}." >&2
+    exit 1
+  fi
+  export NODE_OPTIONS="--experimental-sqlite${NODE_OPTIONS:+ $NODE_OPTIONS}"
+  exec node "$MCP_SERVER"
+fi
+
 # Ensure statusline and basic config (self-healing)
 # Router (p.md) is deprecated — skills handle workflows natively
 ensure_setup() {

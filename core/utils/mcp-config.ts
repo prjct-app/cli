@@ -1,3 +1,4 @@
+import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -15,22 +16,46 @@ interface MCPConfig {
  * Get the prjct MCP server config, resolving the path from the installed package.
  */
 function getPrjctMcpConfig(): MCPServerConfig {
+  const localBin = resolveLocalPrjctBin()
+  if (localBin) {
+    return {
+      command: localBin,
+      args: ['mcp-server'],
+      description:
+        'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
+    }
+  }
+
   try {
     const pkgDir = path.dirname(require.resolve('prjct-cli/package.json'))
     return {
-      command: 'node',
-      args: [path.join(pkgDir, 'dist', 'mcp', 'server.mjs')],
+      command: path.join(pkgDir, 'bin', 'prjct'),
+      args: ['mcp-server'],
       description:
         'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
     }
   } catch {
     return {
       command: 'npx',
-      args: ['-y', 'prjct-cli', 'mcp'],
+      args: ['-y', 'prjct-cli', 'mcp-server'],
       description:
         'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
     }
   }
+}
+
+function resolveLocalPrjctBin(): string | null {
+  const argvPath = process.argv[1]
+  const candidates = [
+    argvPath ? path.resolve(path.dirname(argvPath), 'prjct') : '',
+    argvPath ? path.resolve(path.dirname(argvPath), '..', 'bin', 'prjct') : '',
+    path.resolve(process.cwd(), 'bin', 'prjct'),
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    if (fsSync.existsSync(candidate)) return candidate
+  }
+  return null
 }
 
 export const MCP_SERVER_PRESETS: Record<'context7' | 'linear' | 'jira' | 'prjct', MCPServerConfig> =

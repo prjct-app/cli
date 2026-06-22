@@ -75,7 +75,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     requiresLlm: true,
-    features: ['No arg → ships the active task description, or falls back to current work'],
+    features: ['No arg → ships the active task description, or derives a summary from the branch'],
   },
   {
     name: 'sync',

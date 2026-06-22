@@ -30,6 +30,8 @@ describe('e2e: review-risk (real CLI, hermetic git repos)', () => {
     sb = await makeSandbox()
     expect((await sb.cli(['init'], { timeoutMs: 90_000 })).code).toBe(0)
     expect((await sb.cli(['setup'], { timeoutMs: 90_000 })).code).toBe(0)
+    await git(sb.dir, ['add', '.'])
+    await git(sb.dir, ['commit', '-q', '-m', 'prjct init'])
   })
   afterAll(async () => {
     await sb.cleanup()
@@ -75,6 +77,6 @@ describe('e2e: review-risk (real CLI, hermetic git repos)', () => {
       })
       p.on('exit', () => resolve(out))
     })
-    expect(log.split('\n').filter(Boolean).length).toBe(2) // init + huge only
+    expect(log.split('\n').filter(Boolean).length).toBe(3) // repo init + prjct init + huge
   })
 })

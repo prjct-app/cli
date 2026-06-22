@@ -43,6 +43,15 @@ export const AI_AGENTS: { value: AIAgent; title: string; description: string }[]
   { value: 'copilot', title: 'GitHub Copilot', description: "GitHub's AI pair programmer" },
   { value: 'gemini', title: 'Gemini CLI', description: "Google's Gemini in terminal" },
   { value: 'codex', title: 'OpenAI Codex', description: "OpenAI's coding agent in terminal" },
+  { value: 'opencode', title: 'OpenCode', description: 'Open-source terminal coding agent' },
+  { value: 'qwen-code', title: 'Qwen Code', description: 'Qwen-family coding runtime' },
+  { value: 'goose', title: 'Goose', description: 'Open-source coding agent with extensions' },
+  { value: 'aider', title: 'Aider', description: 'Terminal pair-programming agent' },
+  { value: 'cline', title: 'Cline', description: 'VS Code coding agent' },
+  { value: 'roo-code', title: 'Roo Code', description: 'VS Code coding agent with MCP' },
+  { value: 'continue', title: 'Continue', description: 'IDE assistant with MCP config' },
+  { value: 'kiro', title: 'Kiro', description: 'Agentic IDE with steering docs' },
+  { value: 'zed', title: 'Zed', description: 'Editor agent with ACP support' },
 ]
 
 export async function detectProjectType(projectPath: string): Promise<ProjectType> {
@@ -100,6 +109,29 @@ export async function detectInstalledAgents(projectPath: string): Promise<AIAgen
     agents.push('copilot')
   }
   if (await dirExists(path.join(os.homedir(), '.gemini'))) agents.push('gemini')
+  if (await dirExists(path.join(os.homedir(), '.gemini', 'antigravity'))) {
+    agents.push('antigravity')
+  }
+  if (await dirExists(path.join(projectPath, '.opencode'))) agents.push('opencode')
+  if (await dirExists(path.join(projectPath, '.qwen'))) agents.push('qwen-code')
+  if (await dirExists(path.join(projectPath, '.goose'))) agents.push('goose')
+  if (
+    (await fileExists(path.join(projectPath, '.aider.conf.yml'))) ||
+    (await fileExists(path.join(projectPath, '.aider.conf.yaml')))
+  ) {
+    agents.push('aider')
+  }
+  if (
+    (await dirExists(path.join(projectPath, '.cline'))) ||
+    (await dirExists(path.join(projectPath, '.clinerules'))) ||
+    (await fileExists(path.join(projectPath, '.clinerules')))
+  ) {
+    agents.push('cline')
+  }
+  if (await dirExists(path.join(projectPath, '.roo'))) agents.push('roo-code')
+  if (await dirExists(path.join(projectPath, '.continue'))) agents.push('continue')
+  if (await dirExists(path.join(projectPath, '.kiro'))) agents.push('kiro')
+  if (await dirExists(path.join(projectPath, '.zed'))) agents.push('zed')
 
   // Codex: Check codex binary OR ~/.codex directory
   try {
@@ -110,7 +142,7 @@ export async function detectInstalledAgents(projectPath: string): Promise<AIAgen
     if (await dirExists(path.join(os.homedir(), '.codex'))) agents.push('codex')
   }
 
-  return agents.length > 0 ? agents : ['claude']
+  return agents
 }
 
 export async function detectStack(projectPath: string): Promise<DetectedStack> {
