@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.58.0] - 2026-06-22
+
+### Added
+- stale sync slash copy
+
 ## [2.57.0] - 2026-06-22
 
 ### Added
