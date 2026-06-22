@@ -7,8 +7,10 @@ import * as authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import { writeProjectAgentsMd } from '../services/project-agents-md'
-import { writeProjectClaudeMd } from '../services/project-claude-md'
+import {
+  type ProjectAgentSurfacesResult,
+  writeProjectAgentSurfaces,
+} from '../services/project-agent-surfaces'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult, InitOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -124,11 +126,14 @@ export class PlanningCommands extends PrjctCommandsBase {
         if (analysisResult.success) {
           out.step(4, 4, 'Generating agents...')
 
-          // Pass wizard agent selection to sync if available
           await analysis.sync(projectPath)
 
+          const surfaces = await writeProjectAgentSurfaces(projectPath, {
+            agents: await this._agentSelections(wizardResult, projectPath),
+          }).catch(() => null)
+
           out.done('initialized')
-          this._printNextSteps(wizardResult)
+          this._printNextSteps(wizardResult, surfaces ?? undefined)
           return { success: true, mode: 'existing', projectId, wizard: wizardResult }
         }
       }
@@ -136,7 +141,12 @@ export class PlanningCommands extends PrjctCommandsBase {
       const idea = opts.idea
       if (isEmpty && !hasCode) {
         if (!idea) {
+          await commandInstaller.installGlobalConfig()
+          const surfaces = await writeProjectAgentSurfaces(projectPath, {
+            agents: await this._agentSelections(wizardResult, projectPath),
+          }).catch(() => null)
           out.done('blank project - provide idea for architect mode')
+          this._printNextSteps(wizardResult, surfaces ?? undefined)
           return { success: true, mode: 'blank_no_idea', projectId, wizard: wizardResult }
         }
 
@@ -153,34 +163,22 @@ export class PlanningCommands extends PrjctCommandsBase {
         })
 
         await commandInstaller.installGlobalConfig()
+        const surfaces = await writeProjectAgentSurfaces(projectPath, {
+          agents: await this._agentSelections(wizardResult, projectPath),
+        }).catch(() => null)
 
         out.done('architect mode ready')
+        this._printNextSteps(wizardResult, surfaces ?? undefined)
         return { success: true, mode: 'architect', projectId, idea, wizard: wizardResult }
       }
 
       await commandInstaller.installGlobalConfig()
-      // Write the per-project CLAUDE.md routing block so Claude Code
-      // sessions in this directory pick up the prjct contract on cwd
-      // entry. Best-effort — a missing/locked file degrades silently.
-      await writeProjectClaudeMd(projectPath).catch(() => {})
-      // AGENTS.md is the cross-agent counterpart (Codex reads it at
-      // project load — it has no hooks, so this block is its only
-      // session-start context). Written when Codex is around or the
-      // wizard selected it.
-      let agentsMdWritten = false
-      try {
-        const { detectCodex } = await import('../infrastructure/ai-provider')
-        const codex = await detectCodex()
-        if (codex.installed || wizardResult?.agents.includes('codex')) {
-          await writeProjectAgentsMd(projectPath)
-          agentsMdWritten = true
-        }
-      } catch {
-        // best-effort, same contract as CLAUDE.md above
-      }
+      const surfaces = await writeProjectAgentSurfaces(projectPath, {
+        agents: await this._agentSelections(wizardResult, projectPath),
+      }).catch(() => null)
 
       out.done('initialized')
-      this._printNextSteps(wizardResult, { agentsMdWritten })
+      this._printNextSteps(wizardResult, surfaces ?? undefined)
       return { success: true, projectId, wizard: wizardResult }
     } catch (error) {
       out.fail(getErrorMessage(error))
@@ -193,18 +191,23 @@ export class PlanningCommands extends PrjctCommandsBase {
    */
   private _printNextSteps(
     wizardResult: import('../types/workflows').WizardResult | null,
-    written: { agentsMdWritten?: boolean } = {}
+    surfaces?: ProjectAgentSurfacesResult
   ): void {
     console.log('')
-    console.log('  ✓ skill installed at ~/.claude/skills/prjct/')
-    console.log('  ✓ project CLAUDE.md updated with routing block')
-    if (written.agentsMdWritten) {
-      console.log('  ✓ project AGENTS.md updated with routing block (Codex & friends)')
+    console.log('  ✓ global prjct router refreshed where supported')
+    if (surfaces?.claudeMd) {
+      console.log('  ✓ project CLAUDE.md updated with routing block')
+    }
+    if (surfaces?.agentsMd) {
+      console.log('  ✓ project AGENTS.md updated with universal routing block')
+    }
+    if ((surfaces?.ideRules.length ?? 0) > 0) {
+      console.log(`  ✓ project IDE rules updated: ${surfaces?.ideRules.join(', ')}`)
     }
     console.log('')
-    console.log("  You don't run prjct commands. Claude does.")
+    console.log("  You don't run prjct commands. Your AI coding agent does.")
     console.log('')
-    console.log("  Just describe what you're doing — Claude reads the intent and")
+    console.log("  Just describe what you're doing — the agent reads the intent and")
     console.log('  runs the right verb. Routine captures (decision, learning,')
     console.log('  gotcha, idea) save automatically; ship and other destructive')
     console.log('  verbs surface a one-line plan and wait for your OK.')
@@ -215,9 +218,6 @@ export class PlanningCommands extends PrjctCommandsBase {
     console.log('    prjct hooks      Auto-sync on commit/checkout')
     console.log('')
 
-    // Honest reporting only: the wizard DETECTS agents, it does not
-    // generate their config files (CLAUDE.md/AGENTS.md writes are
-    // reported above, where they actually happen).
     if (wizardResult && wizardResult.agents.length > 0) {
       console.log(`  Detected agents: ${wizardResult.agents.join(', ')}`)
       console.log('')
@@ -225,6 +225,19 @@ export class PlanningCommands extends PrjctCommandsBase {
 
     console.log('  Docs: https://prjct.app/docs')
     console.log('')
+  }
+
+  private async _agentSelections(
+    wizardResult: import('../types/workflows').WizardResult | null,
+    projectPath: string
+  ): Promise<readonly string[]> {
+    if (wizardResult) return wizardResult.agents
+    try {
+      const { detectInstalledAgents } = await import('../workflows/onboarding/detection')
+      return detectInstalledAgents(projectPath)
+    } catch {
+      return []
+    }
   }
 
   /**

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+## [2.54.0] - 2026-06-21
+
+### Added
+- current work
+
 ## [2.53.1] - 2026-06-21
 
 ### Fixed

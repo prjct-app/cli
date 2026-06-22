@@ -123,6 +123,7 @@ export interface ProviderSelectionResult {
   detection: {
     claude: ProviderDetectionResult
     gemini: ProviderDetectionResult
+    codex: ProviderDetectionResult
   }
 }
 

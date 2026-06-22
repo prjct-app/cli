@@ -202,8 +202,14 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       process.exitCode = 1
     }
   } else if (args[0] === 'start' || args[0] === 'setup') {
-    const { runStart } = await import('../cli/start')
-    await runStart()
+    const { SetupCommands } = await import('../commands/setup')
+    const commands = new SetupCommands()
+    const result =
+      args[0] === 'start'
+        ? await commands.start()
+        : await commands.setup({ force: args.includes('--force') })
+    if (result.message) console.log(result.message)
+    process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'context') {
     const projectPath = process.cwd()
     const configManager = (await import('../infrastructure/config-manager')).default
@@ -529,7 +535,10 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
     const os = await import('node:os')
     const path = await import('node:path')
     const chalk = (await import('chalk')).default
-    const { detectAllProviders } = await import('../infrastructure/ai-provider')
+    const { detectAllProviders, detectAntigravity, detectCodex } = await import(
+      '../infrastructure/ai-provider'
+    )
+    const { listAgentRuntimes } = await import('../infrastructure/agent-runtime-registry')
     const { fileExists } = await import('../utils/file-helper')
     const { VERSION } = await import('../utils/version')
     const detection = await detectAllProviders(ctx.isRefresh)
@@ -542,17 +551,33 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       cursorConfigured,
       windsurfDetected,
       windsurfConfigured,
+      codexMcpConfigured,
+      agentsMdConfigured,
     ] = await Promise.all([
-      fileExists(path.join(home, '.claude', 'commands', 'p.md')),
-      fileExists(path.join(home, '.gemini', 'commands', 'p.toml')),
+      fileExists(path.join(home, '.claude', 'CLAUDE.md')),
+      fileExists(path.join(home, '.gemini', 'GEMINI.md')),
       fileExists(path.join(cwd, '.cursor')),
       fileExists(path.join(cwd, '.cursor', 'rules', 'prjct.mdc')),
       fileExists(path.join(cwd, '.windsurf')),
       fileExists(path.join(cwd, '.windsurf', 'rules', 'prjct.md')),
+      fileExists(path.join(home, '.codex', 'config.toml')),
+      fileExists(path.join(cwd, 'AGENTS.md')),
+    ])
+    const [codexDetection, antigravityDetection] = await Promise.all([
+      detectCodex(),
+      detectAntigravity(),
     ])
 
     const { providerStatusHeader, providerStatusLine } = await import('../utils/provider-status')
+    const runtimeCount = listAgentRuntimes().filter((runtime) => runtime.id !== 'agents-md').length
     console.log(providerStatusHeader(VERSION))
+    console.log(
+      providerStatusLine(
+        'Universal AGENTS.md',
+        agentsMdConfigured ? 'ready' : 'missing',
+        chalk.dim(` (${runtimeCount} runtime profiles in registry)`)
+      )
+    )
     console.log(
       providerStatusLine(
         'Claude Code',
@@ -565,6 +590,34 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
         'Gemini CLI',
         detection.gemini.installed ? (geminiConfigured ? 'ready' : 'installed') : 'missing',
         detection.gemini.version ? chalk.dim(` (v${detection.gemini.version})`) : ''
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'OpenAI Codex',
+        codexDetection.installed
+          ? codexDetection.skillInstalled && codexMcpConfigured
+            ? 'ready'
+            : 'installed'
+          : 'missing',
+        codexDetection.installed && !codexDetection.skillInstalled
+          ? chalk.dim(' (run prjct start)')
+          : codexDetection.installed && !codexMcpConfigured
+            ? chalk.dim(' (MCP pending)')
+            : ''
+      )
+    )
+    console.log(
+      providerStatusLine(
+        'Antigravity',
+        antigravityDetection.installed
+          ? antigravityDetection.skillInstalled
+            ? 'ready'
+            : 'detected'
+          : 'missing',
+        antigravityDetection.installed && !antigravityDetection.skillInstalled
+          ? chalk.dim(' (run prjct start)')
+          : ''
       )
     )
     console.log(
@@ -585,8 +638,8 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
     )
 
     console.log(`
-${chalk.dim("Run 'prjct start' to configure (CLI providers)")}
-${chalk.dim("Run 'prjct init' to configure (Cursor/Windsurf IDE)")}
+${chalk.dim("Run 'prjct start' to configure global/runtime adapters")}
+${chalk.dim("Run 'prjct init' or 'prjct sync' to refresh AGENTS.md and project-level rules")}
 ${chalk.cyan('https://prjct.app')}
 `)
   } else {

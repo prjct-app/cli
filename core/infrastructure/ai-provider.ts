@@ -329,7 +329,7 @@ export async function detectAllProviders(refresh = false): Promise<{
  * Priority:
  * 1. Check project config for saved provider preference
  * 2. Auto-detect single installed provider
- * 3. Default to Claude if both installed
+ * 3. Prefer Claude when several legacy CLI providers are installed
  */
 export async function getActiveProvider(
   projectProvider?: AIProviderName
@@ -342,15 +342,27 @@ export async function getActiveProvider(
   // Auto-detect
   const detection = await detectAllProviders()
 
-  // If only one is installed, use it
-  if (detection.claude.installed && !detection.gemini.installed) {
-    return ClaudeProvider
-  }
-  if (detection.gemini.installed && !detection.claude.installed) {
-    return GeminiProvider
+  const installed = [
+    detection.claude.installed ? 'claude' : null,
+    detection.gemini.installed ? 'gemini' : null,
+    detection.codex.installed ? 'codex' : null,
+  ].filter(Boolean)
+
+  if (installed.length === 1) {
+    return Providers[installed[0] as AIProviderName]
   }
 
-  // Default to Claude
+  if (detection.claude.installed) {
+    return ClaudeProvider
+  }
+  if (detection.gemini.installed) {
+    return GeminiProvider
+  }
+  if (detection.codex.installed) {
+    return CodexProvider
+  }
+
+  // Historical fallback for callers that expect a provider object.
   return ClaudeProvider
 }
 
@@ -460,8 +472,12 @@ export async function detectCodex(): Promise<CodexDetection> {
 export async function selectProvider(): Promise<ProviderSelectionResult> {
   const detection = await detectAllProviders()
 
-  // Gemini only when it's the sole CLI installed; Claude is the default
-  // everywhere else (not installed → setup prompts to install it).
-  const provider = detection.gemini.installed && !detection.claude.installed ? 'gemini' : 'claude'
+  const provider = detection.claude.installed
+    ? 'claude'
+    : detection.gemini.installed
+      ? 'gemini'
+      : detection.codex.installed
+        ? 'codex'
+        : 'claude'
   return { provider, detection }
 }

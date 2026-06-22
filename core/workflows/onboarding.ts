@@ -28,6 +28,12 @@ import {
   PROJECT_TYPES,
 } from './onboarding/detection'
 
+interface AIAgentOption {
+  label: string
+  hint: string
+  value: string
+}
+
 export class OnboardingWizard {
   private projectPath: string
   private aborted: boolean = false
@@ -80,7 +86,7 @@ export class OnboardingWizard {
     this.detectedType = await detectProjectType(this.projectPath)
     this.confirmedType = this.detectedType
     const detectedAgents = await detectInstalledAgents(this.projectPath)
-    this.selectedAgents = detectedAgents.length > 0 ? detectedAgents : ['claude']
+    this.selectedAgents = detectedAgents
     this.detectedStack = await detectStack(this.projectPath)
     this.confirmedStack = this.detectedStack
 
@@ -119,14 +125,15 @@ export class OnboardingWizard {
 
   private async stepAIAgents(): Promise<boolean> {
     const detectedAgents = await detectInstalledAgents(this.projectPath)
+    const options: AIAgentOption[] = AI_AGENTS.map((agent) => ({
+      label: agent.title,
+      hint: agent.description,
+      value: agent.value,
+    }))
 
-    const agents = await p.multiselect({
+    const agents = await p.multiselect<string>({
       message: 'Which AI agents do you use?',
-      options: AI_AGENTS.map((agent) => ({
-        label: agent.title,
-        hint: agent.description,
-        value: agent.value,
-      })),
+      options,
       initialValues: detectedAgents,
       required: true,
     })
@@ -136,7 +143,7 @@ export class OnboardingWizard {
       return false
     }
 
-    this.selectedAgents = agents.length > 0 ? agents : ['claude']
+    this.selectedAgents = agents as AIAgent[]
     return true
   }
 

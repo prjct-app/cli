@@ -1,10 +1,10 @@
 <!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Skills auto-activate for: task, done, pause, resume, ship, next, sync, bug, workflow, enrich, linear, jira, plan, velocity, tokens
+Skills auto-activate for: task, status, ship, sync, bug, workflow, spec, guard, capture, remember, context, linear, jira
 Other commands: run `prjct <command> --md` and follow CLI output
 
-Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
+Flow: idea → spec when warranted → task → work → status done → ship
 
 Data:
 - Persist everything (memories, captures, specs) in ENGLISH, whatever language the user speaks
