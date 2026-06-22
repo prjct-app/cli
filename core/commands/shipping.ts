@@ -16,6 +16,7 @@ import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import { syncService } from '../services/sync-service'
 import { completeActiveTask, resolveActiveTask } from '../services/task-service'
+import { getGitBranch } from '../session/git-helpers'
 import { prjctDb } from '../storage/database'
 import { shippedStorage } from '../storage/shipped-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
@@ -88,7 +89,7 @@ export class ShippingCommands extends PrjctCommandsBase {
         // Best-effort recovery — never block a ship on reconciliation.
       }
 
-      let featureName = feature
+      let featureName = normalizeShipFeature(feature)
 
       // Resolve + complete the task for THIS worktree (main → currentTask,
       // child worktree → its activeTasks[] slot) so parallel agents ship their
@@ -96,10 +97,9 @@ export class ShippingCommands extends PrjctCommandsBase {
       const currentTask = await resolveActiveTask(projectId, projectPath)
       const linkedSpecId = currentTask?.linkedSpecId
       if (currentTask) {
-        if (!featureName) featureName = currentTask.description || 'current work'
+        if (!featureName) featureName = normalizeShipFeature(currentTask.description)
         await completeActiveTask(projectId, projectPath)
       }
-      if (!featureName) featureName = 'current work'
 
       // SDD strict gate (opt-in via config.sdd.mode === 'strict'): refuse to
       // ship work with no linked spec — the pipeline is mandatory in strict.
@@ -229,6 +229,15 @@ export class ShippingCommands extends PrjctCommandsBase {
         return { success: false, clarification }
       }
 
+      featureName = featureName ?? (await inferShipFeatureFromBranch(projectPath))
+      if (!featureName) {
+        return {
+          success: false,
+          error:
+            'Ship needs a release description. Pass one explicitly, e.g. `prjct ship "add universal agent compatibility"`, or ship from a named feature branch.',
+        }
+      }
+
       const runCtx: WorkflowRunContext = { feature: featureName }
 
       const beforeResult = await executeWorkflowRules(projectId, 'ship', 'before', {
@@ -354,6 +363,33 @@ export class ShippingCommands extends PrjctCommandsBase {
       return failFromError(error)
     }
   }
+}
+
+function normalizeShipFeature(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+async function inferShipFeatureFromBranch(projectPath: string): Promise<string | null> {
+  const branch = await getGitBranch(projectPath)
+  if (!branch) return null
+
+  const normalized = branch.replace(/^refs\/heads\//, '').trim()
+  if (!normalized || /^(main|master|develop|development|dev|trunk)$/i.test(normalized)) {
+    return null
+  }
+
+  const leaf = normalized.split('/').filter(Boolean).at(-1) ?? normalized
+  if (!leaf || /^\d+(?:\.\d+)*$/.test(leaf)) return null
+
+  const words = leaf
+    .replace(/^[a-z]+-\d+[-_]/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return words.length >= 3 ? words : null
 }
 
 function isCodeProject(projectPath: string): boolean {

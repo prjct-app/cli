@@ -5,7 +5,10 @@
 ## [2.54.0] - 2026-06-21
 
 ### Added
-- current work
+- Universal AI coding agent compatibility surfaces. `prjct init`, `setup`, and `sync` now refresh AGENTS.md, legacy Claude routing, stable IDE rules, and repaired MCP config from a shared runtime registry covering Codex, Claude, Gemini, OpenCode, Qwen Code, Cursor, Windsurf, Cline/Roo, Continue, Kiro, Copilot, Devin, Jules, Zed, Warp, Amp, Factory, Augment, Kilo Code, Phoenix, Ona, Semgrep, and related agent runtimes.
+
+### Fixed
+- `prjct ship` no longer writes `current work` into CHANGELOG.md or the default ship commit when the active task has already been closed. No-arg ships now use the active task description, derive a readable summary from the feature branch, or fail with an explicit release-description prompt.
 
 ## [2.53.1] - 2026-06-21
 

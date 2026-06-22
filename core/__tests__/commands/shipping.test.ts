@@ -42,8 +42,8 @@ async function freshProject(): Promise<{ projectPath: string; projectId: string 
   return { projectPath, projectId }
 }
 
-function initGit(projectPath: string): void {
-  execFileSync('git', ['init', '-q', '-b', 'develop'], { cwd: projectPath })
+function initGit(projectPath: string, branch = 'develop'): void {
+  execFileSync('git', ['init', '-q', '-b', branch], { cwd: projectPath })
   execFileSync('git', ['config', 'user.email', 'test@prjct.local'], { cwd: projectPath })
   execFileSync('git', ['config', 'user.name', 'test'], { cwd: projectPath })
 }
@@ -161,6 +161,27 @@ describe('ship() — workflow-first', () => {
     const pkg = JSON.parse(await fs.readFile(path.join(projectPath, 'package.json'), 'utf-8'))
     // "first ship" is a described feature (no fix/chore prefix) → MINOR bump.
     expect(pkg.version).toBe('0.6.0')
+  })
+
+  test('no-arg code ship derives the release description from the feature branch', async () => {
+    await fs.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'codeproj', version: '0.5.0' }, null, 2)
+    )
+    initGit(projectPath, 'feat/universal-agent-compat')
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init', '-q'], { cwd: projectPath })
+
+    const result = await cmd.ship(null, projectPath, { md: true })
+
+    // No remote is configured, so the auto-seeded workflow fails at git:push.
+    // The changelog step has already run by then, which is the regression
+    // surface this test covers.
+    expect(result.success).toBe(false)
+
+    const changelog = await fs.readFile(path.join(projectPath, 'CHANGELOG.md'), 'utf-8')
+    expect(changelog).toContain('## [0.6.0]')
+    expect(changelog).toContain('- universal agent compat')
+    expect(changelog).not.toContain('current work')
   })
 
   test('seed-code-workflow on a non-code project returns a helpful error', async () => {
