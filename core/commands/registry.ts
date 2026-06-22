@@ -365,7 +365,7 @@ class CommandRegistry {
     const projectId = await configManager.getProjectId(projectPath)
 
     if (!projectId) {
-      throw new Error('No prjct project found. Run /p:init first.')
+      throw new Error('No prjct project found. Run p. init first.')
     }
 
     return {
