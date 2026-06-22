@@ -242,7 +242,7 @@ async function main(): Promise<void> {
               ? commands.saveLlmAnalysis(p, process.cwd(), { md })
               : Promise.resolve({
                   success: false,
-                  error: 'analysis-save-llm requires a JSON payload as positional arg',
+                  error: 'analysis-save-llm requires analysis text, JSON, or a file path',
                 }),
           regen: () => commands.regenVault(process.cwd(), { md }),
           start: () => commands.start(),

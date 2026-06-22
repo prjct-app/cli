@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.55.0] - 2026-06-21
+
+### Added
+- fix sync analysis save for all agents
+
 ## [2.54.0] - 2026-06-21
 
 ### Added
