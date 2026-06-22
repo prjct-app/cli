@@ -134,6 +134,40 @@ relocates the global store). Teammates share knowledge via optional cloud sync
 (`prjct login` + `prjct sync`), **not** git — git never carries state. Full
 detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-paths.md)**.
 
+## Agent compatibility levels
+
+prjct does not pretend every AI coding agent has the same integration surface.
+It reports concrete support levels:
+
+| Level | What it means |
+|---|---|
+| `full` | prjct-maintained native hooks plus MCP/skills or equivalent deep integration. |
+| `good` | AGENTS.md plus MCP-capable runtime. |
+| `baseline` | Repo instructions plus `prjct <command> --md`; no native hooks assumed. |
+| `hosted` | Repo instructions are the portable layer; platform config may be manual. |
+
+Run `prjct agents doctor --md` to see the current machine/project matrix for
+Claude Code, Codex, Gemini CLI, OpenCode, Qwen Code, Kimi CLI, Cursor,
+Windsurf, Cline/Roo-family agents, hosted agents, and future AGENTS.md/MCP
+clients.
+
+Use `prjct agents doctor --fix` inside a prjct project to refresh the portable
+`AGENTS.md` surface and any repo-local IDE rule adapters prjct manages. The
+command is idempotent and reports what changed.
+
+## Value proof commands
+
+prjct should justify itself with project evidence, not vague claims. These
+read-only commands show whether the project is actually compounding:
+
+| Command | What it proves |
+|---|---|
+| `prjct value --md` | Durable memory, preventive guardrails, shipped work, sync metrics, and detected agent coverage. |
+| `prjct memory-doctor --md` | Duplicate, stale, low-signal, or untyped memories before they poison recall. |
+| `prjct report 7 --md` | A human weekly report from shipped features, completed tasks, and carry-forward lessons. |
+| `prjct handoff codex --md` | A takeover prompt for the next agent with the checks it should run first. |
+| `prjct guardrails --md` | File-specific warnings for the current changeset from preventive memory. |
+
 ## Execution environments (zero-config)
 
 The same binary runs in a plain shell, inside Claude Code, in an OpenAI Codex sandbox, or in CI, and **adapts output automatically with no configuration**. Detection signals (env vars, MCP, `CLAUDE.md`, `~/.claude/`, the `codex` binary on PATH, `process.stdout.isTTY`) are read silently; `--md` / `--json` are the only overrides. Full per-environment table, source-file references, and the detection order: **[docs/environments.md](./docs/environments.md)**.
@@ -208,6 +242,12 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
 | `prjct suggest` | Smart recommendations based on current project state. |
+| `prjct value` | Show whether prjct is paying for itself in this project. |
+| `prjct memory-doctor` | Audit memory quality before noisy context spreads to every agent. |
+| `prjct report [days]` | Generate a human report from shipped work and project memory. |
+| `prjct handoff [agent]` | Prepare the next AI coding agent to continue with context. |
+| `prjct guardrails` | Check the current changeset against known project traps. |
+| `prjct agents doctor` | Show the auditable compatibility matrix for local and project agent runtimes. |
 | `prjct review-risk` | Advisory change-size + delivery-geometry signal for the branch (read-only; never gates, never splits). |
 | `prjct seed <add\|list>` | Manage packs (persona, memory types, workflow slots). |
 
@@ -239,9 +279,9 @@ Five built-in packs (manifests, not bash pipelines):
 
 Slots ship **empty** — the human or the agent fills them on demand.
 
-## Hooks (opt-in)
+## Claude Hooks Adapter (opt-in)
 
-`prjct install` writes 8 passive hooks to `~/.claude/settings.json`. They inject `additionalContext`; none block by default.
+`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, and also writes the Claude Code hooks adapter to `~/.claude/settings.json`. The hooks inject `additionalContext`; none block by default. Other agents use the support level shown by `prjct agents doctor`.
 
 | Event | Injects |
 |---|---|

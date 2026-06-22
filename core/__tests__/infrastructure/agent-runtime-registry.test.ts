@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import {
   type AgentRuntimeId,
+  detectAgentRuntimes,
   getAgentRuntime,
   listAgentRuntimes,
 } from '../../infrastructure/agent-runtime-registry'
@@ -19,6 +23,7 @@ describe('agent runtime registry', () => {
     const expectedRuntimes: AgentRuntimeId[] = [
       'opencode',
       'qwen-code',
+      'kimi-cli',
       'goose',
       'aider',
       'cline',
@@ -43,5 +48,25 @@ describe('agent runtime registry', () => {
     expect(qwen.kind).toBe('model-runtime')
     expect(qwen.notes).toContain('model/provider choice')
     expect(qwen.supports.mcp).toBe(true)
+  })
+
+  it('detects project surfaces and reports support levels from the registry', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-runtime-registry-test-'))
+    try {
+      await fs.mkdir(path.join(dir, '.cursor'), { recursive: true })
+      await fs.writeFile(path.join(dir, '.aider.conf.yml'), 'auto-commits: false\n')
+
+      const statuses = await detectAgentRuntimes(dir)
+      const byId = new Map(statuses.map((status) => [status.runtime.id, status]))
+
+      expect(byId.get('agents-md')?.detected).toBe(true)
+      expect(byId.get('mcp')?.supportLevel).toBe('manual')
+      expect(byId.get('cursor')?.detectedSignals).toContain('.cursor/')
+      expect(byId.get('cursor')?.supportLevel).toBe('good')
+      expect(byId.get('aider')?.detectedSignals).toContain('.aider.conf.yml')
+      expect(byId.get('aider')?.supportLevel).toBe('baseline')
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+    }
   })
 })

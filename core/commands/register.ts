@@ -72,6 +72,8 @@ export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = 
   tdd: lazy(async () => new (await import('./tdd')).TddCommands()),
   sdd: lazy(async () => new (await import('./sdd')).SddCommands()),
   notify: lazy(async () => new (await import('./notify')).NotifyCommands()),
+  agents: lazy(async () => new (await import('./agents')).AgentsCommands()),
+  product: lazy(async () => new (await import('./product')).ProductCommands()),
 }
 
 function registerCategories(): void {

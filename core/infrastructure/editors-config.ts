@@ -133,7 +133,7 @@ class EditorsConfig {
 
       return true
     } catch (error) {
-      console.error('[editors-config] Error updating version:', getErrorMessage(error))
+      void error
       return false
     }
   }

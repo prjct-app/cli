@@ -23,6 +23,34 @@ output, so an agent (or a human) can predict prjct's behavior in any context.
 
 No configuration is required for any row. The detection is silent and automatic.
 
+## Compatibility is capability-based
+
+prjct's universal layer is not a promise that every agent supports the same
+native features. The portable baseline is:
+
+1. `AGENTS.md` for repo instructions.
+2. `prjct <command> --md` for agent-readable CLI output.
+3. MCP `prjct_*` tools when the runtime supports MCP.
+
+Runtime-specific surfaces such as Claude hooks, Codex skills, Cursor rules, or
+Windsurf rules are adapters on top of that baseline. Run:
+
+```bash
+prjct agents doctor --md
+```
+
+to see the current machine/project matrix. The command reports each runtime's
+support for AGENTS.md, MCP, skills, hooks, ACP, and project rules. `full` means
+prjct ships and verifies a deep native adapter for that runtime; other runtimes
+are reported as `good`, `baseline`, or `hosted` according to their portable
+surfaces.
+
+Inside a prjct project, `prjct agents doctor --fix` refreshes the portable
+`AGENTS.md` surface and repo-local rule adapters. For model handoff, use
+`prjct handoff <agent> --md`; it produces a takeover prompt that tells the next
+agent to run `status`, `value`, `memory-doctor`, and `guardrails` before
+editing.
+
 ---
 
 ## 1. Agent detection (Claude Code / Desktop)
