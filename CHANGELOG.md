@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.57.0] - 2026-06-22
+
+### Added
+- context7 daemon path
+
 ## [2.56.0] - 2026-06-22
 
 ### Added
