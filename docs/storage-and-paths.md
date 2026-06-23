@@ -45,7 +45,7 @@ Reading `prjct.config.json` gives you the `projectId`, which is the key to the
 |---|---|---|---|
 | **Config (identity)** | `<repo>/.prjct/prjct.config.json` | `projectId`, persona (`role`/`focus`/`mcps`/`packs`), optional `vaultPath` override | **Committable** (the `.prjct/` dir is gitignored, but you may track this one file) |
 | **State (source of truth)** | `~/.prjct-cli/projects/<projectId>/prjct.db` | Tasks, memory, events, metrics, analysis — everything | **No** — per-device, never in the repo |
-| **Vault (recall snapshot)** | `~/Documents/prjct/<slug>/_generated/` | Auto-regenerated Markdown: architecture, patterns, decisions, gotchas, ships | **No** — regenerated from state, Obsidian-readable |
+| **Vault (recall snapshot)** | `<vault-root>/<slug>/_generated/` | Auto-regenerated Markdown: architecture, patterns, decisions, gotchas, ships | **No** — regenerated from state, Obsidian-readable |
 
 State is the source of truth. The vault is a **rebuilt projection** of it — never
 hand-edit `_generated/`; if something's wrong, fix the pipeline and regenerate
@@ -62,16 +62,22 @@ Resolution lives in `core/infrastructure/path-manager.ts` and
 2. **Database:** `~/.prjct-cli/projects/<projectId>/prjct.db`
    (`getGlobalProjectPath` → `<globalBase>/projects/<projectId>`). The global base
    is `~/.prjct-cli` unless **`PRJCT_CLI_HOME`** overrides it.
-3. **Vault:** `~/Documents/prjct/<slug>/_generated/`. The `<slug>` is the repo
-   directory name, lowercased, non-alphanumerics collapsed to `-`
-   (`getWikiPath`). If two repos share a basename the slug would collide, so a
-   short 8-char `projectId` hash is appended:
-   `~/Documents/prjct/<slug>-<hash>/` (`getWikiPathWithProjectHash`). A custom
-   `vaultPath` in `prjct.config.json` (absolute, `~`, or relative) overrides the
-   default entirely.
+3. **Vault:** `<vault-root>/<slug>/_generated/`. `prjct setup` owns the global
+   `vault-root` preference, defaulting to the operating system's Documents
+   directory (`~/Documents/prjct` on macOS, XDG Documents on Linux when present,
+   and the user's Documents folder on Windows). `prjct setup --vault-root <path>`
+   changes it. The `<slug>` is the repo directory name, lowercased, with
+   non-alphanumerics collapsed to `-` (`getWikiPath`). If two repos share a
+   basename the slug would collide, so a short 8-char `projectId` hash is
+   appended: `<vault-root>/<slug>-<hash>/` (`getWikiPathWithProjectHash`). A
+   custom `vaultPath` in `prjct.config.json` (absolute, `~`, or relative)
+   overrides the global default entirely. `PRJCT_VAULT_ROOT` remains the highest
+   precedence automation/test override.
 
 `PRJCT_CLI_HOME` relocates the **entire** global store (DB + config + sync
 metadata) — used for tests, sandboxes, or keeping state off the home volume.
+`PRJCT_VAULT_ROOT` relocates only the readable vault and wins over the setup
+preference for CI and automation.
 
 ## Why not "everything in `.prjct/`"?
 

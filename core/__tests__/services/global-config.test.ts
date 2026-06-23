@@ -80,6 +80,12 @@ describe('global-config', () => {
     expect(m.getConfig('auto-update')).toBeUndefined()
   })
 
+  test('stores vault-root preference for setup-owned vault location', async () => {
+    const m = await freshImport()
+    m.setConfig('vault-root', '/tmp/prjct-readable-vault')
+    expect(m.getConfig('vault-root')).toBe('/tmp/prjct-readable-vault')
+  })
+
   test('preserves unknown keys on round-trip (forward compat)', async () => {
     const m = await freshImport()
     // Write an unknown key directly so we can verify reads preserve it

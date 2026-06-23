@@ -98,7 +98,7 @@ and locked-down CI, which closes the supply-chain surface a native rebuild opens
 
 After install, **next session in any prjct-cli project**:
 
-- **Lookup-first protocol**: Claude reads `~/Documents/prjct/<slug>/_generated/` (architecture, patterns, decisions, gotchas, recent ships) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
+- **Lookup-first protocol**: Claude reads the configured vault snapshot (default: your OS Documents folder, e.g. `~/Documents/prjct/<slug>/_generated/` on macOS/Linux) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
 - **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them in the vault.
 - **Pattern detection**: Stop hook detects hot files (>3 changes in 7 days), recurring bugs (gotchas with the same topic), tech-debt growth (TODO/FIXME count rising). All persisted as learnings, surfaced next session.
 - **5 quality workflows** activated by natural language ("review this branch", "qa the UI", "security check", "investigate this bug"):
@@ -111,7 +111,7 @@ After install, **next session in any prjct-cli project**:
 
 ## How it works
 
-State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault at `~/Documents/prjct/<slug>/_generated/` is an auto-regenerated Markdown snapshot — agent-readable via `Read`/`Glob`, browsable in Obsidian.
+State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault is an auto-regenerated Markdown snapshot under the root configured by `prjct setup` (default: your OS Documents folder, e.g. `~/Documents/prjct/<slug>/_generated/` on macOS/Linux) — agent-readable via `Read`/`Glob`, browsable in Obsidian.
 
 ```
 Claude Code session                       prjct-cli
@@ -143,11 +143,12 @@ Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Three ti
 |---|---|---|
 | Config / identity | `<repo>/.prjct/prjct.config.json` (`projectId`, persona) | **Yes** — small, machine-independent |
 | State (source of truth) | `~/.prjct-cli/projects/<projectId>/prjct.db` (SQLite) | No — per-device |
-| Vault (recall snapshot) | `~/Documents/prjct/<slug>/_generated/` (Markdown) | No — regenerated |
+| Vault (recall snapshot) | `<vault-root>/<slug>/_generated/` (Markdown; `prjct setup --vault-root <path>`) | No — regenerated |
 
 Find a project's data: read `projectId` from `.prjct/prjct.config.json`, then the
 DB is `~/.prjct-cli/projects/<projectId>/`, the vault is
-`~/Documents/prjct/<slug>/` (`<slug>` = repo dir name lowercased; `PRJCT_CLI_HOME`
+`<vault-root>/<slug>/` (`<slug>` = repo dir name lowercased; `prjct setup`
+chooses the global vault root, defaulting to the OS Documents folder; `PRJCT_CLI_HOME`
 relocates the global store). Teammates share knowledge via optional cloud sync
 (`prjct login` + `prjct sync`), **not** git — git never carries state. Full
 detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-paths.md)**.
@@ -380,7 +381,7 @@ prjct capture "check why webhook retries on 502"
 prjct context memory "auth refresh"
 ```
 
-Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `~/Documents/prjct/<slug>/_generated/`.
+Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `<vault-root>/<slug>/_generated/`.
 
 > SQLite is the source of truth. The export is a snapshot — never hand-edit `_generated/`; if data is missing, fix the pipeline.
 
@@ -429,7 +430,7 @@ Without a key the built-in local embedder is used. Vector dimensionality is dete
 
 ### Drop files into the vault (bidirectional)
 
-Drop a file into `~/Documents/prjct/<slug>/captured/` — it becomes memory, vectorized into the DB. Two shapes:
+Drop a file into `<vault-root>/<slug>/captured/` — it becomes memory, vectorized into the DB. Two shapes:
 
 ```markdown
 ---
@@ -547,7 +548,7 @@ persisting findings to memory. Concrete examples:
 | "qa the checkout page" | `qa` | Real browser, atomic fixes, regression tests |
 
 You can also pull project knowledge directly: ask "what patterns does this
-project use?" and the agent reads `~/Documents/prjct/<slug>/_generated/patterns.md`
+project use?" and the agent reads `<vault-root>/<slug>/_generated/patterns.md`
 instead of grepping source (the lookup-first protocol). Outside an agent, every
 command takes `--md` to emit agent-ready markdown.
 
@@ -607,7 +608,7 @@ git check-ignore -v .prjct                         # why git ignores it
 The path is always `<repoRoot>/.prjct/` (strictly relative to the project — no
 env var, no global lookup). Read `projectId` from `prjct.config.json` to reach
 the *other* tiers: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`, vault at
-`~/Documents/prjct/<slug>/_generated/` (`PRJCT_CLI_HOME` overrides the global
+`<vault-root>/<slug>/_generated/` (`prjct setup --vault-root <path>` configures the vault root; `PRJCT_CLI_HOME` overrides the global
 base). The in-repo `.prjct/` holds only config, not state — full detail in
 [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 

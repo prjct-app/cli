@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.65.0] - 2026-06-23
+
+### Added
+- setup-owned vault root with OS-aware defaults
+
 ## [2.64.0] - 2026-06-23
 
 ### Added

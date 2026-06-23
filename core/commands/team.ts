@@ -401,7 +401,7 @@ function teamClaudeMdBlock(cfg: TeamConfig): string {
     // already get the full contract from the global CLAUDE.md + skill —
     // repeating it here doubled ~100 tokens in every repo session
     // (token-cache audit R7).
-    'Lookup the vault (`~/Documents/prjct/<slug>/_generated/`) before re-reading source; capture analysis back via `prjct remember <type> "..."` — in ENGLISH, whatever language the contributor speaks.',
+    'Lookup the configured vault (`<vault-root>/<slug>/_generated/`) before re-reading source; capture analysis back via `prjct remember <type> "..."` — in ENGLISH, whatever language the contributor speaks.',
     '',
     "Don't have prjct? Install once: `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash`",
     `${cfg.required ? 'This repo *requires* prjct — please install before contributing.' : ''}`,
