@@ -178,6 +178,24 @@ command is idempotent and reports what changed.
 prjct should justify itself with project evidence, not vague claims. These
 read-only commands show whether the project is actually compounding:
 
+### Version evals
+
+Use `prjct eval` to measure product readiness between versions and publish the
+evidence to GitHub:
+
+```bash
+prjct eval run --candidate 2.62.0
+prjct eval compare --baseline 2.61.0 --candidate 2.62.0 --md
+prjct eval run --candidate "$GITHUB_SHA" --publish --target github
+prjct eval compare --baseline "$BASELINE" --candidate "$CANDIDATE" --publish --target github
+```
+
+Local artifacts live under `$PRJCT_CLI_HOME/evals/<repo>/`. GitHub publishing
+writes JSON + Markdown to an `eval-results` branch, including
+`summary/latest.json` and `summary/latest-comparison.json`. See
+[EVALS.md](./EVALS.md) and `.github/workflows/prjct-evals.yml` for the
+CI workflow.
+
 | Command | What it proves |
 |---|---|
 | `prjct value --md` | Durable memory, preventive guardrails, shipped work, sync metrics, and detected agent coverage. |

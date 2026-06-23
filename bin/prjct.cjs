@@ -316,6 +316,7 @@ function main() {
     '-h',
     '--help',
     'help',
+    'eval',
     'hook',
     '__internal-auto-update',
     '__post-upgrade',

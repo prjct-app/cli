@@ -354,6 +354,7 @@ export type CommandRoutingGroup =
   | 'notify'
   | 'agents'
   | 'product'
+  | 'eval'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */
