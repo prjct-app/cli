@@ -3,16 +3,19 @@
  *
  * This is deliberately deterministic by default: every run yields structured
  * metrics, actionables, and files that can be compared between versions or
- * published to GitHub without invoking an LLM.
+ * published to the prjct cloud API without invoking an LLM.
  */
 
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { resolveCliHome } from '../infrastructure/cli-home'
+import configManager from '../infrastructure/config-manager'
 import type { EvalActionable, EvalComparison, EvalRun, EvalScenario } from '../schemas/eval'
 import { EvalComparisonSchema, EvalRunSchema } from '../schemas/eval'
-import { getErrorMessage } from '../types/fs'
+import authConfig from '../sync/auth-config'
+import syncClient from '../sync/sync-client'
+import type { BenchmarkPublishPayload, SyncClientError } from '../types/sync'
 import { execFileAsync } from '../utils/exec'
 import { getVersion } from '../utils/version'
 
@@ -34,15 +37,18 @@ export interface EvalPublishOptions {
 }
 
 export interface EvalPublishResult {
-  target: string
+  target: 'cloud'
   dryRun: boolean
   artifactType: 'run' | 'comparison'
   artifactId: string
   runId?: string
   comparisonId?: string
+  projectId: string
   repo: string
-  branch: string
-  files: Array<{ path: string; action: 'create' | 'update' | 'skip' }>
+  endpoint: string
+  payloadBytes: number
+  remoteId?: string
+  publishedAt?: string
   url?: string
 }
 
@@ -242,50 +248,26 @@ export async function compareEvalRuns(
   return saveEvalComparison(projectPath, comparison)
 }
 
-interface EvalPublishFile {
-  path: string
-  content: string
-  action: 'create' | 'update'
-}
-
 export async function publishEvalRun(
   projectPath: string,
   options: EvalPublishOptions = {}
 ): Promise<EvalPublishResult> {
-  const target = options.target ?? 'github'
-  if (target !== 'github') {
-    throw new Error(`Unsupported eval publish target: ${target}`)
-  }
-
+  const target = normalizePublishTarget(options.target)
   const run = options.file
     ? await readRequiredRunFile(options.file)
     : await loadLatestRequired(projectPath)
-  const report = formatEvalRunMarkdown(run)
-  const git = await detectGit(projectPath)
-  if (!git.ownerRepo) {
-    throw new Error('GitHub publish requires a GitHub remote.')
+  const project = await resolveBenchmarkProject(projectPath, options.dryRun === true)
+  const payload: BenchmarkPublishPayload = {
+    schemaVersion: EVAL_SCHEMA_VERSION,
+    artifactType: 'run',
+    artifactId: run.runId,
+    repo: run.project.repo,
+    createdAt: run.createdAt,
+    run,
+    reportMarkdown: formatEvalRunMarkdown(run),
   }
 
-  const date = run.createdAt.slice(0, 10)
-  const files: EvalPublishFile[] = [
-    {
-      path: `eval-results/runs/${date}/${run.runId}.json`,
-      content: `${JSON.stringify(run, null, 2)}\n`,
-      action: 'create',
-    },
-    {
-      path: `eval-results/runs/${date}/${run.runId}.md`,
-      content: report,
-      action: 'create',
-    },
-    {
-      path: 'eval-results/summary/latest.json',
-      content: `${JSON.stringify(run, null, 2)}\n`,
-      action: 'update',
-    },
-  ]
-
-  return publishFiles(git.ownerRepo, target, options.dryRun === true, files, {
+  return publishBenchmarkPayload(project.projectId, target, options.dryRun === true, payload, {
     artifactType: 'run',
     artifactId: run.runId,
     runId: run.runId,
@@ -297,36 +279,20 @@ export async function publishEvalComparison(
   comparison: EvalComparison,
   options: EvalPublishOptions = {}
 ): Promise<EvalPublishResult> {
-  const target = options.target ?? 'github'
-  if (target !== 'github') {
-    throw new Error(`Unsupported eval publish target: ${target}`)
-  }
-
+  const target = normalizePublishTarget(options.target)
+  const project = await resolveBenchmarkProject(projectPath, options.dryRun === true)
   const git = await detectGit(projectPath)
-  if (!git.ownerRepo) {
-    throw new Error('GitHub publish requires a GitHub remote.')
+  const payload: BenchmarkPublishPayload = {
+    schemaVersion: EVAL_SCHEMA_VERSION,
+    artifactType: 'comparison',
+    artifactId: comparison.comparisonId,
+    repo: git.repo,
+    createdAt: comparison.createdAt,
+    comparison,
+    reportMarkdown: formatEvalComparisonMarkdown(comparison),
   }
 
-  const date = comparison.createdAt.slice(0, 10)
-  const files: EvalPublishFile[] = [
-    {
-      path: `eval-results/comparisons/${date}/${comparison.comparisonId}.json`,
-      content: `${JSON.stringify(comparison, null, 2)}\n`,
-      action: 'create',
-    },
-    {
-      path: `eval-results/comparisons/${date}/${comparison.comparisonId}.md`,
-      content: formatEvalComparisonMarkdown(comparison),
-      action: 'create',
-    },
-    {
-      path: 'eval-results/summary/latest-comparison.json',
-      content: `${JSON.stringify(comparison, null, 2)}\n`,
-      action: 'update',
-    },
-  ]
-
-  return publishFiles(git.ownerRepo, target, options.dryRun === true, files, {
+  return publishBenchmarkPayload(project.projectId, target, options.dryRun === true, payload, {
     artifactType: 'comparison',
     artifactId: comparison.comparisonId,
     comparisonId: comparison.comparisonId,
@@ -455,8 +421,8 @@ async function runScenarios(context: ScenarioContext): Promise<EvalScenario[]> {
     scenario('quality-command-readiness', 'Quality command readiness', () =>
       evalQualityCommandReadiness(context.projectPath)
     ),
-    scenario('github-publish-readiness', 'GitHub publish readiness', () =>
-      evalGithubPublishReadiness(context.git)
+    scenario('cloud-benchmark-readiness', 'Cloud benchmark readiness', () =>
+      evalCloudBenchmarkReadiness(context.projectPath)
     ),
   ])
 }
@@ -609,32 +575,38 @@ async function evalQualityCommandReadiness(
   }
 }
 
-async function evalGithubPublishReadiness(
-  git: GitInfo
+async function evalCloudBenchmarkReadiness(
+  projectPath: string
 ): Promise<Omit<EvalScenario, 'id' | 'name' | 'durationMs'>> {
-  const gh = await commandExists('gh')
-  const score = (git.ownerRepo ? 50 : 0) + (gh ? 50 : 0)
+  const config = await configManager.readConfig(projectPath)
+  const authenticated = await authConfig.hasAuth()
+  const hasProject = Boolean(config?.projectId)
+  const cloudLinked = Boolean(config?.cloud?.enabled)
+  const cloudActive = cloudLinked && !config?.cloud?.paused
+  const score = (hasProject ? 34 : 0) + (authenticated ? 33 : 0) + (cloudActive ? 33 : 0)
+
   return {
     status: score >= 100 ? 'pass' : 'warn',
     score,
-    metrics: { githubRemote: Boolean(git.ownerRepo), gh },
+    metrics: { hasProject, authenticated, cloudLinked, cloudActive },
     actionables:
       score >= 100
         ? [
             {
               severity: 'info',
-              title: 'GitHub publishing is available',
+              title: 'Cloud benchmark publishing is active',
               recommendation:
-                'Run `prjct eval publish --target github` to store this run on the eval-results branch.',
-              command: 'prjct eval publish --target github',
+                'Run `prjct eval publish --target cloud` after release evals to store shared benchmark history.',
+              command: 'prjct eval publish --target cloud',
             },
           ]
         : [
             {
               severity: 'warning',
-              title: 'GitHub publishing is not fully configured',
+              title: 'Cloud benchmark publishing is not active',
               recommendation:
-                'Configure a GitHub remote and authenticate `gh` before publishing eval history.',
+                'Run `prjct init`, `prjct login`, and `prjct cloud link` before publishing benchmark results.',
+              command: 'prjct cloud status',
             },
           ],
   }
@@ -811,10 +783,6 @@ async function execFileMaybe(
   }
 }
 
-async function commandExists(cmd: string): Promise<boolean> {
-  return Boolean(await execFileMaybe('which', [cmd], process.cwd()))
-}
-
 async function exists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath)
@@ -864,113 +832,102 @@ async function collectTextFiles(projectPath: string, maxFiles: number): Promise<
 function regressionRecommendation(id: string): string {
   if (id.includes('sync'))
     return 'Inspect sync incrementality and generated context freshness before shipping.'
-  if (id.includes('github')) return 'Check GitHub remote/authentication and eval publisher setup.'
+  if (id.includes('cloud')) return 'Check cloud auth/link status and benchmark publisher setup.'
   if (id.includes('command'))
     return 'Audit user-facing command copy and generated templates for stale instructions.'
   return 'Open the latest eval report, inspect scenario metrics, and add a focused regression test.'
 }
 
-async function publishFiles(
-  ownerRepo: string,
-  target: string,
+function normalizePublishTarget(target: string | undefined): 'cloud' {
+  const normalized = target ?? 'cloud'
+  if (normalized === 'github') {
+    throw new Error(
+      'GitHub eval publishing was removed. Use `prjct eval publish --target cloud` after `prjct login` and `prjct cloud link`.'
+    )
+  }
+  if (normalized !== 'cloud') {
+    throw new Error(`Unsupported eval publish target: ${normalized}. Use --target cloud.`)
+  }
+  return 'cloud'
+}
+
+async function resolveBenchmarkProject(
+  projectPath: string,
+  dryRun: boolean
+): Promise<{ projectId: string }> {
+  const config = await configManager.readConfig(projectPath)
+  if (!config?.projectId) {
+    throw new Error('Cloud benchmark publish requires a prjct project. Run `prjct init` first.')
+  }
+
+  if (dryRun) return { projectId: config.projectId }
+
+  if (!(await authConfig.hasAuth())) {
+    throw new Error(
+      'Cloud benchmark publish requires authentication. Run `prjct login`, then `prjct cloud link`.'
+    )
+  }
+  if (!config.cloud?.enabled) {
+    throw new Error('Cloud benchmark publish requires cloud to be active. Run `prjct cloud link`.')
+  }
+  if (config.cloud.paused) {
+    throw new Error('Cloud sync is paused. Run `prjct cloud resume` before publishing benchmarks.')
+  }
+
+  return { projectId: config.projectId }
+}
+
+async function publishBenchmarkPayload(
+  projectId: string,
+  target: 'cloud',
   dryRun: boolean,
-  files: EvalPublishFile[],
+  payload: BenchmarkPublishPayload,
   artifact: Pick<EvalPublishResult, 'artifactType' | 'artifactId' | 'runId' | 'comparisonId'>
 ): Promise<EvalPublishResult> {
-  if (!dryRun) {
-    await ensureEvalResultsBranch(ownerRepo)
-    for (const file of files) {
-      await putGitHubFile(ownerRepo, file.path, file.content, file.action)
-    }
-  }
+  const apiUrl = await authConfig.getApiUrl()
+  const endpoint = `${apiUrl}/benchmarks/evals`
+  const body = { projectId, ...payload }
+  const payloadBytes = Buffer.byteLength(JSON.stringify(body), 'utf-8')
 
-  return {
-    target,
-    dryRun,
-    ...artifact,
-    repo: ownerRepo,
-    branch: 'eval-results',
-    files: files.map(({ path: filePath, action }) => ({ path: filePath, action })),
-    url: `https://github.com/${ownerRepo}/tree/eval-results/eval-results`,
-  }
-}
-
-async function ensureEvalResultsBranch(ownerRepo: string): Promise<void> {
-  const existsRef = await ghApi(ownerRepo, ['repos/:owner/:repo/git/ref/heads/eval-results'])
-  if (existsRef.ok) return
-
-  const repo = await ghApi(ownerRepo, ['repos/:owner/:repo', '--jq', '.default_branch'])
-  const defaultBranch = repo.ok ? repo.stdout.trim() || 'main' : 'main'
-  const defaultRef = await ghApi(ownerRepo, [`repos/:owner/:repo/git/ref/heads/${defaultBranch}`])
-  if (!defaultRef.ok)
-    throw new Error(`Cannot resolve ${defaultBranch} branch ref for eval-results branch.`)
-  const parsed = JSON.parse(defaultRef.stdout) as { object?: { sha?: string } }
-  const sha = parsed.object?.sha
-  if (!sha) throw new Error(`Cannot resolve ${defaultBranch} branch sha for eval-results branch.`)
-  await ghApi(ownerRepo, [
-    'repos/:owner/:repo/git/refs',
-    '-X',
-    'POST',
-    '-f',
-    'ref=refs/heads/eval-results',
-    '-f',
-    `sha=${sha}`,
-  ])
-}
-
-async function putGitHubFile(
-  ownerRepo: string,
-  filePath: string,
-  content: string,
-  action: 'create' | 'update'
-): Promise<void> {
-  const existing = await ghApi(ownerRepo, [
-    `repos/:owner/:repo/contents/${filePath}`,
-    '-X',
-    'GET',
-    '-f',
-    'ref=eval-results',
-  ])
-  let sha: string | undefined
-  if (existing.ok) {
-    const parsed = JSON.parse(existing.stdout) as { sha?: string }
-    sha = parsed.sha
-  } else if (action === 'update') {
-    // Updating a summary file that does not exist yet is a create.
-    sha = undefined
-  }
-
-  const args = [
-    `repos/:owner/:repo/contents/${filePath}`,
-    '-X',
-    'PUT',
-    '-f',
-    `message=chore(eval): publish ${path.basename(filePath)}`,
-    '-f',
-    `branch=eval-results`,
-    '-f',
-    `content=${Buffer.from(content, 'utf-8').toString('base64')}`,
-  ]
-  if (sha) args.push('-f', `sha=${sha}`)
-  const result = await ghApi(ownerRepo, args)
-  if (!result.ok) throw new Error(result.stderr || `Failed to publish ${filePath}`)
-}
-
-async function ghApi(
-  ownerRepo: string,
-  args: string[]
-): Promise<{ ok: boolean; stdout: string; stderr: string }> {
-  const [owner, repo] = ownerRepo.split('/')
-  const expanded = args.map((arg) => arg.replace(':owner', owner).replace(':repo', repo))
-  try {
-    const { stdout, stderr } = await execFileAsync('gh', ['api', ...expanded])
-    return { ok: true, stdout: String(stdout), stderr: String(stderr) }
-  } catch (error) {
-    const maybe = error as { stdout?: unknown; stderr?: unknown }
+  if (dryRun) {
     return {
-      ok: false,
-      stdout: String(maybe.stdout ?? ''),
-      stderr: String(maybe.stderr ?? getErrorMessage(error)),
+      target,
+      dryRun,
+      ...artifact,
+      projectId,
+      repo: payload.repo,
+      endpoint,
+      payloadBytes,
     }
   }
+
+  try {
+    const result = await syncClient.publishBenchmark(projectId, payload)
+    return {
+      target,
+      dryRun,
+      ...artifact,
+      projectId,
+      repo: payload.repo,
+      endpoint,
+      payloadBytes,
+      remoteId: result.benchmarkId,
+      publishedAt: result.publishedAt ?? new Date().toISOString(),
+      url: result.url,
+    }
+  } catch (error) {
+    throw new Error(cloudPublishErrorMessage(error))
+  }
+}
+
+function cloudPublishErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && 'message' in error) {
+    const syncError = error as SyncClientError
+    if (syncError.code === 'PAYMENT_REQUIRED') {
+      return `${syncError.message} Run \`prjct cloud status\` for account details.`
+    }
+    return syncError.message
+  }
+  return 'Cloud benchmark publish failed.'
 }

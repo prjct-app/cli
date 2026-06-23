@@ -1,8 +1,8 @@
 /**
  * Eval run schemas.
  *
- * These records are intentionally portable: local storage, GitHub publishing,
- * CI artifacts, and future dashboards all consume the same shape.
+ * These records are intentionally portable: local storage, cloud publishing,
+ * CI artifacts, and dashboards all consume the same shape.
  */
 
 import { z } from 'zod'

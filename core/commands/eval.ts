@@ -2,7 +2,7 @@
  * `prjct eval` — deterministic product evals for version-to-version proof.
  *
  * This command is intentionally local-first. `run` stores structured results
- * under PRJCT_CLI_HOME; `publish` can push sanitized run artifacts to GitHub.
+ * under PRJCT_CLI_HOME; `publish` pushes sanitized benchmark records to cloud.
  */
 
 import {
@@ -70,7 +70,10 @@ export class EvalCommands extends PrjctCommandsBase {
         console.log(
           mdOutput(
             formatEvalRunMarkdown(run),
-            mdSection('Published', `Target: \`${publish.target}\`\nURL: ${publish.url ?? '-'}`)
+            mdSection(
+              'Published',
+              `Target: \`${publish.target}\`\nProject: \`${publish.projectId}\`\nURL: ${publish.url ?? '-'}`
+            )
           )
         )
       } else {
@@ -99,8 +102,7 @@ export class EvalCommands extends PrjctCommandsBase {
             formatEvalComparisonMarkdown(comparison),
             mdSection(
               'Published',
-              `Target: \`${publish.target}\`
-URL: ${publish.url ?? '-'}`
+              `Target: \`${publish.target}\`\nProject: \`${publish.projectId}\`\nURL: ${publish.url ?? '-'}`
             )
           )
         )
@@ -143,21 +145,19 @@ URL: ${publish.url ?? '-'}`
     const result = await publishEvalRun(projectPath, options)
     if (options.json) console.log(JSON.stringify(result, null, 2))
     else if (options.md) {
-      const files = result.files.map((file) => `- ${file.action}: \`${file.path}\``).join('\n')
       console.log(
         mdOutput(
           mdSection(
             result.dryRun ? 'Eval publish dry run' : 'Eval published',
-            `Target: \`${result.target}\`\nRepo: \`${result.repo}\`\nBranch: \`${result.branch}\`\nURL: ${result.url ?? '-'}`
-          ),
-          mdSection('Files', files)
+            `Target: \`${result.target}\`\nProject: \`${result.projectId}\`\nRepo: \`${result.repo}\`\nEndpoint: \`${result.endpoint}\`\nPayload: ${result.payloadBytes} bytes\nURL: ${result.url ?? '-'}`
+          )
         )
       )
     } else {
       out.done(
         result.dryRun
-          ? `eval publish dry run prepared ${result.files.length} files`
-          : `eval published ${result.runId} to ${result.repo}`
+          ? `eval publish dry run prepared cloud benchmark payload (${result.payloadBytes} bytes)`
+          : `eval benchmark ${result.artifactId} published to cloud`
       )
     }
     return { success: true, ...result }

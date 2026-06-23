@@ -181,20 +181,19 @@ read-only commands show whether the project is actually compounding:
 ### Version evals
 
 Use `prjct eval` to measure product readiness between versions and publish the
-evidence to GitHub:
+evidence to the prjct cloud benchmark API:
 
 ```bash
 prjct eval run --candidate 2.62.0
 prjct eval compare --baseline 2.61.0 --candidate 2.62.0 --md
-prjct eval run --candidate "$GITHUB_SHA" --publish --target github
-prjct eval compare --baseline "$BASELINE" --candidate "$CANDIDATE" --publish --target github
+prjct eval run --candidate "$GITHUB_SHA" --publish --target cloud
+prjct eval compare --baseline "$BASELINE" --candidate "$CANDIDATE" --publish --target cloud
 ```
 
-Local artifacts live under `$PRJCT_CLI_HOME/evals/<repo>/`. GitHub publishing
-writes JSON + Markdown to an `eval-results` branch, including
-`summary/latest.json` and `summary/latest-comparison.json`. See
-[EVALS.md](./EVALS.md) and `.github/workflows/prjct-evals.yml` for the
-CI workflow.
+Local artifacts live under `$PRJCT_CLI_HOME/evals/<repo>/`. Cloud publishing
+requires `prjct login` and an active `prjct cloud link`, then sends the
+benchmark payload to the prjct API with server-side ownership/subscription
+checks. See [EVALS.md](./EVALS.md) for the full workflow.
 
 | Command | What it proves |
 |---|---|
