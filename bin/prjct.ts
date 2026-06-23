@@ -87,8 +87,9 @@ async function readAllStdin(timeoutMs: number): Promise<string> {
 // hooks are the hottest path and need none of them.
 if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
   const fs = await import('node:fs')
-  const { DAEMON_PATHS } = await import('../core/daemon/protocol')
-  if (fs.existsSync(DAEMON_PATHS.socket())) {
+  const { DAEMON_PATHS, isDaemonNamedPipe } = await import('../core/daemon/protocol')
+  const socketPath = DAEMON_PATHS.socket()
+  if (isDaemonNamedPipe(socketPath) || fs.existsSync(socketPath)) {
     const subcommand = _fastArgs[1]
     const stdinPayload = await readAllStdin(1000)
     try {
@@ -249,10 +250,10 @@ if (
 
 if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEMON !== '1') {
   const fs = await import('node:fs')
-  const { DAEMON_PATHS } = await import('../core/daemon/protocol')
+  const { DAEMON_PATHS, isDaemonNamedPipe } = await import('../core/daemon/protocol')
   const socketPath = DAEMON_PATHS.socket()
 
-  if (fs.existsSync(socketPath)) {
+  if (isDaemonNamedPipe(socketPath) || fs.existsSync(socketPath)) {
     const { sendRequest } = await import('../core/daemon/client')
     const crypto = await import('node:crypto')
 

@@ -23,7 +23,13 @@ import prjctDb from '../storage/database'
 import { realtimeManager } from '../sync/realtime-manager'
 import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
 import { executeCommand } from './dispatch'
-import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from './protocol'
+import {
+  DAEMON_PATHS,
+  encodeMessage,
+  IDLE_TIMEOUT_MS,
+  isDaemonNamedPipe,
+  MAX_BUFFER_SIZE,
+} from './protocol'
 import {
   decideRestart,
   isCodeStale as detectStaleCode,
@@ -71,6 +77,7 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
   const runDir = DAEMON_PATHS.runDir()
+  const namedPipe = isDaemonNamedPipe(socketPath)
 
   fs.mkdirSync(runDir, { recursive: true })
 
@@ -84,8 +91,8 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     fs.unlinkSync(pidPath)
   }
 
-  // Clean up stale socket
-  if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
+  // Clean up stale Unix socket. Windows named pipes are not filesystem entries.
+  if (!namedPipe && fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
 
   rotateLog()
 
@@ -130,7 +137,7 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   ipcServer = createNetServer((socket) => handleConnection(socket))
 
   ipcServer.listen(socketPath, () => {
-    fs.chmodSync(socketPath, 0o600)
+    if (!namedPipe) fs.chmodSync(socketPath, 0o600)
     fs.writeFileSync(pidPath, String(process.pid))
 
     console.log(`prjct daemon started (PID ${process.pid})`)
@@ -505,10 +512,12 @@ function shutdown(exitCode: number): void {
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
 
-  try {
-    if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
-  } catch {
-    /* ignore */
+  if (!isDaemonNamedPipe(socketPath)) {
+    try {
+      if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
+    } catch {
+      /* ignore */
+    }
   }
 
   try {

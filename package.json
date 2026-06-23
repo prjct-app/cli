@@ -1,10 +1,10 @@
 {
   "name": "prjct-cli",
-  "version": "2.58.0",
+  "version": "2.59.0",
   "description": "Project memory and workflow context for AI coding agents.",
   "main": "dist/bin/prjct.mjs",
   "bin": {
-    "prjct": "bin/prjct"
+    "prjct": "bin/prjct.cjs"
   },
   "publishConfig": {
     "access": "public",
@@ -92,6 +92,7 @@
   "files": [
     "assets/",
     "bin/prjct",
+    "bin/prjct.cjs",
     "dist/",
     "templates/",
     "scripts/install.sh",

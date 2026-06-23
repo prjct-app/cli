@@ -12,6 +12,21 @@ import type { HookName, HookStrategy } from '../../types/services/extracted'
 import { fileExists } from '../../utils/file-helper'
 import { getPostCheckoutScript, getPostCommitScript } from './scripts'
 
+function hasPrjctAutoSync(content: string): boolean {
+  return content.includes('prjct:auto-sync:start') || content.includes('prjct sync')
+}
+
+function stripPrjctAutoSync(content: string): string {
+  const withoutMarkedBlock = content.replace(
+    /\n?# prjct:auto-sync:start[\s\S]*?# prjct:auto-sync:end\n?/g,
+    '\n'
+  )
+  return withoutMarkedBlock
+    .split('\n')
+    .filter((line) => !line.includes('prjct sync') && !line.includes('prjct auto-sync'))
+    .join('\n')
+}
+
 // DETECTION
 
 export async function detectHookManagers(projectPath: string): Promise<HookStrategy[]> {
@@ -93,8 +108,8 @@ export async function installHusky(projectPath: string, hooks: HookName[]): Prom
 
     if (await fileExists(hookPath)) {
       const existing = await fs.readFile(hookPath, 'utf-8')
-      if (existing.includes('prjct sync')) continue
-      await fs.appendFile(hookPath, '\n# prjct auto-sync\nprjct sync --quiet --yes &\n')
+      if (hasPrjctAutoSync(existing)) continue
+      await fs.appendFile(hookPath, `\n${script.split('\n').slice(1).join('\n')}`)
     } else {
       await fs.writeFile(hookPath, script, { mode: 0o755 })
     }
@@ -116,11 +131,8 @@ export async function installDirect(projectPath: string, hooks: HookName[]): Pro
 
     if (await fileExists(hookPath)) {
       const existing = await fs.readFile(hookPath, 'utf-8')
-      if (existing.includes('prjct sync')) continue
-      await fs.appendFile(
-        hookPath,
-        `\n# prjct auto-sync\n${script.split('\n').slice(1).join('\n')}`
-      )
+      if (hasPrjctAutoSync(existing)) continue
+      await fs.appendFile(hookPath, `\n${script.split('\n').slice(1).join('\n')}`)
     } else {
       await fs.writeFile(hookPath, script, { mode: 0o755 })
     }
@@ -158,10 +170,7 @@ export async function uninstallHusky(projectPath: string): Promise<boolean> {
     const content = await fs.readFile(hookPath, 'utf-8')
     if (!content.includes('prjct sync')) continue
 
-    const cleaned = content
-      .split('\n')
-      .filter((line) => !line.includes('prjct sync') && !line.includes('prjct auto-sync'))
-      .join('\n')
+    const cleaned = stripPrjctAutoSync(content)
 
     if (cleaned.trim() === '#!/bin/sh' || cleaned.trim() === '#!/usr/bin/env sh') {
       await fs.unlink(hookPath)
@@ -186,10 +195,7 @@ export async function uninstallDirect(projectPath: string): Promise<boolean> {
     if (content.includes('Installed by: prjct hooks install')) {
       await fs.unlink(hookPath)
     } else {
-      const cleaned = content
-        .split('\n')
-        .filter((line) => !line.includes('prjct sync') && !line.includes('prjct auto-sync'))
-        .join('\n')
+      const cleaned = stripPrjctAutoSync(content)
       await fs.writeFile(hookPath, cleaned, { mode: 0o755 })
     }
   }
