@@ -33,9 +33,6 @@ jobs:
     env:
       PRJCT_CLI_HOME: ${{ runner.temp }}/prjct-cli-home
       GH_TOKEN: ${{ github.token }}
-      CANDIDATE_LABEL: ${{ inputs.candidate || github.sha }}
-      BASELINE_LABEL: ${{ inputs.baseline }}
-      SHOULD_PUBLISH: ${{ inputs.publish == true && github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout
@@ -54,21 +51,46 @@ jobs:
       - name: Build CLI
         run: bun run build
 
+      - name: Resolve eval inputs
+        id: eval-inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_CANDIDATE: ${{ github.event.inputs.candidate }}
+          INPUT_BASELINE: ${{ github.event.inputs.baseline }}
+          INPUT_PUBLISH: ${{ github.event.inputs.publish }}
+          GITHUB_SHA_VALUE: ${{ github.sha }}
+        run: |
+          candidate="$INPUT_CANDIDATE"
+          if [ -z "$candidate" ]; then
+            candidate="$GITHUB_SHA_VALUE"
+          fi
+
+          should_publish=false
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$INPUT_PUBLISH" = "true" ]; then
+            should_publish=true
+          fi
+
+          {
+            echo "candidate=$candidate"
+            echo "baseline=$INPUT_BASELINE"
+            echo "should_publish=$should_publish"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Run prjct eval
         run: |
-          if [ "$SHOULD_PUBLISH" = "true" ]; then
-            node dist/bin/prjct-core.mjs eval run --source ci --candidate "$CANDIDATE_LABEL" --publish --target github --json
+          if [ "${{ steps.eval-inputs.outputs.should_publish }}" = "true" ]; then
+            node dist/bin/prjct-core.mjs eval run --source ci --candidate "${{ steps.eval-inputs.outputs.candidate }}" --publish --target github --json
           else
-            node dist/bin/prjct-core.mjs eval run --source ci --candidate "$CANDIDATE_LABEL" --json
+            node dist/bin/prjct-core.mjs eval run --source ci --candidate "${{ steps.eval-inputs.outputs.candidate }}" --json
           fi
 
       - name: Compare against baseline
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.eval-inputs.outputs.baseline != '' }}
         run: |
-          if [ "$SHOULD_PUBLISH" = "true" ]; then
-            node dist/bin/prjct-core.mjs eval compare --baseline "$BASELINE_LABEL" --candidate "$CANDIDATE_LABEL" --publish --target github --json
+          if [ "${{ steps.eval-inputs.outputs.should_publish }}" = "true" ]; then
+            node dist/bin/prjct-core.mjs eval compare --baseline "${{ steps.eval-inputs.outputs.baseline }}" --candidate "${{ steps.eval-inputs.outputs.candidate }}" --publish --target github --json
           else
-            node dist/bin/prjct-core.mjs eval compare --baseline "$BASELINE_LABEL" --candidate "$CANDIDATE_LABEL" --json
+            node dist/bin/prjct-core.mjs eval compare --baseline "${{ steps.eval-inputs.outputs.baseline }}" --candidate "${{ steps.eval-inputs.outputs.candidate }}" --json
           fi
 
       - name: Upload eval artifacts
