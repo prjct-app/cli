@@ -69,6 +69,24 @@ check, logs to `~/.prjct-cli/state/auto-update.log`).
 
 Full install + upgrade paths: [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
 
+### Platform support
+
+The package-manager install path is the portable path for **macOS, Linux, and Windows**:
+
+```bash
+npm install -g prjct-cli@latest
+# or pnpm / bun / yarn global install
+```
+
+The daemon uses Unix sockets on macOS/Linux and a Windows named pipe on Windows.
+Git auto-sync hooks keep the shell wrapper POSIX-small and run rate limiting /
+background spawn through Node, so they work in Git for Windows without relying on
+Unix-only utilities like `md5sum`, `stat -f`, or `date +%s`.
+
+The standalone `curl | bash` installer remains **macOS/Linux only**. Windows
+users should use the package-manager install path. CI runs focused platform
+compatibility smoke tests on Ubuntu, macOS, and Windows.
+
 ### Zero native dependencies
 
 prjct-cli uses SQLite for local project memory through the runtime's **built-in**
@@ -449,7 +467,8 @@ Bring your own MCP — prjct-cli doesn't duplicate trackers.
 
 ```
 prjct-cli/
-  bin/prjct              Thin JS shim (daemon-first)
+  bin/prjct.cjs          Portable package-manager launcher
+  dist/bin/prjct.mjs     Thin JS shim (daemon-first)
   core/
     cli/                 CLI command handlers + dispatcher
     hooks/               7 passive Claude Code hook subcommands

@@ -14,7 +14,7 @@ import { connect } from 'node:net'
 import path from 'node:path'
 import type { DaemonRequest, DaemonResponse, DaemonStatus } from '../types/daemon'
 import { isBunAvailable } from '../utils/runtime'
-import { DAEMON_PATHS, encodeMessage } from './protocol'
+import { DAEMON_PATHS, encodeMessage, isDaemonNamedPipe } from './protocol'
 
 /**
  * Check if the daemon is running (socket file exists + responds to ping)
@@ -22,8 +22,10 @@ import { DAEMON_PATHS, encodeMessage } from './protocol'
 export async function isDaemonRunning(): Promise<boolean> {
   const socketPath = DAEMON_PATHS.socket()
 
-  // Quick check: socket file exists?
-  if (!fs.existsSync(socketPath)) return false
+  const namedPipe = isDaemonNamedPipe(socketPath)
+
+  // Quick check: Unix sockets are filesystem entries; Windows named pipes are not.
+  if (!namedPipe && !fs.existsSync(socketPath)) return false
 
   // Verify: can we actually connect and get a response?
   try {
@@ -36,11 +38,13 @@ export async function isDaemonRunning(): Promise<boolean> {
     })
     return response.success
   } catch {
-    // Socket exists but daemon is dead — stale socket
-    try {
-      fs.unlinkSync(socketPath)
-    } catch {
-      /* ignore */
+    // Socket exists but daemon is dead — stale socket. Named pipes are not unlinkable files.
+    if (!namedPipe) {
+      try {
+        fs.unlinkSync(socketPath)
+      } catch {
+        /* ignore */
+      }
     }
     return false
   }
@@ -53,7 +57,9 @@ export async function getDaemonStatus(): Promise<DaemonStatus> {
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
 
-  if (!fs.existsSync(socketPath)) {
+  const namedPipe = isDaemonNamedPipe(socketPath)
+
+  if (!namedPipe && !fs.existsSync(socketPath)) {
     return { running: false }
   }
 
@@ -164,7 +170,9 @@ export async function executeViaDaemon(
 ): Promise<DaemonResponse | null> {
   const socketPath = DAEMON_PATHS.socket()
 
-  if (!fs.existsSync(socketPath)) {
+  const namedPipe = isDaemonNamedPipe(socketPath)
+
+  if (!namedPipe && !fs.existsSync(socketPath)) {
     if (autoStart) {
       // Spawn daemon in background for future commands
       spawnDaemon().catch(() => {})
@@ -182,6 +190,10 @@ export async function executeViaDaemon(
       perfStartNs,
     })
   } catch {
+    if (autoStart) {
+      // Named pipes need a connect attempt to discover absence; spawn for next command.
+      spawnDaemon().catch(() => {})
+    }
     return null // Daemon error — fall back
   }
 }
@@ -233,10 +245,12 @@ export function forceKillDaemon(): boolean {
   } catch {
     /* ignore */
   }
-  try {
-    if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
-  } catch {
-    /* ignore */
+  if (!isDaemonNamedPipe(socketPath)) {
+    try {
+      if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
+    } catch {
+      /* ignore */
+    }
   }
 
   return killed
@@ -262,6 +276,7 @@ export async function spawnDaemon(): Promise<boolean> {
 
   let entryPath: string
   let runtime: string
+  const preferBun = process.platform !== 'win32' && isBunAvailable()
 
   if (fs.existsSync(srcPath)) {
     // Dev mode: use raw TypeScript with bun
@@ -270,11 +285,11 @@ export async function spawnDaemon(): Promise<boolean> {
   } else if (fs.existsSync(distPathAdjacent)) {
     // Production (running from dist/): prefer bun if available
     entryPath = distPathAdjacent
-    runtime = isBunAvailable() ? 'bun' : 'node'
+    runtime = preferBun ? 'bun' : 'node'
   } else if (fs.existsSync(distPath)) {
     // Production (running from bin/): prefer bun if available
     entryPath = distPath
-    runtime = isBunAvailable() ? 'bun' : 'node'
+    runtime = preferBun ? 'bun' : 'node'
   } else {
     return false
   }

@@ -47,12 +47,12 @@ describe('codex skill size guard', () => {
 })
 
 describe('bin shim skill self-heal', () => {
-  const shim = fs.readFileSync(path.join(ROOT, 'bin/prjct'), 'utf-8')
+  const shim = fs.readFileSync(path.join(ROOT, 'bin/prjct.cjs'), 'utf-8')
 
   test('Codex destination receives the Codex template, not the Claude baseline', () => {
     // The exact regression: one loop copied templates/skills/prjct/SKILL.md
     // (the ~9.5KB Claude baseline) into BOTH ~/.claude and ~/.codex.
-    expect(shim).toContain('templates/codex/SKILL.md')
+    expect(shim).toContain("'templates', 'codex', 'SKILL.md'")
     for (const line of shim.split('\n')) {
       if (line.includes('.codex/skills')) {
         expect(line).not.toContain('templates/skills/prjct')
@@ -64,7 +64,7 @@ describe('bin shim skill self-heal', () => {
   })
 
   test('Claude destination still receives the Claude baseline', () => {
-    expect(shim).toContain('templates/skills/prjct/SKILL.md')
-    expect(shim).toContain('.claude/skills/prjct/SKILL.md')
+    expect(shim).toContain("'templates', 'skills', 'prjct', 'SKILL.md'")
+    expect(shim).toContain("'.claude', 'skills', 'prjct', 'SKILL.md'")
   })
 })

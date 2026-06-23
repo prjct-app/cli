@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.59.0] - 2026-06-22
+
+### Fixed
+- **Windows and Linux compatibility foundations.** Package-manager installs now use a portable Node launcher on Windows, the daemon uses named pipes on Windows and Unix sockets on macOS/Linux, Git auto-sync hooks no longer depend on Unix-only shell utilities, and CI smokes Ubuntu, macOS, and Windows.
+
 ## [2.58.0] - 2026-06-22
 
 ### Added

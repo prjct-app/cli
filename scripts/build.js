@@ -226,8 +226,11 @@ function generateDaemonShim() {
   // execute via dist/bin/prjct.mjs). Any future change to the fallback
   // policy MUST update both this string and bin/prjct.ts.
   return `#!/usr/bin/env node
-import{connect}from"node:net";import{existsSync}from"node:fs";import{randomUUID}from"node:crypto";import{homedir}from"node:os";
-const sockPath=homedir()+"/.prjct-cli/run/daemon.sock";
+import{connect}from"node:net";import{existsSync}from"node:fs";import{createHash,randomUUID}from"node:crypto";import{homedir}from"node:os";import{join,resolve}from"node:path";
+const cliHome=process.env.PRJCT_CLI_HOME?resolve(process.env.PRJCT_CLI_HOME):join(homedir(),".prjct-cli");
+const namedPipe=process.platform==="win32";
+const sockPath=namedPipe?"\\\\.\\pipe\\prjct-"+createHash("sha1").update(resolve(cliHome)).digest("hex").slice(0,16)+"-daemon":join(cliHome,"run","daemon.sock");
+const hasEndpoint=()=>namedPipe||existsSync(sockPath);
 const args=process.argv.slice(2);
 const cmd=args.find(a=>!a.startsWith("-"));
 const skip=new Set(${JSON.stringify(deriveShimSkipSet())});
@@ -249,10 +252,10 @@ function sendHook(sub,data){
   sock.on("error",soft);
   sock.on("close",soft);
 }
-if(cmd==="hook"&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
+if(cmd==="hook"&&process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){
   const sub=args[1];
   if(process.stdin.isTTY){sendHook(sub,"")}else{let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>sendHook(sub,d));process.stdin.on("error",()=>sendHook(sub,d));setTimeout(()=>sendHook(sub,d),1000)}
-}else if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
+}else if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){
   const cArgs=[],cOpts={};
   for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
   const msg=JSON.stringify({id:randomUUID(),command:cmd,args:cArgs,options:cOpts,cwd:process.cwd()})+"\\n";
