@@ -25,7 +25,7 @@ import { PrjctCommandsBase } from './base'
 
 export class InstallCommands extends PrjctCommandsBase {
   /**
-   * /p:install — install the prjct hook pack into `~/.claude/settings.json`.
+   * p. install — install the prjct hook pack into `~/.claude/settings.json`.
    */
   async install(
     _arg: string | null = null,
@@ -99,7 +99,7 @@ export class InstallCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:uninstall — strip every prjct-managed hook out of settings.json.
+   * p. uninstall — strip every prjct-managed hook out of settings.json.
    * Leaves non-prjct hooks under the same events intact.
    */
   async uninstall(

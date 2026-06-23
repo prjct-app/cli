@@ -17,43 +17,125 @@ export interface SubtaskBackend {
   publish(projectId: string, type: string, data: Record<string, unknown>): Promise<void>
 }
 
+interface SubtaskMutationResult {
+  taskId: string
+  current: Subtask
+  next: Subtask | null
+  progress?: { completed: number; total: number; percentage: number }
+}
+
+type ProgressCounter = (subtasks: Subtask[]) => number
+
+const countCompleted: ProgressCounter = (subtasks) =>
+  subtasks.filter((subtask) => subtask.status === 'completed').length
+
+const countResolved: ProgressCounter = (subtasks) =>
+  subtasks.filter(
+    (subtask) =>
+      subtask.status === 'completed' || subtask.status === 'failed' || subtask.status === 'skipped'
+  ).length
+
+async function mutateCurrentSubtask(
+  backend: SubtaskBackend,
+  projectId: string,
+  mutate: (current: Subtask) => Subtask,
+  countProgress?: ProgressCounter
+): Promise<SubtaskMutationResult | null> {
+  const resultRef: { value?: SubtaskMutationResult } = {}
+
+  await backend.update(projectId, (state) => {
+    if (!state.currentTask?.subtasks) return state
+
+    const currentIndex = state.currentTask.currentSubtaskIndex || 0
+    const current = state.currentTask.subtasks[currentIndex]
+    if (!current) return state
+
+    const updatedSubtasks = [...state.currentTask.subtasks]
+    updatedSubtasks[currentIndex] = mutate(current)
+
+    const nextIndex = currentIndex + 1
+    const total = updatedSubtasks.length
+    if (nextIndex < total) {
+      updatedSubtasks[nextIndex] = {
+        ...updatedSubtasks[nextIndex],
+        status: 'in_progress',
+        startedAt: getTimestamp(),
+      }
+    }
+
+    const next = nextIndex < total ? updatedSubtasks[nextIndex] : null
+    const progress = countProgress ? progressFrom(countProgress(updatedSubtasks), total) : undefined
+    resultRef.value = {
+      taskId: state.currentTask.id,
+      current: updatedSubtasks[currentIndex],
+      next,
+      ...(progress ? { progress } : {}),
+    }
+
+    return {
+      ...state,
+      currentTask: {
+        ...state.currentTask,
+        subtasks: updatedSubtasks,
+        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
+        ...(progress ? { subtaskProgress: progress } : {}),
+      },
+      lastUpdated: getTimestamp(),
+    }
+  })
+
+  return resultRef.value ?? null
+}
+
+function progressFrom(
+  completed: number,
+  total: number
+): NonNullable<SubtaskMutationResult['progress']> {
+  return {
+    completed,
+    total,
+    percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+  }
+}
+
 export async function createSubtasks(
   backend: SubtaskBackend,
   projectId: string,
   subtasks: Omit<Subtask, 'status' | 'startedAt' | 'completedAt' | 'output' | 'summary'>[]
 ): Promise<void> {
-  const state = await backend.read(projectId)
-  if (!state.currentTask) return
+  let taskId: string | null = null
+  let fullSubtasks: Subtask[] = []
 
-  const fullSubtasks: Subtask[] = subtasks.map((s, index) => ({
-    ...s,
-    status: index === 0 ? 'in_progress' : 'pending',
-    startedAt: index === 0 ? getTimestamp() : undefined,
-    dependsOn: s.dependsOn || [],
-  }))
-
-  await backend.update(projectId, (current) => ({
-    ...current,
-    currentTask: {
-      ...current.currentTask!,
-      subtasks: fullSubtasks,
-      currentSubtaskIndex: 0,
-      subtaskProgress: {
-        completed: 0,
-        total: fullSubtasks.length,
-        percentage: 0,
+  await backend.update(projectId, (current) => {
+    if (!current.currentTask) return current
+    taskId = current.currentTask.id
+    fullSubtasks = subtasks.map((subtask, index) => ({
+      ...subtask,
+      status: index === 0 ? 'in_progress' : 'pending',
+      startedAt: index === 0 ? getTimestamp() : undefined,
+      dependsOn: subtask.dependsOn || [],
+    }))
+    return {
+      ...current,
+      currentTask: {
+        ...current.currentTask,
+        subtasks: fullSubtasks,
+        currentSubtaskIndex: 0,
+        subtaskProgress: progressFrom(0, fullSubtasks.length),
       },
-    },
-    lastUpdated: getTimestamp(),
-  }))
+      lastUpdated: getTimestamp(),
+    }
+  })
+
+  if (!taskId) return
 
   await backend.publish(projectId, 'subtasks.created', {
-    taskId: state.currentTask.id,
+    taskId,
     subtaskCount: fullSubtasks.length,
-    subtasks: fullSubtasks.map((s) => ({
-      id: s.id,
-      description: s.description,
-      domain: s.domain,
+    subtasks: fullSubtasks.map((subtask) => ({
+      id: subtask.id,
+      description: subtask.description,
+      domain: subtask.domain,
     })),
   })
 }
@@ -65,62 +147,39 @@ export async function completeSubtask(
 ): Promise<Subtask | null> {
   const validation = SubtaskCompletionDataSchema.safeParse(completionData)
   if (!validation.success) {
-    const errors = validation.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+    const errors = validation.error.issues.map(
+      (issue) => `${issue.path.join('.')}: ${issue.message}`
+    )
     throw new Error(`Subtask completion requires handoff data:\n${errors.join('\n')}`)
   }
 
   const { output, summary } = validation.data
-  const state = await backend.read(projectId)
-  if (!state.currentTask?.subtasks) return null
+  const result = await mutateCurrentSubtask(
+    backend,
+    projectId,
+    (current) => ({
+      ...current,
+      status: 'completed',
+      completedAt: getTimestamp(),
+      output,
+      summary,
+    }),
+    countCompleted
+  )
 
-  const currentIndex = state.currentTask.currentSubtaskIndex || 0
-  const current = state.currentTask.subtasks[currentIndex]
-  if (!current) return null
-
-  const updatedSubtasks = [...state.currentTask.subtasks]
-  updatedSubtasks[currentIndex] = {
-    ...current,
-    status: 'completed',
-    completedAt: getTimestamp(),
-    output,
-    summary,
-  }
-
-  const completed = updatedSubtasks.filter((s) => s.status === 'completed').length
-  const total = updatedSubtasks.length
-  const percentage = Math.round((completed / total) * 100)
-
-  const nextIndex = currentIndex + 1
-  if (nextIndex < updatedSubtasks.length) {
-    updatedSubtasks[nextIndex] = {
-      ...updatedSubtasks[nextIndex],
-      status: 'in_progress',
-      startedAt: getTimestamp(),
-    }
-  }
-
-  await backend.update(projectId, (s) => ({
-    ...s,
-    currentTask: {
-      ...s.currentTask!,
-      subtasks: updatedSubtasks,
-      currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-      subtaskProgress: { completed, total, percentage },
-    },
-    lastUpdated: getTimestamp(),
-  }))
+  if (!result) return null
 
   await backend.publish(projectId, 'subtask.completed', {
-    taskId: state.currentTask.id,
-    subtaskId: current.id,
-    description: current.description,
+    taskId: result.taskId,
+    subtaskId: result.current.id,
+    description: result.current.description,
     output,
     handoff: summary.outputForNextAgent,
     filesChanged: summary.filesChanged.length,
-    progress: { completed, total, percentage },
+    progress: result.progress,
   })
 
-  return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  return result.next
 }
 
 export async function getCurrentSubtask(
@@ -198,7 +257,8 @@ export async function areAllSubtasksComplete(
   const state = await backend.read(projectId)
   if (!state.currentTask?.subtasks) return true
   return state.currentTask.subtasks.every(
-    (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
+    (subtask) =>
+      subtask.status === 'completed' || subtask.status === 'failed' || subtask.status === 'skipped'
   )
 }
 
@@ -207,55 +267,28 @@ export async function failSubtask(
   projectId: string,
   error: string
 ): Promise<Subtask | null> {
-  const state = await backend.read(projectId)
-  if (!state.currentTask?.subtasks) return null
+  const result = await mutateCurrentSubtask(
+    backend,
+    projectId,
+    (current) => ({
+      ...current,
+      status: 'failed',
+      completedAt: getTimestamp(),
+      output: `Failed: ${error}`,
+    }),
+    countResolved
+  )
 
-  const currentIndex = state.currentTask.currentSubtaskIndex || 0
-  const current = state.currentTask.subtasks[currentIndex]
-  if (!current) return null
-
-  const updatedSubtasks = [...state.currentTask.subtasks]
-  updatedSubtasks[currentIndex] = {
-    ...current,
-    status: 'failed',
-    completedAt: getTimestamp(),
-    output: `Failed: ${error}`,
-  }
-
-  const nextIndex = currentIndex + 1
-  const total = updatedSubtasks.length
-  if (nextIndex < total) {
-    updatedSubtasks[nextIndex] = {
-      ...updatedSubtasks[nextIndex],
-      status: 'in_progress',
-      startedAt: getTimestamp(),
-    }
-  }
-
-  const resolved = updatedSubtasks.filter(
-    (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
-  ).length
-  const percentage = Math.round((resolved / total) * 100)
-
-  await backend.update(projectId, (s) => ({
-    ...s,
-    currentTask: {
-      ...s.currentTask!,
-      subtasks: updatedSubtasks,
-      currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-      subtaskProgress: { completed: resolved, total, percentage },
-    },
-    lastUpdated: getTimestamp(),
-  }))
+  if (!result) return null
 
   await backend.publish(projectId, 'subtask.failed', {
-    taskId: state.currentTask.id,
-    subtaskId: current.id,
-    description: current.description,
+    taskId: result.taskId,
+    subtaskId: result.current.id,
+    description: result.current.description,
     error,
   })
 
-  return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  return result.next
 }
 
 export async function skipSubtask(
@@ -263,56 +296,29 @@ export async function skipSubtask(
   projectId: string,
   reason: string
 ): Promise<Subtask | null> {
-  const state = await backend.read(projectId)
-  if (!state.currentTask?.subtasks) return null
+  const result = await mutateCurrentSubtask(
+    backend,
+    projectId,
+    (current) => ({
+      ...current,
+      status: 'skipped',
+      completedAt: getTimestamp(),
+      output: `Skipped: ${reason}`,
+      skipReason: reason,
+    }),
+    countResolved
+  )
 
-  const currentIndex = state.currentTask.currentSubtaskIndex || 0
-  const current = state.currentTask.subtasks[currentIndex]
-  if (!current) return null
-
-  const updatedSubtasks = [...state.currentTask.subtasks]
-  updatedSubtasks[currentIndex] = {
-    ...current,
-    status: 'skipped',
-    completedAt: getTimestamp(),
-    output: `Skipped: ${reason}`,
-    skipReason: reason,
-  }
-
-  const nextIndex = currentIndex + 1
-  const total = updatedSubtasks.length
-  if (nextIndex < total) {
-    updatedSubtasks[nextIndex] = {
-      ...updatedSubtasks[nextIndex],
-      status: 'in_progress',
-      startedAt: getTimestamp(),
-    }
-  }
-
-  const resolved = updatedSubtasks.filter(
-    (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
-  ).length
-  const percentage = Math.round((resolved / total) * 100)
-
-  await backend.update(projectId, (s) => ({
-    ...s,
-    currentTask: {
-      ...s.currentTask!,
-      subtasks: updatedSubtasks,
-      currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-      subtaskProgress: { completed: resolved, total, percentage },
-    },
-    lastUpdated: getTimestamp(),
-  }))
+  if (!result) return null
 
   await backend.publish(projectId, 'subtask.skipped', {
-    taskId: state.currentTask.id,
-    subtaskId: current.id,
-    description: current.description,
+    taskId: result.taskId,
+    subtaskId: result.current.id,
+    description: result.current.description,
     reason,
   })
 
-  return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  return result.next
 }
 
 export async function blockSubtask(
@@ -320,48 +326,21 @@ export async function blockSubtask(
   projectId: string,
   blocker: string
 ): Promise<Subtask | null> {
-  const state = await backend.read(projectId)
-  if (!state.currentTask?.subtasks) return null
-
-  const currentIndex = state.currentTask.currentSubtaskIndex || 0
-  const current = state.currentTask.subtasks[currentIndex]
-  if (!current) return null
-
-  const updatedSubtasks = [...state.currentTask.subtasks]
-  updatedSubtasks[currentIndex] = {
+  const result = await mutateCurrentSubtask(backend, projectId, (current) => ({
     ...current,
     status: 'blocked',
     output: `Blocked: ${blocker}`,
     blockReason: blocker,
-  }
-
-  // blocked doesn't halt — advance to next subtask if available
-  const nextIndex = currentIndex + 1
-  const total = updatedSubtasks.length
-  if (nextIndex < total) {
-    updatedSubtasks[nextIndex] = {
-      ...updatedSubtasks[nextIndex],
-      status: 'in_progress',
-      startedAt: getTimestamp(),
-    }
-  }
-
-  await backend.update(projectId, (s) => ({
-    ...s,
-    currentTask: {
-      ...s.currentTask!,
-      subtasks: updatedSubtasks,
-      currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-    },
-    lastUpdated: getTimestamp(),
   }))
 
+  if (!result) return null
+
   await backend.publish(projectId, 'subtask.blocked', {
-    taskId: state.currentTask.id,
-    subtaskId: current.id,
-    description: current.description,
+    taskId: result.taskId,
+    subtaskId: result.current.id,
+    description: result.current.description,
     blocker,
   })
 
-  return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  return result.next
 }

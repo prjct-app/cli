@@ -23,36 +23,40 @@ export async function pauseTask(
   projectId: string,
   reason?: string
 ): Promise<PreviousTask | null> {
-  const state = await backend.read(projectId)
-  if (!state.currentTask) return null
+  const resultRef: { pausedTask?: PreviousTask; pausedCount: number } = { pausedCount: 0 }
 
-  backend.validateTransition(state, 'pause')
+  await backend.update(projectId, (state) => {
+    if (!state.currentTask) return state
+    backend.validateTransition(state, 'pause')
+    resultRef.pausedTask = {
+      ...state.currentTask,
+      status: 'paused',
+      pausedAt: getTimestamp(),
+      pauseReason: reason,
+    }
+    const pausedTasks = [resultRef.pausedTask, ...backend.getPausedTasksFromState(state)].slice(
+      0,
+      backend.maxPausedTasks
+    )
+    resultRef.pausedCount = pausedTasks.length
+    return {
+      ...state,
+      currentTask: null,
+      previousTask: null,
+      pausedTasks,
+      lastUpdated: getTimestamp(),
+    }
+  })
 
-  const pausedTask: PreviousTask = {
-    ...state.currentTask,
-    status: 'paused',
-    pausedAt: getTimestamp(),
-    pauseReason: reason,
-  }
-
-  const existingPaused = backend.getPausedTasksFromState(state)
-  // Enforce max paused limit
-  const pausedTasks = [pausedTask, ...existingPaused].slice(0, backend.maxPausedTasks)
-
-  await backend.update(projectId, (existingState) => ({
-    ...existingState,
-    currentTask: null,
-    previousTask: null, // deprecated, keep null for compat
-    pausedTasks,
-    lastUpdated: getTimestamp(),
-  }))
+  if (!resultRef.pausedTask) return null
+  const pausedTask = resultRef.pausedTask
 
   await backend.publish(projectId, 'task.paused', {
     taskId: pausedTask.id,
     description: pausedTask.description,
     pausedAt: pausedTask.pausedAt,
     reason,
-    pausedCount: pausedTasks.length,
+    pausedCount: resultRef.pausedCount,
   })
 
   return pausedTask
@@ -63,42 +67,43 @@ export async function resumeTask(
   projectId: string,
   taskId?: string
 ): Promise<CurrentTask | null> {
-  const state = await backend.read(projectId)
+  const resultRef: { currentTask?: CurrentTask; remainingPaused: number } = { remainingPaused: 0 }
 
-  const pausedTasks = backend.getPausedTasksFromState(state)
-  if (pausedTasks.length === 0) return null
+  await backend.update(projectId, (state) => {
+    const pausedTasks = backend.getPausedTasksFromState(state)
+    if (pausedTasks.length === 0) return state
+    backend.validateTransition(state, 'resume')
 
-  backend.validateTransition(state, 'resume')
+    const targetIndex = taskId ? pausedTasks.findIndex((t) => t.id === taskId) : 0
+    if (targetIndex === -1) return state
 
-  let targetIndex = 0
-  if (taskId) {
-    targetIndex = pausedTasks.findIndex((t) => t.id === taskId)
-    if (targetIndex === -1) return null
-  }
+    const target = pausedTasks[targetIndex]
+    const remaining = pausedTasks.filter((_, i) => i !== targetIndex)
+    const { status: _, pausedAt: __, pauseReason: ___, ...preserved } = target
+    resultRef.currentTask = {
+      ...preserved,
+      startedAt: getTimestamp(),
+      sessionId: target.sessionId ?? generateUUID(),
+    }
+    resultRef.remainingPaused = remaining.length
 
-  const target = pausedTasks[targetIndex]
-  const remaining = pausedTasks.filter((_, i) => i !== targetIndex)
+    return {
+      ...state,
+      currentTask: resultRef.currentTask,
+      previousTask: null,
+      pausedTasks: remaining,
+      lastUpdated: getTimestamp(),
+    }
+  })
 
-  const { status: _, pausedAt: __, pauseReason: ___, ...preserved } = target
-  const currentTask: CurrentTask = {
-    ...preserved,
-    startedAt: getTimestamp(),
-    sessionId: target.sessionId ?? generateUUID(),
-  }
-
-  await backend.update(projectId, (existingState) => ({
-    ...existingState,
-    currentTask,
-    previousTask: null,
-    pausedTasks: remaining,
-    lastUpdated: getTimestamp(),
-  }))
+  if (!resultRef.currentTask) return null
+  const currentTask = resultRef.currentTask
 
   await backend.publish(projectId, 'task.resumed', {
     taskId: currentTask.id,
     description: currentTask.description,
     resumedAt: currentTask.startedAt,
-    remainingPaused: remaining.length,
+    remainingPaused: resultRef.remainingPaused,
   })
 
   return currentTask
@@ -123,12 +128,21 @@ export async function archiveStalePausedTasks(
   backend: LifecycleBackend,
   projectId: string
 ): Promise<PreviousTask[]> {
-  const state = await backend.read(projectId)
-  const pausedTasks = backend.getPausedTasksFromState(state)
   const threshold = Date.now() - backend.stalenessThresholdDays * 24 * 60 * 60 * 1000
+  let stale: PreviousTask[] = []
 
-  const stale = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() < threshold)
-  const fresh = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() >= threshold)
+  await backend.update(projectId, (state) => {
+    const pausedTasks = backend.getPausedTasksFromState(state)
+    stale = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() < threshold)
+    if (stale.length === 0) return state
+    const fresh = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() >= threshold)
+    return {
+      ...state,
+      pausedTasks: fresh,
+      previousTask: null,
+      lastUpdated: getTimestamp(),
+    }
+  })
 
   if (stale.length === 0) return []
 
@@ -142,13 +156,6 @@ export async function archiveStalePausedTasks(
       reason: 'staleness',
     }))
   )
-
-  await backend.update(projectId, (s) => ({
-    ...s,
-    pausedTasks: fresh,
-    previousTask: null,
-    lastUpdated: getTimestamp(),
-  }))
 
   for (const task of stale) {
     await backend.publish(projectId, 'task.archived', {

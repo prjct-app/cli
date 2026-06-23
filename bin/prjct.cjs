@@ -16,7 +16,11 @@ const path = require('node:path')
 const SCRIPT_PATH = fs.realpathSync(__filename)
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH)
 const ROOT_DIR = path.resolve(SCRIPT_DIR, '..')
-const HOME = os.homedir()
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir()
+const CLI_HOME = process.env.PRJCT_CLI_HOME
+  ? path.resolve(process.env.PRJCT_CLI_HOME)
+  : path.join(HOME, '.prjct-cli')
+const SETUP_STAMP_PATH = path.join(CLI_HOME, 'state', 'setup-version.json')
 
 function pathEntries() {
   return (process.env.PATH || '').split(path.delimiter).filter(Boolean)
@@ -114,12 +118,76 @@ function copyDirContents(srcDir, destDir) {
   }
 }
 
+function packageVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8')).version || ''
+  } catch {
+    return ''
+  }
+}
+
+function fileMissingWhenSourceExists(src, dest) {
+  try {
+    return fs.existsSync(src) && !fs.existsSync(dest)
+  } catch {
+    return false
+  }
+}
+
+function readSetupStamp() {
+  try {
+    return JSON.parse(fs.readFileSync(SETUP_STAMP_PATH, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+function writeSetupStamp(version) {
+  try {
+    fs.mkdirSync(path.dirname(SETUP_STAMP_PATH), { recursive: true })
+    fs.writeFileSync(
+      SETUP_STAMP_PATH,
+      `${JSON.stringify({ version, completedAt: new Date().toISOString() }, null, 2)}\n`,
+      'utf-8'
+    )
+  } catch {
+    /* best effort */
+  }
+}
+
+function shouldRunSetup(version) {
+  const stamp = readSetupStamp()
+  if (!stamp || stamp.version !== version) return true
+
+  if (fs.existsSync(path.join(HOME, '.claude', 'commands', 'p.md'))) return true
+  if (fs.existsSync(path.join(HOME, '.gemini', 'commands', 'p.toml'))) return true
+
+  const statuslineSrc = path.join(ROOT_DIR, 'assets', 'statusline', 'statusline.sh')
+  const statuslineDest = path.join(CLI_HOME, 'statusline', 'statusline.sh')
+  if (fileMissingWhenSourceExists(statuslineSrc, statuslineDest)) return true
+
+  const claudeSkillSrc = path.join(ROOT_DIR, 'templates', 'skills', 'prjct', 'SKILL.md')
+  const claudeSkillDest = path.join(HOME, '.claude', 'skills', 'prjct', 'SKILL.md')
+  if (fileMissingWhenSourceExists(claudeSkillSrc, claudeSkillDest)) return true
+
+  const codexSkillSrc = path.join(ROOT_DIR, 'templates', 'codex', 'SKILL.md')
+  const codexSkillDest = path.join(HOME, '.codex', 'skills', 'prjct', 'SKILL.md')
+  if (
+    fs.existsSync(path.join(HOME, '.codex')) &&
+    fileMissingWhenSourceExists(codexSkillSrc, codexSkillDest)
+  ) {
+    return true
+  }
+
+  return false
+}
+
 function ensureSetup() {
   removeIfExists(path.join(HOME, '.claude', 'commands', 'p.md'))
   removeIfExists(path.join(HOME, '.gemini', 'commands', 'p.toml'))
 
   const statuslineSrc = path.join(ROOT_DIR, 'assets', 'statusline', 'statusline.sh')
-  const statuslineDir = path.join(HOME, '.prjct-cli', 'statusline')
+  const statuslineDir = path.join(CLI_HOME, 'statusline')
   const statuslineDest = path.join(statuslineDir, 'statusline.sh')
   const claudeStatusline = path.join(HOME, '.claude', 'prjct-statusline.sh')
 
@@ -241,7 +309,22 @@ function main() {
   const args = process.argv.slice(2)
   if (args[0] === 'mcp-server') runMcpServer(args)
 
-  ensureSetup()
+  const setupSkipCommands = new Set([
+    '-v',
+    '--version',
+    'version',
+    '-h',
+    '--help',
+    'help',
+    'hook',
+    '__internal-auto-update',
+    '__post-upgrade',
+  ])
+  const version = packageVersion()
+  if (!setupSkipCommands.has(args[0]) && shouldRunSetup(version)) {
+    ensureSetup()
+    writeSetupStamp(version)
+  }
 
   if (runWithBun(args)) return
   runWithNode(args)

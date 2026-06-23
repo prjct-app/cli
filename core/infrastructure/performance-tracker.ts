@@ -66,6 +66,25 @@ class PerformanceTracker {
     }
   }
 
+  private recordSample(
+    projectId: string,
+    metric: MetricName,
+    data: Record<string, unknown>,
+    value?: number,
+    unit?: string
+  ): void {
+    const timestamp = new Date().toISOString()
+    prjctDb.run(
+      projectId,
+      'INSERT INTO perf_samples (metric, value, unit, data, timestamp) VALUES (?, ?, ?, ?, ?)',
+      metric,
+      value ?? null,
+      unit ?? null,
+      JSON.stringify(data),
+      timestamp
+    )
+  }
+
   /**
    * Record a timing metric to storage
    */
@@ -75,12 +94,19 @@ class PerformanceTracker {
     durationMs: number,
     context?: Record<string, unknown>
   ): void {
-    prjctDb.appendEvent(projectId, `perf.${metric}`, {
+    const value = Math.round(durationMs * 100) / 100
+    this.recordSample(
+      projectId,
       metric,
-      value: Math.round(durationMs * 100) / 100, // 2 decimal places
-      unit: 'ms',
-      context,
-    })
+      {
+        metric,
+        value,
+        unit: 'ms',
+        context,
+      },
+      value,
+      'ms'
+    )
   }
 
   // Memory
@@ -112,12 +138,18 @@ class PerformanceTracker {
     ]
 
     for (const m of metrics) {
-      prjctDb.appendEvent(projectId, `perf.${m.metric}`, {
-        metric: m.metric,
-        value: m.value,
-        unit: m.unit,
-        context,
-      })
+      this.recordSample(
+        projectId,
+        m.metric,
+        {
+          metric: m.metric,
+          value: m.value,
+          unit: m.unit,
+          context,
+        },
+        m.value,
+        m.unit
+      )
     }
 
     return snapshot
@@ -132,7 +164,7 @@ class PerformanceTracker {
     projectId: string,
     data: Omit<ContextCorrectness, 'timestamp' | 'metric'>
   ): void {
-    prjctDb.appendEvent(projectId, 'perf.context_correctness', {
+    this.recordSample(projectId, 'context_correctness', {
       metric: 'context_correctness',
       ...data,
     })
@@ -147,7 +179,7 @@ class PerformanceTracker {
     projectId: string,
     data: Omit<SubtaskHandoff, 'timestamp' | 'metric'>
   ): void {
-    prjctDb.appendEvent(projectId, 'perf.subtask_handoff', {
+    this.recordSample(projectId, 'subtask_handoff', {
       metric: 'subtask_handoff',
       ...data,
     })
@@ -167,17 +199,34 @@ class PerformanceTracker {
 
     const sinceIso = sinceDate.toISOString()
 
-    const rows = prjctDb.query<{ data: string; timestamp: string }>(
+    const entries: PerformanceEntry[] = []
+
+    try {
+      const rows = prjctDb.query<{ data: string; timestamp: string }>(
+        projectId,
+        'SELECT data, timestamp FROM perf_samples WHERE timestamp >= ? ORDER BY id DESC',
+        sinceIso
+      )
+      for (const row of rows) {
+        const parsed = JSON.parse(row.data)
+        entries.push({ ...parsed, timestamp: row.timestamp } as PerformanceEntry)
+      }
+    } catch {
+      // Older project DBs may not have migrated yet; legacy events below keep reports usable.
+    }
+
+    const legacyRows = prjctDb.query<{ data: string; timestamp: string }>(
       projectId,
       'SELECT data, timestamp FROM events WHERE type LIKE ? AND timestamp >= ? ORDER BY id DESC',
       'perf.%',
       sinceIso
     )
-
-    return rows.map((row) => {
+    for (const row of legacyRows) {
       const parsed = JSON.parse(row.data)
-      return { ...parsed, timestamp: row.timestamp } as PerformanceEntry
-    })
+      entries.push({ ...parsed, timestamp: row.timestamp } as PerformanceEntry)
+    }
+
+    return entries
   }
 
   /**

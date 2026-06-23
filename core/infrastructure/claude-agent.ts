@@ -203,39 +203,39 @@ ${data.recentFeatures || ''}`
 • "ship feature" → Track & celebrate
 • "add idea" → Brainstorm
 
-Or: /p:now | /p:ship | /p:idea`,
+Or: p. now | p. ship | p. idea`,
 
       featureShipped: `Keep the momentum!
 • "start next task" → Keep building
 • "see progress" → View stats
 • "plan ahead" → Strategic thinking
 
-Or: /p:now | /p:recap | /p:roadmap`,
+Or: p. now | p. recap | p. roadmap`,
 
       ideaCaptured: `Ready to start?
 • "start this" → Begin now
 • "plan more" → Keep brainstorming
 • "see ideas" → View backlog
 
-Or: /p:now | /p:idea | /p:recap`,
+Or: p. now | p. idea | p. recap`,
 
       initialized: `Ready to start? Tell me what you want to build!
 
-Or type /p:help to see all options`,
+Or type p. help to see all options`,
 
       stuck: `Let's break it down:
 • "start the first part"
 • "add as tasks"
 • "think more"
 
-Or: /p:now | /p:task | /p:idea`,
+Or: p. now | p. task | p. idea`,
     }
 
     return (
       suggestions[context] ||
       `What would you like to do?
 
-Type /p:help to see all options`
+Type p. help to see all options`
     )
   }
 

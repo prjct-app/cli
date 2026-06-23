@@ -1,0 +1,44 @@
+import { getErrorMessage } from '../../errors'
+import log from '../../utils/logger'
+
+export const DEFAULT_SYNC_PHASE_TIMEOUT_MS = 60_000
+
+export function syncPhaseTimeoutMs(): number {
+  return Number(process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS) || DEFAULT_SYNC_PHASE_TIMEOUT_MS
+}
+
+/**
+ * Timeout wrapper for observational phases only.
+ *
+ * Promise.race cannot cancel the original promise, so callers must not wrap
+ * phases that mutate SQLite/filesystem state unless that work is abort-aware.
+ */
+export function withPhaseTimeout<T>(promise: Promise<T>, phase: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`sync phase '${phase}' timed out after ${syncPhaseTimeoutMs()}ms`)),
+      syncPhaseTimeoutMs()
+    )
+  })
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
+export async function runSyncPhase<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const start = Date.now()
+  log.debug('sync phase start', { phase: name })
+  try {
+    const result = await fn()
+    log.debug('sync phase done', { phase: name, ms: Date.now() - start })
+    return result
+  } catch (error) {
+    log.debug('sync phase failed', {
+      phase: name,
+      ms: Date.now() - start,
+      error: getErrorMessage(error),
+    })
+    throw error
+  }
+}

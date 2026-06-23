@@ -76,6 +76,8 @@ export interface BM25Index {
   totalDocs: number
   /** Build timestamp */
   builtAt: string
+  /** Fingerprint of the git history window used to build the matrix */
+  historyFingerprint?: string
 }
 
 export interface BM25Score {
@@ -161,6 +163,8 @@ export interface ImportGraph {
   edgeCount: number
   /** Build timestamp */
   builtAt: string
+  /** Fingerprint of the git history window used to build the matrix */
+  historyFingerprint?: string
 }
 
 export interface ImportScore {
@@ -187,6 +191,8 @@ export interface CoChangeIndex {
   filesAnalyzed: number
   /** Build timestamp */
   builtAt: string
+  /** Fingerprint of the git history window used to build the matrix */
+  historyFingerprint?: string
 }
 
 export interface CoChangeScore {

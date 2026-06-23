@@ -30,6 +30,7 @@ import {
   isDaemonNamedPipe,
   MAX_BUFFER_SIZE,
 } from './protocol'
+import { daemonRequestJournal } from './request-journal'
 import {
   decideRestart,
   isCodeStale as detectStaleCode,
@@ -293,27 +294,29 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
     }
   }
 
-  state.activeRequests++
-  try {
-    // Run strictly after any in-flight command (see _requestChain). The
-    // catch arms keep the chain alive if a prior request rejected.
-    const run = _requestChain.then(
-      () => handleRequestInner(request),
-      () => handleRequestInner(request)
-    )
-    _requestChain = run.then(
-      () => undefined,
-      () => undefined
-    )
-    return await run
-  } finally {
-    state.activeRequests--
-    if (state.restartPending && state.activeRequests === 0) {
-      console.log('Daemon shutting down for code reload...')
-      // Defer to next tick so the response finishes flushing to the client.
-      setImmediate(() => shutdown(0))
+  return daemonRequestJournal.run(request, async () => {
+    state!.activeRequests++
+    try {
+      // Run strictly after any in-flight command (see _requestChain). The
+      // catch arms keep the chain alive if a prior request rejected.
+      const run = _requestChain.then(
+        () => handleRequestInner(request),
+        () => handleRequestInner(request)
+      )
+      _requestChain = run.then(
+        () => undefined,
+        () => undefined
+      )
+      return await run
+    } finally {
+      state!.activeRequests--
+      if (state!.restartPending && state!.activeRequests === 0) {
+        console.log('Daemon shutting down for code reload...')
+        // Defer to next tick so the response finishes flushing to the client.
+        setImmediate(() => shutdown(0))
+      }
     }
-  }
+  })
 }
 
 async function handleRequestInner(request: DaemonRequest): Promise<DaemonResponse> {

@@ -1,7 +1,7 @@
-import os from 'node:os'
 import path from 'node:path'
 import { execFileAsync } from '../utils/exec'
 import { dirExists, fileExists } from '../utils/file-helper'
+import { resolveUserHome } from './user-home'
 
 export type AgentRuntimeId =
   | 'agents-md'
@@ -87,8 +87,6 @@ export interface AgentRuntimeStatus extends RuntimeDetection {
   detectedSignals: string[]
   writableMcpTargets: AgentRuntimeMcpTarget[]
 }
-
-const home = os.homedir()
 
 export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
   {
@@ -649,37 +647,6 @@ export async function detectAgentRuntimes(projectPath: string): Promise<AgentRun
   )
 }
 
-export async function detectRuntimeProjectSurfaces(
-  projectPath: string
-): Promise<RuntimeDetection[]> {
-  return Promise.all(
-    AGENT_RUNTIME_REGISTRY.map(async (runtime): Promise<RuntimeDetection> => {
-      const projectFiles = runtime.detectsBy?.projectFiles ?? []
-      for (const file of projectFiles) {
-        if (await fileExists(path.join(projectPath, file))) {
-          return { runtime, detected: true, reason: file }
-        }
-      }
-
-      const projectDirs = runtime.detectsBy?.projectDirs ?? []
-      for (const dir of projectDirs) {
-        if (await dirExists(path.join(projectPath, dir))) {
-          return { runtime, detected: true, reason: dir }
-        }
-      }
-
-      const homeDirs = runtime.detectsBy?.homeDirs ?? []
-      for (const dir of homeDirs) {
-        if (await dirExists(path.join(home, dir))) {
-          return { runtime, detected: true, reason: `~/${dir}` }
-        }
-      }
-
-      return { runtime, detected: false }
-    })
-  )
-}
-
 async function detectRuntimeSignals(
   runtime: AgentRuntimeDefinition,
   projectPath: string
@@ -695,7 +662,7 @@ async function detectRuntimeSignals(
   }
 
   for (const dir of runtime.detectsBy?.homeDirs ?? []) {
-    if (await dirExists(path.join(home, dir))) signals.push(`~/${dir}/`)
+    if (await dirExists(path.join(resolveUserHome(), dir))) signals.push(`~/${dir}/`)
   }
 
   for (const command of runtime.detectsBy?.commands ?? []) {

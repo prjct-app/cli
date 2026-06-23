@@ -29,7 +29,7 @@ const TASK_TYPE_VALUES: readonly TaskType[] = ['feature', 'bug', 'improvement', 
 
 export class PrimitiveCommands extends PrjctCommandsBase {
   /**
-   * /p:status <value>
+   * p. status <value>
    *
    * Escape hatch for changing the active task's status. Workflows are the
    * primary mechanism; this exists for quick overrides.
@@ -98,7 +98,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:tag <k:v> [<k:v>...]
+   * p. tag <k:v> [<k:v>...]
    *
    * Attach tags to the active task. `type:<taskType>` is promoted to the
    * task column; everything else is stored as a memory event.
@@ -149,7 +149,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:remember <type> "<content>" [--tags k:v,...] [--force]
+   * p. remember <type> "<content>" [--tags k:v,...] [--force]
    *
    * Claude captures a project memory entry. Refuses to store content that
    * looks like a secret unless `--force` is passed.

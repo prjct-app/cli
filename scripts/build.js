@@ -161,7 +161,7 @@ var __dirname = __pathDirname(__filename);`,
 /**
  * Legacy shim-only skips: inert orphans that pre-date the manifest and have
  * no handler anywhere. Everything real derives from the manifest
- * (routingMode 'bin-only' + 'cold-only' via SHIM_SKIP_SET).
+ * (routingMode 'bin-only' + 'cold-only').
  *
  * The `__`-prefixed internals are detached-child entry points handled at
  * the very top of bin/prjct.ts — routing them to the daemon (the shim's
@@ -170,7 +170,7 @@ var __dirname = __pathDirname(__filename);`,
 const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve', '__internal-auto-update', '__post-upgrade']
 
 /**
- * Evaluate the command manifest (command-data.ts via verb-names.ts) at
+ * Evaluate the command manifest (command-data.ts) at
  * build time and return the bin-handled command names the shim must skip.
  * This is what makes the shim's skip set DERIVE from the single manifest
  * instead of being a fourth hand-maintained copy — esbuild bundles the
@@ -179,7 +179,7 @@ const SHIM_EXTRA_SKIP = ['dev', 'web', 'serve', '__internal-auto-update', '__pos
 function deriveShimSkipSet() {
   const esbuild = require('esbuild')
   const result = esbuild.buildSync({
-    entryPoints: [path.join(ROOT, 'core/commands/verb-names.ts')],
+    entryPoints: [path.join(ROOT, 'core/commands/command-data.ts')],
     bundle: true,
     format: 'cjs',
     platform: 'node',
@@ -191,7 +191,12 @@ function deriveShimSkipSet() {
     mod.exports,
     require
   )
-  const derived = [...mod.exports.SHIM_SKIP_SET]
+  const derived = [
+    ...mod.exports.BIN_ONLY_COMMANDS,
+    ...mod.exports.COMMANDS.filter((command) => command.routingMode === 'cold-only').map(
+      (command) => command.name
+    ),
+  ]
   return [...new Set([...derived, ...SHIM_EXTRA_SKIP])]
 }
 

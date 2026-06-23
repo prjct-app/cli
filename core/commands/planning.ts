@@ -32,7 +32,7 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
 
 export class PlanningCommands extends PrjctCommandsBase {
   /**
-   * /p:init - Initialize prjct project with interactive wizard
+   * p. init - Initialize prjct project with interactive wizard
    *
    * @param options.yes - Skip wizard, use auto-detected values (for CI)
    * @param options.idea - Initial idea for architect mode

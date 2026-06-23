@@ -16,6 +16,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { BM25_B, BM25_K1 } from '../constants/algorithms'
 import prjctDb from '../storage/database'
+import type { SqliteStatement } from '../storage/database/sqlite-compat'
 import type { BM25Index, BM25Score } from '../types/domain.js'
 import { batchProcess, walkDir } from '../utils/file-helper'
 
@@ -260,14 +261,8 @@ export async function buildIndex(projectPath: string): Promise<BM25Index> {
     documents[filePath] = { tokens, length: tokens.length }
     totalLength += tokens.length
 
-    // Build term frequency map for this document
-    const tfMap = new Map<string, number>()
-    for (const token of tokens) {
-      tfMap.set(token, (tfMap.get(token) || 0) + 1)
-    }
-
     // Add to inverted index
-    for (const [token, tf] of tfMap) {
+    for (const [token, tf] of termFrequencies(tokens)) {
       if (!invertedIndex[token]) {
         invertedIndex[token] = []
       }
@@ -337,22 +332,208 @@ export function score(query: string, index: BM25Index): BM25Score[] {
 
 const INDEX_KEY = 'bm25-index'
 
+function termFrequencies(tokens: string[]): Map<string, number> {
+  const tfMap = new Map<string, number>()
+  for (const token of tokens) {
+    tfMap.set(token, (tfMap.get(token) || 0) + 1)
+  }
+  return tfMap
+}
+
+function removeDocument(index: BM25Index, filePath: string): void {
+  const doc = index.documents[filePath]
+  if (!doc) return
+  delete index.documents[filePath]
+
+  const tokens = new Set(doc.tokens)
+  const tokensToClean = tokens.size > 0 ? tokens : new Set(Object.keys(index.invertedIndex))
+  for (const token of tokensToClean) {
+    const postings = index.invertedIndex[token]
+    if (!postings) continue
+    const next = postings.filter((p) => p.path !== filePath)
+    if (next.length === 0) delete index.invertedIndex[token]
+    else index.invertedIndex[token] = next
+  }
+}
+
+function addDocument(index: BM25Index, filePath: string, tokens: string[]): void {
+  if (tokens.length === 0) return
+  index.documents[filePath] = { tokens, length: tokens.length }
+  for (const [token, tf] of termFrequencies(tokens)) {
+    if (!index.invertedIndex[token]) index.invertedIndex[token] = []
+    index.invertedIndex[token].push({ path: filePath, tf })
+  }
+}
+
+function recalculateStats(index: BM25Index): void {
+  const lengths = Object.values(index.documents).map((doc) => doc.length)
+  const totalLength = lengths.reduce((sum, n) => sum + n, 0)
+  index.totalDocs = lengths.length
+  index.avgDocLength = lengths.length > 0 ? totalLength / lengths.length : 0
+  index.builtAt = new Date().toISOString()
+}
+
 // See `import-graph.loadGraph` for the rationale; same mtime cache.
 const indexCache = new Map<string, { index: BM25Index; updatedAt: string }>()
 
-/**
- * Persist a BM25 index to SQLite. Internal — invoked from `indexProject`.
- */
-function saveIndex(projectId: string, index: BM25Index): void {
-  const storable = {
-    invertedIndex: index.invertedIndex,
+interface StoredBm25Index {
+  schemaVersion?: number
+  invertedIndex?: BM25Index['invertedIndex']
+  avgDocLength: number
+  totalDocs: number
+  builtAt: string
+  docLengths: Record<string, number>
+}
+
+function indexMetadata(index: BM25Index): StoredBm25Index {
+  return {
+    schemaVersion: 2,
     avgDocLength: index.avgDocLength,
     totalDocs: index.totalDocs,
     builtAt: index.builtAt,
     docLengths: Object.fromEntries(Object.entries(index.documents).map(([p, d]) => [p, d.length])),
   }
-  prjctDb.setDoc(projectId, INDEX_KEY, storable)
+}
+
+function writeDocumentRows(
+  insertDoc: SqliteStatement,
+  insertTerm: SqliteStatement,
+  filePath: string,
+  tokens: string[],
+  updatedAt: string
+): void {
+  if (tokens.length === 0) return
+  insertDoc.run(filePath, JSON.stringify(tokens), tokens.length, updatedAt)
+  for (const [token, tf] of termFrequencies(tokens)) {
+    insertTerm.run(token, filePath, tf)
+  }
+}
+
+/**
+ * Persist a full BM25 index to SQLite. Internal — invoked from `indexProject`.
+ */
+function replacePerFileTables(projectId: string, index: BM25Index): void {
+  try {
+    prjctDb.transaction(projectId, (db) => {
+      db.prepare('DELETE FROM bm25_terms').run()
+      db.prepare('DELETE FROM bm25_documents').run()
+      const now = new Date().toISOString()
+      const insertDoc = db.prepare(
+        'INSERT INTO bm25_documents (path, tokens, length, updated_at) VALUES (?, ?, ?, ?)'
+      )
+      const insertTerm = db.prepare('INSERT INTO bm25_terms (token, path, tf) VALUES (?, ?, ?)')
+      for (const [filePath, doc] of Object.entries(index.documents)) {
+        writeDocumentRows(insertDoc, insertTerm, filePath, doc.tokens, now)
+      }
+    })
+  } catch {
+    // Older or partially migrated DBs still keep the kv_store fallback below.
+  }
+}
+
+function updatePerFileTables(
+  projectId: string,
+  index: BM25Index,
+  changedFiles: string[],
+  deletedFiles: string[]
+): void {
+  try {
+    prjctDb.transaction(projectId, (db) => {
+      const deleteTerms = db.prepare('DELETE FROM bm25_terms WHERE path = ?')
+      const deleteDoc = db.prepare('DELETE FROM bm25_documents WHERE path = ?')
+      const insertDoc = db.prepare(
+        'INSERT INTO bm25_documents (path, tokens, length, updated_at) VALUES (?, ?, ?, ?)'
+      )
+      const insertTerm = db.prepare('INSERT INTO bm25_terms (token, path, tf) VALUES (?, ?, ?)')
+      const now = new Date().toISOString()
+
+      for (const filePath of new Set([...changedFiles, ...deletedFiles])) {
+        deleteTerms.run(filePath)
+        deleteDoc.run(filePath)
+      }
+      for (const filePath of changedFiles) {
+        const doc = index.documents[filePath]
+        if (doc) writeDocumentRows(insertDoc, insertTerm, filePath, doc.tokens, now)
+      }
+    })
+  } catch {
+    // If the table path is unavailable, the next full sync rebuilds it.
+  }
+}
+
+function saveIndex(projectId: string, index: BM25Index): void {
+  prjctDb.setDoc(projectId, INDEX_KEY, indexMetadata(index))
+  replacePerFileTables(projectId, index)
   indexCache.delete(projectId)
+}
+
+function saveIndexUpdate(
+  projectId: string,
+  index: BM25Index,
+  changedFiles: string[],
+  deletedFiles: string[]
+): void {
+  prjctDb.setDoc(projectId, INDEX_KEY, indexMetadata(index))
+  updatePerFileTables(projectId, index, changedFiles, deletedFiles)
+  indexCache.delete(projectId)
+}
+
+function loadIndexFromPerFileTables(
+  projectId: string,
+  updatedAt: string,
+  stored: StoredBm25Index | null
+): BM25Index | null {
+  try {
+    const docs = prjctDb.query<{ path: string; tokens: string; length: number }>(
+      projectId,
+      'SELECT path, tokens, length FROM bm25_documents ORDER BY path'
+    )
+    if (docs.length === 0) {
+      if (stored?.totalDocs === 0) {
+        const index: BM25Index = {
+          documents: {},
+          invertedIndex: {},
+          avgDocLength: 0,
+          totalDocs: 0,
+          builtAt: stored.builtAt,
+        }
+        indexCache.set(projectId, { index, updatedAt })
+        return index
+      }
+      return null
+    }
+
+    const documents: BM25Index['documents'] = {}
+    const invertedIndex: BM25Index['invertedIndex'] = {}
+    let totalLength = 0
+    for (const doc of docs) {
+      const tokens = JSON.parse(doc.tokens) as string[]
+      documents[doc.path] = { tokens, length: doc.length }
+      totalLength += doc.length
+    }
+
+    const terms = prjctDb.query<{ token: string; path: string; tf: number }>(
+      projectId,
+      'SELECT token, path, tf FROM bm25_terms ORDER BY token, path'
+    )
+    for (const term of terms) {
+      if (!invertedIndex[term.token]) invertedIndex[term.token] = []
+      invertedIndex[term.token].push({ path: term.path, tf: term.tf })
+    }
+
+    const totalDocs = docs.length
+    const index: BM25Index = {
+      documents,
+      invertedIndex,
+      avgDocLength: totalDocs > 0 ? totalLength / totalDocs : 0,
+      totalDocs,
+      builtAt: stored?.builtAt ?? updatedAt,
+    }
+    indexCache.set(projectId, { index, updatedAt })
+    return index
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -371,15 +552,12 @@ export function loadIndex(projectId: string): BM25Index | null {
   }
   const hit = indexCache.get(projectId)
   if (hit && hit.updatedAt === meta.updated_at) return hit.index
-  const stored = prjctDb.getDoc<{
-    invertedIndex: BM25Index['invertedIndex']
-    avgDocLength: number
-    totalDocs: number
-    builtAt: string
-    docLengths: Record<string, number>
-  }>(projectId, INDEX_KEY)
 
-  if (!stored) return null
+  const stored = prjctDb.getDoc<StoredBm25Index>(projectId, INDEX_KEY)
+  const tableIndex = loadIndexFromPerFileTables(projectId, meta.updated_at, stored)
+  if (tableIndex) return tableIndex
+
+  if (!stored?.invertedIndex) return null
 
   // Reconstruct documents map with lengths only (tokens not needed for scoring)
   const documents: BM25Index['documents'] = {}
@@ -407,6 +585,38 @@ export async function indexProject(projectPath: string, projectId: string): Prom
   const index = await buildIndex(projectPath)
   saveIndex(projectId, index)
   return index
+}
+
+/**
+ * Update the persisted BM25 index by retokenizing only changed files.
+ * Falls back to a full rebuild if no existing index can be loaded.
+ */
+export async function updateProjectIndex(
+  projectPath: string,
+  projectId: string,
+  changedFiles: string[],
+  deletedFiles: string[] = []
+): Promise<BM25Index> {
+  const existing = loadIndex(projectId)
+  if (!existing) return indexProject(projectPath, projectId)
+
+  const touched = new Set([...changedFiles, ...deletedFiles])
+  for (const filePath of touched) removeDocument(existing, filePath)
+
+  const results = await batchProcess(changedFiles, 50, async (filePath) => {
+    try {
+      const content = await fs.readFile(path.join(projectPath, filePath), 'utf-8')
+      const tokens = tokenizeFile(content, filePath)
+      return { filePath, tokens }
+    } catch {
+      return null
+    }
+  })
+
+  for (const { filePath, tokens } of results) addDocument(existing, filePath, tokens)
+  recalculateStats(existing)
+  saveIndexUpdate(projectId, existing, changedFiles, deletedFiles)
+  return existing
 }
 
 /**

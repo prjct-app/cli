@@ -202,7 +202,7 @@ function formatAgentCommandHelp(commandName: string): string | null {
 
   lines.push(chalk.bold('USAGE'))
   if (cmd.usage?.claude) {
-    lines.push(`  Claude/Gemini:  ${cmd.usage.claude.replace('/p:', 'p. ')}`)
+    lines.push(`  Claude/Gemini:  ${cmd.usage.claude}`)
   }
   if (cmd.usage?.terminal) {
     lines.push(`  Terminal:       ${cmd.usage.terminal}`)

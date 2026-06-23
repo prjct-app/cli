@@ -214,6 +214,25 @@ export function loadMatrix(projectId: string): CoChangeIndex | null {
   return matrix
 }
 
+async function recentHistoryFingerprint(
+  projectPath: string,
+  maxCommits: number
+): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(`git rev-list --max-count=${maxCommits} HEAD`, {
+      cwd: projectPath,
+      maxBuffer: 1024 * 1024,
+    })
+    const commits = stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    return commits.length > 0 ? commits.join('\n') : null
+  } catch {
+    return null
+  }
+}
+
 // High-level API
 
 /**
@@ -224,7 +243,12 @@ export async function indexCoChanges(
   projectId: string,
   maxCommits = 100
 ): Promise<CoChangeIndex> {
+  const historyFingerprint = await recentHistoryFingerprint(projectPath, maxCommits)
+  const existing = historyFingerprint ? loadMatrix(projectId) : null
+  if (existing?.historyFingerprint === historyFingerprint) return existing
+
   const index = await buildMatrix(projectPath, maxCommits)
+  if (historyFingerprint) index.historyFingerprint = historyFingerprint
   saveMatrix(projectId, index)
   return index
 }

@@ -73,7 +73,7 @@ is cached for the process lifetime, so detection runs once.
 
 The two profiles (`CLAUDE_AGENT` and `TERMINAL_AGENT` in the same file) differ in
 declared capabilities — Claude has `mcp: true`, `filesystem: 'mcp'`,
-`markdown: true`, command prefix `/p:`; Terminal has `mcp: false`,
+`markdown: true`, command prefix `p.`; Terminal has `mcp: false`,
 `filesystem: 'native'`, command prefix `prjct`.
 
 > **No configuration required.** Claude Code makes one of conditions 1–5 true on

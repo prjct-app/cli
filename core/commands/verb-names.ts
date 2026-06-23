@@ -11,7 +11,7 @@
  * pure data + types, so the import chain stays light.
  */
 
-import { BIN_ONLY_COMMANDS, COLD_ONLY_COMMANDS, COMMANDS } from './command-data'
+import { BIN_ONLY_COMMANDS, COMMANDS } from './command-data'
 
 export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(
   COMMANDS.filter((c) => c.routing).map((c) => c.name)
@@ -23,10 +23,3 @@ export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(
  * path imports one tiny module.
  */
 export const BIN_COMMANDS_SET: ReadonlySet<string> = BIN_ONLY_COMMANDS
-
-/** Shim skip set = bin-handled + cold-only (manifest-derived; build.js
- *  evaluates this module to emit the generated shim's literal). */
-export const SHIM_SKIP_SET: ReadonlySet<string> = new Set([
-  ...BIN_ONLY_COMMANDS,
-  ...COLD_ONLY_COMMANDS,
-])

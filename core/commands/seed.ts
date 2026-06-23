@@ -50,7 +50,7 @@ export class SeedCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:seed add <pack>[,<pack>...]
+   * p. seed add <pack>[,<pack>...]
    *
    * Adds one or more packs to this project. Idempotent — already-active
    * packs are silently skipped; unknown pack names are reported.
@@ -87,7 +87,7 @@ export class SeedCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:seed remove <pack>[,<pack>...] — deactivate without touching
+   * p. seed remove <pack>[,<pack>...] — deactivate without touching
    * captured memory or saved workflows.
    */
   async remove(
@@ -119,7 +119,7 @@ export class SeedCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:seed list — show active packs and what each contributes.
+   * p. seed list — show active packs and what each contributes.
    */
   async list(
     _input: string | null = null,
@@ -160,7 +160,7 @@ export class SeedCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:seed suggest — auto-detect which packs likely fit this project.
+   * p. seed suggest — auto-detect which packs likely fit this project.
    * Pure information; never activates anything.
    */
   async suggest(
