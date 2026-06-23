@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.62.0] - 2026-06-23
+
+### Added
+- Point CLI metadata to cli site
+
 ## [2.61.0] - 2026-06-23
 
 ### Added
