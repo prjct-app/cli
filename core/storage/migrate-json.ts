@@ -22,7 +22,7 @@
  *
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
@@ -44,6 +44,28 @@ import { populateIndexTables, populateNormalized } from './migrate-json/populate
  *  same set the migration consumes. */
 const LEGACY_INDEX_EXTRA = ['checksums.json', 'file-scores.json']
 const LEGACY_MEMORY_FILES = ['events.jsonl', 'learnings.jsonl']
+
+function hasLegacySessionArtifacts(sessionsPath: string): boolean {
+  if (existsSync(path.join(sessionsPath, 'current.json'))) return true
+
+  const archiveDir = path.join(sessionsPath, 'archive')
+  try {
+    for (const month of readdirSync(archiveDir, { withFileTypes: true })) {
+      if (!month.isDirectory()) continue
+      try {
+        const monthDir = path.join(archiveDir, month.name)
+        if (readdirSync(monthDir).some((file) => file.endsWith('.json'))) return true
+      } catch {
+        // Ignore unreadable archive subdirs; the migration will surface them
+        // only when another concrete legacy artifact requires a migration pass.
+      }
+    }
+  } catch {
+    // No archive dir, or unreadable archive dir without a concrete JSON file.
+  }
+
+  return false
+}
 
 /**
  * Fast filesystem check: does this project still have ANY legacy JSON/JSONL
@@ -76,10 +98,11 @@ export function hasLegacyArtifacts(projectId: string): boolean {
   for (const filename of LEGACY_MEMORY_FILES) {
     if (existsSync(path.join(memoryPath, filename))) return true
   }
-  // sessions/*.json — migrated via migrateSessionFiles. Treat a non-empty
-  // sessions dir as a legacy artifact (cheap dir read only when it exists).
+  // sessions/current.json + sessions/archive/*/*.json are migrated via
+  // migrateSessionFiles. A plain sessions/ directory is modern structure,
+  // not legacy; do not open the DB just because it exists.
   const sessionsPath = path.join(globalPath, 'sessions')
-  if (existsSync(sessionsPath)) return true
+  if (hasLegacySessionArtifacts(sessionsPath)) return true
 
   return false
 }

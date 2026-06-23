@@ -14,7 +14,7 @@ import { CommandInstaller } from '../infrastructure/command-installer'
 import editorsConfig from '../infrastructure/editors-config'
 import pathManager from '../infrastructure/path-manager'
 import UpdateChecker from '../infrastructure/update-checker'
-import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
+import { hasLegacyArtifacts, migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failFromError } from '../utils/md-aware'
@@ -63,9 +63,9 @@ export class UpdateCommands extends PrjctCommandsBase {
     const assumeYes = options.yes === true || options.y === true
 
     const results = {
-      phase1: { success: true, details: [], errors: [] } as PhaseResult,
-      phase2: { success: true, details: [], errors: [] } as PhaseResult,
-      phase3: { success: true, details: [], errors: [] } as PhaseResult,
+      phase1: { success: true, details: [], errors: [], warnings: [] } as PhaseResult,
+      phase2: { success: true, details: [], errors: [], warnings: [] } as PhaseResult,
+      phase3: { success: true, details: [], errors: [], warnings: [] } as PhaseResult,
     }
 
     try {
@@ -136,7 +136,7 @@ export class UpdateCommands extends PrjctCommandsBase {
   // ── Phase 1: Package Update ──
 
   private async phasePackageUpdate(dryRun: boolean): Promise<PhaseResult> {
-    const result: PhaseResult = { success: true, details: [], errors: [] }
+    const result: PhaseResult = { success: true, details: [], errors: [], warnings: [] }
     const installsBefore = getAllInstalledLocations()
 
     if (dryRun) {
@@ -263,7 +263,7 @@ export class UpdateCommands extends PrjctCommandsBase {
     cleanupMode: CleanupMode = 'auto',
     assumeYes = false
   ): Promise<PhaseResult> {
-    const result: PhaseResult = { success: true, details: [], errors: [] }
+    const result: PhaseResult = { success: true, details: [], errors: [], warnings: [] }
 
     // 2a. Migrate all projects
     const projectIds = await this.getAllProjectIds()
@@ -273,11 +273,18 @@ export class UpdateCommands extends PrjctCommandsBase {
     } else {
       let totalMigrated = 0
       let totalSwept = 0
+      let legacySkipped = 0
+      let legacyWarnings = 0
 
       for (const projectId of projectIds) {
         if (dryRun) continue
 
         try {
+          if (!hasLegacyArtifacts(projectId)) {
+            legacySkipped += 1
+            continue
+          }
+
           const migrationResult = await migrateJsonToSqlite(projectId)
           const swept = await sweepLegacyJson(projectId)
           totalMigrated += migrationResult.migratedFiles.length
@@ -285,11 +292,17 @@ export class UpdateCommands extends PrjctCommandsBase {
 
           if (migrationResult.errors.length > 0) {
             for (const err of migrationResult.errors) {
-              result.errors.push(`${projectId.slice(0, 8)}: ${err.file}: ${err.error}`)
+              legacyWarnings += 1
+              if ((result.warnings?.length ?? 0) < 10) {
+                result.warnings?.push(`${projectId.slice(0, 8)}: ${err.file}: ${err.error}`)
+              }
             }
           }
         } catch (err) {
-          result.errors.push(`${projectId.slice(0, 8)}: ${getErrorMessage(err)}`)
+          legacyWarnings += 1
+          if ((result.warnings?.length ?? 0) < 10) {
+            result.warnings?.push(`${projectId.slice(0, 8)}: ${getErrorMessage(err)}`)
+          }
         }
       }
 
@@ -297,9 +310,18 @@ export class UpdateCommands extends PrjctCommandsBase {
         result.details.push(`Would migrate ${projectIds.length} project(s)`)
       } else {
         const parts = [`${projectIds.length} project(s) checked`]
+        if (legacySkipped > 0) parts.push(`${legacySkipped} already on SQLite`)
         if (totalMigrated > 0) parts.push(`${totalMigrated} files migrated`)
         if (totalSwept > 0) parts.push(`${totalSwept} leftovers swept`)
         result.details.push(parts.join(', '))
+        if (legacyWarnings > 0) {
+          const hidden = legacyWarnings - (result.warnings?.length ?? 0)
+          result.details.push(
+            `Legacy migration skipped ${legacyWarnings} issue(s) without blocking update${
+              hidden > 0 ? ` (${hidden} more hidden)` : ''
+            }`
+          )
+        }
       }
     }
 
@@ -408,7 +430,7 @@ export class UpdateCommands extends PrjctCommandsBase {
   // ── Phase 3: Daemon Restart ──
 
   private async phaseDaemonRestart(dryRun: boolean): Promise<PhaseResult> {
-    const result: PhaseResult = { success: true, details: [], errors: [] }
+    const result: PhaseResult = { success: true, details: [], errors: [], warnings: [] }
 
     if (dryRun) {
       result.details.push('Would restart daemon')

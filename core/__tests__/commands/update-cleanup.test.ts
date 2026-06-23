@@ -14,6 +14,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { consolidateInstalls, planCleanup } from '../../commands/update/cleanup-installs'
+import { formatMdOutput } from '../../commands/update/output'
 import pathManager from '../../infrastructure/path-manager'
 import { getUpdateNotificationSync } from '../../infrastructure/update-checker'
 
@@ -68,5 +69,55 @@ describe('WS4 — consolidateInstalls', () => {
     expect(Array.isArray(plan.skipped)).toBe(true)
     // Safety invariant: nothing is ever removable without a winner.
     if (plan.winner === null) expect(plan.removable).toEqual([])
+  })
+})
+
+describe('prjct update — non-fatal legacy project warnings', () => {
+  const originalLog = console.log
+
+  afterEach(() => {
+    console.log = originalLog
+  })
+
+  it('does not fail the update when cleanup only has legacy migration warnings', () => {
+    console.log = () => {}
+
+    const result = formatMdOutput(
+      {
+        phase1: { success: true, details: ['package ok'], errors: [] },
+        phase2: {
+          success: true,
+          details: ['2 project(s) checked, 1 already on SQLite'],
+          errors: [],
+          warnings: ['legacy1: unable to open database file'],
+        },
+        phase3: { success: true, details: ['daemon ok'], errors: [] },
+      },
+      false
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.message).toBe('System updated')
+  })
+
+  it('still fails the update when cleanup has real errors', () => {
+    console.log = () => {}
+
+    const result = formatMdOutput(
+      {
+        phase1: { success: true, details: ['package ok'], errors: [] },
+        phase2: {
+          success: false,
+          details: ['cleanup ran'],
+          errors: ['Commands: permission denied'],
+          warnings: ['legacy1: unable to open database file'],
+        },
+        phase3: { success: true, details: ['daemon ok'], errors: [] },
+      },
+      false
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.message).toBe('Updated with errors')
   })
 })

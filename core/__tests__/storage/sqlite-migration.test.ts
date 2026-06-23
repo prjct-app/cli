@@ -16,7 +16,7 @@ import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
 import { prjctDb } from '../../storage/database'
 import { indexStorage } from '../../storage/index-storage'
-import { migrateJsonToSqlite } from '../../storage/migrate-json'
+import { hasLegacyArtifacts, migrateJsonToSqlite } from '../../storage/migrate-json'
 import { StorageManager } from '../../storage/storage-manager'
 
 // Test Setup
@@ -88,6 +88,25 @@ describe('SQLite Migration', () => {
   })
 
   describe('migration correctness', () => {
+    it('does not treat a modern sessions directory as legacy by itself', async () => {
+      const projectPath = path.join(tmpRoot!, testProjectId)
+      await fs.mkdir(path.join(projectPath, 'sessions'), { recursive: true })
+      await fs.writeFile(path.join(projectPath, 'prjct.db'), 'not opened by this guard')
+
+      expect(hasLegacyArtifacts(testProjectId)).toBe(false)
+
+      await fs.writeFile(path.join(projectPath, 'sessions', 'current.json'), '{}')
+      expect(hasLegacyArtifacts(testProjectId)).toBe(true)
+
+      await fs.rm(path.join(projectPath, 'sessions', 'current.json'))
+      await fs.mkdir(path.join(projectPath, 'sessions', 'archive', '2026-06'), { recursive: true })
+      await fs.writeFile(
+        path.join(projectPath, 'sessions', 'archive', '2026-06', 'session.json'),
+        '{}'
+      )
+      expect(hasLegacyArtifacts(testProjectId)).toBe(true)
+    })
+
     it('should migrate state.json to kv_store', async () => {
       // Create source JSON
       const storagePath = path.join(tmpRoot!, testProjectId, 'storage')
