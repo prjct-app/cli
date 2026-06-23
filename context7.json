@@ -2,7 +2,7 @@
   "url": "https://context7.com/jlopezlira/prjct-cli",
   "public_key": "pk_SC4Izw8T9pMEgouCFeFWY",
   "projectTitle": "prjct-cli",
-  "description": "Project memory + spec-driven quality workflows for AI coding agents (Claude Code, Codex, Gemini, Cursor). Durable per-project memory in SQLite, an Obsidian-readable vault, and verbs like task / remember / ship — with zero-config detection of the execution environment.",
+  "description": "Open-source, local-first project memory and custom AI workflows for the coding agent you already use. Keeps decisions, gotchas, handoffs, and guardrails portable across Claude, Codex, OpenCode, Cursor, and more.",
   "folders": ["docs"],
   "excludeFolders": [
     "output",
