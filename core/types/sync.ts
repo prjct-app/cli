@@ -118,6 +118,34 @@ export interface SyncStatus {
   hasConflicts: boolean
 }
 
+/**
+ * Product benchmark payload sent to the prjct cloud API.
+ *
+ * The CLI keeps local eval artifacts under PRJCT_CLI_HOME, but the shared
+ * benchmark history belongs in the cloud product, not in GitHub branches.
+ */
+export interface BenchmarkPublishPayload {
+  schemaVersion: 1
+  artifactType: 'run' | 'comparison'
+  artifactId: string
+  repo: string
+  createdAt: string
+  run?: unknown
+  comparison?: unknown
+  reportMarkdown: string
+}
+
+/**
+ * Server response for benchmark publication. The API may add fields over time;
+ * callers should only depend on these stable fields.
+ */
+export interface BenchmarkPublishResult {
+  success?: boolean
+  benchmarkId?: string
+  url?: string
+  publishedAt?: string
+}
+
 /** Classified sync failure. PAYMENT_REQUIRED = the server's 402 paid gate. */
 export type SyncErrorCode =
   | 'AUTH_REQUIRED'

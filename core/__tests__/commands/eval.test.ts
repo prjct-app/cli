@@ -97,7 +97,7 @@ describe('prjct eval command', () => {
       candidate: 'candidate-command',
       publish: true,
       dryRun: true,
-      target: 'github',
+      target: 'cloud',
     })
 
     expect(result.success).toBe(true)
@@ -105,27 +105,25 @@ describe('prjct eval command', () => {
     expect(result.publish).toMatchObject({ artifactType: 'comparison', dryRun: true })
   })
 
-  test('ships docs and workflow for publishing eval history', async () => {
+  test('documents cloud publishing and ships no GitHub eval workflow', async () => {
     const docs = await fs.readFile(path.join(process.cwd(), 'EVALS.md'), 'utf-8')
-    const workflow = await fs.readFile(
-      path.join(process.cwd(), '.github', 'workflows', 'prjct-evals.yml'),
-      'utf-8'
-    )
+    const workflowPath = path.join(process.cwd(), '.github', 'workflows', 'prjct-evals.yml')
 
-    expect(docs).toContain('summary/latest-comparison.json')
-    expect(workflow).toContain('workflow_dispatch')
-    expect(workflow).toContain('eval compare')
-    expect(workflow).toContain('actions/upload-artifact@v4')
+    expect(docs).toContain('POST <apiUrl>/benchmarks/evals')
+    expect(docs).toContain('prjct cloud link')
+    await expect(fs.access(workflowPath)).rejects.toThrow()
   })
 
-  test('publish subcommand supports dry-run GitHub output', async () => {
+  test('publish subcommand supports dry-run cloud output', async () => {
     const cmd = new EvalCommands()
 
     await cmd.eval('run', projectPath, { candidate: 'command-publish' })
-    const published = await cmd.eval('publish', projectPath, { dryRun: true, target: 'github' })
+    const published = await cmd.eval('publish', projectPath, { dryRun: true, target: 'cloud' })
 
     expect(published.success).toBe(true)
     expect(published.dryRun).toBe(true)
-    expect(published.repo).toBe('acme/prjct-evals')
+    expect(published.target).toBe('cloud')
+    expect(published.projectId).toBe('eval-command')
+    expect(published.endpoint).toBe('https://api.prjct.app/benchmarks/evals')
   })
 })

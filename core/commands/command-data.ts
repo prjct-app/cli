@@ -123,7 +123,7 @@ export const COMMANDS: CommandMeta[] = [
     usage: {
       claude: 'p. eval run [--candidate <version>] [--publish]',
       terminal:
-        'prjct eval <run|compare|report|publish> [--baseline <version>] [--candidate <version>] [--target github] [--dry-run]',
+        'prjct eval <run|compare|report|publish> [--baseline <version>] [--candidate <version>] [--target cloud] [--dry-run]',
     },
     params: '[run|compare|report|publish]',
     implemented: true,
@@ -133,7 +133,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Deterministic local eval runs stored under PRJCT_CLI_HOME/evals',
       'Version comparisons with regression/improvement actionables',
-      'GitHub publication to an eval-results branch for shared metrics history',
+      'Cloud publication for shared benchmark history with server-side ownership and subscription checks',
     ],
   },
   {
@@ -628,9 +628,9 @@ export const COMMANDS: CommandMeta[] = [
     group: 'setup',
     routing: { group: 'setup', method: 'setup' },
     routingMode: 'bin-only',
-    description: 'Reconfigure editor installations',
-    usage: { claude: 'p. setup', terminal: 'prjct setup' },
-    params: '[--force] [--editor <name>]',
+    description: 'Reconfigure editor installations and user-owned defaults',
+    usage: { claude: 'p. setup', terminal: 'prjct setup [--vault-root <path>]' },
+    params: '[--force] [--vault-root <path>] [--non-interactive]',
     implemented: true,
     hasTemplate: true,
     requiresProject: false,
@@ -865,7 +865,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Drafting: `prjct spec "<title>"` IS the create action — there is no `draft` subverb (aliases `draft`/`new`/`create` are tolerated and stripped)',
       'Persists in `specs` SQLite table + memory event stream',
-      'Renders to ~/Documents/prjct/<slug>/_generated/specs/<slug>.md',
+      'Renders to <vault-root>/<slug>/_generated/specs/<slug>.md',
       'Sub-verbs: list, show, update, set-status, record-review, link-task, ship, audit, inventory',
     ],
   },

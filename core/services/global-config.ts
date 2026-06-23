@@ -36,6 +36,8 @@ interface GlobalConfig {
   'auto-update-last-check'?: string
   /** Suppress proactive workflow suggestions in the prompt hook. */
   suggestions?: 'on' | 'off'
+  /** Global root for readable project vaults, configured by `prjct setup`. */
+  'vault-root'?: string
   // Free-form bag for forward compat — readers preserve unknown keys.
   [key: string]: GlobalConfigValue | undefined
 }

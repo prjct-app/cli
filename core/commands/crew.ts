@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
 import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { checkpointsStorage } from '../storage/checkpoints-storage'
 import crewRunStorage from '../storage/crew-run-storage'
 import type { MdOption } from '../types/cli'
@@ -520,7 +521,14 @@ export class CrewCommands extends PrjctCommandsBase {
       })
 
       const slug = run.spec_id ?? run.task_id ?? run.id
-      const vaultPath = `~/Documents/prjct/<slug>/_generated/crew-runs/${slug}-${run.started_at}.md`
+      const config = await configManager.readConfig(projectPath).catch(() => null)
+      const wikiRoot = await pathManager.getWikiPath(projectPath, config?.vaultPath)
+      const vaultPath = path.join(
+        wikiRoot,
+        '_generated',
+        'crew-runs',
+        `${slug}-${run.started_at}.md`
+      )
       if (options.md) {
         console.log(`✓ crew run recorded: run-id=${run.id}`)
         console.log(`  vault: ${vaultPath}`)

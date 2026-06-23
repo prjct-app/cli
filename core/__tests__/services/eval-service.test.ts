@@ -122,21 +122,23 @@ describe('eval-service', () => {
     expect(comparison.artifacts?.reportPath).toBeTruthy()
   })
 
-  test('prepares GitHub publication without network writes in dry run', async () => {
+  test('prepares cloud benchmark publication without network writes in dry run', async () => {
     await createHealthyProject()
     const run = await runEval(projectPath, { candidate: 'publishable' })
 
     const result = await publishEvalRun(projectPath, { dryRun: true })
 
     expect(result.dryRun).toBe(true)
+    expect(result.target).toBe('cloud')
+    expect(result.projectId).toBe('eval-test')
     expect(result.repo).toBe('acme/prjct-evals')
-    expect(result.branch).toBe('eval-results')
     expect(result.runId).toBe(run.runId)
-    expect(result.url).toBe('https://github.com/acme/prjct-evals/tree/eval-results/eval-results')
-    expect(result.files.map((file) => file.path)).toContain('eval-results/summary/latest.json')
+    expect(result.endpoint).toBe('https://api.prjct.app/benchmarks/evals')
+    expect(result.payloadBytes).toBeGreaterThan(0)
+    expect(result.url).toBeUndefined()
   })
 
-  test('prepares GitHub comparison publication without network writes in dry run', async () => {
+  test('prepares cloud comparison publication without network writes in dry run', async () => {
     await writeFile('package.json', JSON.stringify({ scripts: {} }, null, 2))
     await runEval(projectPath, { candidate: 'baseline-publish' })
     await createHealthyProject()
@@ -151,10 +153,10 @@ describe('eval-service', () => {
     expect(result.dryRun).toBe(true)
     expect(result.artifactType).toBe('comparison')
     expect(result.comparisonId).toBe(comparison.comparisonId)
-    expect(result.files.map((file) => file.path)).toContain(
-      'eval-results/summary/latest-comparison.json'
-    )
-    expect(result.files.some((file) => file.path.includes('/comparisons/'))).toBe(true)
+    expect(result.target).toBe('cloud')
+    expect(result.projectId).toBe('eval-test')
+    expect(result.endpoint).toBe('https://api.prjct.app/benchmarks/evals')
+    expect(result.payloadBytes).toBeGreaterThan(0)
   })
 
   test('formats markdown reports with scenario metrics and actionables', async () => {
@@ -166,5 +168,14 @@ describe('eval-service', () => {
     expect(markdown).toContain('# prjct eval run')
     expect(markdown).toContain('| Scenario | Status | Score | Actionables |')
     expect(markdown).toContain('## Actionables')
+  })
+
+  test('rejects removed GitHub publication target with an actionable migration', async () => {
+    await createHealthyProject()
+    await runEval(projectPath, { candidate: 'removed-github' })
+
+    await expect(publishEvalRun(projectPath, { target: 'github', dryRun: true })).rejects.toThrow(
+      'GitHub eval publishing was removed'
+    )
   })
 })

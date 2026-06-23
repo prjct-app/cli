@@ -4,7 +4,7 @@
  * Pre-2.2.0 hardcoded the Obsidian vault at `<repo>/.prjct/wiki/`. That
  * location was hidden (invisible in Finder/Explorer by default) and lived
  * inside the repo, so any `git push` leaked personal decisions and
- * learnings. 2.2.0 moves the default to `~/Documents/prjct/<slug>/`
+ * learnings. 2.2.0 moves the default to `<vault-root>/<slug>/`
  * (visible + outside the repo).
  *
  * This module performs a best-effort, idempotent, one-shot migration the
@@ -18,7 +18,7 @@ import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 
-const GITIGNORE_MARKER = '# prjct: legacy wiki — vault moved to ~/Documents/prjct/ in 2.2.0'
+const GITIGNORE_MARKER = '# prjct: legacy wiki — vault moved outside the repo in 2.2.0'
 const LEGACY_GITIGNORE_LINE = '.prjct/wiki/'
 
 interface WikiMigrationResult {
