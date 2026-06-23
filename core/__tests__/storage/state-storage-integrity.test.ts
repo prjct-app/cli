@@ -68,6 +68,20 @@ function createMockTask(
 }
 
 describe('StateStorage integrity', () => {
+  it('createSubtasks records zero progress without NaN for an empty subtask list', async () => {
+    await stateStorage.startTask(testProjectId, createMockTask({ description: 'Empty subtasks' }))
+
+    await stateStorage.createSubtasks(testProjectId, [])
+
+    const state = await stateStorage.read(testProjectId)
+    expect(state.currentTask?.subtasks).toEqual([])
+    expect(state.currentTask?.subtaskProgress).toEqual({
+      completed: 0,
+      total: 0,
+      percentage: 0,
+    })
+  })
+
   it('pauseTask preserves taskHistory', async () => {
     await stateStorage.startTask(
       testProjectId,

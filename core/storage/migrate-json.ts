@@ -502,5 +502,3 @@ export async function sweepLegacyJson(projectId: string): Promise<number> {
 
   return swept
 }
-
-export default migrateJsonToSqlite

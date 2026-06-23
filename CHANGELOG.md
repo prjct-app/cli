@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.61.0] - 2026-06-23
+
+### Added
+- Improve prjct-cli maintainability performance and UX
+
 ## [2.60.0] - 2026-06-22
 
 ### Added

@@ -19,6 +19,14 @@ describe('COMMANDS', () => {
     expect(REGISTERED_VERBS_SET.has('agents')).toBe(true)
   })
 
+  it('does not advertise stale slash-command usage to agent surfaces', () => {
+    const offenders = COMMANDS.filter((command) => command.usage.claude?.includes('/p:')).map(
+      (command) => `${command.name}: ${command.usage.claude}`
+    )
+
+    expect(offenders).toEqual([])
+  })
+
   it('registers paid-tier proof commands through the product command group', () => {
     const expected = [
       ['value', 'value'],

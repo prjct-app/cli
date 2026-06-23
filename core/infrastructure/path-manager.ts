@@ -12,7 +12,6 @@
 
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
 import type { SessionInfo } from '../types/session'
@@ -30,6 +29,7 @@ import {
   getWikiPath,
   getWikiPathWithProjectHash,
 } from './path-manager/wiki-paths'
+import { resolveUserHome, resolveUserPath } from './user-home'
 
 class PathManager {
   globalBaseDir: string
@@ -235,7 +235,7 @@ class PathManager {
    * Get the relative path from home directory for display
    */
   getDisplayPath(absolutePath: string): string {
-    const homeDir = os.homedir()
+    const homeDir = resolveUserHome()
     if (absolutePath.startsWith(homeDir)) return absolutePath.replace(homeDir, '~')
     return absolutePath
   }
@@ -296,7 +296,7 @@ class PathManager {
   }
 
   getClaudeDir(): string {
-    return path.join(os.homedir(), '.claude')
+    return resolveUserPath('.claude')
   }
 
   getClaudeSettingsPath(): string {

@@ -961,4 +961,67 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 30,
+    name: 'perf-samples-table',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS perf_samples (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          metric    TEXT NOT NULL,
+          value     REAL,
+          unit      TEXT,
+          data      TEXT NOT NULL,
+          timestamp TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_perf_samples_metric ON perf_samples(metric);
+        CREATE INDEX IF NOT EXISTS idx_perf_samples_timestamp ON perf_samples(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_perf_samples_metric_timestamp ON perf_samples(metric, timestamp DESC);
+      `)
+    },
+  },
+  {
+    version: 31,
+    name: 'per-file-code-indexes',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS bm25_documents (
+          path       TEXT PRIMARY KEY,
+          tokens     TEXT NOT NULL,
+          length     INTEGER NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS bm25_terms (
+          token TEXT NOT NULL,
+          path  TEXT NOT NULL,
+          tf    INTEGER NOT NULL,
+          PRIMARY KEY (token, path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_bm25_terms_path ON bm25_terms(path);
+
+        CREATE TABLE IF NOT EXISTS import_graph_edges (
+          from_path  TEXT NOT NULL,
+          to_path    TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (from_path, to_path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_import_graph_edges_to ON import_graph_edges(to_path);
+      `)
+    },
+  },
+  {
+    version: 32,
+    name: 'import-graph-edge-sort-order',
+    up: (db: SqliteDatabase) => {
+      try {
+        db.run('ALTER TABLE import_graph_edges ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0')
+      } catch {
+        // Column may already exist from migration 31 on fresh databases.
+      }
+    },
+  },
 ]

@@ -71,9 +71,6 @@ export const LENS_CATALOG: Record<string, LensSpec> = {
 const GENERIC_RUBRIC =
   'Review the spec through this lens. Identify the most important risk or gap it implies and whether the acceptance criteria address it.'
 
-/** The three baseline lenses — also the legacy-fallback gate set. */
-export const BASELINE_LENSES = ['strategic', 'architecture', 'design'] as const
-
 /**
  * Deterministic BASELINE lens set for a spec. `architecture` is always
  * included (feasibility floor); the rest are added when the spec's combined

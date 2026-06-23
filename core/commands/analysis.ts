@@ -34,7 +34,7 @@ const ANALYSIS_NOTES_INSTRUCTIONS = [
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
-   * /p:analyze - Analyze repository and generate summary
+   * p. analyze - Analyze repository and generate summary
    */
   async analyze(
     options: AnalyzeOptions = {},
@@ -411,7 +411,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:stats - Session summary and value dashboard
+   * p. stats - Session summary and value dashboard
    *
    * Displays:
    * - Session activity (tasks completed, features shipped today)

@@ -27,6 +27,8 @@ export interface IncrementalDetectResult {
   shouldRebuildIndexes: boolean
   changedDomains: Set<string>
   incrementalInfo: IncrementalInfo | undefined
+  changedSourceFiles: string[]
+  deletedSourceFiles: string[]
 }
 
 export async function detectIncrementalChanges(
@@ -37,10 +39,12 @@ export async function detectIncrementalChanges(
   let shouldRebuildIndexes = true
   let changedDomains = new Set<string>()
   let incrementalInfo: IncrementalInfo | undefined
+  let changedSourceFiles: string[] = []
+  let deletedSourceFiles: string[] = []
 
   if (!isFullSync && hasHashRegistry(projectId)) {
     try {
-      const { diff, currentHashes } = await detectChanges(projectPath, projectId)
+      const { diff, currentHashes } = await detectChanges(projectPath, projectId, changedFilesHint)
       const totalChanged = diff.added.length + diff.modified.length + diff.deleted.length
 
       if (totalChanged === 0 && !changedFilesHint?.length) {
@@ -58,11 +62,11 @@ export async function detectIncrementalChanges(
         const propagated = propagateChanges(diff, projectId)
         changedDomains = affectedDomains(propagated.allAffected)
 
-        // Only rebuild indexes if source files changed.
-        const hasSourceChanges = propagated.allAffected.some((f) => {
-          const ext = f.substring(f.lastIndexOf('.'))
-          return SOURCE_EXTENSIONS.has(ext)
-        })
+        changedSourceFiles = [...diff.added, ...diff.modified].filter(isSourceFile)
+        deletedSourceFiles = diff.deleted.filter(isSourceFile)
+
+        // Rebuild ranking indexes when the changed closure touches source files.
+        const hasSourceChanges = propagated.allAffected.some(isSourceFile)
         shouldRebuildIndexes = hasSourceChanges
 
         incrementalInfo = {
@@ -85,12 +89,23 @@ export async function detectIncrementalChanges(
   } else {
     // First sync or --full flag: compute + save hashes for next time.
     try {
-      const { currentHashes } = await detectChanges(projectPath, projectId)
+      const { currentHashes } = await detectChanges(projectPath, projectId, changedFilesHint)
       saveHashes(projectId, currentHashes)
     } catch (error) {
       log.debug('Hash computation failed (non-critical)', { error: getErrorMessage(error) })
     }
   }
 
-  return { shouldRebuildIndexes, changedDomains, incrementalInfo }
+  return {
+    shouldRebuildIndexes,
+    changedDomains,
+    incrementalInfo,
+    changedSourceFiles,
+    deletedSourceFiles,
+  }
+}
+
+function isSourceFile(filePath: string): boolean {
+  const ext = filePath.substring(filePath.lastIndexOf('.'))
+  return SOURCE_EXTENSIONS.has(ext)
 }

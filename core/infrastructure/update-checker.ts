@@ -211,7 +211,6 @@ class UpdateChecker {
 }
 
 export default UpdateChecker
-export { UpdateChecker }
 
 // ---------------------------------------------------------------------------
 // Sync surface for the CLI exit handler

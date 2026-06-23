@@ -33,7 +33,7 @@ const CLAUDE_AGENT: DetectedAgent = {
   },
   config: {
     configFile: 'CLAUDE.md',
-    commandPrefix: '/p:',
+    commandPrefix: 'p.',
     responseStyle: 'rich',
     dataDir: '.prjct',
     commandsDir: '~/.claude/commands/p',

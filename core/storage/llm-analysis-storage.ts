@@ -154,5 +154,5 @@ class LLMAnalysisStorage {
   }
 }
 
-export const llmAnalysisStorage = new LLMAnalysisStorage()
+const llmAnalysisStorage = new LLMAnalysisStorage()
 export default llmAnalysisStorage

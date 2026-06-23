@@ -412,7 +412,7 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     }
 
     if (hasCliProvider) {
-      console.log('📦 Installing /p:* commands...')
+      console.log('📦 Installing p. command router...')
       const result = await commandInstaller.installCommands()
 
       if (!result.success) {
@@ -483,7 +483,7 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     }
 
     if (hasGlobalCliProvider) {
-      console.log('📦 Installing /p:* commands...')
+      console.log('📦 Installing p. command router...')
       const result = await commandInstaller.installCommands()
 
       if (!result.success) {

@@ -17,7 +17,6 @@
  *
  * Public API is intentionally minimal:
  *   - `scanForSecrets(text: string): string[]` — names of patterns hit
- *   - `SECRET_PATTERN_NAMES` — readonly list of detector names
  *
  * The API is treated as load-bearing. Renames or removals must update
  * both prjct-cli and the cloud package in lockstep.
@@ -34,13 +33,6 @@ const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
     re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/,
   },
 ]
-
-/**
- * Names of all detectors. Useful for cloud-side telemetry and for
- * surfacing "what secret kinds do we scan for?" without leaking the
- * regex shapes themselves.
- */
-export const SECRET_PATTERN_NAMES: ReadonlyArray<string> = SECRET_PATTERNS.map((p) => p.name)
 
 export function scanForSecrets(text: string): string[] {
   const hits: string[] = []

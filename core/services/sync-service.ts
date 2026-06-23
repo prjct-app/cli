@@ -17,9 +17,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { setupMcpServers } from '../commands/setup/mcp'
-import { indexProject as indexBm25 } from '../domain/bm25'
+import { indexProject as indexBm25, updateProjectIndex as updateBm25 } from '../domain/bm25'
 import { indexCoChanges } from '../domain/git-cochange'
-import { indexImports } from '../domain/import-graph'
+import { indexImports, updateImportGraph } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
 import { detectCodex } from '../infrastructure/ai-provider'
 import { verifyCodexPRouterReady } from '../infrastructure/codex-skill'
@@ -45,6 +45,7 @@ import { skillGenerator } from './skill-generator'
 import { emptyCommands, emptyGitData, emptyStack, emptyStats } from './sync/defaults'
 import { detectIncrementalChanges } from './sync/incremental'
 import { archiveStaleData, recordSyncMetrics, saveDraftAnalysis } from './sync/persistence'
+import { runSyncPhase as phase, withPhaseTimeout as withTimeout } from './sync/phase-runner'
 import {
   ensureProjectDirectories,
   logSyncEvent,
@@ -53,46 +54,6 @@ import {
 } from './sync/state-update'
 import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-analyzer'
 import { syncVerifier } from './sync-verifier'
-
-// PHASE TIMEOUT
-
-const SYNC_PHASE_TIMEOUT_MS = Number(process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS) || 60_000
-
-function withTimeout<T>(promise: Promise<T>, phase: string): Promise<T> {
-  // The old version never cleared the timer: on the (common) success path a
-  // 60s timer dangled per phase, keeping the event loop alive and leaking one
-  // pending timer for every sync phase. Capture the id and clear it whichever
-  // side of the race settles first. (Inner-promise *cancellation* on timeout
-  // still needs an AbortSignal threaded through each phase fn — tracked as
-  // WS2b; this fixes the concrete timer leak.)
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<T>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`sync phase '${phase}' timed out after ${SYNC_PHASE_TIMEOUT_MS}ms`)),
-      SYNC_PHASE_TIMEOUT_MS
-    )
-  })
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer) clearTimeout(timer)
-  })
-}
-
-async function phase<T>(name: string, fn: () => Promise<T>): Promise<T> {
-  const t = Date.now()
-  log.debug('sync phase start', { phase: name })
-  try {
-    const result = await fn()
-    log.debug('sync phase done', { phase: name, ms: Date.now() - t })
-    return result
-  } catch (error) {
-    log.debug('sync phase failed', {
-      phase: name,
-      ms: Date.now() - t,
-      error: getErrorMessage(error),
-    })
-    throw error
-  }
-}
 
 // SYNC SERVICE
 
@@ -191,7 +152,7 @@ class SyncService {
       await ensureDirsPromise
       const skipJsonMigration = process.env.PRJCT_SKIP_JSON_MIGRATION === '1'
       if (!skipJsonMigration) {
-        await phase('migrate', () => withTimeout(migrateJsonToSqlite(this.projectId!), 'migrate'))
+        await phase('migrate', () => migrateJsonToSqlite(this.projectId!))
 
         // 2c. Sweep leftover JSON files → import to SQLite → delete
         // Runs every sync to catch ghosts from old code or failed migrations
@@ -266,6 +227,8 @@ class SyncService {
         shouldRebuildIndexes,
         changedDomains: _changedDomains,
         incrementalInfo,
+        changedSourceFiles,
+        deletedSourceFiles,
       } = await phase('incremental', () =>
         detectIncrementalChanges({
           projectId: this.projectId!,
@@ -280,14 +243,28 @@ class SyncService {
       if (shouldRebuildIndexes) {
         await phase('index', async () => {
           try {
-            await withTimeout(
-              Promise.all([
-                indexBm25(this.projectPath, this.projectId!),
-                indexImports(this.projectPath, this.projectId!),
-                indexCoChanges(this.projectPath, this.projectId!),
-              ]),
-              'index'
-            )
+            const canUseIncrementalIndexes =
+              incrementalInfo?.isIncremental &&
+              (changedSourceFiles.length > 0 || deletedSourceFiles.length > 0)
+            await Promise.all([
+              canUseIncrementalIndexes
+                ? updateBm25(
+                    this.projectPath,
+                    this.projectId!,
+                    changedSourceFiles,
+                    deletedSourceFiles
+                  )
+                : indexBm25(this.projectPath, this.projectId!),
+              canUseIncrementalIndexes
+                ? updateImportGraph(
+                    this.projectPath,
+                    this.projectId!,
+                    changedSourceFiles,
+                    deletedSourceFiles
+                  )
+                : indexImports(this.projectPath, this.projectId!),
+              indexCoChanges(this.projectPath, this.projectId!),
+            ])
           } catch (error) {
             log.debug('File ranking index build failed (non-critical)', {
               error: getErrorMessage(error),
