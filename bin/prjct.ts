@@ -473,7 +473,7 @@ async function main(): Promise<void> {
     const routersInstalled = await checkRoutersInstalled()
 
     // Commands that work without full setup
-    const noSetupRequired = new Set(['auth', 'login', 'logout', 'init'])
+    const noSetupRequired = new Set(['auth', 'login', 'logout', 'init', 'eval'])
 
     if (!noSetupRequired.has(args[0]) && (!(await fileExists(configPath)) || !routersInstalled)) {
       console.log(`

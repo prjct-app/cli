@@ -112,6 +112,31 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'eval',
+    group: 'optional',
+    routing: { group: 'eval', method: 'eval' },
+    optionSchema: {
+      booleans: ['publish', 'dryRun', 'json'],
+      strings: ['baseline', 'candidate', 'source', 'target', 'file'],
+    },
+    description: 'Run product evals, compare versions, and publish actionable results',
+    usage: {
+      claude: 'p. eval run [--candidate <version>] [--publish]',
+      terminal:
+        'prjct eval <run|compare|report|publish> [--baseline <version>] [--candidate <version>] [--target github] [--dry-run]',
+    },
+    params: '[run|compare|report|publish]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    requiresLlm: false,
+    features: [
+      'Deterministic local eval runs stored under PRJCT_CLI_HOME/evals',
+      'Version comparisons with regression/improvement actionables',
+      'GitHub publication to an eval-results branch for shared metrics history',
+    ],
+  },
+  {
     name: 'suggest',
     group: 'core',
     description: 'Smart recommendations based on project state',

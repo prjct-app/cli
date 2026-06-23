@@ -71,7 +71,7 @@ We use minimal dependencies and audit them regularly:
 1. **Keep prjct-cli updated** - Run `npm update -g prjct-cli` regularly
 2. **Review before committing** - Check `.prjct/prjct.config.json` before pushing to public repos
 3. **Avoid storing secrets** - Don't put API keys or passwords in `now.md` or `ideas.md`
-4. **Use .gitignore** - The `.prjct/` directory should be in your `.gitignore` (auto-added by `/p:init`)
+4. **Use .gitignore** - The `.prjct/` directory should be in your `.gitignore` (auto-added by `prjct init`)
 
 ## Claude Integration Security
 

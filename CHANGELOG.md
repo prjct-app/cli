@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.63.0] - 2026-06-23
+
+### Added
+- eval result publishing
+
 ## [2.62.0] - 2026-06-23
 
 ### Added

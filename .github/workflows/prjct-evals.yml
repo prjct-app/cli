@@ -1,0 +1,79 @@
+name: prjct evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Candidate label to store in eval history. Defaults to the commit SHA.
+        required: false
+        type: string
+      baseline:
+        description: Optional baseline label to compare against a previous run.
+        required: false
+        type: string
+      publish:
+        description: Publish JSON/Markdown results to the eval-results branch.
+        required: true
+        default: false
+        type: boolean
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prjct-evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    name: Product evals
+    runs-on: ubuntu-latest
+    env:
+      PRJCT_CLI_HOME: ${{ runner.temp }}/prjct-cli-home
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_LABEL: ${{ inputs.candidate || github.sha }}
+      BASELINE_LABEL: ${{ inputs.baseline }}
+      SHOULD_PUBLISH: ${{ inputs.publish == true && github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build CLI
+        run: bun run build
+
+      - name: Run prjct eval
+        run: |
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            node dist/bin/prjct-core.mjs eval run --source ci --candidate "$CANDIDATE_LABEL" --publish --target github --json
+          else
+            node dist/bin/prjct-core.mjs eval run --source ci --candidate "$CANDIDATE_LABEL" --json
+          fi
+
+      - name: Compare against baseline
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline != '' }}
+        run: |
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            node dist/bin/prjct-core.mjs eval compare --baseline "$BASELINE_LABEL" --candidate "$CANDIDATE_LABEL" --publish --target github --json
+          else
+            node dist/bin/prjct-core.mjs eval compare --baseline "$BASELINE_LABEL" --candidate "$CANDIDATE_LABEL" --json
+          fi
+
+      - name: Upload eval artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prjct-evals-${{ github.run_id }}
+          path: ${{ env.PRJCT_CLI_HOME }}/evals/**
+          if-no-files-found: error
