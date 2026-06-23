@@ -83,7 +83,7 @@
   "bugs": {
     "url": "https://github.com/jlopezlira/prjct-cli/issues"
   },
-  "homepage": "https://prjct.app",
+  "homepage": "https://cli.prjct.app",
   "packageManager": "bun@1.2.23",
   "engines": {
     "bun": ">=1.0.0",

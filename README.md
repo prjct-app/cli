@@ -609,7 +609,7 @@ tradeoffs: [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
 ## Links
 
-- [Website](https://prjct.app)
+- [Website](https://cli.prjct.app)
 - [GitHub](https://github.com/jlopezlira/prjct-cli)
 - [npm](https://www.npmjs.com/package/prjct-cli)
 - [Changelog](CHANGELOG.md)
