@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.63.2] - 2026-06-23
+
+### Bug Fixes
+
+- resolve Dependabot audit alerts
+
+
 ## [2.63.1] - 2026-06-23
 
 ### Bug Fixes
