@@ -28,7 +28,7 @@ import { PrjctCommandsBase } from './base'
 
 export class CaptureCommands extends PrjctCommandsBase {
   /**
-   * /p:capture "<anything>" [--tags k:v,...]
+   * p. capture "<anything>" [--tags k:v,...]
    *
    * Project init isn't required — you might capture in a fresh repo
    * and only later `prjct init`. If there's no project yet, the call

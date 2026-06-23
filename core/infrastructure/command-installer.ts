@@ -8,7 +8,6 @@
  */
 
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage } from '../types/fs'
 import type {
@@ -19,10 +18,12 @@ import type {
   UninstallResult,
 } from '../types/infrastructure'
 import { fileExists } from '../utils/file-helper'
+import { getActiveProvider } from './ai-provider'
 import {
   installDocs as installDocsImpl,
   installGlobalConfig as installGlobalConfigImpl,
 } from './command-installer/global-config'
+import { resolveUserHome, resolveUserPath } from './user-home'
 
 // Re-export the installGlobalConfig used by external callers (e.g. update.ts).
 // Defined here as a thin wrapper rather than a re-export for clarity.
@@ -31,23 +32,17 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
 }
 
 export class CommandInstaller {
-  homeDir: string
   commandsPath = ''
   configPath = ''
   private _initialized = false
 
-  constructor() {
-    this.homeDir = os.homedir()
-  }
-
   private async ensureInit(): Promise<void> {
     if (this._initialized) return
 
-    const aiProvider = require('./ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
+    const activeProvider = await getActiveProvider()
 
-    this.commandsPath = path.join(activeProvider.configDir, 'commands')
-    this.configPath = activeProvider.configDir
+    this.configPath = activeProvider.configDir ?? ''
+    this.commandsPath = this.configPath ? path.join(this.configPath, 'commands') : ''
     this._initialized = true
   }
 
@@ -61,8 +56,7 @@ export class CommandInstaller {
    */
   async installCommands(): Promise<InstallResult> {
     const providerDetected = await this.detectActiveProvider()
-    const aiProvider = require('./ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
+    const activeProvider = await getActiveProvider()
 
     if (!providerDetected) {
       return {
@@ -207,7 +201,7 @@ export class CommandInstaller {
    * Called during `prjct update` to ensure clean migration.
    */
   async cleanupAllLegacy(): Promise<{ cleaned: string[] }> {
-    const home = os.homedir()
+    const home = resolveUserHome()
     const cleaned: string[] = []
 
     const legacyFiles = [
@@ -269,17 +263,16 @@ export function getProviderPaths(): {
   claude: { commands: string; config: string; router: string }
   gemini: { commands: string; config: string; router: string }
 } {
-  const homeDir = os.homedir()
   return {
     claude: {
-      commands: path.join(homeDir, '.claude', 'commands'),
-      config: path.join(homeDir, '.claude'),
-      router: path.join(homeDir, '.claude', 'commands', 'p.md'),
+      commands: resolveUserPath('.claude', 'commands'),
+      config: resolveUserPath('.claude'),
+      router: resolveUserPath('.claude', 'commands', 'p.md'),
     },
     gemini: {
-      commands: path.join(homeDir, '.gemini', 'commands'),
-      config: path.join(homeDir, '.gemini'),
-      router: path.join(homeDir, '.gemini', 'commands', 'p.toml'),
+      commands: resolveUserPath('.gemini', 'commands'),
+      config: resolveUserPath('.gemini'),
+      router: resolveUserPath('.gemini', 'commands', 'p.toml'),
     },
   }
 }

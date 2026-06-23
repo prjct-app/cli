@@ -34,7 +34,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     routing: { group: 'planning', method: 'init' },
     description: 'Deep project analysis and initialization',
-    usage: { claude: '/p:init "[idea]"', terminal: 'prjct init "[idea]"' },
+    usage: { claude: 'p. init "[idea]"', terminal: 'prjct init "[idea]"' },
     params: '[idea]',
     implemented: true,
     hasTemplate: true,
@@ -52,7 +52,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'workflow', method: 'now' },
     optionSchema: { strings: ['spec'] },
     description: 'Register a task (or show the active one)',
-    usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
+    usage: { claude: 'p. task "<description>"', terminal: 'prjct task "<description>"' },
     params: '[description]',
     implemented: true,
     hasTemplate: true,
@@ -69,7 +69,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'shipping', method: 'ship' },
     optionSchema: { booleans: ['skipHooks', 'noSpecGate', 'noTestGate'], strings: ['intent'] },
     description: 'Commit, push, and celebrate shipped feature',
-    usage: { claude: '/p:ship ["feature"]', terminal: 'prjct ship ["feature"]' },
+    usage: { claude: 'p. ship ["feature"]', terminal: 'prjct ship ["feature"]' },
     params: '[feature]',
     implemented: true,
     hasTemplate: true,
@@ -100,7 +100,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     routing: { group: 'analysis', method: 'regenVault' },
     description: 'Full rebuild of the Obsidian vault for the current project',
-    usage: { claude: '/p:regen', terminal: 'prjct regen [--md]' },
+    usage: { claude: 'p. regen', terminal: 'prjct regen [--md]' },
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
@@ -115,7 +115,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'suggest',
     group: 'core',
     description: 'Smart recommendations based on project state',
-    usage: { claude: '/p:suggest', terminal: 'prjct suggest' },
+    usage: { claude: 'p. suggest', terminal: 'prjct suggest' },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
@@ -127,7 +127,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'primitives', method: 'status' },
     optionSchema: {},
     description: 'Inline status change on the active task (Linear-style escape hatch)',
-    usage: { claude: '/p:status <value>', terminal: 'prjct status <value>' },
+    usage: { claude: 'p. status <value>', terminal: 'prjct status <value>' },
     params: '[value]',
     implemented: true,
     hasTemplate: false,
@@ -143,7 +143,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'primitives', method: 'tag' },
     optionSchema: {},
     description: 'Attach k:v tags to the active task (type:bug, domain:frontend, …)',
-    usage: { claude: '/p:tag type:bug', terminal: 'prjct tag type:bug domain:auth' },
+    usage: { claude: 'p. tag type:bug', terminal: 'prjct tag type:bug domain:auth' },
     params: '<pairs...>',
     implemented: true,
     hasTemplate: false,
@@ -160,7 +160,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: { strings: ['tags'] },
     description: 'Capture a project memory entry (fact, decision, learning, gotcha, …)',
     usage: {
-      claude: '/p:remember learning "message"',
+      claude: 'p. remember learning "message"',
       terminal: 'prjct remember learning "message" --tags domain:auth',
     },
     params: '<type> "<content>" [--tags k:v,...]',
@@ -196,7 +196,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: { strings: ['tags'], booleans: ['force'] },
     description: 'GTD-style universal inbox — dump anything to project memory with zero ceremony',
     usage: {
-      claude: '/p:capture "<anything>"',
+      claude: 'p. capture "<anything>"',
       terminal: 'prjct capture "call Ana re pricing" --tags domain:sales',
     },
     params: '"<content>" [--tags k:v,...]',
@@ -217,7 +217,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Manage declarative packs (persona, memory types, workflow slots, hook signals)',
     usage: {
-      claude: '/p:seed list',
+      claude: 'p. seed list',
       terminal: 'prjct seed add pm,daily',
     },
     params: '[add|remove|list|suggest] [pack,pack,...]',
@@ -239,7 +239,7 @@ export const COMMANDS: CommandMeta[] = [
     description:
       'Toggle MCP servers per-project — interactive multi-select in your terminal, list/deny/allow for scripts',
     usage: {
-      claude: '/p:mcp list',
+      claude: 'p. mcp list',
       terminal: 'prjct mcp',
     },
     params: '[list|status|deny|allow] [serverName]',
@@ -261,7 +261,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Install universal agent surfaces and the Claude hooks adapter',
     usage: {
-      claude: '/p:install',
+      claude: 'p. install',
       terminal: 'prjct install',
     },
     params: '',
@@ -280,7 +280,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     routingMode: 'bin-only',
     description: 'Contextual help and guidance',
-    usage: { claude: '/p:help [topic]', terminal: 'prjct help [topic]' },
+    usage: { claude: 'p. help [topic]', terminal: 'prjct help [topic]' },
     params: '[topic]',
     implemented: true,
     hasTemplate: true,
@@ -305,7 +305,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'optional',
     routing: { group: 'analysis', method: 'analyze' },
     description: 'Analyze repository and sync tasks',
-    usage: { claude: '/p:analyze', terminal: 'prjct analyze' },
+    usage: { claude: 'p. analyze', terminal: 'prjct analyze' },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
@@ -316,7 +316,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'git',
     group: 'optional',
     description: 'Smart git operations with context',
-    usage: { claude: '/p:git [op]', terminal: 'prjct git [op]' },
+    usage: { claude: 'p. git [op]', terminal: 'prjct git [op]' },
     params: '[operation]',
     implemented: true,
     hasTemplate: true,
@@ -328,7 +328,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'test',
     group: 'optional',
     description: 'Run tests with auto-fix',
-    usage: { claude: '/p:test', terminal: 'prjct test' },
+    usage: { claude: 'p. test', terminal: 'prjct test' },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
@@ -342,7 +342,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Anti-over-engineering: set intensity, review/audit/debt (read-only)',
     usage: {
-      claude: '/p:lean [review|audit|debt|off|lite|full|ultra]',
+      claude: 'p. lean [review|audit|debt|off|lite|full|ultra]',
       terminal: 'prjct lean [sub]',
     },
     params: '[review|audit|debt|off|lite|full|ultra]',
@@ -363,7 +363,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Test-Driven Development: set intensity, run the test command (check)',
     usage: {
-      claude: '/p:tdd [check|off|assist|strict]',
+      claude: 'p. tdd [check|off|assist|strict]',
       terminal: 'prjct tdd [sub]',
     },
     params: '[check|off|assist|strict]',
@@ -384,7 +384,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Spec-Driven Development: gate the spec pipeline (off/advisory/strict)',
     usage: {
-      claude: '/p:sdd [off|advisory|strict]',
+      claude: 'p. sdd [off|advisory|strict]',
       terminal: 'prjct sdd [sub]',
     },
     params: '[off|advisory|strict]',
@@ -405,7 +405,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Desktop notifications (default on): ping on Claude-waiting + subagent-finished',
     usage: {
-      claude: '/p:notify [on|off]',
+      claude: 'p. notify [on|off]',
       terminal: 'prjct notify [on|off]',
     },
     params: '[on|off]',
@@ -426,7 +426,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: { booleans: ['fix'] },
     description: 'Show the concrete compatibility matrix for AI coding agents',
     usage: {
-      claude: '/p:agents [doctor|doctor --fix]',
+      claude: 'p. agents [doctor|doctor --fix]',
       terminal: 'prjct agents [doctor|doctor --fix]',
     },
     params: '[doctor|status|list] [--fix]',
@@ -448,7 +448,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Show concrete proof that prjct is paying for itself',
     usage: {
-      claude: '/p:value',
+      claude: 'p. value',
       terminal: 'prjct value [--md]',
     },
     params: '',
@@ -469,7 +469,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Audit memory quality before it becomes noisy context',
     usage: {
-      claude: '/p:memory-doctor',
+      claude: 'p. memory-doctor',
       terminal: 'prjct memory-doctor [--md]',
     },
     params: '',
@@ -490,7 +490,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: { numbers: ['days'] },
     description: 'Generate a human weekly report from shipped work and project memory',
     usage: {
-      claude: '/p:report [7]',
+      claude: 'p. report [7]',
       terminal: 'prjct report [days] [--md]',
     },
     params: '[days]',
@@ -511,7 +511,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Create an agent handoff prompt with durable project context',
     usage: {
-      claude: '/p:handoff codex',
+      claude: 'p. handoff codex',
       terminal: 'prjct handoff codex [--md]',
     },
     params: '[agent]',
@@ -532,7 +532,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Show risk guardrails for the current changeset',
     usage: {
-      claude: '/p:guardrails',
+      claude: 'p. guardrails',
       terminal: 'prjct guardrails [--md]',
     },
     params: '',
@@ -553,7 +553,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Cloud sync (paid): link/unlink a project, sync/pull, pause/resume, status',
     usage: {
-      claude: '/p:cloud [link|unlink|sync|pull|pause|resume|status]',
+      claude: 'p. cloud [link|unlink|sync|pull|pause|resume|status]',
       terminal: 'prjct cloud [sub]',
     },
     params: '[link|unlink|sync|pull|pause|resume|status]',
@@ -573,7 +573,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'workflow', method: 'workflow' },
     optionSchema: {},
     description: 'Configure workflow hooks via natural language',
-    usage: { claude: '/p:workflow ["config"]', terminal: 'prjct workflow ["config"]' },
+    usage: { claude: 'p. workflow ["config"]', terminal: 'prjct workflow ["config"]' },
     params: '["natural language config"]',
     implemented: true,
     hasTemplate: true,
@@ -604,7 +604,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'setup', method: 'setup' },
     routingMode: 'bin-only',
     description: 'Reconfigure editor installations',
-    usage: { claude: '/p:setup', terminal: 'prjct setup' },
+    usage: { claude: 'p. setup', terminal: 'prjct setup' },
     params: '[--force] [--editor <name>]',
     implemented: true,
     hasTemplate: true,
@@ -614,7 +614,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'migrate',
     group: 'setup',
     description: 'Migrate project to UUID format + sync',
-    usage: { claude: '/p:migrate', terminal: null },
+    usage: { claude: 'p. migrate', terminal: null },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
@@ -646,7 +646,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'setup',
     routing: { group: 'setup', method: 'auth' },
     description: 'Manage cloud authentication',
-    usage: { claude: '/p:auth [action]', terminal: 'prjct auth [action]' },
+    usage: { claude: 'p. auth [action]', terminal: 'prjct auth [action]' },
     params: '[login|logout|status]',
     implemented: true,
     hasTemplate: false,
@@ -734,7 +734,7 @@ export const COMMANDS: CommandMeta[] = [
     description:
       'Enroll this repo in prjct team mode — commits .prjct/team.json + .claude/CLAUDE.md so teammates pick up shared expectations',
     usage: {
-      claude: '/p:team',
+      claude: 'p. team',
       terminal: 'prjct team [--required] [--min-version <semver>]',
     },
     params: '[--required] [--min-version <semver>]',
@@ -758,7 +758,7 @@ export const COMMANDS: CommandMeta[] = [
     description:
       'Configure the GLOBAL semantic-embeddings provider (BYOT) — one API key, stored securely, used by every project.',
     usage: {
-      claude: '/p:embeddings status',
+      claude: 'p. embeddings status',
       terminal:
         'prjct embeddings <set|status|test|clear> [--key <K>] [--model <M>] [--base-url <U>] [--auth-header <H>] [--auth-scheme <S|none>] [--headers "k=v,..."] [--query <qs>]',
     },
@@ -785,7 +785,7 @@ export const COMMANDS: CommandMeta[] = [
     description:
       'Surface preventive memory (gotchas, anti-patterns, recurring-bugs) recorded against a file BEFORE you edit it — anticipation, provider-agnostic.',
     usage: {
-      claude: '/p:guard <file>',
+      claude: 'p. guard <file>',
       terminal: 'prjct guard <file>',
     },
     params: '<file>',
@@ -807,7 +807,7 @@ export const COMMANDS: CommandMeta[] = [
     optionSchema: {},
     description: 'Read/write global prjct config — auto-update opt-in, suggestions toggle, etc.',
     usage: {
-      claude: '/p:config list',
+      claude: 'p. config list',
       terminal: 'prjct config <list|get|set|unset> [key] [value]',
     },
     params: '<list|get|set|unset> [key] [value]',
@@ -830,7 +830,7 @@ export const COMMANDS: CommandMeta[] = [
     description:
       'Draft a spec — Goal/Acceptance/Scope/Risks. The SDD entry point: spec → audit → task → ship.',
     usage: {
-      claude: '/p:spec "<title>"',
+      claude: 'p. spec "<title>"',
       terminal: 'prjct spec "<title>" [--goal "..."] [--tags k:v,...]',
     },
     params: '"<title>" [--goal] [--tags]',
@@ -851,7 +851,7 @@ export const COMMANDS: CommandMeta[] = [
     routingMode: 'cold-only',
     description:
       'Emit subagent dispatch for parallel strategic/architecture/design review of a spec',
-    usage: { claude: '/p:audit-spec <id>', terminal: 'prjct audit-spec <id>' },
+    usage: { claude: 'p. audit-spec <id>', terminal: 'prjct audit-spec <id>' },
     params: '<spec-id>',
     implemented: true,
     hasTemplate: false,
@@ -917,17 +917,7 @@ export const COMMAND_ALIASES: Record<string, string> = {
  * Derived from the manifest (plus aliases of bin-only targets); the shim
  * skip-set in scripts/build.js and `_binCommands` in bin/prjct.ts both
  * consume this, so routing is declared in exactly one place.
- */
-/**
- * Commands the SHIM must serve cold even though the daemon can handle them
- * when reached via bin/prjct.ts (multi-positional parsing). Consumed by
- * scripts/build.js alongside BIN_ONLY_COMMANDS.
- */
-export const COLD_ONLY_COMMANDS: ReadonlySet<string> = new Set(
-  COMMANDS.filter((c) => c.routingMode === 'cold-only').map((c) => c.name)
-)
-
-export const BIN_ONLY_COMMANDS: ReadonlySet<string> = new Set([
+ */ export const BIN_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   ...COMMANDS.filter((c) => c.routingMode === 'bin-only').map((c) => c.name),
   ...Object.entries(COMMAND_ALIASES)
     .filter(([, target]) => COMMANDS.some((c) => c.name === target && c.routingMode === 'bin-only'))

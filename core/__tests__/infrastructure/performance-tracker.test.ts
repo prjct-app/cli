@@ -100,16 +100,16 @@ describe('PerformanceTracker', () => {
       // Verify events were written to SQLite
       const events = prjctDb.query<{ type: string; data: string }>(
         testProjectId,
-        "SELECT type, data FROM events WHERE type LIKE 'perf.%' ORDER BY id"
+        'SELECT metric AS type, data FROM perf_samples ORDER BY id'
       )
 
       // Should have 4 entries (heap_used, heap_total, rss, external_memory)
       expect(events.length).toBe(4)
       expect(events.map((e) => e.type)).toEqual([
-        'perf.heap_used',
-        'perf.heap_total',
-        'perf.rss',
-        'perf.external_memory',
+        'heap_used',
+        'heap_total',
+        'rss',
+        'external_memory',
       ])
     })
   })
@@ -122,7 +122,7 @@ describe('PerformanceTracker', () => {
 
       const events = prjctDb.query<{ type: string; data: string }>(
         testProjectId,
-        "SELECT type, data FROM events WHERE type = 'perf.startup_time'"
+        "SELECT metric AS type, data FROM perf_samples WHERE metric = 'startup_time'"
       )
 
       expect(events.length).toBe(1)
@@ -139,7 +139,7 @@ describe('PerformanceTracker', () => {
 
       const events = prjctDb.query<{ data: string }>(
         testProjectId,
-        "SELECT data FROM events WHERE type = 'perf.command_duration'"
+        "SELECT data FROM perf_samples WHERE metric = 'command_duration'"
       )
 
       const parsed = JSON.parse(events[0].data)
@@ -153,10 +153,27 @@ describe('PerformanceTracker', () => {
 
       const events = prjctDb.query<{ type: string }>(
         testProjectId,
-        "SELECT type FROM events WHERE type LIKE 'perf.%'"
+        'SELECT metric AS type FROM perf_samples'
       )
 
       expect(events.length).toBe(3)
+    })
+
+    it('does not write new telemetry into the events log', () => {
+      performanceTracker.recordTiming(testProjectId, 'command_duration', 50, { command: 'status' })
+      performanceTracker.recordMemory(testProjectId)
+
+      const telemetryEvents = prjctDb.query<{ n: number }>(
+        testProjectId,
+        "SELECT COUNT(*) AS n FROM events WHERE type LIKE 'perf.%'"
+      )
+      const samples = prjctDb.query<{ n: number }>(
+        testProjectId,
+        'SELECT COUNT(*) AS n FROM perf_samples'
+      )
+
+      expect(telemetryEvents[0]?.n).toBe(0)
+      expect(samples[0]?.n).toBe(5)
     })
   })
 
@@ -172,7 +189,7 @@ describe('PerformanceTracker', () => {
 
       const events = prjctDb.query<{ data: string }>(
         testProjectId,
-        "SELECT data FROM events WHERE type = 'perf.context_correctness'"
+        "SELECT data FROM perf_samples WHERE metric = 'context_correctness'"
       )
 
       expect(events.length).toBe(1)
@@ -195,7 +212,7 @@ describe('PerformanceTracker', () => {
 
       const events = prjctDb.query<{ data: string }>(
         testProjectId,
-        "SELECT data FROM events WHERE type = 'perf.subtask_handoff'"
+        "SELECT data FROM perf_samples WHERE metric = 'subtask_handoff'"
       )
 
       expect(events.length).toBe(1)

@@ -97,19 +97,22 @@ class StateStorage extends StorageManager<StateJson> {
    * Start a new task
    */
   async startTask(projectId: string, task: Omit<CurrentTask, 'startedAt'>): Promise<CurrentTask> {
-    const state = await this.read(projectId)
-    this.validateTransition(state, 'task')
+    const resultRef: { currentTask?: CurrentTask } = {}
+    await this.update(projectId, (state) => {
+      this.validateTransition(state, 'task')
+      resultRef.currentTask = {
+        ...task,
+        startedAt: getTimestamp(),
+      }
+      return {
+        ...state,
+        currentTask: resultRef.currentTask,
+        lastUpdated: getTimestamp(),
+      }
+    })
 
-    const currentTask: CurrentTask = {
-      ...task,
-      startedAt: getTimestamp(),
-    }
-
-    await this.update(projectId, (state) => ({
-      ...state,
-      currentTask,
-      lastUpdated: getTimestamp(),
-    }))
+    if (!resultRef.currentTask) throw new Error('Failed to start task')
+    const currentTask = resultRef.currentTask
 
     // Publish incremental event
     await this.publishEvent(projectId, 'task.started', {
@@ -129,16 +132,16 @@ class StateStorage extends StorageManager<StateJson> {
     projectId: string,
     fields: Partial<CurrentTask>
   ): Promise<CurrentTask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask) return null
-
-    const updated: CurrentTask = { ...state.currentTask, ...fields }
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      currentTask: updated,
-      lastUpdated: getTimestamp(),
-    }))
+    let updated: CurrentTask | null = null
+    await this.update(projectId, (s) => {
+      if (!s.currentTask) return s
+      updated = { ...s.currentTask, ...fields }
+      return {
+        ...s,
+        currentTask: updated,
+        lastUpdated: getTimestamp(),
+      }
+    })
 
     return updated
   }
@@ -149,33 +152,32 @@ class StateStorage extends StorageManager<StateJson> {
    * Optionally accepts structured feedback for the task-to-analysis feedback loop (PRJ-272)
    */
   async completeTask(projectId: string, feedback?: TaskFeedback): Promise<CurrentTask | null> {
-    const state = await this.read(projectId)
-    const completedTask = state.currentTask
-
-    if (!completedTask) {
-      return null
-    }
-
-    this.validateTransition(state, 'done')
-
     const completedAt = getTimestamp()
+    const resultRef: { completedTask?: CurrentTask } = {}
+    await this.update(projectId, (state) => {
+      if (!state.currentTask) return state
+      this.validateTransition(state, 'done')
+      resultRef.completedTask = state.currentTask
+      const historyEntry = this.createTaskHistoryEntry(
+        resultRef.completedTask,
+        completedAt,
+        feedback
+      )
+      const taskHistory = [historyEntry, ...this.getTaskHistoryFromState(state)].slice(
+        0,
+        this.maxTaskHistory
+      )
+      return {
+        ...state,
+        currentTask: null,
+        previousTask: null,
+        taskHistory,
+        lastUpdated: completedAt,
+      }
+    })
 
-    // Create task history entry for completed task (with optional feedback)
-    const historyEntry = this.createTaskHistoryEntry(completedTask, completedAt, feedback)
-
-    // Get existing task history with backward compatibility
-    const existingHistory = this.getTaskHistoryFromState(state)
-
-    // Add new entry to beginning, enforce max limit with FIFO eviction
-    const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
-
-    await this.update(projectId, (existingState) => ({
-      ...existingState,
-      currentTask: null,
-      previousTask: null,
-      taskHistory,
-      lastUpdated: completedAt,
-    }))
+    if (!resultRef.completedTask) return null
+    const completedTask = resultRef.completedTask
 
     // Publish incremental event
     await this.publishEvent(projectId, 'task.completed', {

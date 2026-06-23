@@ -469,9 +469,9 @@ echo ""
 # Show commands based on detected platforms
 if [ -d "$HOME/.claude" ]; then
     echo -e "  ${BOLD}Claude Code Commands:${NC}"
-    echo -e "    ${GREEN}/p:init${NC}     ${DIM}Initialize project${NC}"
-    echo -e "    ${GREEN}/p:now${NC}      ${DIM}Set current task${NC}"
-    echo -e "    ${GREEN}/p:ship${NC}     ${DIM}Ship & celebrate${NC}"
+    echo -e "    ${GREEN}p. init${NC}     ${DIM}Initialize project${NC}"
+    echo -e "    ${GREEN}p. now${NC}      ${DIM}Set current task${NC}"
+    echo -e "    ${GREEN}p. ship${NC}     ${DIM}Ship & celebrate${NC}"
     echo ""
 fi
 

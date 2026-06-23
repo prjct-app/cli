@@ -41,22 +41,53 @@ function hashContent(content: string): string {
  *
  * Performance target: <100ms for 500 files.
  */
-export async function computeHashes(projectPath: string): Promise<Map<string, FileHash>> {
+interface ComputeHashesOptions {
+  /** Previous registry from SQLite. Unchanged files reuse the old checksum. */
+  storedHashes?: Map<string, FileHash>
+  /** Optional exact file set that the caller already knows changed. */
+  changedFilesHint?: string[]
+}
+
+export async function computeHashes(
+  projectPath: string,
+  options: ComputeHashesOptions = {}
+): Promise<Map<string, FileHash>> {
   const filePaths = await walkDir(projectPath, {
     skipDotfiles: true,
     dotfileAllowlist: ['.env.example'],
   })
   const hashes = new Map<string, FileHash>()
+  const hinted = options.changedFilesHint?.length ? new Set(options.changedFilesHint) : null
 
   const results = await batchProcess(filePaths, 100, async (filePath) => {
     try {
       const fullPath = path.join(projectPath, filePath)
-      const [content, stat] = await Promise.all([fs.readFile(fullPath, 'utf-8'), fs.stat(fullPath)])
+      const stat = await fs.stat(fullPath)
+      const mtime = stat.mtime.toISOString()
+      const previous = options.storedHashes?.get(filePath)
+      const hintSaysChanged = hinted?.has(filePath) ?? false
+
+      if (
+        previous &&
+        !hintSaysChanged &&
+        previous.size === stat.size &&
+        previous.mtime === mtime &&
+        previous.hash
+      ) {
+        return {
+          path: filePath,
+          hash: previous.hash,
+          size: stat.size,
+          mtime,
+        } satisfies FileHash
+      }
+
+      const content = await fs.readFile(fullPath, 'utf-8')
       return {
         path: filePath,
         hash: hashContent(content),
         size: stat.size,
-        mtime: stat.mtime.toISOString(),
+        mtime,
       } satisfies FileHash
     } catch {
       return null
@@ -168,12 +199,11 @@ function loadHashes(projectId: string): Map<string, FileHash> {
  */
 export async function detectChanges(
   projectPath: string,
-  projectId: string
+  projectId: string,
+  changedFilesHint?: string[]
 ): Promise<{ diff: FileDiff; currentHashes: Map<string, FileHash> }> {
-  const [currentHashes, storedHashes] = await Promise.all([
-    computeHashes(projectPath),
-    Promise.resolve(loadHashes(projectId)),
-  ])
+  const storedHashes = loadHashes(projectId)
+  const currentHashes = await computeHashes(projectPath, { storedHashes, changedFilesHint })
 
   const diff = diffHashes(currentHashes, storedHashes)
 

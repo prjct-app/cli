@@ -62,7 +62,7 @@ async function main() {
     if (result.success) {
       installSpinner.stop('Installation successful!')
 
-      const cmdList = result.installed.map((cmd) => `  /p:${cmd}`).join('\n')
+      const cmdList = result.installed.map((cmd) => `  p. ${cmd}`).join('\n')
       p.note(
         [`Installed ${result.installed.length} commands to:`, `  ${result.path}`, '', cmdList].join(
           '\n'

@@ -1,4 +1,6 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { computeHashes, diffHashes } from '../../domain/file-hasher'
 import type { FileHash } from '../../types/domain.js'
@@ -138,6 +140,43 @@ describe('file-hasher', () => {
       const pkg1 = hashes1.get('package.json')
       const pkg2 = hashes2.get('package.json')
       expect(pkg1?.hash).toBe(pkg2?.hash)
+    })
+
+    test('reuses stored hashes for files whose size and mtime did not change', async () => {
+      const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-hasher-'))
+      try {
+        await fs.writeFile(path.join(projectPath, 'a.ts'), 'export const a = 1\n')
+        await fs.writeFile(path.join(projectPath, 'b.ts'), 'export const b = 1\n')
+        const first = await computeHashes(projectPath)
+
+        const readSpy = spyOn(fs, 'readFile')
+        const second = await computeHashes(projectPath, { storedHashes: first })
+
+        expect(second.get('a.ts')?.hash).toBe(first.get('a.ts')?.hash)
+        expect(second.get('b.ts')?.hash).toBe(first.get('b.ts')?.hash)
+        expect(readSpy).not.toHaveBeenCalled()
+        readSpy.mockRestore()
+      } finally {
+        await fs.rm(projectPath, { recursive: true, force: true })
+      }
+    })
+
+    test('changedFilesHint forces rehash only for the hinted unchanged file', async () => {
+      const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-hasher-hint-'))
+      try {
+        await fs.writeFile(path.join(projectPath, 'a.ts'), 'export const a = 1\n')
+        await fs.writeFile(path.join(projectPath, 'b.ts'), 'export const b = 1\n')
+        const first = await computeHashes(projectPath)
+
+        const readSpy = spyOn(fs, 'readFile')
+        await computeHashes(projectPath, { storedHashes: first, changedFilesHint: ['b.ts'] })
+
+        expect(readSpy).toHaveBeenCalledTimes(1)
+        expect(String(readSpy.mock.calls[0]?.[0])).toEndWith('b.ts')
+        readSpy.mockRestore()
+      } finally {
+        await fs.rm(projectPath, { recursive: true, force: true })
+      }
     })
   })
 })

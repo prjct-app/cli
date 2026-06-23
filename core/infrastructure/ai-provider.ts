@@ -17,7 +17,6 @@
  * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 
-import os from 'node:os'
 import path from 'node:path'
 import { PROVIDER_SPAWN_TIMEOUT_MS } from '../constants/timings'
 import { compareSemver } from '../schemas/model'
@@ -32,6 +31,7 @@ import type {
 import { execAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
+import { resolveUserPath } from './user-home'
 
 // Provider Configurations
 
@@ -42,9 +42,13 @@ export const ClaudeProvider: AIProviderConfig = {
   name: 'claude',
   displayName: 'Claude Code',
   cliCommand: 'claude',
-  configDir: path.join(os.homedir(), '.claude'),
+  get configDir() {
+    return resolveUserPath('.claude')
+  },
   contextFile: 'CLAUDE.md',
-  skillsDir: path.join(os.homedir(), '.claude', 'skills'),
+  get skillsDir() {
+    return resolveUserPath('.claude', 'skills')
+  },
   commandsDir: '.claude/commands',
   commandFormat: 'md',
   settingsFile: 'settings.json',
@@ -65,9 +69,13 @@ export const GeminiProvider: AIProviderConfig = {
   name: 'gemini',
   displayName: 'Gemini CLI',
   cliCommand: 'gemini',
-  configDir: path.join(os.homedir(), '.gemini'),
+  get configDir() {
+    return resolveUserPath('.gemini')
+  },
   contextFile: 'GEMINI.md',
-  skillsDir: path.join(os.homedir(), '.gemini', 'skills'),
+  get skillsDir() {
+    return resolveUserPath('.gemini', 'skills')
+  },
   commandsDir: '.gemini/commands',
   commandFormat: 'toml',
   settingsFile: 'settings.json',
@@ -92,9 +100,13 @@ const AntigravityProvider: AIProviderConfig = {
   name: 'antigravity',
   displayName: 'Google Antigravity',
   cliCommand: null, // Not a CLI command, but a platform/app
-  configDir: path.join(os.homedir(), '.gemini', 'antigravity'),
+  get configDir() {
+    return resolveUserPath('.gemini', 'antigravity')
+  },
   contextFile: 'ANTIGRAVITY.md',
-  skillsDir: path.join(os.homedir(), '.gemini', 'antigravity', 'global_skills'),
+  get skillsDir() {
+    return resolveUserPath('.gemini', 'antigravity', 'global_skills')
+  },
   commandsDir: '.agent/skills', // Antigravity uses .agent/skills in projects
   commandFormat: 'md', // Uses SKILL.md
   settingsFile: 'mcp_config.json', // Uses MCP config
@@ -187,9 +199,13 @@ const CodexProvider: AIProviderConfig = {
   name: 'codex',
   displayName: 'OpenAI Codex',
   cliCommand: 'codex',
-  configDir: path.join(os.homedir(), '.codex'),
+  get configDir() {
+    return resolveUserPath('.codex')
+  },
   contextFile: 'AGENTS.md',
-  skillsDir: path.join(os.homedir(), '.codex', 'skills'),
+  get skillsDir() {
+    return resolveUserPath('.codex', 'skills')
+  },
   commandsDir: '.agents/skills',
   commandFormat: 'md',
   settingsFile: null,
@@ -324,7 +340,7 @@ export async function detectAllProviders(refresh = false): Promise<{
 }
 
 /**
- * Get the active provider based on detection or configuration
+ * Get the active provider based on detection or configuration.
  *
  * Priority:
  * 1. Check project config for saved provider preference
@@ -334,12 +350,10 @@ export async function detectAllProviders(refresh = false): Promise<{
 export async function getActiveProvider(
   projectProvider?: AIProviderName
 ): Promise<AIProviderConfig> {
-  // If project has a saved preference, use it
   if (projectProvider && Providers[projectProvider]) {
     return Providers[projectProvider]
   }
 
-  // Auto-detect
   const detection = await detectAllProviders()
 
   const installed = [
@@ -352,15 +366,9 @@ export async function getActiveProvider(
     return Providers[installed[0] as AIProviderName]
   }
 
-  if (detection.claude.installed) {
-    return ClaudeProvider
-  }
-  if (detection.gemini.installed) {
-    return GeminiProvider
-  }
-  if (detection.codex.installed) {
-    return CodexProvider
-  }
+  if (detection.claude.installed) return ClaudeProvider
+  if (detection.gemini.installed) return GeminiProvider
+  if (detection.codex.installed) return CodexProvider
 
   // Historical fallback for callers that expect a provider object.
   return ClaudeProvider
