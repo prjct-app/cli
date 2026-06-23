@@ -13,6 +13,7 @@ export interface PhaseResult {
   success: boolean
   details: string[]
   errors: string[]
+  warnings?: string[]
 }
 
 export interface PhaseResults {
@@ -39,6 +40,9 @@ export function formatTerminalOutput(results: PhaseResults, dryRun: boolean): Co
     console.log(`  ${icon} ${chalk.bold(label)}`)
     for (const detail of result.details) {
       console.log(`    ${chalk.dim(detail)}`)
+    }
+    for (const warning of result.warnings ?? []) {
+      console.log(`    ${chalk.yellow('⚠')} ${warning}`)
     }
     for (const err of result.errors) {
       console.log(`    ${chalk.yellow('⚠')} ${err}`)
@@ -79,6 +83,9 @@ export function formatMdOutput(results: PhaseResults, dryRun: boolean): CommandR
     lines.push(`## ${label} (${status})`)
     for (const detail of result.details) {
       lines.push(`- ${detail}`)
+    }
+    for (const warning of result.warnings ?? []) {
+      lines.push(`- WARNING: ${warning}`)
     }
     for (const err of result.errors) {
       lines.push(`- WARNING: ${err}`)

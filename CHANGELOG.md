@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.60.0] - 2026-06-22
+
+### Added
+- update tolerates legacy project dbs
+
 ## [2.59.0] - 2026-06-22
 
 ### Fixed
