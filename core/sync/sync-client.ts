@@ -8,7 +8,14 @@
  */
 
 import type { SyncEvent } from '../types/events'
-import type { SyncBatchResult, SyncClientError, SyncPullResult, SyncStatus } from '../types/sync'
+import type {
+  BenchmarkPublishPayload,
+  BenchmarkPublishResult,
+  SyncBatchResult,
+  SyncClientError,
+  SyncPullResult,
+  SyncStatus,
+} from '../types/sync'
 import { getTimeout } from '../utils/constants'
 import authConfig from './auth-config'
 import { mapCliEventsToWebFormat } from './event-mapper'
@@ -125,6 +132,43 @@ class SyncClient {
     }
 
     return (await response.json()) as SyncStatus
+  }
+
+  /**
+   * Publish a product benchmark to the cloud API.
+   *
+   * This is intentionally a cloud operation, not a GitHub write. The server is
+   * responsible for ownership/subscription checks and returns 402 when the
+   * account cannot publish benchmarks.
+   */
+  async publishBenchmark(
+    projectId: string,
+    payload: BenchmarkPublishPayload
+  ): Promise<BenchmarkPublishResult> {
+    const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
+
+    if (!apiKey) {
+      throw this.createError('AUTH_REQUIRED', 'No API key configured')
+    }
+
+    const response = await this.fetchWithRetry(`${apiUrl}/benchmarks/evals`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.authHeaders(apiKey, deviceId),
+      },
+      body: JSON.stringify({
+        projectId,
+        ...payload,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await this.parseErrorResponse(response)
+      throw error
+    }
+
+    return (await response.json()) as BenchmarkPublishResult
   }
 
   /**

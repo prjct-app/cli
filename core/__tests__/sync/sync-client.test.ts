@@ -171,6 +171,66 @@ describe('SyncClient.pullEvents', () => {
   })
 })
 
+describe('SyncClient.publishBenchmark', () => {
+  beforeEach(async () => {
+    await seedAuth()
+  })
+
+  it('posts benchmark payload to /benchmarks/evals with auth headers', async () => {
+    stubFetch(() =>
+      jsonResponse(200, {
+        success: true,
+        benchmarkId: 'bench-1',
+        url: 'https://app.prjct.app/benchmarks/bench-1',
+        publishedAt: '2026-06-23T00:00:00Z',
+      })
+    )
+
+    const result = await syncClient.publishBenchmark('proj-1', {
+      schemaVersion: 1,
+      artifactType: 'run',
+      artifactId: 'eval_1',
+      repo: 'acme/prjct-evals',
+      createdAt: '2026-06-23T00:00:00Z',
+      run: { runId: 'eval_1' },
+      reportMarkdown: '# report\n',
+    })
+
+    expect(result.benchmarkId).toBe('bench-1')
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toContain('/benchmarks/evals')
+    expect(calls[0].init?.method).toBe('POST')
+    const headers = calls[0].init?.headers as Record<string, string>
+    expect(headers['X-Api-Key']).toBe('sk_test_key')
+    expect(headers['X-Device-Id']).toBeString()
+
+    const body = JSON.parse(calls[0].init?.body as string)
+    expect(body.projectId).toBe('proj-1')
+    expect(body.artifactType).toBe('run')
+    expect(body.artifactId).toBe('eval_1')
+  })
+
+  it('surfaces server subscription gate as PAYMENT_REQUIRED', async () => {
+    stubFetch(() => jsonResponse(402, { message: 'Upgrade required to publish benchmarks.' }))
+
+    await expect(
+      syncClient.publishBenchmark('proj-1', {
+        schemaVersion: 1,
+        artifactType: 'comparison',
+        artifactId: 'comparison_1',
+        repo: 'acme/prjct-evals',
+        createdAt: '2026-06-23T00:00:00Z',
+        comparison: { comparisonId: 'comparison_1' },
+        reportMarkdown: '# comparison\n',
+      })
+    ).rejects.toMatchObject({
+      code: 'PAYMENT_REQUIRED',
+      status: 402,
+      message: 'Upgrade required to publish benchmarks.',
+    })
+  })
+})
+
 describe('SyncClient.testConnection', () => {
   it('returns false when no api key', async () => {
     await seedAuth(null)

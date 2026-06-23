@@ -123,7 +123,7 @@ export const COMMANDS: CommandMeta[] = [
     usage: {
       claude: 'p. eval run [--candidate <version>] [--publish]',
       terminal:
-        'prjct eval <run|compare|report|publish> [--baseline <version>] [--candidate <version>] [--target github] [--dry-run]',
+        'prjct eval <run|compare|report|publish> [--baseline <version>] [--candidate <version>] [--target cloud] [--dry-run]',
     },
     params: '[run|compare|report|publish]',
     implemented: true,
@@ -133,7 +133,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Deterministic local eval runs stored under PRJCT_CLI_HOME/evals',
       'Version comparisons with regression/improvement actionables',
-      'GitHub publication to an eval-results branch for shared metrics history',
+      'Cloud publication for shared benchmark history with server-side ownership and subscription checks',
     ],
   },
   {
