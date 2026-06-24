@@ -25,7 +25,7 @@ STATUSLINE_DIR="${HOME}/.prjct-cli/statusline"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Use installed location or script location for libs/components
-if [[ -d "${STATUSLINE_DIR}/lib" ]]; then
+if [[ -f "${STATUSLINE_DIR}/lib/cache.sh" && -f "${STATUSLINE_DIR}/lib/theme.sh" && -f "${STATUSLINE_DIR}/lib/config.sh" ]]; then
   LIB_DIR="${STATUSLINE_DIR}/lib"
   COMPONENTS_DIR="${STATUSLINE_DIR}/components"
 else

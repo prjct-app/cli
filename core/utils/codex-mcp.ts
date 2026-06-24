@@ -18,7 +18,15 @@ import { MCP_SERVER_PRESETS } from './mcp-config'
 
 const START_MARKER = '# prjct:mcp:start - managed by prjct, do not edit between markers'
 const END_MARKER = '# prjct:mcp:end'
-const CODEX_STATUS_LINE_ITEMS = ['model-with-reasoning', 'cwd', 'git', 'task-progress']
+const CODEX_STATUS_LINE_ITEMS = [
+  'model-with-reasoning',
+  'cwd',
+  'git',
+  'context-left',
+  'five-hour-limit',
+  'weekly-limit',
+  'task-progress',
+]
 
 export function getCodexConfigTomlPath(): string {
   if (process.env.PRJCT_TEST_MODE === '1') {

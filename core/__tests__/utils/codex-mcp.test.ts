@@ -42,7 +42,9 @@ describe('ensureCodexMcpServer', () => {
     expect(body).toContain('# prjct:mcp:start')
     expect(body).toContain('# prjct:mcp:end')
     expect(body).toContain('[tui]')
-    expect(body).toContain('status_line = ["model-with-reasoning", "cwd", "git", "task-progress"]')
+    expect(body).toContain(
+      'status_line = ["model-with-reasoning", "cwd", "git", "context-left", "five-hour-limit", "weekly-limit", "task-progress"]'
+    )
     expect(body).toMatch(/command = "/)
   })
 
@@ -90,7 +92,9 @@ describe('ensureCodexMcpServer', () => {
     expect(r.statusLineChanged).toBe(true)
     const body = await fs.readFile(configPath, 'utf-8')
     expect(body).toContain('command = "my-custom-wrapper"')
-    expect(body).toContain('status_line = ["model-with-reasoning", "cwd", "git", "task-progress"]')
+    expect(body).toContain(
+      'status_line = ["model-with-reasoning", "cwd", "git", "context-left", "five-hour-limit", "weekly-limit", "task-progress"]'
+    )
   })
 
   it('does not override an existing Codex status_line', async () => {
@@ -102,7 +106,7 @@ describe('ensureCodexMcpServer', () => {
     expect(r.statusLineChanged).toBe(false)
     const body = await fs.readFile(configPath, 'utf-8')
     expect(body).toContain('status_line = ["model"]')
-    expect(body).not.toContain('task-progress')
+    expect(body).not.toContain('five-hour-limit')
     expect(body).toContain('[mcp_servers.prjct]')
   })
 
@@ -113,7 +117,7 @@ describe('ensureCodexMcpServer', () => {
     expect(r.statusLineChanged).toBe(true)
     const body = await fs.readFile(configPath, 'utf-8')
     expect(body).toContain(
-      '[tui]\nstatus_line = ["model-with-reasoning", "cwd", "git", "task-progress"]\nraw_output_mode = true'
+      '[tui]\nstatus_line = ["model-with-reasoning", "cwd", "git", "context-left", "five-hour-limit", "weekly-limit", "task-progress"]\nraw_output_mode = true'
     )
   })
 })
@@ -121,7 +125,7 @@ describe('ensureCodexMcpServer', () => {
 describe('buildCodexStatusLineToml', () => {
   it('builds the Codex TUI status_line table', () => {
     expect(buildCodexStatusLineToml()).toBe(
-      '[tui]\nstatus_line = ["model-with-reasoning", "cwd", "git", "task-progress"]\n'
+      '[tui]\nstatus_line = ["model-with-reasoning", "cwd", "git", "context-left", "five-hour-limit", "weekly-limit", "task-progress"]\n'
     )
   })
 })

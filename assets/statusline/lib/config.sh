@@ -46,6 +46,7 @@ load_config() {
   COMPONENT_ENABLED["git"]="true"
   COMPONENT_ENABLED["changes"]="true"
   COMPONENT_ENABLED["context"]="true"
+  COMPONENT_ENABLED["limits"]="true"
   COMPONENT_ENABLED["model"]="true"
 
   COMPONENT_POSITION["prjct_icon"]=0
@@ -56,7 +57,8 @@ load_config() {
   COMPONENT_POSITION["git"]=4
   COMPONENT_POSITION["changes"]=5
   COMPONENT_POSITION["context"]=6
-  COMPONENT_POSITION["model"]=7
+  COMPONENT_POSITION["limits"]=7
+  COMPONENT_POSITION["model"]=8
 
   # Load config file if exists
   [[ ! -f "$CONFIG_FILE" ]] && return
@@ -84,6 +86,7 @@ load_config() {
       (if .components.git.enabled == null then true else .components.git.enabled end),
       (if .components.changes.enabled == null then true else .components.changes.enabled end),
       (if .components.context.enabled == null then true else .components.context.enabled end),
+      (if .components.limits.enabled == null then true else .components.limits.enabled end),
       (if .components.model.enabled == null then false else .components.model.enabled end),
       (if .components.enrichment.enabled == null then true else .components.enrichment.enabled end),
       (.components.prjct_icon.position // 0),
@@ -94,7 +97,8 @@ load_config() {
       (.components.git.position // 4),
       (.components.changes.position // 5),
       (.components.context.position // 6),
-      (.components.model.position // 7)
+      (.components.limits.position // 7),
+      (.components.model.position // 8)
     ] | @tsv
   ' "$CONFIG_FILE" 2>/dev/null)
 
@@ -107,8 +111,8 @@ load_config() {
     CONFIG_CACHE_TTL_PRJCT CONFIG_CACHE_TTL_GIT CONFIG_CACHE_TTL_LINEAR CONFIG_CACHE_TTL_JIRA \
     CONFIG_TASK_MAX_LENGTH CONFIG_CONTEXT_MIN_PERCENT \
     CONFIG_LINEAR_SHOW_PRIORITY CONFIG_JIRA_SHOW_PRIORITY CONFIG_JIRA_SHOW_STATUS \
-    E_PRJCT_ICON E_TASK E_LINEAR E_JIRA E_DIR E_GIT E_CHANGES E_CONTEXT E_MODEL E_ENRICHMENT \
-    P_PRJCT_ICON P_TASK P_LINEAR P_JIRA P_DIR P_GIT P_CHANGES P_CONTEXT P_MODEL \
+    E_PRJCT_ICON E_TASK E_LINEAR E_JIRA E_DIR E_GIT E_CHANGES E_CONTEXT E_LIMITS E_MODEL E_ENRICHMENT \
+    P_PRJCT_ICON P_TASK P_LINEAR P_JIRA P_DIR P_GIT P_CHANGES P_CONTEXT P_LIMITS P_MODEL \
     <<< "$config_data"
   IFS="$old_ifs"
 
@@ -121,6 +125,7 @@ load_config() {
   COMPONENT_ENABLED["git"]="$E_GIT"
   COMPONENT_ENABLED["changes"]="$E_CHANGES"
   COMPONENT_ENABLED["context"]="$E_CONTEXT"
+  COMPONENT_ENABLED["limits"]="$E_LIMITS"
   COMPONENT_ENABLED["model"]="$E_MODEL"
 
   # Set component positions
@@ -132,6 +137,7 @@ load_config() {
   COMPONENT_POSITION["git"]="$P_GIT"
   COMPONENT_POSITION["changes"]="$P_CHANGES"
   COMPONENT_POSITION["context"]="$P_CONTEXT"
+  COMPONENT_POSITION["limits"]="$P_LIMITS"
   COMPONENT_POSITION["model"]="$P_MODEL"
 
   # Update linear/jira enabled based on component config
