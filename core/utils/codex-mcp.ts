@@ -11,8 +11,8 @@
  */
 
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
+import { resolveUserPath } from '../infrastructure/user-home'
 import type { MCPServerConfig } from '../types/utils.js'
 import { MCP_SERVER_PRESETS } from './mcp-config'
 
@@ -30,9 +30,9 @@ const CODEX_STATUS_LINE_ITEMS = [
 
 export function getCodexConfigTomlPath(): string {
   if (process.env.PRJCT_TEST_MODE === '1') {
-    return path.join(os.tmpdir(), 'prjct-codex-test', 'config.toml')
+    return path.join(resolveUserPath('.prjct-tests'), 'codex', 'config.toml')
   }
-  return path.join(os.homedir(), '.codex', 'config.toml')
+  return resolveUserPath('.codex', 'config.toml')
 }
 
 function tomlString(value: string): string {

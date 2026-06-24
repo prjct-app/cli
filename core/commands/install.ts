@@ -19,6 +19,7 @@ import {
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { ensureCodexMcpServer } from '../utils/codex-mcp'
 import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
@@ -40,6 +41,8 @@ export class InstallCommands extends PrjctCommandsBase {
         : null
       const runtimes = await detectAgentRuntimes(projectPath)
       const detected = runtimes.filter((runtime) => runtime.detected)
+      const codexDetected = detected.some((runtime) => runtime.runtime.id === 'codex')
+      const codexConfig = codexDetected ? await ensureCodexMcpServer() : null
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
       const msg = `installed Claude hooks adapter: ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
@@ -57,6 +60,20 @@ export class InstallCommands extends PrjctCommandsBase {
               : []),
             ...(projectSurfaces?.ideRules.length
               ? projectSurfaces.ideRules.map((rule) => `- project rule adapter: \`${rule}\``)
+              : []),
+            ...(codexConfig
+              ? [
+                  `- Codex config: ${
+                    codexConfig.skipped === 'user-managed'
+                      ? 'user-managed MCP preserved'
+                      : codexConfig.changed
+                        ? 'updated'
+                        : 'already ready'
+                  }`,
+                  `- Codex status line: ${
+                    codexConfig.statusLineChanged ? 'installed' : 'already configured'
+                  }`,
+                ]
               : []),
             ``,
             `## Claude hooks adapter`,
@@ -85,12 +102,32 @@ export class InstallCommands extends PrjctCommandsBase {
         } else {
           out.info('project surface: skipped (not inside an initialized prjct project)')
         }
+        if (codexConfig) {
+          const action =
+            codexConfig.skipped === 'user-managed'
+              ? 'user-managed MCP preserved'
+              : codexConfig.changed
+                ? 'updated'
+                : 'already ready'
+          out.info(`Codex config: ${action}`)
+          out.info(
+            `Codex status line: ${codexConfig.statusLineChanged ? 'installed' : 'already configured'}`
+          )
+        }
       }
       return {
         success: true,
         hooksWritten: result.hooksWritten,
         projectSurface: projectSurfaces?.agentsMd.action ?? 'skipped',
         detectedRuntimes: detected.length,
+        codexConfig: codexConfig
+          ? {
+              path: codexConfig.path,
+              changed: codexConfig.changed,
+              skipped: codexConfig.skipped,
+              statusLineChanged: codexConfig.statusLineChanged ?? false,
+            }
+          : null,
       }
     } catch (error) {
       const msg = getErrorMessage(error)

@@ -216,6 +216,7 @@ In a real terminal — branded, animated, colored:
 $ prjct task "add OAuth refresh"
 ⚡ prjct  ✓ Task started: add OAuth refresh
          branch: task/add-oauth-refresh · status: active
+         harness: H2 feature/medium · evidence: focused-tests, scope-check, spec-or-design
 ```
 
 Inside Claude Code / Codex / CI (non-TTY) — the same line, **static** (no
@@ -226,6 +227,7 @@ can consume directly:
 $ prjct task "add OAuth refresh" --md
 > Task started: **add OAuth refresh**
 > branch `task/add-oauth-refresh` · status `active`
+> harness `H2 feature/medium` · evidence `focused-tests, scope-check, spec-or-design`
 ```
 
 ## Quick start (post-install)
@@ -316,7 +318,7 @@ Slots ship **empty** — the human or the agent fills them on demand.
 
 ## Claude Hooks Adapter (opt-in)
 
-`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, and also writes the Claude Code hooks adapter to `~/.claude/settings.json`. The hooks inject `additionalContext`; none block by default. Other agents use the support level shown by `prjct agents doctor`.
+`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, writes the Claude Code hooks adapter to `~/.claude/settings.json`, and repairs detected Codex config in `~/.codex/config.toml` (prjct MCP + TUI `status_line`). The Claude hooks inject `additionalContext`; none block by default. Other agents use the support level shown by `prjct agents doctor`.
 
 | Event | Injects |
 |---|---|
@@ -350,7 +352,7 @@ The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs 
 ```bash
 prjct start              First-time setup wizard (AI providers + commands)
 prjct init               Initialize project in current directory
-prjct install            Install Claude Code hooks (merge-safe)
+prjct install            Install agent surfaces, Claude hooks, Codex status line
 prjct uninstall          Complete system removal
 prjct sync               Sync project state, rebuild indexes
 prjct regen              Full vault rebuild from SQLite
@@ -518,15 +520,17 @@ the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vaul
 
 **How do I add a development task?**
 Run `prjct task "<description>"` from the repo. It registers the task in SQLite,
-creates a branch, and marks it active — worked example:
+auto-classifies a lightweight harness (H0-H3) with expected evidence, and marks
+it active — worked example:
 
 ```bash
 $ prjct task "add OAuth refresh"
 ⚡ prjct  ✓ Task started: add OAuth refresh
          branch: task/add-oauth-refresh · status: active
+         harness: H2 feature/medium · evidence: focused-tests, scope-check, spec-or-design
 
 $ prjct tag type:feature domain:auth     # optional: categorize it
-$ prjct status done                       # close it when finished
+$ prjct status done                       # closes it; warns if harness evidence is missing
 $ prjct ship                              # bump version, commit, PR
 ```
 
@@ -584,9 +588,10 @@ sandbox is non-interactive/non-TTY, so prjct-cli emits the same static, prompt-f
 status line as any agent; add `--md` for fully markdown-structured output.
 
 **What does Codex get from prjct?**
-Three surfaces, all installed/healed automatically: a compact skill at
+Four surfaces, all installed/healed automatically: a compact skill at
 `~/.codex/skills/prjct/SKILL.md` (kept under Codex's ~1KB skill cap), the
-prjct MCP server wired into `~/.codex/config.toml` (`prjct_*` tools), and a
+prjct MCP server wired into `~/.codex/config.toml` (`prjct_*` tools), a Codex
+TUI `status_line` in that same config unless the user already set one, and a
 vendor-neutral routing block in the project's `AGENTS.md` written by
 `prjct init`. Codex has no lifecycle hooks, so AGENTS.md + MCP are its
 session-start context and live tool surface.

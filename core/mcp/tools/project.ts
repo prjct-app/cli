@@ -101,6 +101,14 @@ export function registerProjectTools(server: McpServer) {
         if (outcome.branch) lines.push(`Branch: ${outcome.branch}`)
         if (outcome.linearId) lines.push(`Linear: ${outcome.linearId}`)
         if (outcome.linkedSpecId) lines.push(`Linked spec: ${outcome.linkedSpecId}`)
+        if (outcome.harness) {
+          lines.push(
+            `Harness: ${outcome.harness.level} ${outcome.harness.kind}/${outcome.harness.risk}`
+          )
+          if (outcome.harness.expectedEvidence.length > 0) {
+            lines.push(`Evidence: ${outcome.harness.expectedEvidence.join(', ')}`)
+          }
+        }
         if (outcome.instructions && outcome.instructions.length > 0) {
           lines.push('', 'Agent instructions:')
           for (const i of outcome.instructions) lines.push(`- ${i}`)
@@ -129,8 +137,14 @@ export function registerProjectTools(server: McpServer) {
             : 'No active task to update. Start one with prjct_task_start.'
         return { content: [{ type: 'text', text }] }
       }
+      const warnings = outcome.verificationWarnings ?? []
+      const text = [`✓ status → ${outcome.status} (task ${outcome.taskId})`]
+      if (warnings.length > 0) {
+        text.push('', 'Harness warnings:')
+        for (const warning of warnings) text.push(`- ${warning}`)
+      }
       return {
-        content: [{ type: 'text', text: `✓ status → ${outcome.status} (task ${outcome.taskId})` }],
+        content: [{ type: 'text', text: text.join('\n') }],
       }
     })
   )

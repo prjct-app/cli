@@ -8,6 +8,7 @@
  * the per-workspace state observable instead of silently singular.
  */
 
+import type { TaskHarness } from '../schemas/state'
 import { stateStorage } from '../storage/state-storage'
 import { deriveWorkspace, MAIN_WORKSPACE_ID } from './workspace-id'
 
@@ -22,6 +23,7 @@ export interface ActiveTaskView {
   branch?: string
   /** Linear issue id when the task is linked (preserved for `--md` output). */
   linearId?: string
+  harness?: TaskHarness
   startedAt: string
   /** True when this task belongs to the caller's current worktree. */
   isCurrent: boolean
@@ -64,6 +66,7 @@ export async function collectActiveTasks(
       label,
       branch: mainTask.branch,
       linearId: mainTask.linearId,
+      harness: mainTask.harness,
       startedAt: mainTask.startedAt,
       isCurrent: ws.workspaceId === MAIN_WORKSPACE_ID,
     })
@@ -82,6 +85,7 @@ export async function collectActiveTasks(
       label,
       branch: t.branch,
       linearId: t.linearId,
+      harness: t.harness,
       startedAt: t.startedAt,
       isCurrent: ws.workspaceId === t.workspaceId,
     })

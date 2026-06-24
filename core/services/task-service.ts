@@ -19,13 +19,14 @@
 import configManager from '../infrastructure/config-manager'
 import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { generateUUID } from '../schemas/schemas'
-import type { CurrentTask, TaskFeedback } from '../schemas/state'
+import type { CurrentTask, TaskFeedback, TaskHarness } from '../schemas/state'
 import { getGitBranch } from '../session/git-helpers'
 import { stateStorage } from '../storage/state-storage'
 import * as dateHelper from '../utils/date-helper'
 import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
 import { memoryService } from './memory-service'
 import projectService from './project-service'
+import { buildTaskHarness, evaluateHarnessCompletion } from './task-harness'
 import { deriveWorkspace } from './workspace-id'
 
 /** Status values that mean "make this task the active one again". */
@@ -40,6 +41,7 @@ export interface StartTaskOutcome {
   branch?: string
   linearId?: string
   linkedSpecId?: string
+  harness?: TaskHarness
   /** Agent instructions emitted by `before_task` rules. */
   instructions?: string[]
 }
@@ -105,6 +107,7 @@ export async function startTask(
 
   const taskId = generateUUID()
   const linkedSpecId = options.spec
+  const harness = buildTaskHarness(description)
 
   // Multi-agent: a task in a child worktree lands in activeTasks[] keyed by
   // its workspaceId, so parallel agents don't clobber a shared currentTask.
@@ -117,6 +120,7 @@ export async function startTask(
     sessionId: generateUUID(),
     linearId,
     linkedSpecId,
+    harness,
   }
   if (ws.isMain) {
     await stateStorage.startTask(
@@ -151,7 +155,7 @@ export async function startTask(
   await memoryService.log(
     projectPath,
     'task_started',
-    { task: description, taskId, timestamp: dateHelper.getTimestamp() },
+    { task: description, taskId, harness, timestamp: dateHelper.getTimestamp() },
     author.name
   )
 
@@ -169,12 +173,13 @@ export async function startTask(
     branch,
     linearId,
     linkedSpecId,
+    harness,
     instructions: beforeResult.instructions,
   }
 }
 
 export type SetStatusOutcome =
-  | { ok: true; taskId: string; status: string }
+  | { ok: true; taskId: string; status: string; verificationWarnings?: string[] }
   /** No active task and no paused task to resume — caller emits the guard. */
   | { ok: false; reason: 'no-active-task' }
   /** The transition isn't supported in this context — caller prints `message`. */
@@ -207,14 +212,21 @@ export async function setTaskStatus(
     // leaving every other workspace's task untouched.
     if (normalized === 'done' || normalized === 'completed') {
       const lastStatus = await readLastStatus(projectId, wsTask.id)
+      const verification = await evaluateHarnessCompletion(projectPath, wsTask)
       await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
         taskId: wsTask.id,
         from: lastStatus ?? null,
         to: value,
         workspaceId: ws.workspaceId,
+        harnessWarnings: verification.warnings,
       })
       await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
-      return { ok: true, taskId: wsTask.id, status: value }
+      return {
+        ok: true,
+        taskId: wsTask.id,
+        status: value,
+        verificationWarnings: verification.warnings,
+      }
     }
 
     // Pause/resume PER worktree needs a per-workspace paused store (planned
@@ -249,11 +261,16 @@ export async function setTaskStatus(
   if (!active) return { ok: false, reason: 'no-active-task' }
 
   const lastStatus = await readLastStatus(projectId, active.id)
+  const verification =
+    normalized === 'done' || normalized === 'completed'
+      ? await evaluateHarnessCompletion(projectPath, active)
+      : { warnings: [] }
 
   await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
     taskId: active.id,
     from: lastStatus ?? null,
     to: value,
+    harnessWarnings: verification.warnings,
   })
 
   // Drive the real workflow state machine so state.json and the audit log
@@ -275,7 +292,7 @@ export async function setTaskStatus(
     // already-completed task). The audit log still captures intent.
   }
 
-  return { ok: true, taskId: active.id, status: value }
+  return { ok: true, taskId: active.id, status: value, verificationWarnings: verification.warnings }
 }
 
 /**
