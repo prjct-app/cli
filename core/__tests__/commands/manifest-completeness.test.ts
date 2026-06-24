@@ -44,6 +44,14 @@ describe('command manifest — completeness', () => {
     expect(both).toEqual([])
   })
 
+  test('upgrade is both bin-only and registry-routed to update', () => {
+    const meta = COMMANDS.find((c) => c.name === 'upgrade')
+    expect(meta?.routingMode).toBe('bin-only')
+    expect(meta?.routing).toEqual({ group: 'update', method: 'update' })
+    expect(BIN_COMMANDS_SET.has('upgrade')).toBe(true)
+    expect(REGISTERED_VERBS_SET.has('upgrade')).toBe(true)
+  })
+
   test('schema-covered commands declare routing (the generic path needs a handler)', () => {
     const broken = COMMANDS.filter((c) => c.optionSchema && !c.routing).map((c) => c.name)
     expect(broken).toEqual([])
@@ -63,6 +71,7 @@ describe('command manifest — completeness', () => {
       'start',
       'setup',
       'update',
+      'upgrade',
       'uninstall',
       'login',
       'logout',
