@@ -1024,4 +1024,29 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 33,
+    name: 'task-pipeline-state',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS task_pipeline_state (
+          project_id           TEXT NOT NULL,
+          task_id              TEXT NOT NULL,
+          workspace_id         TEXT NOT NULL,
+          classification       TEXT NOT NULL,
+          station              TEXT NOT NULL,
+          requires_spec        INTEGER NOT NULL DEFAULT 0,
+          requires_tests_first INTEGER NOT NULL DEFAULT 0,
+          reason               TEXT NOT NULL,
+          linked_spec_id       TEXT,
+          created_at           TEXT NOT NULL,
+          updated_at           TEXT NOT NULL,
+          PRIMARY KEY (project_id, task_id, workspace_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_task_pipeline_state_workspace
+          ON task_pipeline_state(project_id, workspace_id, updated_at);
+      `)
+    },
+  },
 ]

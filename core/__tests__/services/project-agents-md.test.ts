@@ -81,4 +81,14 @@ describe('writeProjectAgentsMd', () => {
     expect(body).not.toContain('.claude/')
     expect(body).not.toContain('Claude Code')
   })
+
+  it('documents task as the single SDD/TDD orchestration entrypoint', async () => {
+    await writeProjectAgentsMd(dir)
+    const body = await readAgentsMd()
+    expect(body).toContain('single normal entrypoint')
+    expect(body).toContain('Trivial work proceeds directly')
+    expect(body).toContain('Substantive implementation work follows persisted SDD')
+    expect(body).toContain('tests before implementation')
+    expect(body).toContain('fixed templates')
+  })
 })

@@ -187,6 +187,16 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toMatch(/spec-first|SDD/)
     })
 
+    it('frames task as the single entrypoint for transparent SDD/TDD orchestration', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('`prjct task` is the single normal entrypoint')
+      expect(content).toContain('Trivial work proceeds directly')
+      expect(content).toContain('Substantive implementation work follows persisted SDD')
+      expect(content).toContain('write tests before implementation')
+      expect(content).not.toContain('**NO spec, NO audit-spec, NO subagents, NO fan-out.**')
+    })
+
     it('always-loaded body carries the loop-discipline triggers + model quick-ref', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
@@ -436,10 +446,9 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('## Verb intent map')
       expect(content).toContain('you run the verb, the user never types it')
       expect(content).toContain('| Intent / signal | Verb | Tier |')
-      // Regression lock (recurring [Triage before spec] / [Right-size
-      // ceremony]): the DIRECT-default gate is prominent and `task` (the
-      // default) precedes `spec`/`audit-spec` in the verb table.
-      expect(content).toContain('## Act: default DIRECT')
+      // Regression lock: `task` is the normal orchestration entrypoint; it
+      // precedes manual spec verbs and carries the persisted station contract.
+      expect(content).toContain('## Act: `prjct task` is the single normal entrypoint')
       const verbMap = content.split('## Verb intent map')[1]?.split('## Routing')[0] ?? ''
       expect(verbMap.indexOf('`prjct task')).toBeGreaterThan(-1)
       expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct spec'))

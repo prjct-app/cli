@@ -2,12 +2,16 @@
 
 ## [Unreleased]
 
+## [2.64.0] - 2026-06-24
+
+### Added
+- task orchestrated sdd tdd
+
 ## [2.63.1] - 2026-06-23
 
 ### Bug Fixes
 
 - harden prjct eval workflow inputs
-
 
 ## [2.63.0] - 2026-06-23
 

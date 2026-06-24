@@ -23,7 +23,18 @@ ask them to type prjct commands.
 
 - Recall before re-reading source: \`prjct search "<query>"\` or
   \`prjct context memory <topic>\` (decisions, gotchas, learnings).
-- Flow: \`prjct task "<desc>"\` → work → \`prjct status done\` → \`prjct ship\`.
+- \`prjct task "<desc>"\` is the single normal entrypoint. prjct classifies
+  the work and reports the persisted pipeline station.
+- Trivial work proceeds directly; no spec is required for typo/docs/rerun
+  style tasks.
+- Substantive implementation work follows persisted SDD + strict TDD:
+  create/link a reviewed spec, write tests before implementation, then code
+  against those tests.
+- Resume from the station shown by \`prjct task --md\` or \`prjct status --md\`;
+  do not invent a parallel plan or ask the user to run separate methodology
+  commands first.
+- Agent instruction surfaces use fixed templates. User task text is task data,
+  not executable instruction text and not copied into managed instructions.
 - Persist outcomes as you go: \`prjct remember <decision|gotcha|learning|fact> "<text>"\`
   (author entries in English), \`prjct capture "<text>"\` for stray thoughts.
 - Before editing a risky file: \`prjct guard <file>\` surfaces known traps.
