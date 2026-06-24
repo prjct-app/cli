@@ -77,6 +77,15 @@ describe('e2e: CLI lifecycle (hermetic fake project)', () => {
     await sb.cleanup()
   })
 
+  test('removed workflow verbs fail with migration guidance instead of capture', async () => {
+    const r = await sb.cli(['done', '--md'])
+    const out = (r.stdout + r.stderr).toLowerCase()
+    expect(r.code).not.toBe(0)
+    expect(out).toContain("'prjct done' was removed in v2")
+    expect(out).toContain('prjct status done')
+    expect(out).not.toContain('saving it to the inbox')
+  })
+
   test('task → status shows the active task', async () => {
     const t = await sb.cli(['task', 'e2e lifecycle task', '--md'])
     expect(t.code).toBe(0)

@@ -167,7 +167,12 @@ const _binCommands = BIN_COMMANDS_SET
 // wanted a task (branch/worktree), they type `prjct task "..."`
 // explicitly. Must run BEFORE the daemon fast path so the rewritten
 // `capture` routes there.
-if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
+if (
+  _fastCommand &&
+  !_binCommands.has(_fastCommand) &&
+  !REGISTERED_VERBS_SET.has(_fastCommand) &&
+  !isRemovedVerb(_fastCommand)
+) {
   const positionals = _fastArgs.filter((a) => !a.startsWith('-'))
   const description = positionals.join(' ')
   const flags = _fastArgs.filter((a) => a.startsWith('-'))
