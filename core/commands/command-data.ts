@@ -51,7 +51,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     routing: { group: 'workflow', method: 'now' },
     optionSchema: { strings: ['spec'] },
-    description: 'Register a task (or show the active one)',
+    description: 'Register a task, auto-classify its harness, or show the active one',
     usage: { claude: 'p. task "<description>"', terminal: 'prjct task "<description>"' },
     params: '[description]',
     implemented: true,
@@ -59,6 +59,7 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
     features: [
       'No arg → shows the active task (or none)',
+      'Auto-harness classifies H0-H3 and stores expected evidence on the task',
       'Writes to stateStorage; runs before/after workflow rules',
       'Optional Linear issue link when the arg matches `[A-Z]+-\\d+`',
     ],
@@ -274,7 +275,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'install', method: 'install' },
     routingMode: 'bin-only',
     optionSchema: {},
-    description: 'Install universal agent surfaces and the Claude hooks adapter',
+    description: 'Install universal agent surfaces, Claude hooks, and Codex config',
     usage: {
       claude: 'p. install',
       terminal: 'prjct install',
@@ -286,6 +287,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Inside a prjct project, refreshes AGENTS.md as the portable baseline',
       'Writes Claude passive hooks: SessionStart, UserPromptSubmit, …',
+      'Repairs detected Codex config.toml with prjct MCP and TUI status_line',
       'Idempotent; existing non-prjct hooks stay intact',
       'Audit agent support with `prjct agents doctor`',
     ],

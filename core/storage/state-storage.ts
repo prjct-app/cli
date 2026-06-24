@@ -223,6 +223,7 @@ class StateStorage extends StorageManager<StateJson> {
       linearId: task.linearId,
       linearUuid: task.linearUuid,
       prUrl: task.prUrl,
+      harness: task.harness,
     }
 
     // Attach feedback if provided (PRJ-272)

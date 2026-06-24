@@ -15,6 +15,32 @@ import { ModelMetadataSchema } from './model'
 export const PrioritySchema = z.enum(['low', 'medium', 'high', 'critical'])
 export const TaskTypeSchema = z.enum(['feature', 'bug', 'improvement', 'chore'])
 export const TaskSectionSchema = z.enum(['active', 'backlog', 'previously_active'])
+export const HarnessLevelSchema = z.enum(['H0', 'H1', 'H2', 'H3'])
+export const HarnessKindSchema = z.enum([
+  'bug',
+  'feature',
+  'refactor',
+  'docs',
+  'chore',
+  'security',
+  'unknown',
+])
+export const HarnessRiskSchema = z.enum(['low', 'medium', 'high'])
+export const HarnessEvidenceSchema = z.enum([
+  'regression-test',
+  'focused-tests',
+  'docs-if-public-behavior',
+  'config-preservation',
+  'spec-or-design',
+  'edge-cases',
+  'scope-check',
+])
+export const HarnessGateSchema = z.enum([
+  'verify-before-done',
+  'scope-check',
+  'review-before-ship',
+  'spec-before-implementation',
+])
 const TaskStatusSchema = z.enum([
   'pending',
   'in_progress',
@@ -72,6 +98,17 @@ const SubtaskProgressSchema = z.object({
   percentage: z.number(),
 })
 
+export const TaskHarnessSchema = z.object({
+  level: HarnessLevelSchema,
+  kind: HarnessKindSchema,
+  risk: HarnessRiskSchema,
+  expectedEvidence: z.array(HarnessEvidenceSchema),
+  scopeHints: z.array(z.string()),
+  gates: z.array(HarnessGateSchema),
+  rationale: z.string(),
+  createdAt: z.string(),
+})
+
 export const CurrentTaskSchema = z.object({
   id: z.string(), // task_xxxxxxxx
   description: z.string(),
@@ -101,6 +138,9 @@ export const CurrentTaskSchema = z.object({
   parentDescription: z.string().optional(), // Original parent task description
   branch: z.string().optional(), // Git branch used for this task
   prUrl: z.string().optional(), // PR URL if shipped
+  // Transparent auto-harness: created on task start so agents get the expected
+  // evidence/gates without the user running another command.
+  harness: TaskHarnessSchema.optional(),
 })
 
 export const PreviousTaskSchema = z.object({
@@ -125,6 +165,7 @@ export const PreviousTaskSchema = z.object({
   // Token usage tracking preserved across pause/resume
   tokensIn: z.number().optional(),
   tokensOut: z.number().optional(),
+  harness: TaskHarnessSchema.optional(),
 })
 
 // Task feedback captured during completion (PRJ-272)
@@ -164,6 +205,7 @@ export const TaskHistoryEntrySchema = z.object({
   linearUuid: z.string().optional(), // Linear internal UUID
   prUrl: z.string().optional(), // PR URL if shipped
   feedback: TaskFeedbackSchema.optional(), // Task-to-analysis feedback (PRJ-272)
+  harness: TaskHarnessSchema.optional(), // Auto-harness contract active during the task
   // Token usage totals at completion
   tokensIn: z.number().optional(), // Total input tokens consumed
   tokensOut: z.number().optional(), // Total output tokens generated
@@ -218,6 +260,12 @@ export const QueueJsonSchema = z.object({
 export type Priority = z.infer<typeof PrioritySchema>
 export type TaskType = z.infer<typeof TaskTypeSchema>
 export type TaskSection = z.infer<typeof TaskSectionSchema>
+export type HarnessLevel = z.infer<typeof HarnessLevelSchema>
+export type HarnessKind = z.infer<typeof HarnessKindSchema>
+export type HarnessRisk = z.infer<typeof HarnessRiskSchema>
+export type HarnessEvidence = z.infer<typeof HarnessEvidenceSchema>
+export type HarnessGate = z.infer<typeof HarnessGateSchema>
+export type TaskHarness = z.infer<typeof TaskHarnessSchema>
 
 export type Subtask = z.infer<typeof SubtaskSchema>
 export type SubtaskCompletionData = z.infer<typeof SubtaskCompletionDataSchema>

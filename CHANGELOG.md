@@ -2,13 +2,21 @@
 
 ## [Unreleased]
 
+## [2.68.0] - 2026-06-24
+
+### Added
+- transparent auto-harness task start and Codex status line install
+- `prjct task` now creates a transparent auto-harness (H0-H3) with expected evidence and advisory completion warnings, shared by CLI and MCP task starts.
+
+### Fixed
+- `prjct install` now repairs detected Codex `~/.codex/config.toml` with the prjct MCP server and TUI `status_line`, matching the setup flow.
+
 ## [2.67.2] - 2026-06-24
 
 ### Bug Fixes
 
 - route upgrade alias through update (#465)
 - route upgrade alias through update
-
 
 ## [2.67.1] - 2026-06-23
 

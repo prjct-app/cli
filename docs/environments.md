@@ -83,16 +83,20 @@ declared capabilities — Claude has `mcp: true`, `filesystem: 'mcp'`,
 ## 2. OpenAI Codex detection
 
 Implemented in `core/infrastructure/ai-provider.ts` (`detectCodex()` +
-`CodexProvider`). Codex is considered installed when the **`codex` CLI binary is
-present on PATH**. A leftover `~/.codex/` directory alone is deliberately *not*
-sufficient — that would wrongly block other providers.
+`CodexProvider`) and the runtime registry. Provider selection treats Codex as
+installed when the **`codex` CLI binary is present on PATH** or
+`~/.codex/auth.json` exists. `prjct install` also treats an existing
+`~/.codex/` directory as enough evidence to repair Codex config without making
+Codex the primary setup provider.
 
 Codex specifics prjct relies on:
 
 - **Context file:** `AGENTS.md` (Codex's equivalent of `CLAUDE.md`).
 - **Skills:** `.agents/skills/` for the project, or `~/.codex/skills/` globally;
   the prjct skill marker is `~/.codex/skills/prjct/SKILL.md`.
-- **Config dir:** `~/.codex`. **Ignore file:** `.codexignore`.
+- **Config dir:** `~/.codex`; `prjct install`/`setup` ensure the prjct MCP server
+  and a Codex TUI `status_line` in `~/.codex/config.toml`, preserving a
+  user-managed `status_line`. **Ignore file:** `.codexignore`.
 
 ### Output in a Codex sandbox
 
