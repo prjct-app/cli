@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.67.1] - 2026-06-23
+
+### Fixed
+- command routing fallback
+
 ## [2.67.0] - 2026-06-23
 
 ### Added
