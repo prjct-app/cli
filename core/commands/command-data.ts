@@ -856,7 +856,7 @@ export const COMMANDS: CommandMeta[] = [
       ['daemon', 'Run the prjct daemon in the foreground'],
       ['stop', 'Stop the running prjct daemon'],
       ['restart', 'Restart the prjct daemon'],
-      ['upgrade', 'Alias of `prjct update`'],
+      ['upgrade', 'Alias of `prjct update`', { group: 'update', method: 'update' }],
       ['hook', 'Run a Claude Code hook event (internal; called by the hook scripts)'],
       ['hooks', 'Inspect or reinstall the Claude Code hooks'],
       ['claude', 'Claude Code integration management (install/uninstall)'],
@@ -873,10 +873,11 @@ export const COMMANDS: CommandMeta[] = [
       ['context-restore', 'Restore a previously saved working context'],
     ] as const
   ).map(
-    ([name, description]): CommandMeta => ({
+    ([name, description, routing]): CommandMeta => ({
       name,
       group: 'setup',
       description,
+      routing,
       usage: { claude: null, terminal: `prjct ${name}` },
       implemented: true,
       hasTemplate: false,
