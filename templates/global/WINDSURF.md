@@ -6,7 +6,7 @@ description: "prjct - Context layer for AI coding agents"
 <!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Skills auto-activate for: task, status, ship, sync, bug, workflow, spec, guard, capture, remember, context, linear, jira
+Skills auto-activate for: task, status, ship, sync, workflow, spec, guard, capture, remember, context
 Other commands: run `prjct <command> --md` and follow CLI output
 
 Flow: idea → spec when warranted → task → work → status done → ship

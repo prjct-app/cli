@@ -4,11 +4,11 @@
 
 ```
 bin/prjct                       Thin JS shim that dispatches to core/index.ts
-                                + subprocess entry points (linear/jira CLI, daemon, MCP)
+                                + subprocess entry points (daemon, MCP, bin-only commands)
 
 core/
   index.ts                      Main CLI dispatcher (help, command routing)
-  cli/                          Standalone CLI entry points (linear.ts, jira.ts)
+  cli/                          Standalone CLI entry points (bin-only commands and lint helpers)
                                 spawned as subprocesses from bin/prjct
   commands/                     CLI command handlers (task, sync, ship,
                                 capture, remember, tag, status, seed, …)
@@ -71,10 +71,7 @@ docs/                           This directory
    facade)                                               projects/{id}/prjct.db)
 ```
 
-For CLI commands that gateway to MCP servers (`prjct linear …`, `prjct jira …`),
-`bin/prjct` spawns a dedicated subprocess (`core/cli/linear.ts` or
-`core/cli/jira.ts`) via `child_process.spawn`. These paths do **not** go through
-`core/index.ts` — they have their own entry points.
+prjct no longer exposes native Linear/Jira CLI gateway commands. External issue tracker operations belong to MCP servers configured in the AI client; prjct keeps local task linkage metadata and workflow state in SQLite.
 
 ## Retrieval triad
 

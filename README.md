@@ -260,7 +260,7 @@ p. status done                                # close the active task
 p. ship                                       # commit, push, open PR
 ```
 
-Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, `/ship`.
+Cursor and Windsurf use their installed prjct router files; otherwise run `prjct <command> --md` and follow the output.
 
 ### Core verbs
 
@@ -277,7 +277,6 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
-| `prjct suggest` | Smart recommendations based on current project state. |
 | `prjct value` | Show whether prjct is paying for itself in this project. |
 | `prjct memory-doctor` | Audit memory quality before noisy context spreads to every agent. |
 | `prjct report [days]` | Generate a human report from shipped work and project memory. |
@@ -531,9 +530,7 @@ $ prjct status done                       # close it when finished
 $ prjct ship                              # bump version, commit, PR
 ```
 
-Inside an agent you don't type the command — say it: `p. task "add OAuth
-refresh"` in Claude Code, `/task "…"` in Cursor/Windsurf. `prjct task` with no
-argument prints the currently active task.
+Inside an agent you can say it: `p. task "add OAuth refresh"` in Claude Code, or run `prjct task "…" --md` from any wired agent. `prjct task` with no argument prints the currently active task.
 
 **How do I get AI assistance for a coding problem?**
 Inside Claude Code (or any wired agent) describe the problem in natural

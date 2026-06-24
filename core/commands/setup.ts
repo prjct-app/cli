@@ -752,12 +752,12 @@ if [[ -f "$CONFIG" ]]; then
 
       # If no cliVersion or different version, show update notice
       if [[ -z "$PROJECT_VERSION" ]] || [[ "$PROJECT_VERSION" != "$CLI_VERSION" ]]; then
-        echo "⚠️ prjct v$CLI_VERSION available! Run p. sync"
+        echo "⚠️ prjct v$CLI_VERSION available! Run p. upgrade"
         exit 0
       fi
     else
       # No project.json means project needs sync
-      echo "⚠️ prjct v$CLI_VERSION available! Run p. sync"
+      echo "⚠️ prjct v$CLI_VERSION available! Run p. upgrade"
       exit 0
     fi
 

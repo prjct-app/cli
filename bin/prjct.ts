@@ -158,6 +158,7 @@ if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
 // `routingMode` in the manifest. Imported AFTER the hook fast path:
 // hooks never need it.
 const { REGISTERED_VERBS_SET, BIN_COMMANDS_SET } = await import('../core/commands/verb-names')
+const { isRemovedVerb } = await import('../core/commands/removed-verbs')
 const _binCommands = BIN_COMMANDS_SET
 
 // v2 auto-route: if the first positional isn't a known verb, treat the
@@ -166,7 +167,12 @@ const _binCommands = BIN_COMMANDS_SET
 // wanted a task (branch/worktree), they type `prjct task "..."`
 // explicitly. Must run BEFORE the daemon fast path so the rewritten
 // `capture` routes there.
-if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
+if (
+  _fastCommand &&
+  !_binCommands.has(_fastCommand) &&
+  !REGISTERED_VERBS_SET.has(_fastCommand) &&
+  !isRemovedVerb(_fastCommand)
+) {
   const positionals = _fastArgs.filter((a) => !a.startsWith('-'))
   const description = positionals.join(' ')
   const flags = _fastArgs.filter((a) => a.startsWith('-'))
@@ -176,7 +182,11 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has
   // into an inbox capture buries it with zero feedback (same silent-no-op
   // class as the WS1 exit-0 bug). Still capture (don't break free-text GTD)
   // but make it LOUD + actionable so it's never a silent surprise.
-  if (positionals.length === 1 && /^[a-z][a-z0-9:-]+$/.test(positionals[0])) {
+  if (
+    positionals.length === 1 &&
+    /^[a-z][a-z0-9:-]+$/.test(positionals[0]) &&
+    !isRemovedVerb(positionals[0])
+  ) {
     process.stderr.write(
       `prjct: '${positionals[0]}' is not a known command in this install — ` +
         'saving it to the inbox instead. If you meant the command, this prjct ' +

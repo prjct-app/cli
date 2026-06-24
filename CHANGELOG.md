@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.67.0] - 2026-06-23
+
+### Added
+- eval benchmarks cloud
+
+## [2.66.0] - 2026-06-23
+
+### Added
+- cleanup command surfaces and dead templates
+
 ## [2.65.0] - 2026-06-23
 
 ### Added
