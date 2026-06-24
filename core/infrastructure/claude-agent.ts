@@ -203,21 +203,21 @@ ${data.recentFeatures || ''}`
 • "ship feature" → Track & celebrate
 • "add idea" → Brainstorm
 
-Or: p. now | p. ship | p. idea`,
+Or: p. task | p. ship | p. capture`,
 
       featureShipped: `Keep the momentum!
 • "start next task" → Keep building
 • "see progress" → View stats
 • "plan ahead" → Strategic thinking
 
-Or: p. now | p. recap | p. roadmap`,
+Or: p. task | p. status | p. report`,
 
       ideaCaptured: `Ready to start?
 • "start this" → Begin now
 • "plan more" → Keep brainstorming
 • "see ideas" → View backlog
 
-Or: p. now | p. idea | p. recap`,
+Or: p. task | p. capture | p. status`,
 
       initialized: `Ready to start? Tell me what you want to build!
 
@@ -228,7 +228,7 @@ Or type p. help to see all options`,
 • "add as tasks"
 • "think more"
 
-Or: p. now | p. task | p. idea`,
+Or: p. task | p. capture | p. status`,
     }
 
     return (

@@ -243,7 +243,7 @@ export class CrewCommands extends PrjctCommandsBase {
       const hookHint = [
         'Suggested next step — wire verification hooks into .claude/settings.json:',
         '  PostToolUse(Edit|Write) → run your test command',
-        '  Stop → run `prjct check` (when available) or your project test command',
+        '  Stop → run your project test command and record the outcome',
         'Use the /update-config skill or edit settings.json manually.',
       ].join('\n')
 

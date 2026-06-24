@@ -7,8 +7,8 @@ description: Use when user mentions p., prjct, task tracking, or workflow comman
 
 Grammar: `p. <command> [args]` or `prjct <command> --md`
 
-Core commands: sync, task, status, ship, bug, workflow, spec, guard, capture, remember, context
-Integrations: linear, jira
+Core commands: sync, task, status, ship, workflow, spec, guard, capture, remember, context
+Issue trackers: use MCP tools configured in the AI client
 Other: run `prjct <command> --md` and follow CLI output
 
 Flow: idea → spec when warranted → task → work → status done → ship

@@ -93,7 +93,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}\n`)
       console.log('Next steps:')
       console.log('• p. sync → Generate agents based on stack')
-      console.log('• p. feature → Add a new feature')
+      console.log('• p. task "<description>" → Start tracked work')
 
       return {
         success: true,

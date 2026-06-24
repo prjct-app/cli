@@ -37,7 +37,7 @@ export function registerSpecTools(server: McpServer) {
 
   s.tool(
     'prjct_spec_create',
-    'Draft a spec when the user frames a feature/fix/initiative WITH goals or stakes (e.g. "rate limiting on auth", "fix onboarding"). Fields default empty — fill them via `prjct_spec_update`. Skip for routine work (single-file fix, doc tweak, capture); use `prjct_capture` instead.',
+    'Draft a spec when the user frames a feature/fix/initiative WITH goals or stakes (e.g. "rate limiting on auth", "fix onboarding"). Fields default empty — fill them via `prjct_spec_update`. Skip for routine work (single-file fix, doc tweak, capture); use `prjct_mem_save` with type="inbox" or the CLI `prjct capture` instead.',
     {
       projectPath: z.string().describe('Project directory path'),
       title: z.string().describe("One-line title (what you'd say to a coworker walking by)"),
@@ -296,7 +296,7 @@ export function registerSpecTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
       specId: z.string().describe('Spec id'),
-      taskId: z.string().describe('Task id (from `prjct_session_start_task` or stateStorage)'),
+      taskId: z.string().describe('Task id (from `prjct_task_start` or stateStorage)'),
     },
     safeMcpCall(
       'prjct_spec_link_task',

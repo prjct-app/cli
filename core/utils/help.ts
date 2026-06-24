@@ -8,6 +8,7 @@
 
 import chalk from 'chalk'
 import { CATEGORIES, COMMANDS } from '../commands/command-data'
+import type { CommandMeta } from '../types/commands'
 import { VERSION } from './version'
 
 /**
@@ -190,6 +191,14 @@ function formatTerminalCommandHelp(commandName: string): string | null {
   return lines.join('\n')
 }
 
+function manifestHelpTitle(cmd: CommandMeta): string {
+  return cmd.usage?.claude ? `p. ${cmd.name}` : `prjct ${cmd.name}`
+}
+
+function manifestListLabel(cmd: CommandMeta): string {
+  return cmd.usage?.claude ? `p. ${cmd.name}` : `prjct ${cmd.name}`
+}
+
 function formatAgentCommandHelp(commandName: string): string | null {
   const cmd = COMMANDS.find((c) => c.name === commandName)
   if (!cmd) return null
@@ -197,7 +206,7 @@ function formatAgentCommandHelp(commandName: string): string | null {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(`${chalk.cyan.bold(`p. ${cmd.name}`)} - ${cmd.description}`)
+  lines.push(`${chalk.cyan.bold(manifestHelpTitle(cmd))} - ${cmd.description}`)
   lines.push('')
 
   lines.push(chalk.bold('USAGE'))
@@ -280,7 +289,7 @@ function formatCommandList(): string {
     lines.push('')
 
     for (const cmd of categoryCommands) {
-      const name = `p. ${cmd.name}`.padEnd(18)
+      const name = manifestListLabel(cmd).padEnd(18)
       const desc =
         cmd.description.length > 45 ? `${cmd.description.slice(0, 42)}...` : cmd.description
       lines.push(`  ${name} ${desc}`)
