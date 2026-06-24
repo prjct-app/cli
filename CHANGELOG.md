@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.67.2] - 2026-06-24
+
+### Bug Fixes
+
+- route upgrade alias through update (#465)
+- route upgrade alias through update
+
+
 ## [2.67.1] - 2026-06-23
 
 ### Fixed
