@@ -9,6 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { makeSandbox, REPO_ROOT, type Sandbox } from './_harness'
 
@@ -43,13 +44,16 @@ describe('e2e: unconfigured project fails LOUD (regression)', () => {
   })
 
   // A misrouted single command-shaped token (typo / stale parallel install
-  // or daemon that predates a verb like `upgrade`) must NOT be silently
-  // swallowed into the inbox — it has to say so, loudly + actionably.
-  test('an unknown command-shaped token is captured LOUDLY, not silently', async () => {
+  // or daemon that predates a verb like `upgrade`) must NOT be written to
+  // memory. It has to fail loudly so scripts and agents cannot miss it.
+  test('an unknown command-shaped token fails without capture', async () => {
     const r = await sb.cli(['definitelynotacommand'])
     const out = (r.stdout + r.stderr).toLowerCase()
+    expect(r.code).not.toBe(0)
     expect(out).toContain('not a known command')
-    expect(out).toContain('prjct update')
+    expect(out).toContain('prjct upgrade')
+    expect(out).not.toContain('captured')
+    expect(out).not.toContain('inbox')
   })
 
   // Free-text GTD capture (multi-word, first token not a verb) stays silent
@@ -58,6 +62,29 @@ describe('e2e: unconfigured project fails LOUD (regression)', () => {
   test('multi-word free-text capture stays silent (GTD preserved)', async () => {
     const r = await sb.cli(['buy', 'more', 'coffee', 'beans'])
     expect((r.stdout + r.stderr).toLowerCase()).not.toContain('not a known command')
+  })
+})
+
+describe('e2e: analysis-save-llm from sync --deep', () => {
+  let sb: Sandbox
+  beforeAll(async () => {
+    sb = await makeSandbox()
+    const init = await sb.cli(['init'], { timeoutMs: 90_000 })
+    expect(init.code).toBe(0)
+  })
+  afterAll(async () => {
+    await sb.cleanup()
+  })
+
+  test('accepts a file path with --md before provider setup', async () => {
+    const analysisFile = path.join(sb.dir, 'analysis-notes.md')
+    await fs.writeFile(analysisFile, '- Commands route through the manifest.\n', 'utf-8')
+    const r = await sb.cli(['analysis-save-llm', analysisFile, '--md'])
+    const out = (r.stdout + r.stderr).toLowerCase()
+    expect(r.code).toBe(0)
+    expect(out).toContain('llm analysis saved')
+    expect(out).toContain('input')
+    expect(out).not.toContain('not configured')
   })
 })
 
@@ -114,6 +141,13 @@ describe('e2e: CLI lifecycle (hermetic fake project)', () => {
     const r = await sb.cli(['review-risk', '--md'])
     expect(r.code).toBe(0)
     expect(r.stdout.toLowerCase()).toMatch(/review risk|no comparable|trivial|tier/)
+  })
+
+  test('generic command errors are printed, not silent', async () => {
+    const r = await sb.cli(['config', 'definitelybad', '--md'])
+    const out = (r.stdout + r.stderr).toLowerCase()
+    expect(r.code).not.toBe(0)
+    expect(out).toContain('unknown config subcommand')
   })
 
   test('status done closes the active task', async () => {

@@ -18,7 +18,7 @@ import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provi
 import configManager from './infrastructure/config-manager'
 import performanceTracker from './infrastructure/performance-tracker'
 import { sessionTracker } from './services/session-tracker'
-import type { CommandMeta } from './types/commands'
+import type { CommandMeta, CommandResult } from './types/commands'
 import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
 import { fileExists } from './utils/file-helper'
@@ -28,11 +28,6 @@ import { providerStatusHeader, providerStatusLine } from './utils/provider-statu
 interface ParsedCommandArgs {
   parsedArgs: string[]
   options: Record<string, string | boolean>
-}
-
-interface CommandResult {
-  success?: boolean
-  message?: string
 }
 
 async function main(): Promise<void> {
@@ -296,6 +291,8 @@ async function main(): Promise<void> {
     // 8. Display result
     if (result?.message) {
       console.log(result.message)
+    } else if (result?.error) {
+      console.error(result.error)
     }
 
     // Show branding footer

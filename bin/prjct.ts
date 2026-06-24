@@ -161,12 +161,13 @@ const { REGISTERED_VERBS_SET, BIN_COMMANDS_SET } = await import('../core/command
 const { isRemovedVerb } = await import('../core/commands/removed-verbs')
 const _binCommands = BIN_COMMANDS_SET
 
-// v2 auto-route: if the first positional isn't a known verb, treat the
-// whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
-// Explicit verbs still win. Capture is zero-ceremony; if the user
-// wanted a task (branch/worktree), they type `prjct task "..."`
-// explicitly. Must run BEFORE the daemon fast path so the rewritten
-// `capture` routes there.
+// v2 auto-route: if the first positional isn't a known verb, treat free-text
+// argv as GTD-style inbox capture → `prjct capture "<argv>"`.
+// A lone command-shaped token is different: it is almost always a typo or a
+// stale install that predates a real verb, so fail loudly instead of writing a
+// bogus inbox item. Explicit verbs still win. Capture remains zero-ceremony
+// for multi-word notes; tasks still use `prjct task "..."` explicitly. Must
+// run BEFORE the daemon fast path so rewritten `capture` routes there.
 if (
   _fastCommand &&
   !_binCommands.has(_fastCommand) &&
@@ -177,21 +178,19 @@ if (
   const description = positionals.join(' ')
   const flags = _fastArgs.filter((a) => a.startsWith('-'))
   // A single command-shaped token (e.g. `prjct upgrade`) is almost never a
-  // GTD note — it's a MISROUTED command: a typo, or a stale parallel
-  // install / long-lived daemon that predates the verb. Silently turning it
-  // into an inbox capture buries it with zero feedback (same silent-no-op
-  // class as the WS1 exit-0 bug). Still capture (don't break free-text GTD)
-  // but make it LOUD + actionable so it's never a silent surprise.
+  // GTD note — it is a MISROUTED command: a typo, a stale parallel install, or
+  // a long-lived daemon that predates the verb. Do not write it to memory.
   if (
     positionals.length === 1 &&
     /^[a-z][a-z0-9:-]+$/.test(positionals[0]) &&
     !isRemovedVerb(positionals[0])
   ) {
     process.stderr.write(
-      `prjct: '${positionals[0]}' is not a known command in this install — ` +
-        'saving it to the inbox instead. If you meant the command, this prjct ' +
-        'may be stale: run `prjct update`.\n'
+      `prjct: '${positionals[0]}' is not a known command in this install. ` +
+        'If you meant a command, upgrade prjct with `prjct upgrade` ' +
+        '(or `prjct update` on older installs).\n'
     )
+    process.exit(1)
   }
   _fastCommand = 'capture'
   _fastArgs = ['capture', description, ...flags]
@@ -330,8 +329,12 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
       const safeRetry =
         code === 'ECONNREFUSED' ||
         code === 'ENOENT' ||
+        code === 'EACCES' ||
+        code === 'EPERM' ||
         msg.includes('ECONNREFUSED') ||
-        msg.includes('ENOENT')
+        msg.includes('ENOENT') ||
+        msg.includes('EACCES') ||
+        msg.includes('EPERM')
 
       if (!safeRetry) {
         console.error(
@@ -483,7 +486,14 @@ async function main(): Promise<void> {
     const routersInstalled = await checkRoutersInstalled()
 
     // Commands that work without full setup
-    const noSetupRequired = new Set(['auth', 'login', 'logout', 'init', 'eval'])
+    const noSetupRequired = new Set([
+      'auth',
+      'login',
+      'logout',
+      'init',
+      'eval',
+      'analysis-save-llm',
+    ])
 
     if (!noSetupRequired.has(args[0]) && (!(await fileExists(configPath)) || !routersInstalled)) {
       console.log(`

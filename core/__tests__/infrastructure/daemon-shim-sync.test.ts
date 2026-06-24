@@ -104,10 +104,12 @@ describe('daemon-shim fallback policy', () => {
     }
   })
 
-  test('socket error path checks ECONNREFUSED / ENOENT before fallback', () => {
-    // Must whitelist the safe-retry conditions, matching bin/prjct.ts:238-242.
+  test('socket error path checks safe connect failures before fallback', () => {
+    // These mean the daemon request never reached a server, so cold fallback is safe.
     expect(buildSrc).toContain('ECONNREFUSED')
     expect(buildSrc).toContain('ENOENT')
+    expect(buildSrc).toContain('EACCES')
+    expect(buildSrc).toContain('EPERM')
     expect(buildSrc).toMatch(/isSafeRetry|safeRetry/)
   })
 
