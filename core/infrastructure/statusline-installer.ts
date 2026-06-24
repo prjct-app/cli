@@ -155,11 +155,11 @@ if [ -f "$CONFIG" ]; then
     if [ -f "$PROJECT_JSON" ]; then
       PROJECT_VERSION=$(jq -r '.cliVersion // ""' "$PROJECT_JSON" 2>/dev/null)
       if [ -z "$PROJECT_VERSION" ] || [ "$PROJECT_VERSION" != "$CLI_VERSION" ]; then
-        echo "prjct v$CLI_VERSION - run p. sync"
+        echo "prjct v$CLI_VERSION - run p. upgrade"
         exit 0
       fi
     else
-      echo "prjct v$CLI_VERSION - run p. sync"
+      echo "prjct v$CLI_VERSION - run p. upgrade"
       exit 0
     fi
     STATE="$HOME/.prjct-cli/projects/$PROJECT_ID/storage/state.json"
