@@ -6,23 +6,19 @@
  * vault. Users can override per-project via `vaultPath` in the local
  * `.prjct/prjct.config.json` (absolute, tilde, or relative).
  *
- * `<vaultRoot>` is `~/Documents/prjct` by default, but `PRJCT_VAULT_ROOT`
- * takes precedence on all platforms — mirroring `PRJCT_OBSIDIAN_CONFIG_DIR`
- * so the test suite (and CI) can sandbox the vault into a temp dir and never
- * write into the user's real `~/Documents/prjct/`. Without this, any test
- * that creates a tmp project and triggers vault generation (crew/retro/
- * review-risk/sync/remember…) left an orphan `~/Documents/prjct/<tmp-slug>/`
- * behind — hundreds accumulated.
+ * `<vaultRoot>` comes from `prjct setup` (`vault-root` in global config),
+ * defaulting to the operating system's Documents directory. `PRJCT_VAULT_ROOT`
+ * takes precedence on all platforms so CI and tests can sandbox the vault into
+ * a temp dir and never write into the user's real Documents folder.
  */
 
-import os from 'node:os'
 import path from 'node:path'
+import { resolveVaultRoot } from '../../services/vault-preferences'
+import { resolveUserHome } from '../user-home'
 
 /** Base directory that holds every project's vault. Env override wins. */
 export function getVaultRoot(): string {
-  const override = process.env.PRJCT_VAULT_ROOT?.trim()
-  if (override) return path.resolve(override)
-  return path.join(os.homedir(), 'Documents', 'prjct')
+  return resolveVaultRoot()
 }
 
 export async function getWikiPath(
@@ -45,8 +41,8 @@ export async function getWikiPath(
  * Disambiguation helper: when two repos share the same basename, the slug
  * collides. Mix in a short hash of the projectId to keep each vault isolated.
  *
- *   ~/Documents/prjct/foo/          (first 'foo')
- *   ~/Documents/prjct/foo-bc401c41/ (second 'foo' with hash)
+ *   <vault-root>/foo/          (first 'foo')
+ *   <vault-root>/foo-bc401c41/ (second 'foo' with hash)
  */
 export function getWikiPathWithProjectHash(projectPath: string, projectId: string): string {
   const base = path.basename(path.resolve(projectPath)).toLowerCase()
@@ -81,7 +77,7 @@ async function resolveProjectRootPath(projectPath: string): Promise<string> {
 function resolveVaultOverride(projectPath: string, override: string): string {
   let resolved = override.trim()
   if (resolved.startsWith('~/') || resolved === '~') {
-    resolved = path.join(os.homedir(), resolved.slice(1))
+    resolved = path.join(resolveUserHome(), resolved.slice(1))
   }
   if (!path.isAbsolute(resolved)) {
     // relative to project root so users can keep vault in-repo if they want

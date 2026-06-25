@@ -12,6 +12,7 @@ describe('sync command copy', () => {
 
     const setupSource = fs.readFileSync(path.join(ROOT, 'core', 'commands', 'setup.ts'), 'utf-8')
     expect(setupSource).not.toContain('Run /p:sync')
-    expect(setupSource).toContain('Run p. sync')
+    expect(setupSource).not.toContain('Run p. sync')
+    expect(setupSource).toContain('Run p. upgrade')
   })
 })

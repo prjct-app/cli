@@ -2,15 +2,57 @@
 
 ## [Unreleased]
 
-## [2.65.0] - 2026-06-24
+## [2.69.0] - 2026-06-24
 
 ### Added
 - reduce user token consumption in generated agent context
 
-## [2.64.0] - 2026-06-24
+## [2.68.0] - 2026-06-24
 
 ### Added
-- task orchestrated sdd tdd
+- transparent auto-harness task start and Codex status line install
+- `prjct task` now creates a transparent auto-harness (H0-H3) with expected evidence and advisory completion warnings, shared by CLI and MCP task starts.
+
+### Fixed
+- `prjct install` now repairs detected Codex `~/.codex/config.toml` with the prjct MCP server and TUI `status_line`, matching the setup flow.
+
+## [2.67.2] - 2026-06-24
+
+### Bug Fixes
+
+- route upgrade alias through update (#465)
+- route upgrade alias through update
+
+## [2.67.1] - 2026-06-23
+
+### Fixed
+- command routing fallback
+
+## [2.67.0] - 2026-06-23
+
+### Added
+- eval benchmarks cloud
+
+## [2.66.0] - 2026-06-23
+
+### Added
+- cleanup command surfaces and dead templates
+
+## [2.65.0] - 2026-06-23
+
+### Added
+- setup-owned vault root with OS-aware defaults
+
+## [2.64.0] - 2026-06-23
+
+### Added
+- eval benchmarks cloud
+
+## [2.63.2] - 2026-06-23
+
+### Bug Fixes
+
+- resolve Dependabot audit alerts
 
 ## [2.63.1] - 2026-06-23
 

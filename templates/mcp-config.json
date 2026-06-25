@@ -23,7 +23,7 @@
     }
   },
   "integrations": {
-    "linear": "MCP - Run `prjct linear setup`",
-    "jira": "MCP - Run `prjct jira setup`"
+    "linear": "MCP - configure in your AI client",
+    "jira": "MCP - configure in your AI client"
   }
 }

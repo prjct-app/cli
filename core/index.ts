@@ -18,7 +18,7 @@ import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provi
 import configManager from './infrastructure/config-manager'
 import performanceTracker from './infrastructure/performance-tracker'
 import { sessionTracker } from './services/session-tracker'
-import type { CommandMeta } from './types/commands'
+import type { CommandMeta, CommandResult } from './types/commands'
 import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
 import { fileExists } from './utils/file-helper'
@@ -28,11 +28,6 @@ import { providerStatusHeader, providerStatusLine } from './utils/provider-statu
 interface ParsedCommandArgs {
   parsedArgs: string[]
   options: Record<string, string | boolean>
-}
-
-interface CommandResult {
-  success?: boolean
-  message?: string
 }
 
 async function main(): Promise<void> {
@@ -296,6 +291,8 @@ async function main(): Promise<void> {
     // 8. Display result
     if (result?.message) {
       console.log(result.message)
+    } else if (result?.error) {
+      console.error(result.error)
     }
 
     // Show branding footer
@@ -431,7 +428,7 @@ async function displayVersion(version: string): Promise<void> {
       'Cursor IDE',
       cursorConfigured ? 'ready' : cursorExists ? 'detected' : 'missing',
       cursorConfigured
-        ? ` ${chalk.dim('(use /sync, /task)')}`
+        ? ` ${chalk.dim('(use prjct router)')}`
         : cursorExists
           ? ` ${chalk.dim('(run prjct init)')}`
           : '',
@@ -464,7 +461,7 @@ QUICK START
   Cursor IDE:
     1. cd my-project && prjct init
     2. Open in Cursor
-    3. Type: /sync              Analyze project
+    3. Use router command: /sync or run prjct sync --md
 
 COMMANDS (inside your AI agent)
 -------------------------------
@@ -472,7 +469,7 @@ COMMANDS (inside your AI agent)
   ─────────────────────────────────────────────────────
   p. sync                /sync             Analyze project
   p. task "desc"         /task "desc"      Start a task
-  p. done                /done             Complete subtask
+  p. status done         /status done      Complete active task
   p. ship "name"         /ship "name"      Ship with PR
 
 TERMINAL COMMANDS (this CLI)

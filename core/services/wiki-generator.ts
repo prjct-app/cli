@@ -1,7 +1,7 @@
 /**
  * Context Export Generator — emit an agent-readable markdown map of the
  * project's memory + shipped history to the configured vault location
- * (default: `~/Documents/prjct/<slug>/_generated/`; see path-manager).
+ * (default: `<vault-root>/<slug>/_generated/`; see path-manager).
  *
  * Why: prjct already holds the answers (memories, patterns, ships). The
  * fastest way for a subagent to read them is through its native Read/Glob
@@ -112,7 +112,7 @@ export async function generateWiki(
   filesSkipped: number
   filesRemoved: number
 }> {
-  // Resolve vault location (new default is ~/Documents/prjct/<slug>/);
+  // Resolve vault location (new default is <vault-root>/<slug>/);
   // pre-2.2.0 projects get their old `.prjct/wiki/` migrated in-place.
   const wikiRoot = await resolveVaultRoot(projectPath)
   const generatedRoot = path.join(wikiRoot, GENERATED_SUBDIR)

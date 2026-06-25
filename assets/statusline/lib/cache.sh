@@ -64,6 +64,43 @@ parse_stdin() {
   # Single jq call to extract all values
   local parsed
   parsed=$(echo "$input" | jq -r '
+    def pct:
+      (.used_percentage // .usedPercent // .used_percent // .percent // empty);
+    def reset:
+      (.resets_at // .resetsAt // .reset_at // .resetAt // empty);
+    def key:
+      (.id // .name // .limit_name // .limitName // .window // .type // .label // "" | tostring | ascii_downcase);
+    def normpct:
+      if . == null or . == "" then "" else (tonumber | floor | tostring) end;
+    def five_hour_from($rl):
+      if ($rl | type) == "array" then
+        (($rl[]? | select((key | test("5|five|hour")) and ((key | test("week|7|day")) | not)) | pct) // "")
+      elif ($rl | type) == "object" then
+        (($rl.five_hour | pct) // ($rl.fiveHour | pct) // ($rl["5h"] | pct) // ($rl.primary | pct) //
+          ($rl | to_entries[]? | select(((.key | ascii_downcase) | test("5|five|hour")) or ((.value | key) | test("5|five|hour"))) | .value | pct) // "")
+      else "" end;
+    def weekly_from($rl):
+      if ($rl | type) == "array" then
+        (($rl[]? | select(key | test("week|weekly|7|day")) | pct) // "")
+      elif ($rl | type) == "object" then
+        (($rl.weekly | pct) // ($rl.week | pct) // ($rl.seven_day | pct) // ($rl.sevenDay | pct) // ($rl["7d"] | pct) // ($rl.secondary | pct) //
+          ($rl | to_entries[]? | select(((.key | ascii_downcase) | test("week|weekly|7|day")) or ((.value | key) | test("week|weekly|7|day"))) | .value | pct) // "")
+      else "" end;
+    def five_hour_reset_from($rl):
+      if ($rl | type) == "array" then
+        (($rl[]? | select((key | test("5|five|hour")) and ((key | test("week|7|day")) | not)) | reset) // "")
+      elif ($rl | type) == "object" then
+        (($rl.five_hour | reset) // ($rl.fiveHour | reset) // ($rl["5h"] | reset) // ($rl.primary | reset) //
+          ($rl | to_entries[]? | select(((.key | ascii_downcase) | test("5|five|hour")) or ((.value | key) | test("5|five|hour"))) | .value | reset) // "")
+      else "" end;
+    def weekly_reset_from($rl):
+      if ($rl | type) == "array" then
+        (($rl[]? | select(key | test("week|weekly|7|day")) | reset) // "")
+      elif ($rl | type) == "object" then
+        (($rl.weekly | reset) // ($rl.week | reset) // ($rl.seven_day | reset) // ($rl.sevenDay | reset) // ($rl["7d"] | reset) // ($rl.secondary | reset) //
+          ($rl | to_entries[]? | select(((.key | ascii_downcase) | test("week|weekly|7|day")) or ((.value | key) | test("week|weekly|7|day"))) | .value | reset) // "")
+      else "" end;
+    .rate_limits as $rl |
     [
       (.model.display_name // "Claude"),
       (.workspace.current_dir // "~"),
@@ -72,13 +109,17 @@ parse_stdin() {
       (.context_window.context_window_size // 200000),
       (.context_window.current_usage.input_tokens // 0),
       (.context_window.current_usage.cache_creation_input_tokens // 0),
-      (.context_window.current_usage.cache_read_input_tokens // 0)
+      (.context_window.current_usage.cache_read_input_tokens // 0),
+      (five_hour_from($rl) | normpct),
+      (five_hour_reset_from($rl) // ""),
+      (weekly_from($rl) | normpct),
+      (weekly_reset_from($rl) // "")
     ] | @tsv
   ' 2>/dev/null)
 
   # Parse tab-separated values (save/restore IFS to avoid breaking associative arrays)
   local old_ifs="$IFS"
-  IFS=$'\t' read -r MODEL CWD ADDED REMOVED CTX_SIZE INPUT_TOKENS CACHE_CREATE CACHE_READ <<< "$parsed"
+  IFS=$'\t' read -r MODEL CWD ADDED REMOVED CTX_SIZE INPUT_TOKENS CACHE_CREATE CACHE_READ RATE_LIMIT_5H_PERCENT RATE_LIMIT_5H_RESET RATE_LIMIT_WEEKLY_PERCENT RATE_LIMIT_WEEKLY_RESET <<< "$parsed"
   IFS="$old_ifs"
 
   # Set defaults if parsing failed
@@ -90,6 +131,10 @@ parse_stdin() {
   INPUT_TOKENS="${INPUT_TOKENS:-0}"
   CACHE_CREATE="${CACHE_CREATE:-0}"
   CACHE_READ="${CACHE_READ:-0}"
+  RATE_LIMIT_5H_PERCENT="${RATE_LIMIT_5H_PERCENT:-}"
+  RATE_LIMIT_5H_RESET="${RATE_LIMIT_5H_RESET:-}"
+  RATE_LIMIT_WEEKLY_PERCENT="${RATE_LIMIT_WEEKLY_PERCENT:-}"
+  RATE_LIMIT_WEEKLY_RESET="${RATE_LIMIT_WEEKLY_RESET:-}"
 
   # Calculate context percentage
   TOTAL_USED=$((INPUT_TOKENS + CACHE_CREATE + CACHE_READ))
@@ -119,3 +164,4 @@ get_global_path() {
   [[ -z "$project_id" ]] && return
   echo "${HOME}/.prjct-cli/projects/${project_id}"
 }
+

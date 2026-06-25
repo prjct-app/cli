@@ -62,6 +62,15 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         const msg = `status → ${value}`
         if (options.md) console.log(`✓ ${msg}`)
         else out.done(msg)
+        const warnings = outcome.verificationWarnings ?? []
+        if (warnings.length > 0) {
+          if (options.md) {
+            console.log('\n## Harness warnings')
+            for (const warning of warnings) console.log(`- ${warning}`)
+          } else {
+            for (const warning of warnings) out.warn(`Harness: ${warning}`)
+          }
+        }
         return { success: true, taskId: outcome.taskId, status: value }
       }
 
@@ -88,9 +97,16 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       // no-args `prjct status` reflects reality, not the task `type` tag.
       const lastStatus = await readLastStatus(pid.value, active.id)
       const line = `Task: ${active.id}  |  Type: ${active.type ?? 'unset'}  |  Status: ${lastStatus ?? 'active'}`
-      if (options.md) console.log(line)
-      else out.info(line)
-      return { success: true, taskId: active.id, status: lastStatus ?? 'active' }
+      const harness = active.harness
+        ? `Harness: ${active.harness.level} ${active.harness.kind}/${active.harness.risk}`
+        : null
+      if (options.md) {
+        console.log(harness ? `${line}\n${harness}` : line)
+      } else {
+        out.info(line)
+        if (harness) out.info(harness)
+      }
+      return { success: true, taskId: active.id, status: lastStatus ?? 'active', harness }
     } catch (error) {
       const msg = getErrorMessage(error)
       return failHard(msg)

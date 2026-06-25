@@ -91,6 +91,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const branch = outcome.branch ?? ''
       const beforeInstructions = outcome.instructions ?? []
       const pipeline = outcome.pipeline
+      const harness = outcome.harness
 
       if (options.md) {
         console.log(
@@ -103,6 +104,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
                   `Task: \`${taskId}\``,
                   branch ? `Branch: \`${branch}\`` : null,
                   linearId ? `Linear: \`${linearId}\`` : null,
+                  harness ? `Harness: ${harness.level} ${harness.kind}/${harness.risk}` : null,
+                  harness?.expectedEvidence.length
+                    ? `Evidence: ${harness.expectedEvidence.join(', ')}`
+                    : null,
                   beforeInstructions.length > 0
                     ? `Agent instructions: ${beforeInstructions.length}`
                     : null,
@@ -134,11 +139,17 @@ export class WorkflowCommands extends PrjctCommandsBase {
         )
       } else {
         out.done(`Task: ${taskDescription}`)
+        if (harness) {
+          out.info(`Harness: ${harness.level} ${harness.kind}/${harness.risk}`)
+          if (harness.expectedEvidence.length > 0) {
+            out.info(`Evidence: ${harness.expectedEvidence.join(', ')}`)
+          }
+        }
         showStateInfo('working')
         showNextSteps('task')
       }
 
-      return { success: true, task: taskDescription, taskId }
+      return { success: true, task: taskDescription, taskId, harness }
     } catch (error) {
       const msg = getErrorMessage(error)
       if (options.md) console.log(`> ${msg}`)
@@ -188,6 +199,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 active.linearId ? `Linear: \`${active.linearId}\`` : null,
                 `Started: ${active.startedAt}`,
                 active.pipeline ? `Pipeline: \`${active.pipeline.station}\`` : null,
+                active.harness
+                  ? `Harness: ${active.harness.level} ${active.harness.kind}/${active.harness.risk}`
+                  : null,
                 others.length > 0 ? `Other active workspaces: ${others.length}` : null,
               ].filter((s): s is string => s !== null)
             )
@@ -214,6 +228,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
       out.info(`Active: ${active.description}`)
       out.info(`Workspace: ${active.label}`)
       if (active.pipeline) out.info(`Pipeline: ${active.pipeline.station}`)
+      if (active.harness) {
+        out.info(`Harness: ${active.harness.level} ${active.harness.kind}/${active.harness.risk}`)
+      }
       for (const v of others) out.info(`  other: ${v.label} — ${v.description}`)
     }
     return { success: true, currentTask: active }

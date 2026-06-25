@@ -69,26 +69,26 @@ export async function setupMcpServers(
     }
   }
 
-  // Codex reads MCP servers from ~/.codex/config.toml — without this
-  // entry the prjct_* tools never exist for Codex sessions, even though
-  // its SKILL.md tells it to prefer them.
+  // Codex reads MCP servers and TUI status-line preferences from
+  // ~/.codex/config.toml. Without this block, Codex sessions miss either
+  // the prjct_* tools or the visible status line users expect.
   try {
     const codex = await detectCodex()
     if (codex.installed) {
       const result = await ensureCodexMcpServer()
       if (!options.silent) {
         if (result.skipped === 'user-managed') {
-          console.log('✅ prjct MCP already configured for Codex (user-managed)')
+          console.log('✅ prjct Codex config ready (MCP user-managed)')
         } else if (result.changed) {
-          console.log('✅ prjct MCP added to ~/.codex/config.toml')
+          console.log('✅ prjct Codex config updated in ~/.codex/config.toml')
         } else {
-          console.log('✅ prjct MCP already configured for Codex')
+          console.log('✅ prjct Codex config already ready')
         }
       }
     }
   } catch (error) {
     if (!options.silent) {
-      console.log(`⚠️  Codex MCP setup failed: ${getErrorMessage(error)}`)
+      console.log(`⚠️  Codex config setup failed: ${getErrorMessage(error)}`)
       console.log('   Run `prjct start` again to retry.')
     }
   }

@@ -98,7 +98,7 @@ and locked-down CI, which closes the supply-chain surface a native rebuild opens
 
 After install, **next session in any prjct-cli project**:
 
-- **Lookup-first protocol**: Claude reads `~/Documents/prjct/<slug>/_generated/` (architecture, patterns, decisions, gotchas, recent ships) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
+- **Lookup-first protocol**: Claude reads the configured vault snapshot (default: your OS Documents folder, e.g. `~/Documents/prjct/<slug>/_generated/` on macOS/Linux) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
 - **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them in the vault.
 - **Pattern detection**: Stop hook detects hot files (>3 changes in 7 days), recurring bugs (gotchas with the same topic), tech-debt growth (TODO/FIXME count rising). All persisted as learnings, surfaced next session.
 - **5 quality workflows** activated by natural language ("review this branch", "qa the UI", "security check", "investigate this bug"):
@@ -111,7 +111,7 @@ After install, **next session in any prjct-cli project**:
 
 ## How it works
 
-State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault at `~/Documents/prjct/<slug>/_generated/` is an auto-regenerated Markdown snapshot — agent-readable via `Read`/`Glob`, browsable in Obsidian.
+State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault is an auto-regenerated Markdown snapshot under the root configured by `prjct setup` (default: your OS Documents folder, e.g. `~/Documents/prjct/<slug>/_generated/` on macOS/Linux) — agent-readable via `Read`/`Glob`, browsable in Obsidian.
 
 ```
 Claude Code session                       prjct-cli
@@ -143,11 +143,12 @@ Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Three ti
 |---|---|---|
 | Config / identity | `<repo>/.prjct/prjct.config.json` (`projectId`, persona) | **Yes** — small, machine-independent |
 | State (source of truth) | `~/.prjct-cli/projects/<projectId>/prjct.db` (SQLite) | No — per-device |
-| Vault (recall snapshot) | `~/Documents/prjct/<slug>/_generated/` (Markdown) | No — regenerated |
+| Vault (recall snapshot) | `<vault-root>/<slug>/_generated/` (Markdown; `prjct setup --vault-root <path>`) | No — regenerated |
 
 Find a project's data: read `projectId` from `.prjct/prjct.config.json`, then the
 DB is `~/.prjct-cli/projects/<projectId>/`, the vault is
-`~/Documents/prjct/<slug>/` (`<slug>` = repo dir name lowercased; `PRJCT_CLI_HOME`
+`<vault-root>/<slug>/` (`<slug>` = repo dir name lowercased; `prjct setup`
+chooses the global vault root, defaulting to the OS Documents folder; `PRJCT_CLI_HOME`
 relocates the global store). Teammates share knowledge via optional cloud sync
 (`prjct login` + `prjct sync`), **not** git — git never carries state. Full
 detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-paths.md)**.
@@ -215,6 +216,7 @@ In a real terminal — branded, animated, colored:
 $ prjct task "add OAuth refresh"
 ⚡ prjct  ✓ Task started: add OAuth refresh
          branch: task/add-oauth-refresh · status: active
+         harness: H2 feature/medium · evidence: focused-tests, scope-check, spec-or-design
 ```
 
 Inside Claude Code / Codex / CI (non-TTY) — the same line, **static** (no
@@ -225,6 +227,7 @@ can consume directly:
 $ prjct task "add OAuth refresh" --md
 > Task started: **add OAuth refresh**
 > branch `task/add-oauth-refresh` · status `active`
+> harness `H2 feature/medium` · evidence `focused-tests, scope-check, spec-or-design`
 ```
 
 ## Quick start (post-install)
@@ -259,7 +262,7 @@ p. status done                                # close the active task
 p. ship                                       # commit, push, open PR
 ```
 
-Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, `/ship`.
+Cursor and Windsurf use their installed prjct router files; otherwise run `prjct <command> --md` and follow the output.
 
 ### Core verbs
 
@@ -276,7 +279,6 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
-| `prjct suggest` | Smart recommendations based on current project state. |
 | `prjct value` | Show whether prjct is paying for itself in this project. |
 | `prjct memory-doctor` | Audit memory quality before noisy context spreads to every agent. |
 | `prjct report [days]` | Generate a human report from shipped work and project memory. |
@@ -316,7 +318,7 @@ Slots ship **empty** — the human or the agent fills them on demand.
 
 ## Claude Hooks Adapter (opt-in)
 
-`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, and also writes the Claude Code hooks adapter to `~/.claude/settings.json`. The hooks inject `additionalContext`; none block by default. Other agents use the support level shown by `prjct agents doctor`.
+`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, writes the Claude Code hooks adapter to `~/.claude/settings.json`, and repairs detected Codex config in `~/.codex/config.toml` (prjct MCP + TUI `status_line`). The Claude hooks inject `additionalContext`; none block by default. Other agents use the support level shown by `prjct agents doctor`.
 
 | Event | Injects |
 |---|---|
@@ -350,7 +352,7 @@ The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs 
 ```bash
 prjct start              First-time setup wizard (AI providers + commands)
 prjct init               Initialize project in current directory
-prjct install            Install Claude Code hooks (merge-safe)
+prjct install            Install agent surfaces, Claude hooks, Codex status line
 prjct uninstall          Complete system removal
 prjct sync               Sync project state, rebuild indexes
 prjct regen              Full vault rebuild from SQLite
@@ -380,7 +382,7 @@ prjct capture "check why webhook retries on 502"
 prjct context memory "auth refresh"
 ```
 
-Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `~/Documents/prjct/<slug>/_generated/`.
+Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `<vault-root>/<slug>/_generated/`.
 
 > SQLite is the source of truth. The export is a snapshot — never hand-edit `_generated/`; if data is missing, fix the pipeline.
 
@@ -429,7 +431,7 @@ Without a key the built-in local embedder is used. Vector dimensionality is dete
 
 ### Drop files into the vault (bidirectional)
 
-Drop a file into `~/Documents/prjct/<slug>/captured/` — it becomes memory, vectorized into the DB. Two shapes:
+Drop a file into `<vault-root>/<slug>/captured/` — it becomes memory, vectorized into the DB. Two shapes:
 
 ```markdown
 ---
@@ -518,21 +520,21 @@ the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vaul
 
 **How do I add a development task?**
 Run `prjct task "<description>"` from the repo. It registers the task in SQLite,
-creates a branch, and marks it active — worked example:
+auto-classifies a lightweight harness (H0-H3) with expected evidence, and marks
+it active — worked example:
 
 ```bash
 $ prjct task "add OAuth refresh"
 ⚡ prjct  ✓ Task started: add OAuth refresh
          branch: task/add-oauth-refresh · status: active
+         harness: H2 feature/medium · evidence: focused-tests, scope-check, spec-or-design
 
 $ prjct tag type:feature domain:auth     # optional: categorize it
-$ prjct status done                       # close it when finished
+$ prjct status done                       # closes it; warns if harness evidence is missing
 $ prjct ship                              # bump version, commit, PR
 ```
 
-Inside an agent you don't type the command — say it: `p. task "add OAuth
-refresh"` in Claude Code, `/task "…"` in Cursor/Windsurf. `prjct task` with no
-argument prints the currently active task.
+Inside an agent you can say it: `p. task "add OAuth refresh"` in Claude Code, or run `prjct task "…" --md` from any wired agent. `prjct task` with no argument prints the currently active task.
 
 **How do I get AI assistance for a coding problem?**
 Inside Claude Code (or any wired agent) describe the problem in natural
@@ -547,7 +549,7 @@ persisting findings to memory. Concrete examples:
 | "qa the checkout page" | `qa` | Real browser, atomic fixes, regression tests |
 
 You can also pull project knowledge directly: ask "what patterns does this
-project use?" and the agent reads `~/Documents/prjct/<slug>/_generated/patterns.md`
+project use?" and the agent reads `<vault-root>/<slug>/_generated/patterns.md`
 instead of grepping source (the lookup-first protocol). Outside an agent, every
 command takes `--md` to emit agent-ready markdown.
 
@@ -586,9 +588,10 @@ sandbox is non-interactive/non-TTY, so prjct-cli emits the same static, prompt-f
 status line as any agent; add `--md` for fully markdown-structured output.
 
 **What does Codex get from prjct?**
-Three surfaces, all installed/healed automatically: a compact skill at
+Four surfaces, all installed/healed automatically: a compact skill at
 `~/.codex/skills/prjct/SKILL.md` (kept under Codex's ~1KB skill cap), the
-prjct MCP server wired into `~/.codex/config.toml` (`prjct_*` tools), and a
+prjct MCP server wired into `~/.codex/config.toml` (`prjct_*` tools), a Codex
+TUI `status_line` in that same config unless the user already set one, and a
 vendor-neutral routing block in the project's `AGENTS.md` written by
 `prjct init`. Codex has no lifecycle hooks, so AGENTS.md + MCP are its
 session-start context and live tool surface.
@@ -607,7 +610,7 @@ git check-ignore -v .prjct                         # why git ignores it
 The path is always `<repoRoot>/.prjct/` (strictly relative to the project — no
 env var, no global lookup). Read `projectId` from `prjct.config.json` to reach
 the *other* tiers: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`, vault at
-`~/Documents/prjct/<slug>/_generated/` (`PRJCT_CLI_HOME` overrides the global
+`<vault-root>/<slug>/_generated/` (`prjct setup --vault-root <path>` configures the vault root; `PRJCT_CLI_HOME` overrides the global
 base). The in-repo `.prjct/` holds only config, not state — full detail in
 [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 

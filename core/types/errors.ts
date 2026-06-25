@@ -59,7 +59,7 @@ export const ERRORS = {
   },
   LINEAR_NOT_CONFIGURED: {
     message: 'Linear integration not configured',
-    hint: "Run 'prjct linear setup' to configure Linear MCP",
+    hint: 'Configure the Linear MCP server in your AI client',
   },
   LINEAR_API_ERROR: {
     message: 'Linear API error',
@@ -71,7 +71,7 @@ export const ERRORS = {
   },
   TASK_ALREADY_ACTIVE: {
     message: 'A task is already in progress',
-    hint: "Complete it with 'p. done' or pause with 'p. pause'",
+    hint: "Use 'p. status done' to complete it or 'p. status paused' to pause it",
   },
   SYNC_FAILED: {
     message: 'Project sync failed',

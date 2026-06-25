@@ -10,6 +10,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent, listTemplates } from '../../agentic/template-loader'
+import { resolveVaultRoot } from '../../services/vault-preferences'
 import { getErrorMessage, isNotFoundError } from '../../types/fs'
 import type { GlobalConfigResult } from '../../types/infrastructure'
 import { mergeWithMarkers } from '../ide-project-installer'
@@ -22,18 +23,18 @@ prjct stores project memory (decisions, learnings, gotchas, patterns, ships, ana
 
 prjct remembers and shows the path; it does not own execution. Treat prjct output as durable signals (task state, memories, specs, workflows, risks, recent learnings). Claude, GPT, and other agents decide the concrete HOW with their own native tools and judgment, then persist meaningful outcomes back to prjct.
 
-You are in a prjct project when any of these signs are present: \`~/Documents/prjct/<slug>/_generated/\` exists, OR \`.prjct/\` is in cwd, OR \`~/.prjct-cli/projects/\` has an entry for the current path.
+You are in a prjct project when any of these signs are present: \`%%PRJCT_VAULT_GENERATED%%/\` exists, OR \`.prjct/\` is in cwd, OR \`~/.prjct-cli/projects/\` has an entry for the current path.
 
 ## Lookup FIRST, source LAST
 
 Before reading source code or running broad searches for ANY question about the project (architecture, conventions, decisions, recent ships, bugs, patterns, tech debt, past analyses), READ these vault files first using Read/Glob — no CLI round-trip:
 
-- \`~/Documents/prjct/<slug>/_generated/index.md\` — overview, ships, memory counts, patterns count
-- \`~/Documents/prjct/<slug>/_generated/architecture.md\` — domains, conventions, key insights
-- \`~/Documents/prjct/<slug>/_generated/{patterns,insights,tech-debt}.md\` — inferred state of the project
-- \`~/Documents/prjct/<slug>/_generated/memory/{decision,gotcha,learning,fact,inbox}.md\` — captured knowledge
-- \`~/Documents/prjct/<slug>/_generated/analysis/{anti-patterns,insights,patterns,refactors,risk-areas,tech-debt}/\` — past analyses by category
-- \`~/Documents/prjct/<slug>/_generated/{ships,releases,tags}/\` — history & taxonomy
+- \`%%PRJCT_VAULT_GENERATED%%/index.md\` — overview, ships, memory counts, patterns count
+- \`%%PRJCT_VAULT_GENERATED%%/architecture.md\` — domains, conventions, key insights
+- \`%%PRJCT_VAULT_GENERATED%%/{patterns,insights,tech-debt}.md\` — inferred state of the project
+- \`%%PRJCT_VAULT_GENERATED%%/memory/{decision,gotcha,learning,fact,inbox}.md\` — captured knowledge
+- \`%%PRJCT_VAULT_GENERATED%%/analysis/{anti-patterns,insights,patterns,refactors,risk-areas,tech-debt}/\` — past analyses by category
+- \`%%PRJCT_VAULT_GENERATED%%/{ships,releases,tags}/\` — history & taxonomy
 
 Only fall through to source/repo reading when the vault does not contain the answer.
 
@@ -44,7 +45,7 @@ When you complete substantive work — analysis, decision, learning, gotcha — 
 ## Where things live
 
 - Source of truth: SQLite at \`~/.prjct-cli/projects/<id>/\` (don't read directly — use \`prjct\` CLI)
-- Read snapshot: vault at \`~/Documents/prjct/<slug>/_generated/\` (Read/Glob freely; never hand-edit — fix the pipeline)
+- Read snapshot: vault at \`%%PRJCT_VAULT_GENERATED%%/\` (Read/Glob freely; never hand-edit — fix the pipeline)
 - Project config: \`.prjct/prjct.config.json\` in repo root
 
 The vault regenerates automatically on \`remember\`, \`capture\`, \`ship\`, \`sync\`, and the SessionStart/Stop hooks.
@@ -52,6 +53,14 @@ The vault regenerates automatically on \`remember\`, \`capture\`, \`ship\`, \`sy
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
 `
+
+function applyConfiguredVaultPaths(content: string): string {
+  const vaultRoot = pathManager.getDisplayPath(resolveVaultRoot())
+  const vaultGenerated = path.join(vaultRoot, '<slug>', '_generated')
+  return content
+    .replaceAll('%%PRJCT_VAULT_GENERATED%%', vaultGenerated)
+    .replaceAll('%%PRJCT_VAULT_PROJECT%%', path.join(vaultRoot, '<slug>'))
+}
 
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
@@ -137,6 +146,8 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
         }
       }
     }
+
+    templateContent = applyConfiguredVaultPaths(templateContent)
 
     let existingContent = ''
     let fileExists = false

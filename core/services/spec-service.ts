@@ -6,7 +6,7 @@
  *   - Specs are queryable as first-class entities (status, links, etc.)
  *   - Specs surface in `prjct context memory spec` recall
  *   - Vault regen (`prjct sync`, on `remember`/`ship`/etc) renders specs
- *     to ~/Documents/prjct/<slug>/_generated/specs/<slug>.md
+ *     to <vault-root>/<slug>/_generated/specs/<slug>.md
  *
  * Service is intentionally thin — Claude does the heavy lifting
  * (interactive spec drafting, audit-spec subagent dispatch). The

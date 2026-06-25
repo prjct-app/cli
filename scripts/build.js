@@ -240,7 +240,7 @@ const args=process.argv.slice(2);
 const cmd=args.find(a=>!a.startsWith("-"));
 const skip=new Set(${JSON.stringify(deriveShimSkipSet())});
 function refuse(m){console.error("prjct: daemon dropped the request ("+m+"). Retry: prjct "+args.join(" "));process.exit(1)}
-function isSafeRetry(e){const c=e&&e.code||"",m=e&&e.message||"";return c==="ECONNREFUSED"||c==="ENOENT"||m.includes("ECONNREFUSED")||m.includes("ENOENT")}
+function isSafeRetry(e){const c=e&&e.code||"",m=e&&e.message||"";return c==="ECONNREFUSED"||c==="ENOENT"||c==="EACCES"||c==="EPERM"||m.includes("ECONNREFUSED")||m.includes("ENOENT")||m.includes("EACCES")||m.includes("EPERM")}
 // Hook fast path: forward the event (stdin) to the warm daemon and write its
 // response raw. Hooks must never disturb the host session, so ANY failure
 // (connect error, timeout, closed socket) degrades to the empty no-op {} and

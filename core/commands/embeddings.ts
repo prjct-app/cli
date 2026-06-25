@@ -26,6 +26,7 @@ import {
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard, notifyFail, notifyInfo } from '../utils/md-aware'
+import { mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -102,7 +103,8 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
         return this.clear(options)
       default:
         return failHard(
-          `Unknown subcommand '${sub}'. Use: set --key <K> [--model <M>] [--base-url <U>] | status | test | clear`
+          `Unknown subcommand '${sub}'. Use: set --key <K> [--model <M>] [--base-url <U>] | status | test | clear`,
+          options
         )
     }
   }
@@ -162,6 +164,33 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
       query,
     })
 
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdSection('Embeddings configured', 'Global embeddings now apply to all projects.'),
+          mdStats({
+            provider: settings.provider,
+            model: settings.model,
+            'base URL': settings.baseUrl,
+            detected: detectedProvider,
+            'auth header': settings.authHeader,
+            auth:
+              settings.authScheme === undefined
+                ? undefined
+                : settings.authScheme || '(raw key, no scheme)',
+            query: settings.query,
+            headers: settings.extraHeaders
+              ? Object.keys(settings.extraHeaders).join(', ')
+              : undefined,
+            'api key': location
+              ? `stored in ${location === 'keychain' ? 'macOS Keychain' : '~/.prjct-cli/config/embeddings.key (0600)'}`
+              : undefined,
+          }),
+          mdSection('Next', 'Run `prjct embeddings test --md` to validate now.')
+        )
+      )
+      return { success: true }
+    }
     out.done('Global embeddings configured (applies to all projects)')
     if (detectedProvider) out.info(`detected: ${detectedProvider} (from key prefix)`)
     out.info(`provider: ${settings.provider}`)
@@ -183,14 +212,48 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
     return { success: true }
   }
 
-  private async status(_options: EmbeddingsOptions): Promise<CommandResult> {
+  private async status(options: EmbeddingsOptions): Promise<CommandResult> {
     const g = resolveGlobalEmbeddings()
     const loc = await getKeyLocation()
     if (!g) {
+      if (options.md) {
+        console.log(
+          mdOutput(
+            mdSection(
+              'Embeddings',
+              'Global embeddings are not configured. Recall uses the built-in local subword embedder.'
+            ),
+            mdStats({ 'api key': loc === 'none' ? 'none' : `present (${loc})` }),
+            mdSection('Next', 'Set one with `prjct embeddings set --key <api-key> --md`.')
+          )
+        )
+        return { success: true, configured: false }
+      }
       out.info('Global embeddings: not configured — using the built-in local subword embedder.')
       out.info(`api key: ${loc === 'none' ? 'none' : `present (${loc})`}`)
       out.info('Set one with: prjct embeddings set --key <api-key>')
       return { success: true, configured: false }
+    }
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdSection('Embeddings', 'Global embeddings are configured.'),
+          mdStats({
+            provider: g.provider,
+            model: g.model,
+            'base URL': g.baseUrl,
+            'auth header': g.authHeader,
+            auth: g.authScheme === undefined ? undefined : g.authScheme || '(raw key, no scheme)',
+            query: g.query,
+            headers: g.extraHeaders ? Object.keys(g.extraHeaders).join(', ') : undefined,
+            'api key':
+              loc === 'none'
+                ? 'MISSING - set with `prjct embeddings set --key <api-key>`'
+                : `present (${loc})`,
+          })
+        )
+      )
+      return { success: true, configured: true }
     }
     out.done('Global embeddings: configured')
     out.info(`provider: ${g.provider}`)
@@ -214,6 +277,23 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
       if (!vector || vector.length === 0) {
         return failHard(`Provider '${provider.model}' returned an empty vector.`, options)
       }
+      if (options.md) {
+        console.log(
+          mdOutput(
+            mdSection(
+              'Embeddings test',
+              `Provider '${provider.model}' returned a ${vector.length}-dim vector.`
+            ),
+            provider.isLocal
+              ? mdSection(
+                  'Next',
+                  'This is the local embedder. Set a key to upgrade: `prjct embeddings set --key <api-key> --md`.'
+                )
+              : null
+          )
+        )
+        return { success: true, model: provider.model, dims: vector.length }
+      }
       out.done(`OK — '${provider.model}' returned a ${vector.length}-dim vector.`)
       if (provider.isLocal) {
         out.info(
@@ -234,9 +314,18 @@ export class EmbeddingsCommands extends PrjctCommandsBase {
     }
   }
 
-  private async clear(_options: EmbeddingsOptions): Promise<CommandResult> {
+  private async clear(options: EmbeddingsOptions): Promise<CommandResult> {
     await clearEmbeddingsKey()
     clearGlobalEmbeddings()
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdSection('Embeddings cleared', 'Semantic recall now falls back to the local embedder.'),
+          mdStats({ 'default model': DEFAULT_EMBEDDINGS_MODEL })
+        )
+      )
+      return { success: true }
+    }
     out.done('Cleared global embeddings — semantic recall falls back to the local embedder.')
     out.info(`(Default model when you reconfigure: ${DEFAULT_EMBEDDINGS_MODEL}.)`)
     return { success: true }

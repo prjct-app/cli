@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { COMMANDS } from '../../commands/command-data'
-import { REGISTERED_VERBS_SET } from '../../commands/verb-names'
+import { REMOVED_VERBS } from '../../commands/removed-verbs'
+import { BIN_COMMANDS_SET, REGISTERED_VERBS_SET } from '../../commands/verb-names'
 
 describe('COMMANDS', () => {
   it('treats ship feature name as optional', () => {
@@ -23,6 +24,33 @@ describe('COMMANDS', () => {
     const offenders = COMMANDS.filter((command) => command.usage.claude?.includes('/p:')).map(
       (command) => `${command.name}: ${command.usage.claude}`
     )
+
+    expect(offenders).toEqual([])
+  })
+
+  it('does not advertise low-value shell-duplicate commands', () => {
+    const removed = ['suggest', 'git', 'test', 'migrate']
+    const names = COMMANDS.map((command) => command.name)
+
+    for (const command of removed) {
+      expect(names).not.toContain(command)
+      expect(REGISTERED_VERBS_SET.has(command)).toBe(false)
+      expect(BIN_COMMANDS_SET.has(command)).toBe(false)
+    }
+  })
+
+  it('keeps removed v2 verbs unroutable', () => {
+    for (const verb of Object.keys(REMOVED_VERBS)) {
+      expect(COMMANDS.some((command) => command.name === verb)).toBe(false)
+      expect(REGISTERED_VERBS_SET.has(verb)).toBe(false)
+      expect(BIN_COMMANDS_SET.has(verb)).toBe(false)
+    }
+  })
+
+  it('keeps agent usage on the p. grammar', () => {
+    const offenders = COMMANDS.filter(
+      (command) => command.usage.claude && !command.usage.claude.startsWith('p. ')
+    ).map((command) => `${command.name}: ${command.usage.claude}`)
 
     expect(offenders).toEqual([])
   })

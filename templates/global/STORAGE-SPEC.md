@@ -25,9 +25,9 @@ All reads and writes go through the `prjct` CLI, which manages a SQLite database
 
 ### How to interact with storage
 
-- **Read state**: Use `prjct status`, `prjct dash`, `prjct next` CLI commands
-- **Write state**: Use `prjct` CLI commands (task, done, pause, resume, etc.)
-- **Issue tracker setup**: Use `prjct linear setup` or `prjct jira setup` (MCP/OAuth)
+- **Read state**: Use `prjct status`, `prjct context`, or MCP project tools
+- **Write state**: Use `prjct` CLI commands (`task`, `status`, `capture`, `remember`, etc.)
+- **Issue tracker setup**: Configure Linear/Jira MCP servers in the AI client; prjct has no native tracker CLI verbs
 - **Never** read/write JSON files in `storage/` or `memory/` directories
 
 ---
@@ -307,8 +307,7 @@ Issue tracker integrations are MCP-only.
 
 ### Setup
 
-- `prjct linear setup`
-- `prjct jira setup`
+Configure Linear/Jira MCP servers in the AI client when issue tracker access is needed.
 
 ### Operational Model
 
