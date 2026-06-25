@@ -20,7 +20,8 @@ describe('writeProjectAgentSurfaces', () => {
 
     expect(result.agentsMd.action).toBe('created')
     const agents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8')
-    expect(agents).toContain('prjct status done')
+    expect(agents).toContain('single normal entrypoint')
+    expect(agents).toContain('persisted SDD + strict TDD')
     expect(agents).toContain('prjct_*')
   })
 

@@ -90,6 +90,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const linearId = outcome.linearId
       const branch = outcome.branch ?? ''
       const beforeInstructions = outcome.instructions ?? []
+      const pipeline = outcome.pipeline
       const harness = outcome.harness
 
       if (options.md) {
@@ -113,6 +114,18 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 ].filter((s): s is string => s !== null)
               )
             ),
+            pipeline
+              ? mdSection(
+                  'Task Pipeline',
+                  mdList([
+                    `Classification: \`${pipeline.classification}\``,
+                    `Station: \`${pipeline.station}\``,
+                    `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
+                    `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
+                    `Next action: ${pipeline.nextAction}`,
+                  ])
+                )
+              : null,
             beforeInstructions.length > 0
               ? mdSection('Agent Instructions', mdList(beforeInstructions))
               : null,
@@ -185,6 +198,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 active.branch ? `Branch: \`${active.branch}\`` : null,
                 active.linearId ? `Linear: \`${active.linearId}\`` : null,
                 `Started: ${active.startedAt}`,
+                active.pipeline ? `Pipeline: \`${active.pipeline.station}\`` : null,
                 active.harness
                   ? `Harness: ${active.harness.level} ${active.harness.kind}/${active.harness.risk}`
                   : null,
@@ -192,6 +206,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
               ].filter((s): s is string => s !== null)
             )
           ),
+          active.pipeline
+            ? mdSection(
+                'Next Action',
+                mdList([
+                  active.pipeline.requiresTestsFirst
+                    ? 'Write tests before implementation for substantive work.'
+                    : 'Proceed directly for this trivial task.',
+                ])
+              )
+            : null,
           others.length > 0
             ? mdSection(
                 'Other Active Workspaces',
@@ -203,6 +227,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
     } else {
       out.info(`Active: ${active.description}`)
       out.info(`Workspace: ${active.label}`)
+      if (active.pipeline) out.info(`Pipeline: ${active.pipeline.station}`)
       if (active.harness) {
         out.info(`Harness: ${active.harness.level} ${active.harness.kind}/${active.harness.risk}`)
       }

@@ -25,6 +25,11 @@ The full verb intent map and the suggest-vs-auto-execute protocol live
 in the global skill at \`~/.claude/skills/prjct/SKILL.md\`. Two reminders
 that travel with this project:
 
+- **\`prjct task\` is the single normal entrypoint.** prjct classifies the
+  task and reports the persisted pipeline station. Trivial work proceeds
+  directly. Substantive implementation work follows persisted SDD + strict
+  TDD: reviewed spec, tests before implementation, then code. Resume from
+  \`prjct task --md\` / \`prjct status --md\`; do not invent a parallel plan.
 - **Routine captures auto-execute, no permission.** When the user mentions
   a decision, learning, gotcha, or random thought, save it via
   \`prjct remember <type>\` or \`prjct capture\` immediately and confirm in

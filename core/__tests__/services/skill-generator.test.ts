@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { SKILL_DEFINITIONS, SkillGenerator } from '../../services/skill-generator'
 import type { ConditionContext, SkillContext } from '../../services/skill-generator/types'
+import { countTokens } from '../../tools/context/token-counter'
 import type { ProjectSyncResult } from '../../types/project-sync'
 
 function makeSyncResult(overrides: Partial<ProjectSyncResult> = {}): ProjectSyncResult {
@@ -187,18 +188,35 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toMatch(/spec-first|SDD/)
     })
 
-    it('always-loaded body carries the loop-discipline triggers + model quick-ref', async () => {
+    it('frames task as the single entrypoint for transparent SDD/TDD orchestration', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // Stop/delegate triggers (the codified loop-safety net).
-      expect(content).toContain('## Loop discipline')
-      expect(content).toContain('Reading **4+ files**')
-      expect(content).toContain('Touching **2+ non-trivial files**')
-      expect(content).toContain('commit / push / open a PR')
-      expect(content).toContain('worktree/git accident')
-      // Model policy reachable without pulling workflows.md.
-      expect(content).toContain('never omit `model:`')
-      expect(content).toContain('`model: "sonnet"`')
+      expect(content).toContain('`prjct task` is the single normal entrypoint')
+      expect(content).toContain('Trivial work proceeds directly')
+      expect(content).toContain('Substantive implementation work follows persisted SDD')
+      expect(content).toContain('write tests before implementation')
+      expect(content).not.toContain('**NO spec, NO audit-spec, NO subagents, NO fan-out.**')
+    })
+
+    it('keeps loop-discipline triggers + model quick-ref in the pulled reference', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const dir = path.dirname(result.generated[0].path)
+      const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
+
+      expect(content).toContain('loop-discipline triggers live in `workflows.md`')
+      expect(content).not.toContain('## Loop discipline')
+      expect(content).not.toContain('Reading **4+ files**')
+      expect(content).not.toContain('Touching **2+ non-trivial files**')
+
+      // Stop/delegate triggers remain available, but only when workflows.md
+      // is intentionally pulled for quality workflows.
+      expect(ref).toContain('## Loop discipline')
+      expect(ref).toContain('Reading **4+ files**')
+      expect(ref).toContain('Touching **2+ non-trivial files**')
+      expect(ref).toContain('commit / push / open a PR')
+      expect(ref).toContain('worktree/git accident')
+      expect(ref).toContain('`model: "sonnet"`')
     })
 
     it('states the portable agent contract for Claude and GPT', async () => {
@@ -364,6 +382,16 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).not.toContain('## Builder ethos')
     })
 
+    it('keeps the always-loaded SKILL.md under the token budget', async () => {
+      const result = await generator.generateAndInstall(
+        makeSyncResult(),
+        makeConditionContext(),
+        makeRichContext()
+      )
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(countTokens(content)).toBeLessThanOrEqual(2600)
+    })
+
     it('declares the subagent dispatch section with general-purpose type', async () => {
       const ref = await readReference()
       expect(ref).toContain('### Subagent dispatch')
@@ -436,10 +464,9 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('## Verb intent map')
       expect(content).toContain('you run the verb, the user never types it')
       expect(content).toContain('| Intent / signal | Verb | Tier |')
-      // Regression lock (recurring [Triage before spec] / [Right-size
-      // ceremony]): the DIRECT-default gate is prominent and `task` (the
-      // default) precedes `spec`/`audit-spec` in the verb table.
-      expect(content).toContain('## Act: default DIRECT')
+      // Regression lock: `task` is the normal orchestration entrypoint; it
+      // precedes manual spec verbs and carries the persisted station contract.
+      expect(content).toContain('## Act: `prjct task` is the single normal entrypoint')
       const verbMap = content.split('## Verb intent map')[1]?.split('## Routing')[0] ?? ''
       expect(verbMap.indexOf('`prjct task')).toBeGreaterThan(-1)
       expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct spec'))
@@ -461,7 +488,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('you run the verb, the user never types it')
       // Skill description carries the same contract.
       const description = content.split('description:')[1]?.split('\n')[0] ?? ''
-      expect(description).toMatch(/never make the user type commands/i)
+      expect(description).toMatch(/run the prjct verb yourself/i)
     })
   })
 

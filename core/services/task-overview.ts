@@ -10,6 +10,7 @@
 
 import type { TaskHarness } from '../schemas/state'
 import { stateStorage } from '../storage/state-storage'
+import { getTaskPipelineState, type TaskPipelineState } from '../storage/task-pipeline-storage'
 import { deriveWorkspace, MAIN_WORKSPACE_ID } from './workspace-id'
 
 export interface ActiveTaskView {
@@ -27,6 +28,7 @@ export interface ActiveTaskView {
   startedAt: string
   /** True when this task belongs to the caller's current worktree. */
   isCurrent: boolean
+  pipeline?: TaskPipelineState
 }
 
 export interface TaskOverview {
@@ -69,6 +71,7 @@ export async function collectActiveTasks(
       harness: mainTask.harness,
       startedAt: mainTask.startedAt,
       isCurrent: ws.workspaceId === MAIN_WORKSPACE_ID,
+      pipeline: getTaskPipelineState(projectId, mainTask.id, MAIN_WORKSPACE_ID) ?? undefined,
     })
   }
 
@@ -88,6 +91,7 @@ export async function collectActiveTasks(
       harness: t.harness,
       startedAt: t.startedAt,
       isCurrent: ws.workspaceId === t.workspaceId,
+      pipeline: getTaskPipelineState(projectId, t.id, t.workspaceId) ?? undefined,
     })
   }
 
@@ -108,7 +112,8 @@ export function formatActiveTaskList(overview: TaskOverview): string {
   if (overview.all.length === 0) return 'No active task.'
   if (overview.all.length === 1 && overview.current) {
     const v = overview.current
-    return `Active: ${v.description}\n  Workspace: ${v.label}`
+    const pipeline = v.pipeline ? `\n  Pipeline: ${v.pipeline.station}` : ''
+    return `Active: ${v.description}\n  Workspace: ${v.label}${pipeline}`
   }
   const lines = [`Active tasks (${overview.all.length})`]
   for (const v of overview.all) lines.push(formatActiveTaskLine(v))

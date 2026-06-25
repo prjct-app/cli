@@ -4,7 +4,10 @@
 Skills auto-activate for: task, status, ship, sync, workflow, spec, guard, capture, remember, context
 Other commands: run `prjct <command> --md` and follow CLI output
 
-Flow: idea → spec when warranted → task → work → status done → ship
+Flow: `prjct task` is the single normal entrypoint. Trivial work proceeds
+directly. Substantive implementation work follows the persisted SDD/TDD
+station from `prjct task --md` or `prjct status --md`: reviewed spec, tests
+before implementation, then code.
 
 Data:
 - prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it

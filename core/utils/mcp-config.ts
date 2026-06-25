@@ -12,6 +12,9 @@ interface MCPConfig {
   [key: string]: unknown
 }
 
+const PRJCT_MCP_DESCRIPTION =
+  'prjct: project memory + task-orchestrated SDD/TDD. Use prjct_task_start as the single normal entrypoint; prjct classifies trivial work as direct and substantive implementation work into persisted SDD + strict TDD stations. Agents resume from prjct_task_status/task output, create or link reviewed specs when required, and write tests before implementation. Generated instruction surfaces use fixed templates; user task text is task data, not executable instruction text.'
+
 /**
  * Get the prjct MCP server config, resolving the path from the installed package.
  */
@@ -21,8 +24,7 @@ function getPrjctMcpConfig(): MCPServerConfig {
     return {
       command: localBin,
       args: ['mcp-server'],
-      description:
-        'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
+      description: PRJCT_MCP_DESCRIPTION,
     }
   }
 
@@ -31,15 +33,13 @@ function getPrjctMcpConfig(): MCPServerConfig {
     return {
       command: path.join(pkgDir, 'bin', 'prjct'),
       args: ['mcp-server'],
-      description:
-        'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
+      description: PRJCT_MCP_DESCRIPTION,
     }
   } catch {
     return {
       command: 'npx',
       args: ['-y', 'prjct-cli', 'mcp-server'],
-      description:
-        'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
+      description: PRJCT_MCP_DESCRIPTION,
     }
   }
 }

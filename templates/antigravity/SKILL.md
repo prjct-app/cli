@@ -11,7 +11,10 @@ Core commands: sync, task, status, ship, workflow, spec, guard, capture, remembe
 Issue trackers: use MCP tools configured in the AI client
 Other: run `prjct <command> --md` and follow CLI output
 
-Flow: idea → spec when warranted → task → work → status done → ship
+Flow: `prjct task` is the single normal entrypoint. Trivial work proceeds
+directly. Substantive implementation work follows the persisted SDD/TDD
+station from `prjct task --md` or `prjct status --md`: reviewed spec, tests
+before implementation, then code.
 
 Rules:
 - Persist everything (memories, captures, specs) in ENGLISH, whatever language the user speaks

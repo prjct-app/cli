@@ -22,12 +22,19 @@ import { generateUUID } from '../schemas/schemas'
 import type { CurrentTask, TaskFeedback, TaskHarness } from '../schemas/state'
 import { getGitBranch } from '../session/git-helpers'
 import { stateStorage } from '../storage/state-storage'
+import { upsertTaskPipelineState } from '../storage/task-pipeline-storage'
 import * as dateHelper from '../utils/date-helper'
 import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
 import { memoryService } from './memory-service'
 import projectService from './project-service'
 import { buildTaskHarness, evaluateHarnessCompletion } from './task-harness'
-import { deriveWorkspace } from './workspace-id'
+import {
+  decideTaskPipeline,
+  formatTaskPipelineNextAction,
+  type TaskPipelineClassification,
+  type TaskPipelineStation,
+} from './task-pipeline'
+import { deriveWorkspace, MAIN_WORKSPACE_ID } from './workspace-id'
 
 /** Status values that mean "make this task the active one again". */
 const RESUME_VALUES = ['active', 'resume', 'in_progress', 'working']
@@ -42,6 +49,13 @@ export interface StartTaskOutcome {
   linearId?: string
   linkedSpecId?: string
   harness?: TaskHarness
+  pipeline?: {
+    classification: TaskPipelineClassification
+    station: TaskPipelineStation
+    nextAction: string
+    requiresSpec: boolean
+    requiresTestsFirst: boolean
+  }
   /** Agent instructions emitted by `before_task` rules. */
   instructions?: string[]
 }
@@ -114,6 +128,7 @@ export async function startTask(
   // The main worktree keeps the singular currentTask path (transparent for
   // single-agent use, and the backward-compatible mirror for read paths).
   const ws = await deriveWorkspace(projectPath)
+  const workspaceId = ws.isMain ? MAIN_WORKSPACE_ID : ws.workspaceId
   const taskFields = {
     id: taskId,
     description,
@@ -139,6 +154,18 @@ export async function startTask(
       ws.workspaceId
     )
   }
+
+  const pipelineDecision = decideTaskPipeline(description, linkedSpecId)
+  const pipelineState = upsertTaskPipelineState(projectId, {
+    taskId,
+    workspaceId,
+    classification: pipelineDecision.kind,
+    station: pipelineDecision.station,
+    requiresSpec: pipelineDecision.requiresSpec,
+    requiresTestsFirst: pipelineDecision.requiresTestsFirst,
+    reason: pipelineDecision.reason,
+    linkedSpecId: linkedSpecId ?? null,
+  })
 
   // Mirror the linkage on the spec side so `prjct spec show <id>` lists the
   // linked task. Best-effort — a missing spec just no-ops.
@@ -174,6 +201,13 @@ export async function startTask(
     linearId,
     linkedSpecId,
     harness,
+    pipeline: {
+      classification: pipelineState.classification,
+      station: pipelineState.station,
+      nextAction: formatTaskPipelineNextAction(pipelineDecision),
+      requiresSpec: pipelineState.requiresSpec,
+      requiresTestsFirst: pipelineState.requiresTestsFirst,
+    },
     instructions: beforeResult.instructions,
   }
 }

@@ -147,15 +147,20 @@ migration story, inspection tips, and troubleshooting.
 
 `.prjct/prjct.config.json` declares the project's persona (`role`, `focus`,
 `mcps`, `packs`). The hook pack at `core/hooks/` reads this config and
-injects `additionalContext` into the LLM on every relevant event:
+injects bounded `additionalContext` into the LLM on relevant events:
 
-- `SessionStart` → persona block + active task + last 3 learnings
-- `UserPromptSubmit` → topical recall from `projectMemory` (≤500 chars)
+- `SessionStart` → persona block; cold starts also get a compact knowledge digest
+- `UserPromptSubmit` → lean project state + at most one preventive trap cue
 - `PreToolUse` (Bash git commit) → anti-patterns tagged with touched files
 - `PostToolUse` (Edit/Write) → silently annotates `files_touched`
 - `Stop` → async "learned anything reusable?" prompt
-- `SubagentStart` → persona + memories for fresh-brain subagents
+- `SubagentStart` → compact role/task/trap digest for fresh-brain subagents
 - `CwdChanged` → re-contextualize on project switch
+
+Topical memory, decisions, learnings, and wiki detail are pull-first through
+`prjct search`, `prjct context memory`, `prjct guard`, or MCP tools. That keeps
+the hot prompt path cache-friendly and bounded without weakening recall when an
+agent actually needs prior knowledge.
 
 Packs are declarative JSON manifests (`templates/packs/*.json`). They
 register memory types, name workflow slots, and declare hook signals — but
