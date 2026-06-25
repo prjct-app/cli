@@ -118,6 +118,15 @@ export interface SyncStatus {
   hasConflicts: boolean
 }
 
+export interface SyncLinkResult {
+  projectId: string
+  syncStatus: 'active' | 'payment_required' | 'payment_pending'
+  billingState: 'free' | 'pending' | 'active' | 'past_due' | 'lifetime' | 'canceled'
+  billingInterval?: 'monthly' | 'annual' | 'lifetime' | null
+  billingUrl: string
+  message: string
+}
+
 /**
  * Product benchmark payload sent to the prjct cloud API.
  *

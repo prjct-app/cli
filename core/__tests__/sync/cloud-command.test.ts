@@ -4,6 +4,7 @@
  * Verifies the user-facing contract without touching the network:
  *  - an unlinked project is local-only; sync/pull are gated off
  *  - link flips `config.cloud.enabled` on (persisted)
+ *  - backend link status is surfaced without local entitlement checks
  *  - unlink / pause / resume mutate config as expected
  *  - status reports the right state
  *
@@ -18,6 +19,7 @@ import path from 'node:path'
 import { CloudCommands } from '../../commands/cloud'
 import configManager from '../../infrastructure/config-manager'
 import authConfig from '../../sync/auth-config'
+import syncClient from '../../sync/sync-client'
 import syncManager from '../../sync/sync-manager'
 
 let tempDir: string
@@ -25,6 +27,7 @@ let originalProjectsDir: string | undefined
 let cloud: CloudCommands
 const origSync = syncManager.sync.bind(syncManager)
 const origPull = syncManager.pull.bind(syncManager)
+const origLinkProject = syncClient.linkProject.bind(syncClient)
 const origRead = authConfig.read.bind(authConfig)
 
 describe('prjct cloud command', () => {
@@ -53,6 +56,14 @@ describe('prjct cloud command', () => {
       applied: 0,
       syncedAt: '',
     })) as never
+    syncClient.linkProject = mock(async (projectId: string) => ({
+      projectId,
+      syncStatus: 'active',
+      billingState: 'active',
+      billingInterval: 'monthly',
+      billingUrl: 'https://cli.prjct.app/billing',
+      message: 'Cloud sync is active for this repo.',
+    })) as never
   })
 
   afterEach(async () => {
@@ -62,6 +73,7 @@ describe('prjct cloud command', () => {
     authConfig.clearCache()
     syncManager.sync = origSync
     syncManager.pull = origPull
+    syncClient.linkProject = origLinkProject
     await fs.rm(tempDir, { recursive: true, force: true })
   })
 
@@ -84,6 +96,25 @@ describe('prjct cloud command', () => {
     const config = await configManager.readConfig(tempDir)
     expect(config?.cloud?.enabled).toBe(true)
     expect(config?.cloud?.linkedAt).toBeTruthy()
+  })
+
+  test('link surfaces backend payment-required state without local entitlement logic', async () => {
+    syncClient.linkProject = mock(async (projectId: string) => ({
+      projectId,
+      syncStatus: 'payment_required',
+      billingState: 'free',
+      billingInterval: null,
+      billingUrl: 'https://cli.prjct.app/billing',
+      message: 'Repo linked. Subscribe to activate Cloud sync.',
+    })) as never
+
+    const res = await cloud.cloud('link', tempDir, { md: true })
+    const config = await configManager.readConfig(tempDir)
+
+    expect(res.success).toBe(false)
+    expect(res.paymentRequired).toBe(true)
+    expect(config?.cloud?.enabled).toBe(true)
+    expect(syncManager.sync).not.toHaveBeenCalled()
   })
 
   test('pause / resume toggle config.cloud.paused once linked', async () => {

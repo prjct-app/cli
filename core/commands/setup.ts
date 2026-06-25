@@ -337,8 +337,8 @@ export class SetupCommands extends PrjctCommandsBase {
 body{font-family:-apple-system,system-ui,BlinkMacSystemFont,'Segoe UI',sans-serif;
 background:#0a0a0a;color:#e5e5e5;display:flex;justify-content:center;align-items:center;min-height:100vh}
 .card{text-align:center;max-width:420px;padding:2.5rem}
-.logo{font-size:.875rem;letter-spacing:.05em;color:#888;margin-bottom:2rem;font-family:ui-monospace,monospace}
-.logo span{color:#22d3ee}
+.logo{font-size:.875rem;letter-spacing:.05em;color:#a3a3a3;margin-bottom:2rem;font-family:ui-monospace,monospace}
+.logo span{color:#e5e5e5}
 .icon{width:64px;height:64px;border-radius:50%;background:rgba(34,211,238,.12);
 display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem}
 .icon svg{width:32px;height:32px;color:#22d3ee}
@@ -374,8 +374,8 @@ margin:1.25rem 0;text-align:left;font-size:.875rem;line-height:1.75}
 body{font-family:-apple-system,system-ui,BlinkMacSystemFont,'Segoe UI',sans-serif;
 background:#0a0a0a;color:#e5e5e5;display:flex;justify-content:center;align-items:center;min-height:100vh}
 .card{text-align:center;max-width:420px;padding:2.5rem}
-.logo{font-size:.875rem;letter-spacing:.05em;color:#888;margin-bottom:2rem;font-family:ui-monospace,monospace}
-.logo span{color:#22d3ee}
+.logo{font-size:.875rem;letter-spacing:.05em;color:#a3a3a3;margin-bottom:2rem;font-family:ui-monospace,monospace}
+.logo span{color:#e5e5e5}
 .icon{width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,.12);
 display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem}
 .icon svg{width:32px;height:32px;color:#ef4444}

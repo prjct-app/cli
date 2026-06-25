@@ -17,12 +17,15 @@
  * and surfaced here verbatim (e.g. a 402 upgrade message).
  */
 
+import path from 'node:path'
 import { syncEventBus } from '../events/sync-events'
 import configManager from '../infrastructure/config-manager'
+import { buildProjectMeta } from '../services/sync/project-meta'
 import authConfig from '../sync/auth-config'
 import { addLinkedProject, removeLinkedProject } from '../sync/cloud-registry'
 import { DEFAULT_INCLUDE } from '../sync/entity-map'
 import realtimeManager from '../sync/realtime-manager'
+import syncClient from '../sync/sync-client'
 import syncManager from '../sync/sync-manager'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -80,21 +83,36 @@ export class CloudCommands extends PrjctCommandsBase {
       return failHard('Not authenticated. Run `prjct login`, then `prjct cloud link`.', options)
     }
 
-    config.cloud = {
+    const linkedCloud = {
       enabled: true,
       paused: false,
       linkedAt: config.cloud?.linkedAt ?? new Date().toISOString(),
       include: config.cloud?.include,
     }
+    const meta = await buildProjectMeta(config.projectId).catch(() => undefined)
+    const link = await syncClient.linkProject(config.projectId, path.basename(projectPath), meta)
+    config.cloud = linkedCloud
     await configManager.writeConfig(projectPath, config)
-    await addLinkedProject(config.projectId, projectPath)
-    // Open the realtime connection (no-op outside the daemon — the daemon
-    // reopens it from the registry on its next boot).
-    await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
 
-    const result = await syncManager.sync(config.projectId, { include: config.cloud.include ?? {} })
-    return this.reportSync('Linked', result, options, {
-      extra: 'Project is now linked. It will also sync on `prjct ship` and at session end.',
+    if (link.syncStatus === 'active') {
+      await addLinkedProject(config.projectId, projectPath)
+      // Open the realtime connection (no-op outside the daemon — the daemon
+      // reopens it from the registry on its next boot).
+      await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
+      const result = await syncManager.sync(config.projectId, {
+        include: config.cloud.include ?? {},
+      })
+      return this.reportSync('Linked', result, options, {
+        extra: 'Project is now linked. It will also sync on `prjct ship` and at session end.',
+      })
+    }
+
+    return this.subscriptionRequired(link.message, options, {
+      title:
+        link.syncStatus === 'payment_pending'
+          ? 'Cloud sync waiting for payment'
+          : 'Cloud sync waiting for subscription',
+      prefix: `Repo linked to your prjct account. Billing: ${link.billingUrl}`,
     })
   }
 
@@ -256,14 +274,24 @@ export class CloudCommands extends PrjctCommandsBase {
    * is authored server-side (the CLI has zero paywall logic) and surfaced here
    * as a clear, dedicated notice rather than a generic sync error.
    */
-  private subscriptionRequired(reason: string | undefined, options: MdOption): CommandResult {
+  private subscriptionRequired(
+    reason: string | undefined,
+    options: MdOption,
+    opts?: { title?: string; prefix?: string }
+  ): CommandResult {
     const msg =
       reason ??
       'Cloud sync needs an active prjct subscription. Your local data is safe — only cloud backup is paused.'
     if (options.md) {
-      console.log(mdOutput('## Subscription required', `> 💳 ${msg}`))
+      console.log(
+        mdOutput(
+          `## ${opts?.title ?? 'Subscription required'}`,
+          `> 💳 ${opts?.prefix ? `${opts.prefix}\n\n${msg}` : msg}`
+        )
+      )
     } else {
-      out.warn('Cloud backup paused — subscription required')
+      out.warn(opts?.title ?? 'Cloud backup paused — subscription required')
+      if (opts?.prefix) out.info(opts.prefix)
       out.info(msg)
     }
     // Not a hard failure: local-first work continues; only cloud sync is gated.

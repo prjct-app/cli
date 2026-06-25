@@ -7,12 +7,14 @@
  * PRJ-111: Includes configurable timeout support via AbortController.
  */
 
+import type { ProjectMetaPayload } from '../services/sync/project-meta'
 import type { SyncEvent } from '../types/events'
 import type {
   BenchmarkPublishPayload,
   BenchmarkPublishResult,
   SyncBatchResult,
   SyncClientError,
+  SyncLinkResult,
   SyncPullResult,
   SyncStatus,
 } from '../types/sync'
@@ -132,6 +134,38 @@ class SyncClient {
     }
 
     return (await response.json()) as SyncStatus
+  }
+
+  async linkProject(
+    projectId: string,
+    name?: string,
+    meta?: ProjectMetaPayload
+  ): Promise<SyncLinkResult> {
+    const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
+
+    if (!apiKey) {
+      throw this.createError('AUTH_REQUIRED', 'No API key configured')
+    }
+
+    const response = await this.fetchWithRetry(`${apiUrl}/sync/link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.authHeaders(apiKey, deviceId),
+      },
+      body: JSON.stringify({
+        projectId,
+        ...(name ? { name } : {}),
+        ...(meta ? { meta } : {}),
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await this.parseErrorResponse(response)
+      throw error
+    }
+
+    return (await response.json()) as SyncLinkResult
   }
 
   /**
@@ -302,8 +336,12 @@ class SyncClient {
 
   private async parseErrorResponse(response: Response): Promise<SyncClientError> {
     try {
-      const body = (await response.json()) as { message?: string; error?: string }
-      const message = body.message || body.error || `HTTP ${response.status}`
+      const body = (await response.json()) as {
+        detail?: string
+        message?: string
+        error?: string
+      }
+      const message = body.detail || body.message || body.error || `HTTP ${response.status}`
 
       if (response.status === 401 || response.status === 403) {
         return this.createError('AUTH_REQUIRED', message, response.status)
