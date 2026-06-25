@@ -211,7 +211,7 @@ describe('SyncClient.publishBenchmark', () => {
   })
 
   it('surfaces server subscription gate as PAYMENT_REQUIRED', async () => {
-    stubFetch(() => jsonResponse(402, { message: 'Upgrade required to publish benchmarks.' }))
+    stubFetch(() => jsonResponse(402, { detail: 'Upgrade required to publish benchmarks.' }))
 
     await expect(
       syncClient.publishBenchmark('proj-1', {

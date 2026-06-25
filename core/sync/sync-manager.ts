@@ -6,6 +6,7 @@
  */
 
 import { syncEventBus } from '../events/sync-events'
+import { buildProjectMeta } from '../services/sync/project-meta'
 import type { SyncEvent } from '../types/events'
 import type {
   PullResult,
@@ -500,12 +501,16 @@ class SyncManager {
    */
   private async createProjectLinkEvent(projectId: string): Promise<SyncEvent | null> {
     try {
+      // Sanitized repo facts (provider, branch, stack, sync health) ride along
+      // so the web app can identify the project; refreshed on every sync.
+      const meta = await buildProjectMeta(projectId).catch(() => ({}))
       return {
         type: 'project.updated',
         path: ['project'],
         data: {
           id: projectId,
           cli_project_id: projectId,
+          meta,
         },
         timestamp: new Date().toISOString(),
         projectId,
