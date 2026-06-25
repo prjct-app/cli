@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.70.0] - 2026-06-25
+
+### Features
+
+- sync sanitized project metadata for the web /projects view (#468)
+
+
 ## [2.69.0] - 2026-06-24
 
 ### Added
