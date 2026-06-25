@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.65.0] - 2026-06-24
+
+### Added
+- reduce user token consumption in generated agent context
+
 ## [2.64.0] - 2026-06-24
 
 ### Added
