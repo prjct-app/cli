@@ -184,6 +184,21 @@ describe('Wiki Generator — manifest incrementality', () => {
     expect(second.filesRemoved).toBe(0)
   })
 
+  it('A.2c self-heals a deleted vault file even when inputs are unchanged', async () => {
+    appendMemoryEvent('decision', 'we picked SQLite')
+    await generateWiki(projectRoot, projectId)
+    const indexPath = path.join(generatedRoot, 'index.md')
+    expect(await fs.stat(indexPath).then(() => true)).toBe(true)
+
+    // Simulate a stale/partially-wiped vault: delete the top-level index
+    // WITHOUT changing any DB input. The old behaviour trusted the manifest +
+    // fingerprint and never recreated it ("context queda stale").
+    await fs.rm(indexPath)
+    const healed = await generateWiki(projectRoot, projectId)
+    expect(healed.filesWritten).toBeGreaterThan(0)
+    expect(await fs.readFile(indexPath, 'utf-8')).toContain('Project context export')
+  })
+
   it('A.2b skips DB queries entirely when fingerprint matches (fast path)', async () => {
     llmAnalysisStorage.save(
       projectId,
