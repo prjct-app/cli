@@ -242,7 +242,7 @@ async function main(): Promise<void> {
           regen: () => commands.regenVault(process.cwd(), { md }),
           start: () => commands.start(),
           // Auth (cloud sync)
-          login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
+          login: () => commands.login({ md }),
           logout: () => commands.logout(),
           auth: (p) => commands.auth(p, { md }),
         }
@@ -329,8 +329,10 @@ function validateCommandParams(
 ): import('./types/errors').ErrorWithHint | null {
   if (!cmd.params) return null
 
-  // Extract required params: tokens wrapped in <angle brackets>
-  const requiredParams = cmd.params.match(/<[^>]+>/g)
+  // Extract required params: tokens wrapped in <angle brackets>, ignoring
+  // optional groups such as `[--flag <value>]`.
+  const requiredParamSource = cmd.params.replace(/\[[^\]]*\]/g, '')
+  const requiredParams = requiredParamSource.match(/<[^>]+>/g)
   if (!requiredParams || requiredParams.length === 0) return null
 
   // Check if enough positional args provided

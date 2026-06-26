@@ -15,7 +15,9 @@ export interface AuthResult {
 }
 
 /**
- * Authentication configuration stored in ~/.prjct-cli/config/auth.json
+ * Authentication metadata stored in ~/.prjct-cli/config/auth.json.
+ * The Cloud API token is loaded from the OS credential store and exposed
+ * in-memory as apiKey for callers.
  *
  * `deviceId` (Phase 1.5 / B6) is generated as a UUID v4 the first
  * time auth.json is read on a 1.5+ binary. Persisted on first write;

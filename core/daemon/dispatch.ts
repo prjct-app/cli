@@ -116,7 +116,7 @@ export async function executeCommand(
     case 'regen':
       return commands.regenVault(request.cwd, { md })
     case 'login':
-      return commands.login({ md, url: opts.url ? String(opts.url) : undefined })
+      return commands.login({ md })
     case 'logout':
       return commands.logout()
     case 'auth':

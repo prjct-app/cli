@@ -11,10 +11,10 @@
  *   prjct cloud pause | resume   → stop / restart sync without unlinking
  *
  * Local-first contract: nothing leaves the machine until a project is linked
- * (`config.cloud.enabled`). The CLI only carries the token (in `auth.json`)
- * and talks to a storage API — it knows nothing about how the cloud stores
- * the data, and has ZERO paywall logic: paid limits are enforced server-side
- * and surfaced here verbatim (e.g. a 402 upgrade message).
+ * (`config.cloud.enabled`). The CLI reads the token from the OS credential
+ * store and talks to a storage API — it knows nothing about how the cloud
+ * stores the data, and has ZERO paywall logic: paid limits are enforced
+ * server-side and surfaced here verbatim (e.g. a 402 upgrade message).
  */
 
 import path from 'node:path'

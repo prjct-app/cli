@@ -77,8 +77,8 @@ const tick = (ms = 25) => new Promise((r) => setTimeout(r, ms))
 
 describe('buildRealtimeUrl', () => {
   it('swaps https→wss and appends auth query params', () => {
-    const url = buildRealtimeUrl('https://api.prjct.app', 'p1', 'pk_live_x', 'd1')
-    expect(url.startsWith('wss://api.prjct.app/ws?')).toBe(true)
+    const url = buildRealtimeUrl('https://cli-api.prjct.app', 'p1', 'pk_live_x', 'd1')
+    expect(url.startsWith('wss://cli-api.prjct.app/ws?')).toBe(true)
     const q = new URL(url).searchParams
     expect(q.get('key')).toBe('pk_live_x')
     expect(q.get('device')).toBe('d1')

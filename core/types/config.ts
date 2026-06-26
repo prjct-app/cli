@@ -156,7 +156,7 @@ export interface LocalConfig {
    * Cloud sync opt-in for THIS project. Absent / `enabled: false` ⇒ the
    * project is local-only and NOTHING leaves the machine — the local-first
    * default. `prjct cloud link` flips `enabled` on; the CLI then pushes the
-   * pending queue to the storage API (token in `auth.json`, never here) and
+   * pending queue to the storage API (token in the OS credential store, never here) and
    * pulls remote changes. Safe to commit if a team wants a shared opt-in.
    *
    * Paid enforcement is 100% server-side: the CLI only carries the token and

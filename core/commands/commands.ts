@@ -441,7 +441,7 @@ class PrjctCommands {
     return (await this.setupCmdsG()).auth(action, options)
   }
 
-  async login(options: { md?: boolean; url?: string } = {}): Promise<CommandResult> {
+  async login(options: { md?: boolean } = {}): Promise<CommandResult> {
     return (await this.setupCmdsG()).login(options)
   }
 

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import authConfig from '../../sync/auth-config'
+import { _setAuthTokenStoreForTests, type AuthTokenLocation } from '../../sync/secure-auth-token'
 import syncClient from '../../sync/sync-client'
 import type { SyncEvent } from '../../types/events'
 
@@ -13,12 +14,25 @@ let tmpPath: string
 const originalConfigPath = (authConfig as unknown as { configPath: string }).configPath
 const originalFetch = globalThis.fetch
 let calls: FetchCall[] = []
+let storedToken: string | null = null
 
 async function seedAuth(apiKey: string | null = 'sk_test_key') {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-sync-client-test-'))
   tmpPath = path.join(tmpDir, 'auth.json')
   ;(authConfig as unknown as { configPath: string }).configPath = tmpPath
   authConfig.clearCache()
+  storedToken = null
+  _setAuthTokenStoreForTests({
+    get: async () => storedToken,
+    set: async (value: string): Promise<AuthTokenLocation> => {
+      storedToken = value
+      return 'keychain'
+    },
+    clear: async () => {
+      storedToken = null
+    },
+    location: async () => (storedToken ? 'keychain' : 'none'),
+  })
   if (apiKey) {
     await authConfig.saveAuth(apiKey, 'user-1', 'u@x')
   }
@@ -42,6 +56,7 @@ function jsonResponse(status: number, body: unknown): Response {
 
 afterEach(async () => {
   globalThis.fetch = originalFetch
+  _setAuthTokenStoreForTests(null)
   ;(authConfig as unknown as { configPath: string }).configPath = originalConfigPath
   authConfig.clearCache()
   if (tmpDir) {
@@ -94,12 +109,14 @@ describe('SyncClient.pushEvents', () => {
     expect(body.events[0].entity_type).toBe('tasks')
   })
 
-  it('surfaces 401 as AUTH_REQUIRED error', async () => {
+  it('surfaces 401 as AUTH_REQUIRED error and clears local auth', async () => {
     stubFetch(() => jsonResponse(401, { error: 'bad key' }))
     await expect(syncClient.pushEvents('proj-1', [])).rejects.toMatchObject({
       code: 'AUTH_REQUIRED',
       status: 401,
     })
+    expect(await authConfig.hasAuth()).toBe(false)
+    expect(storedToken).toBeNull()
   })
 
   it('surfaces 400 as API_ERROR', async () => {
@@ -241,6 +258,14 @@ describe('SyncClient.testConnection', () => {
     await seedAuth()
     stubFetch(() => new Response('ok', { status: 200 }))
     expect(await syncClient.testConnection()).toBe(true)
+  })
+
+  it('clears local auth on server auth rejection', async () => {
+    await seedAuth()
+    stubFetch(() => new Response('bad key', { status: 403 }))
+    expect(await syncClient.testConnection()).toBe(false)
+    expect(await authConfig.hasAuth()).toBe(false)
+    expect(storedToken).toBeNull()
   })
 
   it('returns false on network error', async () => {
