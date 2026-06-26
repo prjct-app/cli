@@ -143,6 +143,7 @@ export function registerProjectTools(server: McpServer) {
         text.push('', 'Harness warnings:')
         for (const warning of warnings) text.push(`- ${warning}`)
       }
+      if (outcome.contextPrompt) text.push('', outcome.contextPrompt)
       return {
         content: [{ type: 'text', text: text.join('\n') }],
       }

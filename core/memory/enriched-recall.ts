@@ -17,7 +17,7 @@ import { embeddingService } from '../services/embeddings'
 import { usefulnessService } from '../services/usefulness'
 import { stateStorage } from '../storage/state-storage'
 import type { MemoryEntry, MemoryType } from './entries'
-import { matchesTags } from './entries'
+import { isModelMemory, matchesTags } from './entries'
 import { projectMemory } from './project-memory'
 
 export interface EnrichedRecallOpts {
@@ -83,6 +83,15 @@ export async function enrichedRecall(
       /* best-effort — lexical results stand */
     }
   }
+
+  // Clean the RAG: drop machine telemetry noise (raw friction quotes,
+  // hot-file churn counters) so a recall returns project KNOWLEDGE, not basura.
+  // Retrocompatible + non-destructive — the rows stay (audit / developer.md),
+  // they just don't surface as context. Skipped when the caller EXPLICITLY asked
+  // for one of those types (e.g. the dev-profile builder).
+  entries = entries.filter(
+    (e) => isModelMemory(e) || (types?.includes(e.type as MemoryType) ?? false)
+  )
 
   // Reinforcement: nudge proven-useful entries up (bounded — relevance
   // still leads). This is how recall gets smarter with use.

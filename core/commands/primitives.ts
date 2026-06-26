@@ -71,6 +71,11 @@ export class PrimitiveCommands extends PrjctCommandsBase {
             for (const warning of warnings) out.warn(`Harness: ${warning}`)
           }
         }
+        // On `done`, ask the agent to capture the task's context (second brain).
+        if (outcome.contextPrompt) {
+          if (options.md) console.log(`\n## Capture context\n${outcome.contextPrompt}`)
+          else out.info(`\n${outcome.contextPrompt}`)
+        }
         return { success: true, taskId: outcome.taskId, status: value }
       }
 
@@ -219,10 +224,30 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       // source in that case.
       const active = await resolveActiveTask(pid.value, projectPath)
 
+      // A `context` entry is the per-task unit of the project's RAG: auto-anchor
+      // it to git (commit / author / files) so later recall answers "who touched
+      // this, what changed" without reading all of git blame. No-op off-repo.
+      let finalTags = tags
+      if (type === 'context') {
+        try {
+          const { deriveGitContext } = await import('../services/git-context')
+          const gc = await deriveGitContext(projectPath)
+          finalTags = {
+            ...tags,
+            ...(gc.commit ? { commit: gc.commit } : {}),
+            ...(gc.author ? { author: gc.author } : {}),
+            ...(gc.files?.length ? { files: gc.files.join(',') } : {}),
+            ...(active?.id ? { taskId: active.id } : {}),
+          }
+        } catch {
+          /* best-effort — capture still succeeds without the git anchors */
+        }
+      }
+
       await projectMemory.remember(projectPath, {
         type,
         content,
-        tags,
+        tags: finalTags,
         source: active?.id,
       })
 

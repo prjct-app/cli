@@ -58,6 +58,22 @@ export interface StartTaskOutcome {
   }
   /** Agent instructions emitted by `before_task` rules. */
   instructions?: string[]
+  /**
+   * Context recalled from the project's RAG that relates to THIS task's
+   * description — past contexts, decisions, traps. The "second brain" answer to
+   * "has this happened before? who touched it? what was decided?", surfaced
+   * on-demand at task start (PULL, not a session-start dump).
+   */
+  relatedContext?: RelatedContextHit[]
+}
+
+export interface RelatedContextHit {
+  id: string
+  type: string
+  title: string
+  /** ISO timestamp the entry was captured. */
+  when: string
+  author?: string
 }
 
 /**
@@ -193,6 +209,13 @@ export async function startTask(
 
   const branch = await getGitBranch(projectPath).catch(() => '')
 
+  // The superpower: recall what the project already knows about THIS task —
+  // past contexts/decisions/traps related to the description — so the agent
+  // gets "has this happened before? who? what was decided?" up front, pulled
+  // on demand. Reuses the one RAG pipeline (enrichedRecall) so it works over
+  // the user's EXISTING memory from day one. Best-effort; never blocks a start.
+  const relatedContext = await recallRelatedContext(projectPath, projectId, description)
+
   return {
     ok: true,
     taskId,
@@ -209,11 +232,67 @@ export async function startTask(
       requiresTestsFirst: pipelineState.requiresTestsFirst,
     },
     instructions: beforeResult.instructions,
+    relatedContext,
   }
 }
 
+/** Pull the RAG for context related to a task description (best-effort). */
+async function recallRelatedContext(
+  projectPath: string,
+  projectId: string,
+  description: string
+): Promise<RelatedContextHit[]> {
+  try {
+    const { enrichedRecall } = await import('../memory/enriched-recall')
+    const { deriveTitle } = await import('../memory/format')
+    const hits = await enrichedRecall(projectPath, projectId, {
+      topic: description,
+      types: ['context', 'decision', 'gotcha', 'anti-pattern'],
+      limit: 5,
+    })
+    if (hits.length === 0) return []
+    // Learn which surfaced context proves useful (usefulness ledger).
+    const { recordSurfacedForActiveTask } = await import('./usefulness/surface-attribution')
+    await recordSurfacedForActiveTask(
+      projectId,
+      projectPath,
+      hits.map((h) => h.id)
+    )
+    return hits.map((h) => ({
+      id: h.id,
+      type: h.type,
+      title: deriveTitle(h),
+      when: h.rememberedAt,
+      author: h.tags?.author,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * The in-band directive emitted when a task closes: the agent (who just did the
+ * work and understands the sentiment) writes the task's CONTEXT — the per-task
+ * unit of the project's second-brain RAG. English, structured, not a raw quote.
+ */
+export const TASK_CONTEXT_PROMPT =
+  'Task closed. Capture its CONTEXT for the project’s second brain so the next ' +
+  'session (or collaborator) can recall it:\n' +
+  '  prjct remember context "<what happened · why / what was really wanted (the ' +
+  'sentiment) · the decision + reason · the pattern or anti-pattern · the outcome>"\n' +
+  'Write it in English, one tight paragraph grounded in this task. Not the raw ' +
+  'complaint — the lesson. prjct auto-anchors it to the commit, author and files.'
+
 export type SetStatusOutcome =
-  | { ok: true; taskId: string; status: string; verificationWarnings?: string[] }
+  | {
+      ok: true
+      taskId: string
+      status: string
+      verificationWarnings?: string[]
+      /** Present when the task just closed (`done`): instruct the agent to
+       *  write the task context. */
+      contextPrompt?: string
+    }
   /** No active task and no paused task to resume — caller emits the guard. */
   | { ok: false; reason: 'no-active-task' }
   /** The transition isn't supported in this context — caller prints `message`. */
@@ -260,6 +339,7 @@ export async function setTaskStatus(
         taskId: wsTask.id,
         status: value,
         verificationWarnings: verification.warnings,
+        contextPrompt: TASK_CONTEXT_PROMPT,
       }
     }
 
@@ -326,7 +406,14 @@ export async function setTaskStatus(
     // already-completed task). The audit log still captures intent.
   }
 
-  return { ok: true, taskId: active.id, status: value, verificationWarnings: verification.warnings }
+  return {
+    ok: true,
+    taskId: active.id,
+    status: value,
+    verificationWarnings: verification.warnings,
+    contextPrompt:
+      normalized === 'done' || normalized === 'completed' ? TASK_CONTEXT_PROMPT : undefined,
+  }
 }
 
 /**

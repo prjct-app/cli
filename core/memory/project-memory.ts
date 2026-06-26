@@ -451,6 +451,26 @@ export const projectMemory = {
     } catch {
       return []
     }
+    // Also surface the task CONTEXT that touched this file ("this file was
+    // changed during these tasks, by these authors") — the git-anchored
+    // second-brain answer to "what happened here / who?" without git blame.
+    // Context entries carry a comma-joined `files` tag, so match in JS.
+    try {
+      const ctxRows = prjctDb.query<EventRow>(
+        projectId,
+        `SELECT id, type, data, timestamp FROM events
+          WHERE type = ? ORDER BY id DESC LIMIT 200`,
+        `${REMEMBER_EVENT_PREFIX}context`
+      )
+      for (const e of ctxRows.map(rowToEntry)) {
+        const files = (e.tags?.files ?? '').split(',').map((f) => f.trim())
+        if (files.some((f) => f === filePath || f === base || f.endsWith(`/${base}`))) {
+          matches.push(e)
+        }
+      }
+    } catch {
+      /* best-effort — preventive matches still stand */
+    }
     const dead = collectSupersededIds(matches)
     if (dead.size > 0) matches = matches.filter((e) => !dead.has(e.id))
     return matches.slice(0, limit)
