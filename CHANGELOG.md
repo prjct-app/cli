@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.76.0] - 2026-06-26
+
+### Features
+
+- project context RAG — the history of contexts (context is gold) (#474)
+
+
 ## [2.75.0] - 2026-06-26
 
 ### Features
