@@ -5,6 +5,7 @@
     "core/index.ts",
     "core/daemon/entry.ts",
     "core/mcp/entry.ts",
+    "core/hooks/cold-entry.ts",
     "scripts/*.{js,ts}",
     "core/__tests__/**/*.test.ts"
   ],

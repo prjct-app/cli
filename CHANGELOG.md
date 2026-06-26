@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-06-26
+
+### Added
+- cold hook bundle
+
 ## [3.0.0] - 2026-06-26
 
 ### Added

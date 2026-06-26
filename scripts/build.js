@@ -99,6 +99,34 @@ var __dirname = __pathDirname(__filename);`,
     },
   })
 
+  // 1a-hooks. Dedicated COLD-hook bundle (~136KB vs the ~936KB core).
+  // The shim's cold-hook fallback imports THIS instead of prjct-core.mjs, so a
+  // freshly-spawned hook parses only its real dependency closure (the 10 hook
+  // runners share almost all their deps) instead of the whole CLI. This is the
+  // dominant cost the hot-path benchmark measures (scripts/bench-hooks.mjs).
+  console.log('  → dist/bin/prjct-hooks.mjs (cold-hook bundle)')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/hooks/cold-entry.ts')],
+    outfile: path.join(DIST, 'bin', 'prjct-hooks.mjs'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'esm',
+    minify: true,
+    keepNames: true,
+    packages: 'external',
+    plugins: [stripShebangPlugin()],
+    banner: {
+      js: `#!/usr/bin/env node
+import { createRequire as __createRequire } from 'module';
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __pathDirname } from 'path';
+var require = __createRequire(import.meta.url);
+var __filename = __fileURLToPath(import.meta.url);
+var __dirname = __pathDirname(__filename);`,
+    },
+  })
+
   // 1b. Thin shim entry point (tries daemon first, ~3KB, <15ms parse)
   console.log('  → dist/bin/prjct.mjs (daemon shim)')
   const shimSource = generateDaemonShim()
@@ -257,9 +285,16 @@ function sendHook(sub,data){
   sock.on("error",soft);
   sock.on("close",soft);
 }
-if(cmd==="hook"&&process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){
-  const sub=args[1];
-  if(process.stdin.isTTY){sendHook(sub,"")}else{let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>sendHook(sub,d));process.stdin.on("error",()=>sendHook(sub,d));setTimeout(()=>sendHook(sub,d),1000)}
+if(cmd==="hook"){
+  if(process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){
+    const sub=args[1];
+    if(process.stdin.isTTY){sendHook(sub,"")}else{let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>sendHook(sub,d));process.stdin.on("error",()=>sendHook(sub,d));setTimeout(()=>sendHook(sub,d),1000)}
+  }else{
+    // Cold path (daemon disabled/unreachable): run the hook from the dedicated
+    // ~136KB hooks bundle, NOT the ~936KB core. cold-entry reads argv+stdin and
+    // exits, awaiting afterEmit (byte-identical output to the old core path).
+    import("./prjct-hooks.mjs").catch(()=>{process.stdout.write("{}\\n");process.exit(0)})
+  }
 }else if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){
   const cArgs=[],cOpts={};
   for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
