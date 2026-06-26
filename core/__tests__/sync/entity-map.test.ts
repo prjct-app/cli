@@ -32,6 +32,10 @@ describe('toCloudTable', () => {
     ['paused_task', 'tasks'],
     ['subtask', 'subtasks'],
     ['task', 'tasks'],
+    // Previously unmapped → silently dropped. Now first-class.
+    ['analysis', 'analysis'],
+    ['specs', 'specs'],
+    ['spec', 'specs'],
   ]
 
   it.each(PRODUCER_ENTITY_TYPES)('resolves producer %s → table %s', (producer, table) => {
@@ -60,7 +64,12 @@ describe('isTableIncluded', () => {
     expect(isTableIncluded('archives')).toBe(false)
     expect(DEFAULT_INCLUDE.user_prompts).toBe(false)
     expect(DEFAULT_INCLUDE.agent_sessions).toBe(false)
-    expect(DEFAULT_INCLUDE.analysis).toBe(false)
+    // Analysis + specs are project-understanding knowledge → on by default so
+    // the cloud vault is a complete picture (raw prompts/sessions stay off).
+    expect(DEFAULT_INCLUDE.analysis).toBe(true)
+    expect(DEFAULT_INCLUDE.specs).toBe(true)
+    expect(isTableIncluded('analysis')).toBe(true)
+    expect(isTableIncluded('specs')).toBe(true)
   })
 
   it('honors an explicit opt-out for a group', () => {
