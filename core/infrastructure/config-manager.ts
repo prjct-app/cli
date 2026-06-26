@@ -13,6 +13,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as jsonc from 'jsonc-parser'
 import { getErrorMessage } from '../errors'
+import { deriveProjectId } from '../services/sync/project-identity'
 import type { Author } from '../types/commands'
 import type { GlobalConfig, LocalConfig } from '../types/config'
 import { isNotFoundError } from '../types/fs'
@@ -128,7 +129,11 @@ class ConfigManager {
     projectPath: string,
     author: { name?: string; email?: string; github?: string }
   ): Promise<LocalConfig> {
-    const projectId = pathManager.generateProjectId(projectPath)
+    // Prefer a deterministic id derived from the git remote so the SAME repo
+    // gets the SAME cloud project on every machine (no duplicates). Repos with
+    // no remote fall back to a random id (can't be deduplicated cross-machine).
+    const projectId =
+      (await deriveProjectId(projectPath)) ?? pathManager.generateProjectId(projectPath)
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const displayPath = pathManager.getDisplayPath(globalPath)
     const now = getTimestamp()

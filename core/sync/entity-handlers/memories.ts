@@ -70,6 +70,11 @@ export const memoriesHandler: EntityHandler = {
 
     // FTS mirror — same INSERT shape as project-memory.remember().
     const memId = `mem_${eventId}`
+    // Preserve the authored time from the remote event so chronology survives
+    // the round trip (machine A's 10:00 memory shows as 10:00 on machine B,
+    // not "now"). Falls back to now only when the event omits it.
+    const authored =
+      (data.created_at as string) || (data.createdAt as string) || new Date().toISOString()
     const now = new Date().toISOString()
     const title = (content.split('\n')[0] ?? content).slice(0, 80)
     try {
@@ -88,7 +93,7 @@ export const memoriesHandler: EntityHandler = {
         provenance,
         contentHash,
         0,
-        now,
+        authored,
         now
       )
     } catch {
@@ -96,22 +101,9 @@ export const memoriesHandler: EntityHandler = {
     }
   },
 
-  async delete(projectId, data) {
-    // Tombstone by content identity (stable across machines).
-    const content = field(data, 'content', 'content')
-    const type = field(data, 'type', 'type')
-    if (!content || !type) return
-    const contentHash = memoryFingerprint(content)
-    try {
-      prjctDb.run(
-        projectId,
-        'UPDATE memories SET deleted_at = ? WHERE content_hash = ? AND type = ? AND deleted_at IS NULL',
-        new Date().toISOString(),
-        contentHash,
-        type
-      )
-    } catch {
-      // Best-effort tombstone.
-    }
+  async delete(_projectId, _data) {
+    // No-op by design: sync NEVER deletes or modifies a local record. A memory
+    // removed on another machine stays in this machine's vault — local is the
+    // source of truth and is never destroyed by a pull.
   },
 }

@@ -16,6 +16,7 @@ import { ideasHandler } from './ideas'
 import { memoriesHandler } from './memories'
 import { queueTasksHandler } from './queue-tasks'
 import { shippedHandler } from './shipped'
+import { specsHandler } from './specs'
 import { tasksHandler } from './tasks'
 import type { EntityHandler } from './types'
 import { workflowRulesHandler } from './workflow-rules'
@@ -33,6 +34,7 @@ export const entityHandlers: Record<string, EntityHandler> = {
   shipped_features: shippedHandler,
   custom_workflows: customWorkflowsHandler,
   workflow_rules: workflowRulesHandler,
+  specs: specsHandler,
 }
 
 /** Read-only list of supported entity types — useful for telemetry. */
@@ -65,6 +67,11 @@ export const UNKNOWN_ENTITY_TYPES: ReadonlySet<string> = new Set([
   'subtasks',
   'metrics_daily',
   'velocity_sprints',
+  // analysis: pushed to the cloud (for the web view) but NOT applied locally.
+  // It's a derived, regenerable artifact (`prjct sync` rebuilds it) and its rich
+  // camelCase schema doesn't round-trip cleanly through the snake_case wire, so
+  // reconstructing it locally would be lossy. Specs (authored) DO apply.
+  'analysis',
 ])
 
 export type { EntityHandler } from './types'

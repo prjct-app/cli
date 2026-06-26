@@ -44,6 +44,7 @@ describe('entity-handlers registry', () => {
         'queue_tasks',
         'shipped_features',
         'shipped_items',
+        'specs',
         'tasks',
         'workflow_rules',
       ].sort()
@@ -76,14 +77,15 @@ describe('entity-handlers registry', () => {
     expect(all[0].text).toBe('rate limit auth (updated)')
   })
 
-  test('ideas handler delete soft-archives the row (no hard delete)', async () => {
+  test('ideas handler delete is a no-op — local is never modified by a remote delete', async () => {
     const handler = entityHandlers.ideas
-    await handler.upsert(projectId, { id: 'idea-2', text: 'will archive', status: 'active' })
+    await handler.upsert(projectId, { id: 'idea-2', text: 'keep me', status: 'active' })
     await handler.delete(projectId, { id: 'idea-2' })
 
+    // The local idea stays exactly as it was — sync never touches it.
     const after = await ideasStorage.getById(projectId, 'idea-2')
     expect(after).toBeTruthy()
-    expect(after?.status).toBe('archived')
+    expect(after?.status).toBe('pending')
   })
 
   test('shipped handler delete is a no-op (append-only history)', async () => {

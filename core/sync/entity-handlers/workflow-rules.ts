@@ -41,9 +41,7 @@ export const workflowRulesHandler: EntityHandler = {
     )
   },
 
-  async delete(projectId, data) {
-    const id = Number(data.id)
-    if (!Number.isFinite(id) || id <= 0) return
-    prjctDb.run(projectId, 'DELETE FROM workflow_rules WHERE id = ?', id)
+  async delete(_projectId, _data) {
+    // No-op by design: sync never deletes or modifies a local record.
   },
 }

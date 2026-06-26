@@ -263,6 +263,51 @@ class SpecStorage {
     return true
   }
 
+  /**
+   * Apply a spec pulled from the cloud — ADDITIVE ONLY. Inserts a spec that
+   * doesn't exist locally yet; if the id already exists locally it is left
+   * UNTOUCHED. Local data is sacred: sync never modifies or deletes a local
+   * record, it only fills in what's missing. Does NOT re-publish (no echo) and
+   * preserves the remote timestamps. Used by the sync apply handler only.
+   */
+  applyRemote(
+    projectId: string,
+    spec: {
+      id: string
+      title?: string
+      status?: string
+      content: unknown
+      tags?: Record<string, string> | string | null
+      created_at?: string
+      updated_at?: string
+    }
+  ): void {
+    if (!spec.id) return
+    const content =
+      typeof spec.content === 'string' ? spec.content : JSON.stringify(spec.content ?? {})
+    const status = SPEC_STATUSES.includes(spec.status as SpecStatus) ? spec.status : 'draft'
+    const tags =
+      spec.tags == null
+        ? null
+        : typeof spec.tags === 'string'
+          ? spec.tags
+          : JSON.stringify(spec.tags)
+    const now = getTimestamp()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO specs (id, title, status, content, tags, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO NOTHING`,
+      spec.id,
+      spec.title ?? '',
+      status,
+      content,
+      tags,
+      spec.created_at || now,
+      spec.updated_at || now
+    )
+  }
+
   count(projectId: string): { total: number; draft: number; shipped: number } {
     const rows = prjctDb.query<{ status: string; n: number }>(
       projectId,

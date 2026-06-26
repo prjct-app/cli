@@ -25,7 +25,11 @@ export const ideasHandler: EntityHandler = {
         text,
         priority,
         status: desiredStatus,
-        addedAt: ideas.ideas[existingIdx]?.addedAt ?? new Date().toISOString(),
+        addedAt:
+          ideas.ideas[existingIdx]?.addedAt ??
+          (data.created_at as string) ??
+          (data.addedAt as string) ??
+          new Date().toISOString(),
         tags: ideas.ideas[existingIdx]?.tags ?? [],
       } as (typeof ideas.ideas)[number]
       const list =
@@ -36,14 +40,7 @@ export const ideasHandler: EntityHandler = {
     })
   },
 
-  async delete(projectId, data) {
-    const id = (data.id as string) || ''
-    if (!id) return
-    await ideasStorage.update(projectId, (ideas) => ({
-      ...ideas,
-      ideas: ideas.ideas.map((idea) =>
-        idea.id === id ? { ...idea, status: 'archived' as const } : idea
-      ),
-    }))
+  async delete(_projectId, _data) {
+    // No-op by design: sync never deletes or modifies a local record.
   },
 }
