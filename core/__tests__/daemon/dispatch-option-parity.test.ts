@@ -82,7 +82,7 @@ describe('cold ↔ daemon option-forwarding parity', () => {
     expect(dropped).toEqual([])
   })
 
-  test('the historically-broken commands are schema-covered or explicitly cased', () => {
+  test('the historically-broken commands are schema-covered, bin-only, or explicitly cased', () => {
     const cased = dispatchCaseLabels()
     const schema = schemaCoveredCommands()
     // embeddings/capture lost flags via the daemon in 2.34.0/2.37.x —
@@ -90,8 +90,12 @@ describe('cold ↔ daemon option-forwarding parity', () => {
     for (const c of ['embeddings', 'capture', 'ship', 'task', 'team', 'guard', 'remember']) {
       expect(schema.has(c)).toBe(true)
     }
-    for (const c of ['init', 'regen', 'login', 'logout', 'auth']) {
+    for (const c of ['init', 'regen']) {
       expect(cased.has(c)).toBe(true)
+    }
+    for (const c of ['login', 'logout', 'auth']) {
+      expect(BIN_COMMANDS_SET.has(c)).toBe(true)
+      expect(cased.has(c)).toBe(false)
     }
   })
 

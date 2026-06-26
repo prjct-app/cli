@@ -250,12 +250,6 @@ export class SetupCommands extends PrjctCommandsBase {
    * Logout — clear auth credentials
    */
   async logout(): Promise<CommandResult> {
-    const status = await authConfig.getStatus()
-    if (!status.authenticated) {
-      out.info('Already logged out')
-      return { success: true, message: '' }
-    }
-
     await authConfig.clearAuth()
     out.done('Logged out')
     return { success: true, message: '' }

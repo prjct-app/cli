@@ -614,6 +614,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
+    routingMode: 'bin-only',
   },
   {
     name: 'logout',
@@ -624,6 +625,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
+    routingMode: 'bin-only',
   },
   {
     name: 'auth',
@@ -635,6 +637,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
+    routingMode: 'bin-only',
   },
   {
     name: 'context',
