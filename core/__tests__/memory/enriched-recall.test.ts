@@ -54,6 +54,26 @@ describe('enrichedRecall', () => {
     expect(got.length).toBe(2)
   })
 
+  it('drops machine-telemetry noise from the RAG (clean recall, 12k retrocompat)', async () => {
+    write('decision', 'use bun for everything')
+    write('improvement-signal', 'no, así no')
+    write('learning', 'file churns a lot', { pattern: 'hot-file' })
+    const got = await enrichedRecall(projectPath, projectId, { limit: 10 })
+    const types = got.map((e) => e.type)
+    expect(types).toContain('decision')
+    expect(types).not.toContain('improvement-signal')
+    expect(got.some((e) => e.tags?.pattern === 'hot-file')).toBe(false)
+  })
+
+  it('still returns noise when the caller EXPLICITLY asks for that type', async () => {
+    write('improvement-signal', 'no, así no')
+    const got = await enrichedRecall(projectPath, projectId, {
+      types: ['improvement-signal'],
+      limit: 10,
+    })
+    expect(got.map((e) => e.type)).toContain('improvement-signal')
+  })
+
   it('applies a types filter across legs', async () => {
     write('decision', 'use bun for everything')
     write('gotcha', 'daemon caches stale code')

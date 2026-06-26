@@ -6,6 +6,8 @@ import fs from 'node:fs/promises'
 import analyzer from '../domain/analyzer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { deriveTitle } from '../memory/format'
+import { projectMemory } from '../memory/project-memory'
 import { formatAnalysisDiffMd } from '../services/analysis-diff'
 import { buildAnalysisPayload } from '../services/analysis-payload-builder'
 import { syncService } from '../services/sync-service'
@@ -254,6 +256,26 @@ export class AnalysisCommands extends PrjctCommandsBase {
         }
 
         const steps = getNextSteps('sync', true)
+        // Evaluate the recent context: surface the task contexts captured since
+        // the last sync so the agent folds their patterns/anti-patterns into the
+        // project's understanding (incremental — "lo que se generó al final").
+        let contextReviewSection: string | null = null
+        try {
+          const recentContexts = projectMemory
+            .recall(projectId, { types: ['context'], limit: 5 })
+            .map((e) => `- ${deriveTitle(e)}  \`${e.id}\``)
+          if (recentContexts.length > 0) {
+            contextReviewSection = [
+              '### Evaluate recent context',
+              'Task contexts captured recently — fold their decisions, patterns and',
+              'anti-patterns into the project analysis (and supersede anything now wrong):',
+              '',
+              ...recentContexts,
+            ].join('\n')
+          }
+        } catch {
+          /* best-effort — sync output is fine without it */
+        }
         const idx = result.syncMetrics?.indexes
         const mdStatsObj: Record<string, string | number> = {
           Duration: `${(elapsed / 1000).toFixed(1)}s`,
@@ -271,6 +293,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStats(mdStatsObj),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
+          contextReviewSection,
           llmAnalysisInstructions,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )

@@ -22,6 +22,11 @@ export const BASE_MEMORY_TYPES = [
   'pattern',
   'anti-pattern',
   'shipped',
+  // The history of contexts: one rich, git-linked entry per task — what
+  // happened, why (the sentiment), the decision, the trap, the outcome. The
+  // recoverable unit of the project's "second brain" RAG. Embedded by default
+  // (isModelMemory), surfaced on demand when a related task starts.
+  'context',
   // GTD / day-to-day (capture, triage, review)
   'inbox',
   'todo',

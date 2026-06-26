@@ -92,6 +92,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const beforeInstructions = outcome.instructions ?? []
       const pipeline = outcome.pipeline
       const harness = outcome.harness
+      const related = outcome.relatedContext ?? []
+      const relatedLines = related.map((r) => {
+        const when = r.when ? r.when.slice(0, 10) : ''
+        const who = r.author ? ` by ${r.author}` : ''
+        const meta = [when, who].filter(Boolean).join('')
+        return `[${r.type}] ${r.title}${meta ? ` (${meta.trim()})` : ''}  \`${r.id}\``
+      })
 
       if (options.md) {
         console.log(
@@ -129,6 +136,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
             beforeInstructions.length > 0
               ? mdSection('Agent Instructions', mdList(beforeInstructions))
               : null,
+            relatedLines.length > 0
+              ? mdSection('Related context — has this come up before?', mdList(relatedLines))
+              : null,
             mdNextSteps([
               { label: 'Pull project memory', command: 'prjct context memory <topic>' },
               { label: 'Tag the task', command: 'prjct tag type:bug domain:auth' },
@@ -144,6 +154,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
           if (harness.expectedEvidence.length > 0) {
             out.info(`Evidence: ${harness.expectedEvidence.join(', ')}`)
           }
+        }
+        if (relatedLines.length > 0) {
+          out.info('Related context — has this come up before?')
+          for (const line of relatedLines) out.info(`  ${line}`)
         }
         showStateInfo('working')
         showNextSteps('task')
