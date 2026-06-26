@@ -30,6 +30,11 @@ import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
 import { setTaskStatus } from '../../services/task-service'
+import {
+  ANALYSIS_MAP_FILE,
+  RELEASE_HISTORY_FILE,
+  VAULT_HOME_FILE,
+} from '../../services/wiki/_shared'
 import { FINGERPRINT_FILE } from '../../services/wiki/fingerprint'
 import { generateWiki } from '../../services/wiki-generator'
 import { prjctDb } from '../../storage/database'
@@ -128,10 +133,10 @@ async function readFrontmatter(relPath: string): Promise<Record<string, string>>
   return out
 }
 
-function appendMemoryEvent(type: string, content: string): void {
+function appendMemoryEvent(type: string, content: string, tags: Record<string, string> = {}): void {
   prjctDb.appendEvent(projectId, `memory.remember.${type}`, {
     content,
-    tags: {},
+    tags,
     provenance: 'declared',
   })
 }
@@ -189,8 +194,90 @@ describe('Wiki Generator — manifest incrementality', () => {
     const manifest = JSON.parse(
       await fs.readFile(path.join(generatedRoot, '.manifest.json'), 'utf-8')
     ) as Record<string, string>
-    expect(manifest['index.md']).toBeDefined()
+    expect(manifest[VAULT_HOME_FILE]).toBeDefined()
     expect(manifest['analysis/patterns/foo.md']).toBeDefined()
+  })
+
+  it('A.1b emits semantic vault filenames and readable relationship sections', async () => {
+    appendMemoryEvent('decision', 'Use SQLite as the durable project brain', {
+      domain: 'memory',
+      feature: 'vault',
+      workflow: 'sync',
+    })
+    appendMemoryEvent('gotcha', 'Generic README filenames make the vault hard to navigate', {
+      domain: 'memory',
+      feature: 'vault',
+      workflow: 'sync',
+    })
+    llmAnalysisStorage.save(
+      projectId,
+      makeAnalysis({
+        analyzedAt: '2026-01-10T00:00:00Z',
+        patterns: [{ name: 'Vault relationship map', description: 'Readable second-brain links' }],
+      })
+    )
+    await fs.mkdir(path.join(generatedRoot, 'analysis'), { recursive: true })
+    await fs.mkdir(path.join(generatedRoot, 'specs'), { recursive: true })
+    await fs.mkdir(path.join(generatedRoot, 'workflows'), { recursive: true })
+    await fs.mkdir(path.join(vaultRoot, 'captured'), { recursive: true })
+    await fs.mkdir(path.join(vaultRoot, 'workflows'), { recursive: true })
+    await fs.writeFile(
+      path.join(vaultRoot, 'README.md'),
+      '# prjct Vault\n\nOpen this folder as an Obsidian vault.\n',
+      'utf-8'
+    )
+    await fs.writeFile(
+      path.join(vaultRoot, 'captured', 'README.md'),
+      '# How to Capture Notes\n\ntype: learning\n',
+      'utf-8'
+    )
+    await fs.writeFile(
+      path.join(vaultRoot, 'workflows', 'README.md'),
+      '# Workflows (Obsidian dropzone)\n\nWorkflow rules.\n',
+      'utf-8'
+    )
+    await fs.writeFile(path.join(generatedRoot, 'index.md'), '# old home\n', 'utf-8')
+    await fs.writeFile(
+      path.join(generatedRoot, 'analysis', 'index.md'),
+      '# old analysis\n',
+      'utf-8'
+    )
+    await fs.writeFile(path.join(generatedRoot, 'specs', '_index.md'), '# old specs\n', 'utf-8')
+    await fs.writeFile(
+      path.join(generatedRoot, 'workflows', 'index.md'),
+      '# old workflows\n',
+      'utf-8'
+    )
+
+    const result = await generateWiki(projectRoot, projectId)
+    expect(result.filesRemoved).toBeGreaterThanOrEqual(7)
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(generatedRoot, '.manifest.json'), 'utf-8')
+    ) as Record<string, string>
+
+    expect(manifest[VAULT_HOME_FILE]).toBeDefined()
+    expect(manifest[ANALYSIS_MAP_FILE]).toBeDefined()
+    expect(manifest[RELEASE_HISTORY_FILE]).toBeUndefined()
+    expect(Object.keys(manifest)).not.toContain('index.md')
+    expect(Object.keys(manifest)).not.toContain('analysis/index.md')
+    expect(Object.keys(manifest)).not.toContain('specs/_index.md')
+    expect(Object.keys(manifest)).not.toContain('workflows/index.md')
+    await expect(fs.stat(path.join(vaultRoot, 'README.md'))).rejects.toThrow()
+    await expect(fs.stat(path.join(vaultRoot, 'captured', 'README.md'))).rejects.toThrow()
+    await expect(fs.stat(path.join(vaultRoot, 'workflows', 'README.md'))).rejects.toThrow()
+
+    const decisionRel = Object.keys(manifest).find(
+      (rel) => rel.startsWith('memory/decision/') && rel.endsWith('.md')
+    )
+    expect(decisionRel).toBeDefined()
+    const decision = await fs.readFile(path.join(generatedRoot, decisionRel!), 'utf-8')
+    expect(decision).toContain('## Related context')
+    expect(decision).toContain('**Domain:** [[tags/domain|memory]]')
+    expect(decision).toContain('**Feature:** [[tags/feature|vault]]')
+    expect(decision).toContain('second-brain edges')
+
+    const tags = await fs.readFile(path.join(generatedRoot, 'tags.md'), 'utf-8')
+    expect(tags).toContain('Relationship Map')
   })
 
   it('A.2 re-regen with no DB changes writes 0 files', async () => {
@@ -221,16 +308,16 @@ describe('Wiki Generator — manifest incrementality', () => {
   it('A.2c self-heals a deleted vault file even when inputs are unchanged', async () => {
     appendMemoryEvent('decision', 'we picked SQLite')
     await generateWiki(projectRoot, projectId)
-    const indexPath = path.join(generatedRoot, 'index.md')
+    const indexPath = path.join(generatedRoot, VAULT_HOME_FILE)
     expect(await fs.stat(indexPath).then(() => true)).toBe(true)
 
-    // Simulate a stale/partially-wiped vault: delete the top-level index
+    // Simulate a stale/partially-wiped vault: delete the semantic home
     // WITHOUT changing any DB input. The old behaviour trusted the manifest +
     // fingerprint and never recreated it ("context queda stale").
     await fs.rm(indexPath)
     const healed = await generateWiki(projectRoot, projectId)
     expect(healed.filesWritten).toBeGreaterThan(0)
-    expect(await fs.readFile(indexPath, 'utf-8')).toContain('Project context export')
+    expect(await fs.readFile(indexPath, 'utf-8')).toContain('Project Context')
   })
 
   it('A.2b skips DB queries entirely when fingerprint matches (fast path)', async () => {

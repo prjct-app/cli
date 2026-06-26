@@ -8,6 +8,7 @@
  * the AGENTS.md writer.
  */
 
+import { AGENT_RAG_PROTOCOL } from './agent-rag-protocol'
 import {
   ROUTING_END_MARKER,
   ROUTING_START_MARKER,
@@ -25,22 +26,24 @@ The full verb intent map and the suggest-vs-auto-execute protocol live
 in the global skill at \`~/.claude/skills/prjct/SKILL.md\`. Two reminders
 that travel with this project:
 
-- **\`prjct task\` is the single normal entrypoint.** prjct classifies the
-  task and reports the persisted pipeline station. Trivial work proceeds
-  directly. Substantive implementation work follows persisted SDD + strict
-  TDD: reviewed spec, tests before implementation, then code. Resume from
-  \`prjct task --md\` / \`prjct status --md\`; do not invent a parallel plan.
-- **Routine captures auto-execute, no permission.** When the user mentions
-  a decision, learning, gotcha, or random thought, save it via
-  \`prjct remember <type>\` or \`prjct capture\` immediately and confirm in
-  one line. Asking "want me to save that?" is the failure mode. Author
-  every entry in ENGLISH, whatever language the user speaks.
-- **Destructive verbs suggest first.** \`ship\`, \`status done\`, \`prefs set\`,
+- **\`prjct work\` is the single normal entrypoint.** prjct classifies the
+  AI Agile work cycle and reports the persisted pipeline station. Trivial work
+  proceeds directly. Substantive implementation work follows an intent brief +
+  strict evidence: reviewed intent, tests before implementation when required,
+  then code. Resume from \`prjct work --md\`; do not invent a parallel plan.
+- **Lookup is pull-first and bounded.**
+${AGENT_RAG_PROTOCOL}
+- **Routine synthesis auto-executes, no permission.** When the user mentions
+  a decision, learning, gotcha, or reusable context, save it via
+  \`prjct remember <type>\` immediately and confirm in one line. Legacy inbox
+  aliases exist for old scripts but should not be the normal path. Asking "want
+  me to save that?" is the failure mode. Author every entry in ENGLISH.
+- **Destructive verbs suggest first.** \`ship\`, \`prefs set\`,
   and the audit/security/investigate workflows surface a one-line plan
   ("I'll run \`prjct ship\` — bumps version, opens PR. Ok?") and wait for
   green light.
 
-When in doubt: capture is always safe; ship is never silent.`
+When in doubt: synthesized memory is safe; ship is never silent.`
 
 const FULL_BLOCK = `${ROUTING_START_MARKER}
 ${ROUTING_BODY}

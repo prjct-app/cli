@@ -10,7 +10,7 @@
  *   draft → reviewed → in_progress → shipped
  *                                  → archived
  *
- * `prjct task --spec <id>` links a task to its spec via tasks.linked_spec_id.
+ * `prjct work --spec <id>` links a work cycle to its spec via tasks.linked_spec_id.
  * `prjct ship` reads the linked spec's acceptance_criteria as a gate.
  * `prjct audit-spec <id>` populates `reviews` after dispatching subagents.
  */

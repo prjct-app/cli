@@ -27,7 +27,7 @@ const TERMINAL_COMMANDS = [
   },
   {
     name: 'sync',
-    description: 'Sync project state and update context files',
+    description: 'Refresh RAG indexes, vault snapshot, and context quality',
     example: 'prjct sync',
   },
   {
@@ -61,9 +61,9 @@ const TERMINAL_COMMANDS = [
   },
   {
     name: 'context',
-    description: 'Smart context filtering tools for AI',
-    example: 'prjct context files "add auth"',
-    subcommands: ['files', 'signatures', 'imports', 'recent', 'summary'],
+    description: 'Memory-bound context tools for AI',
+    example: 'prjct context memory "auth"',
+    subcommands: ['memory', 'learnings', 'wiki'],
   },
   {
     name: 'stop',
@@ -98,8 +98,8 @@ function formatMainHelp(): string {
 
   // Header
   lines.push('')
-  lines.push(`${chalk.cyan.bold('prjct')} v${VERSION} - Context layer for AI coding agents`)
-  lines.push(chalk.dim('Works with Claude Code, Gemini CLI, Cursor, Windsurf, and more.'))
+  lines.push(`${chalk.cyan.bold('prjct')} v${VERSION} - AI Agile OS for coding agents`)
+  lines.push(chalk.dim('Intent → context → execution → learning → performance improvement.'))
   lines.push('')
 
   // Quick Start
@@ -110,7 +110,9 @@ function formatMainHelp(): string {
   )
   lines.push(`  ${chalk.green('2.')} cd my-project && prjct init`)
   lines.push(`  ${chalk.green('3.')} Open in Claude Code / Gemini CLI / Cursor`)
-  lines.push(`  ${chalk.green('4.')} p. sync                  ${chalk.dim('# Analyze project')}`)
+  lines.push(
+    `  ${chalk.green('4.')} p. work "improve auth"   ${chalk.dim('# Start an AI Agile cycle')}`
+  )
   lines.push('')
 
   // Terminal Commands
@@ -129,14 +131,16 @@ function formatMainHelp(): string {
   lines.push(`  ${chalk.dim('─'.repeat(56))}`)
 
   // Core commands
-  const coreCommands = COMMANDS.filter((c) => c.group === 'core' && c.usage?.claude)
+  const coreCommands = COMMANDS.filter((c) => c.surface === 'ai-agile' && c.usage?.claude)
   for (const cmd of coreCommands.slice(0, 10)) {
     const usage = `p. ${cmd.name}`.padEnd(22)
     lines.push(`  ${usage} ${cmd.description}`)
   }
-  lines.push(
-    `  ${chalk.dim(`... and ${coreCommands.length - 10} more (run 'prjct help commands')`)}`
-  )
+  if (coreCommands.length > 10) {
+    lines.push(
+      `  ${chalk.dim(`... and ${coreCommands.length - 10} more (run 'prjct help commands')`)}`
+    )
+  }
   lines.push('')
 
   // Global Flags
@@ -272,14 +276,16 @@ function formatCommandList(): string {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(chalk.cyan.bold('All Commands'))
+  lines.push(chalk.cyan.bold('AI Agile Commands'))
   lines.push('')
 
   // Group by category
   const categories = Object.entries(CATEGORIES).sort((a, b) => a[1].order - b[1].order)
 
   for (const [categoryKey, category] of categories) {
-    const categoryCommands = COMMANDS.filter((c) => c.group === categoryKey)
+    const categoryCommands = COMMANDS.filter(
+      (c) => c.group === categoryKey && c.surface !== 'legacy' && c.surface !== 'internal'
+    )
     if (categoryCommands.length === 0) continue
 
     lines.push(

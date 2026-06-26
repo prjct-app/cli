@@ -11,6 +11,7 @@
  */
 
 import {
+  ANALYSIS_MAP_FILE,
   type ArchiveEntry,
   analysisDateOnly,
   CONCEPT_FOLDERS,
@@ -159,7 +160,7 @@ function buildConceptFile(rec: ConceptRecord): string {
 
   lines.push('---')
   lines.push('')
-  lines.push(`See also: [analysis index](../index.md) · [change log](../history.md)`)
+  lines.push(`See also: [analysis map](../analysis-map.md) · [change log](../history.md)`)
   lines.push('')
 
   return `${lines.join('\n')}\n`
@@ -176,7 +177,7 @@ function buildHistoryFile(entries: ArchiveEntry[], concepts: Map<string, Concept
     'One entry per analysis save where *something changed* (architecture, patterns, anti-patterns, tech debt, risks, refactors, or insights). Repeated saves with identical contents are collapsed.'
   )
   lines.push('')
-  lines.push('See also: [analysis index](index.md) · [project wiki](../index.md)')
+  lines.push('See also: [analysis map](analysis-map.md) · [project context](../project-context.md)')
   lines.push('')
 
   if (entries.length === 0) {
@@ -273,7 +274,7 @@ function buildAnalysisIndex(concepts: Map<string, ConceptRecord>): string {
     'One file per concept from `prjct sync`. Files are deduped across history — the same pattern or risk always lands at the same path, updated with first/last-seen dates.'
   )
   lines.push('')
-  lines.push('See also: [change log](history.md) · [project wiki](../index.md)')
+  lines.push('See also: [change log](history.md) · [project context](../project-context.md)')
   lines.push('')
 
   const kindOrder: ConceptKind[] = [
@@ -315,7 +316,7 @@ export function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, 
     const folder = CONCEPT_FOLDERS[rec.kind]
     out.set(`analysis/${folder}/${rec.slug}.md`, buildConceptFile(rec))
   }
-  out.set('analysis/index.md', buildAnalysisIndex(concepts))
+  out.set(ANALYSIS_MAP_FILE, buildAnalysisIndex(concepts))
   out.set('analysis/history.md', buildHistoryFile(entries, concepts))
   return out
 }

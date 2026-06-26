@@ -207,6 +207,13 @@ async function main(): Promise<void> {
               options,
               process.cwd()
             ),
+          intent: (p) =>
+            routeSpec(
+              commands,
+              (p ?? '').trim().split(/\s+/).filter(Boolean),
+              options,
+              process.cwd()
+            ),
           'audit-spec': (p) =>
             p
               ? commands.specAudit(p, process.cwd(), {
@@ -470,8 +477,8 @@ COMMANDS (inside your AI agent)
   Claude/Gemini          Cursor            Description
   ─────────────────────────────────────────────────────
   p. sync                /sync             Analyze project
-  p. task "desc"         /task "desc"      Start a task
-  p. status done         /status done      Complete active task
+  p. work "intent"       /work "intent"    Start a work cycle
+  p. performance         /performance      Measure work efficiency
   p. ship "name"         /ship "name"      Ship with PR
 
 TERMINAL COMMANDS (this CLI)
@@ -491,7 +498,7 @@ EXAMPLES
   $ prjct start
   $ cd my-project && prjct init
   > p. sync
-  > p. task "add user authentication"
+  > p. work "add user authentication"
 
   # Cursor IDE (per-project only)
   $ cd my-project && prjct init

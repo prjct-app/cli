@@ -25,7 +25,7 @@
  *   - concept-builder.ts        — analysis/<kind>/<concept>.md + history
  *   - release-builder.ts        — releases/* (parses CHANGELOG.md)
  *   - workflow-builder.ts       — workflows/<command>.md
- *   - index-builder.ts          — index.md (top-level)
+ *   - index-builder.ts          — project-context.md (semantic home)
  *   - manifest.ts               — manifest read/write/sweep
  *   - fingerprint.ts            — cheap input-state hash for short-circuit
  */
@@ -41,7 +41,7 @@ import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { WorkflowRule } from '../types/storage/extended'
 import { ensureObsidianVault } from './obsidian-vault'
 import type { Manifest } from './wiki/_shared'
-import { sha256, slugify } from './wiki/_shared'
+import { sha256, slugify, VAULT_HOME_FILE, VAULT_START_HERE_FILE } from './wiki/_shared'
 import { buildArchitectureBaseline } from './wiki/architecture-builder'
 import { buildAnalysisArchiveFiles, collectConcepts } from './wiki/concept-builder'
 import { buildDeveloperProfile } from './wiki/developer-profile-builder'
@@ -76,6 +76,48 @@ import { resolveVaultRoot } from './wiki-migration'
 // Generated output goes into a dedicated subdir so user notes placed in
 // the vault root survive wiki rebuilds. Only this subdir gets touched.
 const GENERATED_SUBDIR = '_generated'
+
+const LEGACY_GENERATED_FILES = [
+  'index.md',
+  'analysis/index.md',
+  'specs/_index.md',
+  'workflows/index.md',
+] as const
+
+const LEGACY_GUIDE_FILES: ReadonlyArray<{ rel: string; marker: RegExp }> = [
+  {
+    rel: 'README.md',
+    marker: /prjct vault|obsidian vault|_generated\/(?:index|project-context)\.md/i,
+  },
+  { rel: 'captured/README.md', marker: /how to capture notes|type:\s*learning/i },
+  { rel: 'workflows/README.md', marker: /how to edit workflows|workflow rules|obsidian dropzone/i },
+]
+
+async function removeIfPrjctGuide(root: string, rel: string, marker: RegExp): Promise<boolean> {
+  const fullPath = path.join(root, rel)
+  let body = ''
+  try {
+    body = await fs.readFile(fullPath, 'utf-8')
+  } catch {
+    return false
+  }
+  if (!marker.test(body)) return false
+  await fs.rm(fullPath, { force: true })
+  return true
+}
+
+async function removeLegacyVaultFiles(wikiRoot: string, generatedRoot: string): Promise<number> {
+  let removed = 0
+  for (const rel of LEGACY_GENERATED_FILES) {
+    if (!existsSync(path.join(generatedRoot, rel))) continue
+    await fs.rm(path.join(generatedRoot, rel), { force: true })
+    removed++
+  }
+  for (const file of LEGACY_GUIDE_FILES) {
+    if (await removeIfPrjctGuide(wikiRoot, file.rel, file.marker)) removed++
+  }
+  return removed
+}
 
 /**
  * Wrap a single builder call so an exception in one builder cannot abort
@@ -118,6 +160,7 @@ export async function generateWiki(
   const wikiRoot = await resolveVaultRoot(projectPath)
   const generatedRoot = path.join(wikiRoot, GENERATED_SUBDIR)
   await fs.mkdir(generatedRoot, { recursive: true })
+  const legacyRemoved = await removeLegacyVaultFiles(wikiRoot, generatedRoot)
 
   // Fast path: if no input has changed since the last successful regen,
   // skip the entire build/diff/sweep dance. Regen runs on every hook
@@ -127,11 +170,11 @@ export async function generateWiki(
   const fingerprintPath = path.join(generatedRoot, FINGERPRINT_FILE)
   const newFingerprint = await computeRegenFingerprint(projectPath, projectId)
   const oldFingerprint = await fs.readFile(fingerprintPath, 'utf-8').catch(() => null)
-  // Don't short-circuit a vault that's actually incomplete: if the top-level
-  // index.md is missing (deleted, partial wipe, copied without it), force the
+  // Don't short-circuit a vault that's actually incomplete: if the semantic
+  // home file is missing (deleted, partial wipe, copied without it), force the
   // full build so the vault self-heals instead of staying stale forever.
-  const vaultIntact = existsSync(path.join(generatedRoot, 'index.md'))
-  if (oldFingerprint === newFingerprint && vaultIntact) {
+  const vaultIntact = existsSync(path.join(generatedRoot, VAULT_HOME_FILE))
+  if (oldFingerprint === newFingerprint && vaultIntact && legacyRemoved === 0) {
     const manifest = await readManifest(generatedRoot)
     return {
       wikiRoot,
@@ -287,7 +330,7 @@ export async function generateWiki(
     title: vaultLinkOpts.idTitleIndex?.get(e.id) ?? e.id,
   })
   files.set(
-    'index.md',
+    VAULT_HOME_FILE,
     buildIndexFile({
       ships,
       memoryTypeCounts,
@@ -320,7 +363,7 @@ export async function generateWiki(
   const newManifest: Manifest = {}
   let filesWritten = 0
   let filesSkipped = 0
-  let filesRemoved = 0
+  let filesRemoved = legacyRemoved
 
   // Hash + classify synchronously (CPU-bound), then write only what's
   // actually changed in parallel (I/O-bound). On big vaults this drops
@@ -382,17 +425,19 @@ export async function generateWiki(
   // the next call to redo the work.
   await writeFile(generatedRoot, FINGERPRINT_FILE, newFingerprint)
 
-  // Top-level README pointer, written only if absent so user files aren't clobbered.
-  const topReadmePath = path.join(wikiRoot, 'README.md')
-  const topReadmeExists = await fs.stat(topReadmePath).then(
+  // Top-level pointer, written only if absent so user files aren't clobbered.
+  // Use a semantic filename instead of another README.md so humans/LLMs can
+  // find the vault entrypoint by filename.
+  const topGuidePath = path.join(wikiRoot, VAULT_START_HERE_FILE)
+  const topGuideExists = await fs.stat(topGuidePath).then(
     () => true,
     () => false
   )
-  if (!topReadmeExists) {
+  if (!topGuideExists) {
     await writeFile(
       wikiRoot,
-      'README.md',
-      `# Project Wiki\n\nOpen this folder as an Obsidian vault to browse project memory.\n\n- Auto-generated content lives in \`${GENERATED_SUBDIR}/\` — start at [${GENERATED_SUBDIR}/index.md](${GENERATED_SUBDIR}/index.md). Do not edit; it rebuilds on \`prjct ship\` / \`prjct remember\`.\n- Drop notes into \`captured/\` with frontmatter, then run \`prjct context wiki sync\` to ingest them into project memory. See [captured/README.md](captured/README.md).\n- Any other markdown you place here survives rebuilds.\n`
+      VAULT_START_HERE_FILE,
+      `# Start Here — prjct Vault\n\nOpen this folder as an Obsidian vault to browse project memory.\n\n- Auto-generated content lives in \`${GENERATED_SUBDIR}/\` — start at [${GENERATED_SUBDIR}/${VAULT_HOME_FILE}](${GENERATED_SUBDIR}/${VAULT_HOME_FILE}). Do not edit; it rebuilds on \`prjct ship\` / \`prjct remember\`.\n- Drop notes into \`captured/\` with frontmatter, then run \`prjct context wiki sync\` to ingest them into project memory. See [captured/how-to-capture-notes.md](captured/how-to-capture-notes.md).\n- Any other markdown you place here survives rebuilds.\n`
     )
     filesWritten++
   }

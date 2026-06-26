@@ -10,8 +10,8 @@ core/
   index.ts                      Main CLI dispatcher (help, command routing)
   cli/                          Standalone CLI entry points (bin-only commands and lint helpers)
                                 spawned as subprocesses from bin/prjct
-  commands/                     CLI command handlers (task, sync, ship,
-                                capture, remember, tag, status, seed, …)
+  commands/                     CLI command handlers (work/intent aliases,
+                                sync, ship, remember, search, guard, insights)
   hooks/                        7 Claude Code hook subcommands (session-start,
                                 prompt, pre-commit, post-edit, stop,
                                 subagent-start, cwd-changed)
@@ -54,7 +54,7 @@ docs/                           This directory
 ```
   Terminal
      │
-     │  `prjct task "fix login"`
+     │  `prjct work "fix login"`
      ▼
   bin/prjct (JS shim)
      │
@@ -71,7 +71,11 @@ docs/                           This directory
    facade)                                               projects/{id}/prjct.db)
 ```
 
-prjct no longer exposes native Linear/Jira CLI gateway commands. External issue tracker operations belong to MCP servers configured in the AI client; prjct keeps local task linkage metadata and workflow state in SQLite.
+prjct no longer exposes native Linear/Jira CLI gateway commands. External issue
+tracker operations belong to MCP servers configured in the AI client. In v3,
+the public model is an AI Agile work cycle (`work` + optional `intent` brief),
+not a task-manager card; SQLite may still use task-shaped tables internally for
+compatibility and migration stability.
 
 ## Retrieval triad
 
@@ -109,8 +113,27 @@ combine in `core/domain/file-ranker.ts`:
   with configurable weights and returns the top-N ranked files.
 
 All three indexes are built once per `prjct sync` and stored in the project's
-SQLite database. Subsequent `prjct task` and the MCP `prjct_related` /
+SQLite database. Subsequent `prjct work` and the MCP `prjct_related` /
 `prjct_impact` / `prjct_stale` tools read from the cached index.
+
+## Agent surfaces are routers, not memory stores
+
+Always-loaded files such as `AGENTS.md`, `CLAUDE.md`, editor rules, and tiny
+agent skills must stay compact. Their job is to route Claude, Codex, Gemini,
+Cursor, Windsurf, Antigravity, and future agents into prjct's RAG-backed
+project memory; they do not carry project history.
+
+The source of truth is SQLite. The regenerated vault under `_generated/` is a
+snapshot for `Read` / `Glob` fallback and human inspection, not a file tree the
+agent should load wholesale. When a work cycle needs prior knowledge, the agent pulls
+bounded context with `prjct work`, `prjct search`, `prjct context memory`,
+`prjct guard`, or the MCP `prjct_*` tools.
+
+Closeout is also model-authored synthesis, not raw telemetry. Raw quotes,
+counters, detector rows, and transcript chunks can inform a memory entry, but
+the durable context should explain what happened, why it matters, what changed,
+which files/features are involved, model and token metadata when available, the
+pattern or anti-pattern, and the next implication.
 
 ## Schemas: Zod as source of truth
 

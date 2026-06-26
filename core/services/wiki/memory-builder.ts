@@ -68,6 +68,15 @@ const RELATION_KEYS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Tag keys that don't deserve a browsable page: machine bookkeeping
+ * (MACHINE_TAG_KEYS — hashes, counters, session ids) — their values are
+ * opaque noise that once spawned hundreds of vault pages nobody reads.
+ * Human dimensions (topic, type, pr, file, domain, …) get an index page
+ * only when the dimension is shared enough to be useful.
+ */
+const NOISE_TAG_KEYS: ReadonlySet<string> = MACHINE_TAG_KEYS
+
+/**
  * Global `mem_N → type` and `mem_N → title` indexes across ALL entries
  * (not the recall-capped/deduped render set) so every cross-ref
  * resolves and shows a legible label. See
@@ -205,6 +214,43 @@ function relationsSection(entry: MemoryEntry, opts: FormatMemoryMdOptions): stri
   return ['', '## Relations', ...rels]
 }
 
+function labelForTagKey(key: string): string {
+  return key
+    .split(/[-_.\s]+/)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function relatedContextSection(
+  entry: MemoryEntry,
+  browsableTagKeys: ReadonlySet<string>
+): string[] {
+  const rows: string[] = []
+  const entries = Object.entries(entry.tags).sort(([a], [b]) => a.localeCompare(b))
+  for (const [key, raw] of entries) {
+    if (MACHINE_TAG_KEYS.has(key) || RELATION_KEYS.has(key)) continue
+    const keySlug = slugify(key)
+    const valueSlug = slugify(String(raw))
+    if (keySlug === 'unnamed' || valueSlug === 'unnamed') continue
+    const value = String(raw)
+    if (browsableTagKeys.has(key)) {
+      rows.push(`- **${labelForTagKey(key)}:** [[tags/${keySlug}|${value}]]`)
+    } else {
+      rows.push(`- **${labelForTagKey(key)}:** ${value}`)
+    }
+  }
+  if (rows.length === 0) return []
+  return [
+    '',
+    '## Related context',
+    '',
+    'Shared tags are second-brain edges: topic, domain, file, feature, author, PR, workflow, and other human dimensions.',
+    '',
+    ...rows,
+  ]
+}
+
 /**
  * One note per substantive entry. Filename is the human slug; the
  * stable join key `mem_N` lives only in `aliases:` + a muted block
@@ -212,7 +258,8 @@ function relationsSection(entry: MemoryEntry, opts: FormatMemoryMdOptions): stri
  */
 export function buildMemoryEntryNotes(
   entries: MemoryEntry[],
-  opts: FormatMemoryMdOptions
+  opts: FormatMemoryMdOptions,
+  browsableTagKeys: ReadonlySet<string> = new Set()
 ): {
   files: Map<string, string>
   titleByType: Map<string, Array<{ id: string; title: string; slug: string }>>
@@ -246,6 +293,7 @@ export function buildMemoryEntryNotes(
       linkifyMemRefs(e.content, opts).trim(),
     ]
     body.push(...relationsSection(e, opts))
+    body.push(...relatedContextSection(e, browsableTagKeys))
     files.set(`memory/${e.type}/${slug}.md`, `${body.join('\n')}\n`)
 
     const bucket = titleByType.get(e.type) ?? []
@@ -275,6 +323,17 @@ function groupByTagPair(entries: MemoryEntry[]): Map<string, Map<string, MemoryE
   return byKey
 }
 
+function browsableTagKeys(entries: MemoryEntry[]): Set<string> {
+  const keys = new Set<string>()
+  const byPair = groupByTagPair(entries.filter((e) => !isSignalEntry(e)))
+  for (const [key, byValue] of byPair) {
+    if (NOISE_TAG_KEYS.has(key)) continue
+    const total = [...byValue.values()].reduce((n, items) => n + items.length, 0)
+    if (total >= 2) keys.add(key)
+  }
+  return keys
+}
+
 export function buildMemoryFiles(
   entries: MemoryEntry[],
   allEntries: MemoryEntry[] = entries
@@ -298,7 +357,11 @@ export function buildMemoryFiles(
     byType.set(e.type, bucket)
   }
 
-  const { files: noteFiles, titleByType } = buildMemoryEntryNotes(knowledge, opts)
+  const { files: noteFiles, titleByType } = buildMemoryEntryNotes(
+    knowledge,
+    opts,
+    browsableTagKeys(knowledge)
+  )
   for (const [rel, body] of noteFiles) files.set(rel, body)
 
   for (const [type, items] of byType) {
@@ -348,14 +411,6 @@ export function buildMemoryFiles(
   return files
 }
 
-/**
- * Tag keys that don't deserve a browsable page: machine bookkeeping
- * (MACHINE_TAG_KEYS — hashes, counters, session ids) — their values are
- * opaque noise that once spawned hundreds of vault pages nobody reads.
- * Human dimensions (topic, type, pr, file, domain, …) get an index page.
- */
-const NOISE_TAG_KEYS: ReadonlySet<string> = MACHINE_TAG_KEYS
-
 /** Wikilink for one entry: the note basename when it has its own note,
  *  the aggregated file's block anchor otherwise. */
 function entryLink(e: MemoryEntry, opts: FormatMemoryMdOptions): string {
@@ -381,7 +436,12 @@ export function buildTagFiles(
   const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex, signalIds)
   const byPair = groupByTagPair(entries.filter((e) => !isSignalEntry(e)))
 
-  const keyIndexLines = [`# Tags`, '']
+  const keyIndexLines = [
+    `# Relationship Map — Tags`,
+    '',
+    'Tags are second-brain edges: they connect memories by topic, domain, file, feature, author, PR, workflow, and other human dimensions.',
+    '',
+  ]
   const sortedKeys = [...byPair.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   for (const [key, byValue] of sortedKeys) {
     if (NOISE_TAG_KEYS.has(key)) continue
@@ -391,7 +451,12 @@ export function buildTagFiles(
     const total = [...byValue.values()].reduce((n, items) => n + items.length, 0)
     if (total < 2) continue
     const keySlug = slugify(key)
-    const lines = [`# Tag: ${key}`, '']
+    const lines = [
+      `# Relationship: ${labelForTagKey(key)}`,
+      '',
+      'This page groups memories that share the same context dimension. Use it to move from one fact to nearby decisions, gotchas, patterns, and work history.',
+      '',
+    ]
     const sortedValues = [...byValue.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     let entryCount = 0
     for (const [value, items] of sortedValues) {

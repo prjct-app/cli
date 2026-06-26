@@ -92,12 +92,12 @@ export async function updateStateDoc(args: {
     ...((state.context as Record<string, unknown>) || {}),
     lastSession: dateHelper.getTimestamp(),
     lastAction: 'Synced project',
-    nextAction: 'Run `p. task "description"` to start working',
+    nextAction: 'Run `p. work "intent"` to start an AI Agile work cycle',
   }
 
   await stateStorage.write(projectId, state as StateJson)
 
-  // v2 source of truth is SQLite + generated vault. Remove the legacy
+  // Source of truth is SQLite + generated vault. Remove the legacy
   // repo-local state stub if an older install created it; never refresh it.
   try {
     await localStateGenerator.remove(projectPath)

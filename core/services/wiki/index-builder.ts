@@ -1,12 +1,12 @@
 /**
- * Top-level `index.md` for the generated vault. Pure function over
+ * Top-level semantic home file for the generated vault. Pure function over
  * pre-aggregated counts — the orchestrator owns counting; this just
  * lays the markdown out.
  */
 
 import type { LLMAnalysis } from '../../types/llm-analysis'
 import type { ShippedFeature } from '../../types/storage'
-import { slugify } from './_shared'
+import { ANALYSIS_MAP_FILE, RELEASE_HISTORY_FILE, slugify, WORKFLOW_MAP_FILE } from './_shared'
 
 type NoteRef = { slug: string; title: string }
 
@@ -29,7 +29,7 @@ export function buildIndexFile(args: {
   const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
     args
   const lines: string[] = [
-    '# Project context export (generated)',
+    '# Project Context — Generated Second Brain',
     '',
     'Agent-readable snapshot of project memory. Regenerated on `prjct remember`, `prjct capture`,',
     '`prjct ship`, `prjct sync`, and the SessionStart / Stop hooks.',
@@ -66,7 +66,7 @@ export function buildIndexFile(args: {
   if (args.releaseCount > 0) {
     lines.push('## Releases')
     lines.push(
-      `- [releases/index](releases/index.md) — ${args.releaseCount} versions parsed from \`CHANGELOG.md\``
+      `- [release history](${RELEASE_HISTORY_FILE}) — ${args.releaseCount} versions parsed from \`CHANGELOG.md\``
     )
     lines.push('')
   }
@@ -74,7 +74,7 @@ export function buildIndexFile(args: {
   if (args.workflowCount > 0) {
     lines.push('## Workflows')
     lines.push(
-      `- [workflows/index](workflows/index.md) — ${args.workflowCount} workflow definition(s)`
+      `- [workflow map](${WORKFLOW_MAP_FILE}) — ${args.workflowCount} workflow definition(s)`
     )
     lines.push('')
   }
@@ -138,7 +138,7 @@ export function buildIndexFile(args: {
     }
     if (args.archiveCount > 0) {
       lines.push(
-        `- [analysis drill-down](analysis/index.md) — ${args.archiveCount} concepts (patterns, anti-patterns, tech-debt, risks, refactors, insights) + [history](analysis/history.md)`
+        `- [analysis map](${ANALYSIS_MAP_FILE}) — ${args.archiveCount} concepts (patterns, anti-patterns, tech-debt, risks, refactors, insights) + [history](analysis/history.md)`
       )
     }
     lines.push('')

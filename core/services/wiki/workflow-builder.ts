@@ -11,6 +11,7 @@
  */
 
 import type { WorkflowRule } from '../../types/storage/extended'
+import { WORKFLOW_MAP_FILE } from './_shared'
 
 export function buildWorkflowFiles(rules: WorkflowRule[]): {
   files: Map<string, string>
@@ -121,7 +122,7 @@ export function buildWorkflowFiles(rules: WorkflowRule[]): {
     const enabled = commandRules.filter((r) => r.enabled).length
     indexLines.push(`- [${command}](${command}.md) — ${enabled} active rule(s)`)
   }
-  files.set('workflows/index.md', `${indexLines.join('\n')}\n`)
+  files.set(WORKFLOW_MAP_FILE, `${indexLines.join('\n')}\n`)
 
   return { files, commandCount: byCommand.size }
 }

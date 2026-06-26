@@ -185,15 +185,15 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('`prjct tdd`')
       expect(content).toMatch(/test-first|TDD/)
       expect(content).toContain('`prjct sdd`')
-      expect(content).toMatch(/spec-first|SDD/)
+      expect(content).toMatch(/intent-first|SDD/)
     })
 
-    it('frames task as the single entrypoint for transparent SDD/TDD orchestration', async () => {
+    it('frames work as the single entrypoint for transparent AI Agile orchestration', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('`prjct task` is the single normal entrypoint')
+      expect(content).toContain('`prjct work` is the single normal entrypoint')
       expect(content).toContain('Trivial work proceeds directly')
-      expect(content).toContain('Substantive implementation work follows persisted SDD')
+      expect(content).toContain('Substantive implementation work follows a persisted intent')
       expect(content).toContain('write tests before implementation')
       expect(content).not.toContain('**NO spec, NO audit-spec, NO subagents, NO fan-out.**')
     })
@@ -223,14 +223,15 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       expect(content).toContain('prjct remembers project state and shows the path')
-      expect(content).toContain('Claude, GPT, and other agents decide the concrete HOW')
+      expect(content).toContain('Agents decide HOW with native tools and judgment')
       expect(content).toContain('Treat prjct output as durable signals')
     })
 
-    it('exposes primitives (capture, remember, context, workflow, seed)', async () => {
+    it('exposes v3 primitives (work, intent, remember, context, workflow, seed)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('prjct capture')
+      expect(content).toContain('prjct work')
+      expect(content).toContain('prjct intent')
       expect(content).toContain('prjct remember')
       expect(content).toContain('prjct context memory')
       expect(content).toContain('prjct workflow')
@@ -464,21 +465,21 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('## Verb intent map')
       expect(content).toContain('you run the verb, the user never types it')
       expect(content).toContain('| Intent / signal | Verb | Tier |')
-      // Regression lock: `task` is the normal orchestration entrypoint; it
-      // precedes manual spec verbs and carries the persisted station contract.
-      expect(content).toContain('## Act: `prjct task` is the single normal entrypoint')
+      // Regression lock: `work` is the normal orchestration entrypoint; it
+      // precedes manual intent/spec verbs and carries the persisted station contract.
+      expect(content).toContain('## Act: `prjct work` is the single normal entrypoint')
       const verbMap = content.split('## Verb intent map')[1]?.split('## Routing')[0] ?? ''
-      expect(verbMap.indexOf('`prjct task')).toBeGreaterThan(-1)
-      expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct spec'))
-      expect(verbMap.indexOf('`prjct task')).toBeLessThan(verbMap.indexOf('`prjct audit-spec'))
+      expect(verbMap.indexOf('`prjct work')).toBeGreaterThan(-1)
+      expect(verbMap.indexOf('`prjct work')).toBeLessThan(verbMap.indexOf('`prjct intent'))
       // Routine verbs present in the table.
-      expect(verbMap).toContain('`prjct capture')
+      expect(verbMap).toContain('`prjct search')
       expect(verbMap).toContain('`prjct remember decision')
       expect(verbMap).toContain('`prjct remember learning')
       expect(verbMap).toContain('`prjct remember gotcha')
       expect(verbMap).toContain('`prjct ship`')
-      expect(verbMap).toContain('`prjct health --md`')
-      expect(verbMap).toContain('`prjct retro 7d --md`')
+      expect(verbMap).toContain('`prjct insights value --md`')
+      expect(verbMap).toContain('`prjct insights report 7 --md`')
+      expect(verbMap).toContain('`prjct performance 7 --md`')
       expect(verbMap).toContain('`prjct context-save`')
     })
 
@@ -526,26 +527,25 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('Tier 3 — decision-brief')
     })
 
-    it('groups capture / tag / remember / guard / context-save / health / retro into Tier 1', async () => {
+    it('groups memory / guard / insights / performance into Tier 1', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       const tier1 = content.split('Tier 1 — auto-execute')[1]?.split('Tier 2 —')[0] ?? ''
-      expect(tier1).toContain('`capture`')
-      expect(tier1).toContain('`tag`')
+      expect(tier1).toContain('`search`')
       expect(tier1).toContain('`remember`')
       expect(tier1).toContain('`guard`')
+      expect(tier1).toContain('`insights`')
+      expect(tier1).toContain('`performance`')
       expect(tier1).toContain('`context-save`')
-      expect(tier1).toContain('`health`')
-      expect(tier1).toContain('`retro`')
     })
 
-    it('groups task / ship / status into Tier 2 (suggest-and-confirm)', async () => {
+    it('groups work / intent / ship into Tier 2 (suggest-and-confirm)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       const tier2 = content.split('Tier 2 — suggest-and-confirm')[1]?.split('Tier 3 —')[0] ?? ''
-      expect(tier2).toContain('`task`')
+      expect(tier2).toContain('`work`')
+      expect(tier2).toContain('`intent`')
       expect(tier2).toContain('`ship`')
-      expect(tier2).toContain('`status done|paused`')
       // Heavy quality workflows (`audit`/`review`/`security`/`investigate`)
       // moved out of the lean body into workflows.md — no longer in Tier 2.
     })

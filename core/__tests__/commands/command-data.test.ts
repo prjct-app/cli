@@ -57,11 +57,8 @@ describe('COMMANDS', () => {
 
   it('registers paid-tier proof commands through the product command group', () => {
     const expected = [
-      ['value', 'value'],
-      ['memory-doctor', 'memoryDoctor'],
-      ['report', 'report'],
-      ['handoff', 'handoff'],
-      ['guardrails', 'guardrails'],
+      ['insights', 'insights'],
+      ['performance', 'performance'],
     ] as const
 
     for (const [name, method] of expected) {
@@ -69,10 +66,26 @@ describe('COMMANDS', () => {
       expect(command?.routing).toEqual({ group: 'product', method })
       expect(command?.requiresProject).toBe(true)
       expect(REGISTERED_VERBS_SET.has(name)).toBe(true)
+      expect(command?.surface).toBe('ai-agile')
     }
 
-    expect(COMMANDS.find((entry) => entry.name === 'report')?.optionSchema).toEqual({
+    expect(COMMANDS.find((entry) => entry.name === 'performance')?.optionSchema).toEqual({
       numbers: ['days'],
     })
+  })
+
+  it('registers v3 AI Agile primitives and keeps task-manager verbs as legacy aliases', () => {
+    for (const name of ['work', 'intent', 'insights', 'performance']) {
+      const command = COMMANDS.find((entry) => entry.name === name)
+      expect(command?.surface).toBe('ai-agile')
+      expect(REGISTERED_VERBS_SET.has(name)).toBe(true)
+    }
+
+    for (const name of ['task', 'status', 'tag', 'capture', 'spec', 'audit-spec']) {
+      const command = COMMANDS.find((entry) => entry.name === name)
+      expect(command?.surface).toBe('legacy')
+      expect(command?.usage.claude).toBeNull()
+      expect(REGISTERED_VERBS_SET.has(name)).toBe(true)
+    }
   })
 })

@@ -3,8 +3,8 @@
  *
  * Tiny DSL — deliberately small so it's readable at a glance:
  *
- *   tags:type=bug           — active task tag equals
- *   tags:domain~frontend    — active task tag contains (case-insensitive)
+ *   tags:type=bug           — active work tag equals
+ *   tags:domain~frontend    — active work tag contains (case-insensitive)
  *   branch=main             — current branch equals
  *   branch~feat/            — current branch contains
  *   files:*.ts              — any changed file matches glob
@@ -15,7 +15,7 @@
  */
 
 export interface WhenContext {
-  /** Active task tags, `{ type: 'bug', domain: 'auth' }` style */
+  /** Active work tags, `{ type: 'bug', domain: 'auth' }` style */
   tags: Record<string, string>
   /** Git branch name (shortened, e.g. `feat/login`) */
   branch: string

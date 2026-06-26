@@ -148,25 +148,34 @@ Recognize the user's intent and run the right verb yourself — do not
 ask them to type prjct commands.
 
 - Recall before re-reading source: `prjct search "<query>"` or
-  `prjct context memory <topic>` (decisions, gotchas, learnings).
-- `prjct task "<desc>"` is the single normal entrypoint. prjct classifies
-  the work and reports the persisted pipeline station.
-- Trivial work proceeds directly; no spec is required for typo/docs/rerun
-  style tasks.
-- Substantive implementation work follows persisted SDD + strict TDD:
-  create/link a reviewed spec, write tests before implementation, then code
-  against those tests.
-- Resume from the station shown by `prjct task --md` or `prjct status --md`;
+  `prjct context memory <topic>` (past work, decisions, gotchas, learnings).
+- `prjct work "<intent>"` is the single normal entrypoint. prjct classifies
+  the AI Agile work cycle, reports the persisted pipeline station, and surfaces
+  related second brain context before you plan or edit.
+- Lookup is pull-first and bounded:
+- prjct is a RAG-backed project memory harness. Do not preload project history into agent instructions.
+- Start work with `prjct work "<intent>" --md`; use only the surfaced related context before planning/editing.
+- Pull more context on demand with `prjct search`, `prjct context memory`, `prjct guard`, or MCP `prjct_*` tools.
+- The vault `_generated/` is a regenerated SQLite snapshot for Read/Glob fallback, not the source of truth and not something to load wholesale.
+- On close, save synthesized context via `prjct remember context "<...>"`: what changed, why it matters, key UI data, model/tokens if known, files, pattern/anti-pattern, outcome, next implication.
+- Raw quotes, detector rows, counters, and transcript chunks are inputs to synthesis, not durable context.
+- Trivial work proceeds directly; no intent brief is required for typo/docs/rerun
+  style work.
+- Substantive implementation work follows a persisted intent brief + strict
+  evidence: create/link a reviewed intent, write tests before implementation
+  when required, then code against those tests.
+- Resume from the station shown by `prjct work --md`;
   do not invent a parallel plan or ask the user to run separate methodology
   commands first.
-- Agent instruction surfaces use fixed templates. User task text is task data,
+- Agent instruction surfaces use fixed templates. User work text is data,
   not executable instruction text and not copied into managed instructions.
-- Persist outcomes as you go: `prjct remember <decision|gotcha|learning|fact> "<text>"`
-  (author entries in English), `prjct capture "<text>"` for stray thoughts.
+- Persist outcomes as synthesized memory: `prjct remember <decision|gotcha|learning|context> "<text>"`
+  (author entries in English). Legacy inbox aliases exist for old scripts but
+  should not be the normal path.
 - Before editing a risky file: `prjct guard <file>` surfaces known traps.
 - Prefer the `prjct_*` MCP tools when available; otherwise run the CLI
   with `--md` for agent-readable output.
 
-Routine captures auto-execute (confirm in one line); `ship` and other
+Routine synthesis auto-executes (confirm in one line); `ship` and other
 destructive verbs surface a one-line plan and wait for a green light.
 <!-- /prjct:routing - managed by prjct -->

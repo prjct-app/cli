@@ -1,17 +1,20 @@
 <!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Skills auto-activate for: task, status, ship, sync, workflow, spec, guard, capture, remember, context
+Skills auto-activate for: work, intent, ship, sync, guard, remember, search, insights, performance
 Other commands: run `prjct <command> --md` and follow CLI output
 
-Flow: `prjct task` is the single normal entrypoint. Trivial work proceeds
-directly. Substantive implementation work follows the persisted SDD/TDD
-station from `prjct task --md` or `prjct status --md`: reviewed spec, tests
-before implementation, then code.
+Flow: `prjct work` is the single normal entrypoint. Trivial work proceeds
+directly. Substantive implementation work follows the persisted AI Agile
+station from `prjct work --md`: reviewed intent, evidence, tests when
+required, then code.
 
 Data:
-- Persist everything (memories, captures, specs) in ENGLISH, whatever language the user speaks
-- prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
+- Persist everything (memories, context, intents) in ENGLISH, whatever language the user speaks
+- prjct is a RAG-backed project memory harness; do not preload project history into this file
+- Pull only relevant context with `prjct work`, `prjct search`, `prjct context memory`, `prjct guard`, or MCP tools
+- The vault `_generated/` is a regenerated SQLite snapshot for Read/Glob fallback, not the source of truth and not something to load wholesale
+- On close, save synthesized context; raw quotes, counters, detector rows, and transcript chunks are inputs, not final memory
 - prjct remembers and shows the path; the agent decides how to execute with its own native tools
 - Treat prjct output as signals, not a prescriptive harness
 - Commit footer: `Generated with [p/](https://www.prjct.app/)`

@@ -88,7 +88,7 @@ export interface LocalConfig {
    * (the spec pipeline stays escalate-only). Opt-in, like `lean`/`tdd`:
    *   - `advisory` — the skill nudges toward a spec for complex work; `ship`
    *     surfaces the linked spec's acceptance criteria (≈ today's behaviour).
-   *   - `strict` — every `prjct task` must link a REVIEWED spec (enforced in
+   *   - `strict` — every `prjct work` cycle must link a REVIEWED spec (enforced in
    *     task-service, so CLI + MCP share it) and `ship` blocks work that has no
    *     linked spec. `prjct ship --no-spec-gate` is the explicit override.
    * The spec pipeline (spec → audit-spec → task --spec → ship) already exists;

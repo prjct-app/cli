@@ -1,10 +1,10 @@
 /**
- * Multi-workspace task overview — the read-side counterpart to task-service.
+ * Multi-workspace work overview — the read-side counterpart to task-service.
  *
  * One place that answers "what is active, and in which workspace?" so every
- * surface (CLI `prjct task` no-arg + `prjct status`, the MCP prjct_task_status
+ * surface (CLI `prjct work` no-arg + legacy status, the MCP prjct_task_status
  * tool, and the session hooks) renders the SAME workspace-labelled view and
- * agrees on which task belongs to the caller's worktree. This is what makes
+ * agrees on which work cycle belongs to the caller's worktree. This is what makes
  * the per-workspace state observable instead of silently singular.
  */
 
@@ -107,15 +107,15 @@ export function formatActiveTaskLine(v: ActiveTaskView): string {
   return `${marker} ${v.label}    ${v.description}${here}`
 }
 
-/** Multi-workspace list view shared by `prjct status` and prjct_task_status. */
+/** Multi-workspace list view shared by legacy status and MCP task_status. */
 export function formatActiveTaskList(overview: TaskOverview): string {
-  if (overview.all.length === 0) return 'No active task.'
+  if (overview.all.length === 0) return 'No active work cycle.'
   if (overview.all.length === 1 && overview.current) {
     const v = overview.current
     const pipeline = v.pipeline ? `\n  Pipeline: ${v.pipeline.station}` : ''
     return `Active: ${v.description}\n  Workspace: ${v.label}${pipeline}`
   }
-  const lines = [`Active tasks (${overview.all.length})`]
+  const lines = [`Active work cycles (${overview.all.length})`]
   for (const v of overview.all) lines.push(formatActiveTaskLine(v))
   return lines.join('\n')
 }

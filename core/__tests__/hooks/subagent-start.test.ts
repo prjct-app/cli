@@ -2,13 +2,13 @@
  * SubagentStart hook — compact digest invariants.
  *
  * Subagents receive `buildSubagentDigest`, not the full session context:
- * role + this worktree's active task + top preventive traps, hard-capped
+ * role + this worktree's active work cycle + top preventive traps, hard-capped
  * at 500 chars. Emitted via `systemMessage` (outside the cached prompt
  * prefix), so variable content is allowed here — unlike SessionStart.
  *
  * Locked invariants:
  *   1. No projectId in config → null (skip injection).
- *   2. No persona, no task, no traps → null (nothing to say).
+ *   2. No persona, no active work, no traps → null (nothing to say).
  *   3. Gotchas/anti-patterns surface as traps; other types do not.
  *   4. Output never exceeds the 500-char cap.
  */

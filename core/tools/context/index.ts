@@ -18,6 +18,7 @@ import type { MemoryType } from '../../memory/entries'
 import { formatMemoryMd } from '../../memory/format'
 import { projectMemory } from '../../memory/project-memory'
 import { usefulnessService } from '../../services/usefulness'
+import { VAULT_HOME_FILE } from '../../services/wiki/_shared'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -98,7 +99,7 @@ async function runWikiTool(projectPath: string, args: string[] = []): Promise<Co
   return {
     tool: 'wiki',
     result: {
-      markdown: `> Wiki rebuilt at \`${wikiRoot}\` — ${filesWritten} files. Read \`${wikiRoot}/_generated/index.md\` with the Read tool.`,
+      markdown: `> Wiki rebuilt at \`${wikiRoot}\` — ${filesWritten} files. Read \`${wikiRoot}/_generated/${VAULT_HOME_FILE}\` with the Read tool.`,
       entryCount: filesWritten,
     },
   }

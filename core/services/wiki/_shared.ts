@@ -15,6 +15,14 @@ import type { LLMAnalysis } from '../../types/llm-analysis'
  * an agent reading one stays under a reasonable budget.
  */
 export const CHUNK_SIZE = 50
+export const VAULT_HOME_FILE = 'project-context.md'
+export const ANALYSIS_MAP_FILE = 'analysis/analysis-map.md'
+export const RELEASE_HISTORY_FILE = 'releases/release-history.md'
+export const WORKFLOW_MAP_FILE = 'workflows/workflow-map.md'
+export const SPEC_ROADMAP_FILE = 'specs/spec-roadmap.md'
+export const VAULT_START_HERE_FILE = 'START-HERE-prjct-vault.md'
+export const CAPTURED_GUIDE_FILE = 'how-to-capture-notes.md'
+export const WORKFLOWS_GUIDE_FILE = 'how-to-edit-workflows.md'
 
 export type Manifest = Record<string, string>
 

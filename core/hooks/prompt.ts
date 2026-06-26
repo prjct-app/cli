@@ -2,9 +2,9 @@
  * UserPromptSubmit hook — lean project-state injection only.
  *
  * Fires when the human submits a prompt and injects pure facts about where
- * the project is right now (active task, branch, working tree, recent ships)
+ * the project is right now (active work, branch, working tree, recent ships)
  * so the LLM can disambiguate intent without asking ("listo" + dirty tree +
- * active task + unpushed commits → ship; clean tree → status done).
+ * active work + unpushed commits → ship; clean tree → close work).
  *
  * Topical memory and improvement signals are PULL, not PUSH: the agent
  * fetches them on demand (`prjct context memory <topic>`, `prjct guard
@@ -45,7 +45,7 @@ interface HookInput {
 
 /**
  * Build a "# prjct: project state" block — pure facts about where the
- * project is right now (active task, branch, working tree, recent
+ * project is right now (active work, branch, working tree, recent
  * ships). The LLM reads it to disambiguate user intent without asking.
  *
  * Returns null when there's nothing useful to say (no project, no
@@ -61,15 +61,15 @@ export async function buildProjectState(
   const lines: string[] = ['# prjct: project state']
   let hasContent = false
 
-  // Active task — most useful single fact. Resolved PER worktree so a parallel
-  // agent sees its own task, not a sibling's. Falls back to singular outside a
+  // Active work — most useful single fact. Resolved PER worktree so a parallel
+  // agent sees its own work, not a sibling's. Falls back to singular outside a
   // worktree.
   try {
     const overview = await collectActiveTasks(config.projectId, projectPath)
     if (overview.current) {
       const startedAgo = formatRelative(overview.current.startedAt)
       lines.push(
-        `- Active task: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
+        `- Active work cycle: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
       )
       hasContent = true
     }
@@ -163,7 +163,7 @@ export function buildTopicalCue(
     const trap = hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
     if (!trap) return null
     // Push-path ship attribution: the cue surfaced this trap during the
-    // active task — if the task ships, it earned its keep (otherwise the
+    // active work — if the work ships, it earned its keep (otherwise the
     // most effective gotchas DECAY precisely because the push works).
     if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [trap.id])
     return `> Trap on this topic: ${deriveTitle(trap)}  \`${trap.id}\``
@@ -270,7 +270,7 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
         if (!prompt) return null
         const config = await configManager.readConfig(p)
         // PUSH→PULL: the per-turn hook injects ONLY lean project-state facts
-        // (active task, branch, working tree) so the agent can disambiguate
+        // (active work, branch, working tree) so the agent can disambiguate
         // intent without asking. Topical memory and improvement signals are
         // PULL, not PUSH — the agent fetches them on demand via
         // `prjct context memory <topic>`, `prjct guard <file>`, or the MCP

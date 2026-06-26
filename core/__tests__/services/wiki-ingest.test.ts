@@ -15,7 +15,7 @@
  *      ingested with `force: true`.
  *   6. Move to `_ingested/` — successful ingests vacate the inbox.
  *   7. Idempotency — empty `captured/` is a clean no-op.
- *   8. `ensureCapturedReadme` — first call creates README; later calls
+ *   8. `ensureCapturedReadme` — first call creates the guide; later calls
  *      preserve user edits (don't overwrite).
  */
 
@@ -26,6 +26,7 @@ import path from 'node:path'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
+import { CAPTURED_GUIDE_FILE } from '../../services/wiki/_shared'
 import {
   ensureCapturedReadme,
   ingestCapturedNotes,
@@ -370,8 +371,9 @@ ok`
     expect(result).toEqual({ ingested: 0, skipped: [], errors: [] })
   })
 
-  test('listNoteFiles ignores README, dotfiles, and the _ingested/ subdir', async () => {
+  test('listNoteFiles ignores guides, README, dotfiles, and the _ingested/ subdir', async () => {
     await fs.writeFile(path.join(capturedRoot, 'README.md'), '# readme', 'utf-8')
+    await fs.writeFile(path.join(capturedRoot, CAPTURED_GUIDE_FILE), '# guide', 'utf-8')
     await fs.writeFile(path.join(capturedRoot, '.hidden.md'), 'shh', 'utf-8')
     await fs.mkdir(path.join(capturedRoot, '_ingested', 'old-stamp'), { recursive: true })
     await fs.writeFile(path.join(capturedRoot, '_ingested', 'old-stamp', 'old.md'), 'old', 'utf-8')
@@ -384,20 +386,20 @@ ok`
 // 5. ensureCapturedReadme
 
 describe('ensureCapturedReadme', () => {
-  test('creates README on first call', async () => {
+  test('creates guide on first call', async () => {
     await ensureCapturedReadme(projectPath)
-    const body = await fs.readFile(path.join(capturedRoot, 'README.md'), 'utf-8')
-    expect(body).toContain('Captured notes')
+    const body = await fs.readFile(path.join(capturedRoot, CAPTURED_GUIDE_FILE), 'utf-8')
+    expect(body).toContain('How to Capture Notes')
     expect(body).toContain('type: learning')
   })
 
   test('preserves user edits on subsequent calls', async () => {
     await ensureCapturedReadme(projectPath)
     const customised = '# my own notes — do not overwrite'
-    await fs.writeFile(path.join(capturedRoot, 'README.md'), customised, 'utf-8')
+    await fs.writeFile(path.join(capturedRoot, CAPTURED_GUIDE_FILE), customised, 'utf-8')
 
     await ensureCapturedReadme(projectPath)
-    const body = await fs.readFile(path.join(capturedRoot, 'README.md'), 'utf-8')
+    const body = await fs.readFile(path.join(capturedRoot, CAPTURED_GUIDE_FILE), 'utf-8')
     expect(body).toBe(customised)
   })
 })

@@ -36,7 +36,11 @@ describe('writeProjectAgentsMd', () => {
     expect(body).toContain(_routing.START_MARKER)
     expect(body).toContain(_routing.END_MARKER)
     expect(body).toContain('## prjct — project memory & workflow')
-    expect(body).toContain('prjct task')
+    expect(body).toContain('prjct work')
+    expect(body).toContain('RAG-backed project memory harness')
+    expect(body).toContain('Do not preload project history')
+    expect(body).toContain('Pull more context on demand')
+    expect(body).toContain('not something to load wholesale')
   })
 
   it('appends the block to an existing AGENTS.md without markers', async () => {
@@ -82,13 +86,13 @@ describe('writeProjectAgentsMd', () => {
     expect(body).not.toContain('Claude Code')
   })
 
-  it('documents task as the single SDD/TDD orchestration entrypoint', async () => {
+  it('documents work as the single AI Agile orchestration entrypoint', async () => {
     await writeProjectAgentsMd(dir)
     const body = await readAgentsMd()
     expect(body).toContain('single normal entrypoint')
     expect(body).toContain('Trivial work proceeds directly')
-    expect(body).toContain('Substantive implementation work follows persisted SDD')
-    expect(body).toContain('tests before implementation')
+    expect(body).toContain('Substantive implementation work follows a persisted intent brief')
+    expect(body).toContain('strict')
     expect(body).toContain('fixed templates')
   })
 })

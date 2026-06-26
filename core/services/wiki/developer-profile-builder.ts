@@ -58,6 +58,11 @@ export function buildDeveloperProfile(declared: MemoryEntry[]): string | null {
     lines.push('')
   }
 
-  lines.push('---', '', 'See also: [architecture](architecture.md) · [project wiki](index.md)', '')
+  lines.push(
+    '---',
+    '',
+    'See also: [architecture](architecture.md) · [project context](project-context.md)',
+    ''
+  )
   return `${lines.join('\n')}\n`
 }

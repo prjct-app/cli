@@ -3,7 +3,7 @@
  * subagents. Without this, subagents start with zero project context
  * and re-investigate facts the main session already knows.
  *
- * Uses `buildSubagentDigest` (role + this worktree's active task + top
+ * Uses `buildSubagentDigest` (role + this worktree's active work cycle + top
  * traps) rather than the full session context: SubagentStart emits via
  * `systemMessage` (its schema rejects `additionalContext`), which sits
  * outside the cached prompt prefix, so variable content is safe here.

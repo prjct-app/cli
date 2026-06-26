@@ -1,6 +1,9 @@
 # prjct-cli
 
-**Project memory + quality workflows for AI coding agents.** prjct-cli gives Claude Code (and any agent) durable memory of your projects: decisions, learnings, gotchas, hot files, recurring bugs. Plus 5 named quality workflows (review, qa, security, investigate, ship) that persist findings back to memory so the next session compounds.
+**AI Agile OS for coding agents.** prjct-cli gives Claude Code, Codex, Gemini,
+Cursor, Windsurf, and any agent a project second brain: intent briefs, bounded
+RAG context, preventive guardrails, synthesized learning, and performance
+signals for each dev+LLM work cycle.
 
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)]()
@@ -174,10 +177,11 @@ Use `prjct agents doctor --fix` inside a prjct project to refresh the portable
 `AGENTS.md` surface and any repo-local IDE rule adapters prjct manages. The
 command is idempotent and reports what changed.
 
-## Value proof commands
+## AI Agile intelligence
 
 prjct should justify itself with project evidence, not vague claims. These
-read-only commands show whether the project is actually compounding:
+read-only commands show whether dev+LLM work cycles are getting cheaper,
+safer, and more precise:
 
 ### Version evals
 
@@ -198,11 +202,12 @@ checks. See [EVALS.md](./EVALS.md) for the full workflow.
 
 | Command | What it proves |
 |---|---|
-| `prjct value --md` | Durable memory, preventive guardrails, shipped work, sync metrics, and detected agent coverage. |
-| `prjct memory-doctor --md` | Duplicate, stale, low-signal, or untyped memories before they poison recall. |
-| `prjct report 7 --md` | A human weekly report from shipped features, completed tasks, and carry-forward lessons. |
-| `prjct handoff codex --md` | A takeover prompt for the next agent with the checks it should run first. |
-| `prjct guardrails --md` | File-specific warnings for the current changeset from preventive memory. |
+| `prjct insights value --md` | Durable memory, preventive guardrails, shipped work, sync metrics, and detected agent coverage. |
+| `prjct insights quality --md` | Duplicate, stale, low-signal, or untyped memories before they poison recall. |
+| `prjct insights report 7 --md` | A human/team report from shipped work and carry-forward lessons. |
+| `prjct insights continue codex --md` | A continuation brief for the next agent with checks it should run first. |
+| `prjct insights guardrails --md` | File-specific warnings for the current changeset from preventive memory. |
+| `prjct performance 14 --md` | Time, tokens, model/runtime, prompt synthesis, tools, outcome, and quality signals per work cycle where available. |
 
 ## Execution environments (zero-config)
 
@@ -213,9 +218,9 @@ The same binary runs in a plain shell, inside Claude Code, in an OpenAI Codex sa
 In a real terminal — branded, animated, colored:
 
 ```text
-$ prjct task "add OAuth refresh"
-⚡ prjct  ✓ Task started: add OAuth refresh
-         branch: task/add-oauth-refresh · status: active
+$ prjct work "add OAuth refresh"
+⚡ prjct  ✓ Work cycle started: add OAuth refresh
+         branch: work/add-oauth-refresh · status: active
          harness: H2 feature/medium · evidence: focused-tests, scope-check, spec-or-design
 ```
 
@@ -224,9 +229,9 @@ animation), so logs stay clean. With `--md`, output is plain markdown an agent
 can consume directly:
 
 ```text
-$ prjct task "add OAuth refresh" --md
-> Task started: **add OAuth refresh**
-> branch `task/add-oauth-refresh` · status `active`
+$ prjct work "add OAuth refresh" --md
+> Work cycle started: **add OAuth refresh**
+> branch `work/add-oauth-refresh` · status `active`
 > harness `H2 feature/medium` · evidence `focused-tests, scope-check, spec-or-design`
 ```
 
@@ -235,9 +240,9 @@ $ prjct task "add OAuth refresh" --md
 ```bash
 # In any git repo
 prjct sync                                  # register the project (auto on first prjct command)
-prjct task "add OAuth refresh"              # start tracking work
+prjct work "add OAuth refresh"              # start an AI Agile work cycle
 prjct remember decision "we chose JWT + refresh rotation"
-prjct status done                           # close the active task
+prjct remember context "implemented refresh rotation; model/tokens unknown; tests passed"
 prjct ship                                  # bump version, commit, push, open PR
 ```
 
@@ -255,38 +260,36 @@ prjct team --enforce               # pre-commit hook blocks commits without prjc
 ## Inside Claude Code / Gemini CLI
 
 ```bash
-p. capture "llamar a Ana re: pricing"        # GTD inbox — anything goes
-p. task "add OAuth refresh"                   # start tracking work
+p. remember context "call Ana re pricing; no work cycle yet"
+p. work "add OAuth refresh"                   # start an AI Agile work cycle
 p. remember decision "we chose JWT + refresh rotation"
-p. status done                                # close the active task
+p. performance 7                              # inspect dev+LLM efficiency
 p. ship                                       # commit, push, open PR
 ```
 
 Cursor and Windsurf use their installed prjct router files; otherwise run `prjct <command> --md` and follow the output.
 
-### Core verbs
+### AI Agile verbs
 
 | Verb | What it does |
 |---|---|
-| `prjct capture "<text>"` | GTD-style universal inbox. Bare `prjct "<text>"` also routes here. |
-| `prjct task ["<desc>"]` | Register a task or show the active one. |
-| `prjct status <value>` | Inline status change on the active task (`done`, `paused`, `active`, …). |
-| `prjct tag <k:v>` | Tag the active task (`type:bug`, `domain:auth`, …). |
+| `prjct intent "<title>"` | Frame objective, constraints, risks, and success signal before high-stakes work. |
+| `prjct work ["<intent>"]` | Start or inspect an AI Agile work cycle with context and evidence. |
 | `prjct remember <type> "<content>"` | Persist a memory entry (decision, learning, gotcha, …). |
 | `prjct forget <id>` | Delete a memory entry by id (`prjct forget mem_1234`) — the delete half of `remember`. |
 | `prjct search "<query>"` | Search project memory — blended BM25 + semantic + recency recall (`prjct search mem_1234` resolves an entry by id). |
-| `prjct embeddings <set\|status\|test\|clear>` | Configure the global BYOT embeddings provider — any OpenAI-compatible API (OpenAI, OpenRouter, Ollama, Azure, …), one secure key, all projects. |
+| `prjct guard <file>` | Surface preventive memory before editing a risky file. |
+| `prjct performance [days]` | Measure dev+LLM efficiency per work cycle. |
+| `prjct insights [value\|quality\|report\|continue\|guardrails]` | Project intelligence and quality proof. |
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
-| `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
-| `prjct value` | Show whether prjct is paying for itself in this project. |
-| `prjct memory-doctor` | Audit memory quality before noisy context spreads to every agent. |
-| `prjct report [days]` | Generate a human report from shipped work and project memory. |
-| `prjct handoff [agent]` | Prepare the next AI coding agent to continue with context. |
-| `prjct guardrails` | Check the current changeset against known project traps. |
 | `prjct agents doctor` | Show the auditable compatibility matrix for local and project agent runtimes. |
 | `prjct review-risk` | Advisory change-size + delivery-geometry signal for the branch (read-only; never gates, never splits). |
-| `prjct seed <add\|list>` | Manage packs (persona, memory types, workflow slots). |
+
+Compatibility aliases from v2 still execute for existing scripts: `task`,
+`status`, `tag`, `capture`, `spec`, `audit-spec`, `value`, `memory-doctor`,
+`report`, `handoff`, `guardrails`, `regen`, and `analyze`. They are no longer
+the product surface.
 
 ## Personas & Packs
 
@@ -518,23 +521,27 @@ In any git repo, run `prjct sync` (it auto-runs on the first `prjct` command) or
 `prjct init`. This creates `.prjct/prjct.config.json` with a `projectId`, builds
 the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vault.
 
-**How do I add a development task?**
-Run `prjct task "<description>"` from the repo. It registers the task in SQLite,
-auto-classifies a lightweight harness (H0-H3) with expected evidence, and marks
-it active — worked example:
+**How do I start an AI Agile work cycle?**
+Run `prjct work "<intent>"` from the repo. It registers the work cycle in
+SQLite, pulls relevant second-brain context, auto-classifies a lightweight
+harness (H0-H3) with expected evidence, and marks it active — worked example:
 
 ```bash
-$ prjct task "add OAuth refresh"
-⚡ prjct  ✓ Task started: add OAuth refresh
-         branch: task/add-oauth-refresh · status: active
+$ prjct work "add OAuth refresh"
+⚡ prjct  ✓ Work started: add OAuth refresh
+         branch: work/add-oauth-refresh · status: active
          harness: H2 feature/medium · evidence: focused-tests, scope-check, spec-or-design
 
-$ prjct tag type:feature domain:auth     # optional: categorize it
-$ prjct status done                       # closes it; warns if harness evidence is missing
+$ prjct remember context "OAuth refresh depends on the existing token rotation helper."
+$ prjct performance --md                  # duration/tokens/model/runtime when available
 $ prjct ship                              # bump version, commit, PR
 ```
 
-Inside an agent you can say it: `p. task "add OAuth refresh"` in Claude Code, or run `prjct task "…" --md` from any wired agent. `prjct task` with no argument prints the currently active task.
+Inside an agent you can say it: `p. work "add OAuth refresh"` in Claude Code,
+or run `prjct work "..." --md` from any wired agent. `prjct work` with no
+argument prints the currently active work cycle. The old `task/status/tag/spec`
+verbs still execute for existing scripts, but they are compatibility aliases,
+not the v3 product model.
 
 **How do I get AI assistance for a coding problem?**
 Inside Claude Code (or any wired agent) describe the problem in natural
@@ -549,9 +556,10 @@ persisting findings to memory. Concrete examples:
 | "qa the checkout page" | `qa` | Real browser, atomic fixes, regression tests |
 
 You can also pull project knowledge directly: ask "what patterns does this
-project use?" and the agent reads `<vault-root>/<slug>/_generated/patterns.md`
-instead of grepping source (the lookup-first protocol). Outside an agent, every
-command takes `--md` to emit agent-ready markdown.
+project use?" and the agent runs `prjct search`, `prjct context memory`, or
+`prjct guard` before reading source. The generated vault is a snapshot fallback;
+the fast path is SQLite + retrieval so agents do not flood their context.
+Outside an agent, every command takes `--md` to emit agent-ready markdown.
 
 **What does prjct-cli output look like in a normal terminal?**
 A branded, **animated** spinner with full colors and interactive prompts (the

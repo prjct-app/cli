@@ -41,7 +41,7 @@ If any reviewer fails: revise the spec via `prjct spec update`, re-audit. The co
 Now create the task. The `--spec` flag wires the task to its spec via `linked_spec_id`. Without it, `ship` later has nothing to gate against.
 
 ```
-prjct task "implement rate-limit middleware" --spec <id>
+prjct work "implement rate-limit middleware" --spec <id>
 ```
 
 ### 4. implement

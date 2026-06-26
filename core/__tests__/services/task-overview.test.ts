@@ -47,7 +47,7 @@ describe('collectActiveTasks', () => {
     const ov = await collectActiveTasks(projectId, projectPath)
     expect(ov.current).toBeNull()
     expect(ov.all).toHaveLength(0)
-    expect(formatActiveTaskList(ov)).toBe('No active task.')
+    expect(formatActiveTaskList(ov)).toBe('No active work cycle.')
   })
 
   it('main currentTask is the current workspace; child tasks are listed as others', async () => {
@@ -81,7 +81,7 @@ describe('collectActiveTasks', () => {
     // Current-first ordering + multi-workspace list rendering.
     expect(ov.all[0]!.isCurrent).toBe(true)
     const rendered = formatActiveTaskList(ov)
-    expect(rendered).toContain('Active tasks (2)')
+    expect(rendered).toContain('Active work cycles (2)')
     expect(rendered).toContain('(this worktree)')
   })
 })

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-26
+
+### Added
+- v3.0 AI Agile OS second brain context refresh
+
 ## [2.77.0] - 2026-06-26
 
 ### Added

@@ -55,7 +55,7 @@ async function runStatusTransition(
 ): Promise<void> {
   const active = await stateStorage.getCurrentTask(projectId)
   if (!active) {
-    throw new Error(`Cannot transition to '${target}': no active task`)
+    throw new Error(`Cannot transition to '${target}': no active work cycle`)
   }
   await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
     taskId: active.id,

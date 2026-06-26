@@ -45,8 +45,11 @@ interface TaskRow {
   id: string
   description: string
   status: string
+  started_at?: string | null
   completed_at: string | null
   shipped_at: string | null
+  tokens_in?: number | null
+  tokens_out?: number | null
 }
 
 interface ShipRow {
@@ -85,10 +88,69 @@ interface ValueSnapshot {
   score: number
 }
 
+interface PerformanceRow {
+  id: string
+  description: string
+  status: string
+  started_at: string | null
+  completed_at: string | null
+  shipped_at: string | null
+  tokens_in: number | null
+  tokens_out: number | null
+  linked_spec_id?: string | null
+}
+
+interface PerformanceCycle {
+  id: string
+  description: string
+  status: string
+  minutes: number | null
+  tokensIn: number | null
+  tokensOut: number | null
+  tokensTotal: number | null
+  model: string
+  runtime: string
+  promptSynthesis: string
+  outcome: string
+}
+
 const PREVENTIVE_TYPES = ['gotcha', 'anti-pattern', 'learning']
 const NOISE_RE = /^(current work|wip|todo|misc|n\/a|none|latest|unreleased|changelog)$/i
 
 export class ProductCommands extends PrjctCommandsBase {
+  async insights(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: ProductOptions = {}
+  ): Promise<CommandResult> {
+    const [sub = 'overview', ...rest] = (input ?? '').trim().split(/\s+/).filter(Boolean)
+    const forwarded = rest.join(' ') || null
+    switch (sub) {
+      case 'value':
+      case 'overview':
+        return this.value(null, projectPath, options)
+      case 'quality':
+      case 'memory':
+      case 'memory-doctor':
+        return this.memoryDoctor(null, projectPath, options)
+      case 'report':
+      case 'retro':
+        return this.report(forwarded, projectPath, options)
+      case 'continue':
+      case 'handoff':
+      case 'brief':
+        return this.handoff(forwarded, projectPath, options)
+      case 'guardrails':
+      case 'risk':
+        return this.guardrails(null, projectPath, options)
+      default:
+        return failHard(
+          `Unknown insights view '${sub}'. Use value, quality, report, continue, or guardrails.`,
+          options
+        )
+    }
+  }
+
   async value(
     _input: string | null = null,
     projectPath: string = process.cwd(),
@@ -171,6 +233,26 @@ export class ProductCommands extends PrjctCommandsBase {
       const report = await buildGuardrails(guard.value, projectPath)
       console.log(options.md ? formatGuardrailsMd(report) : formatGuardrailsText(report))
       return { success: true, files: report.files.length, hits: report.hits.length }
+    } catch (error) {
+      return failHard(getErrorMessage(error), options)
+    }
+  }
+
+  async performance(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: ProductOptions = {}
+  ): Promise<CommandResult> {
+    try {
+      const guard = await requireProject(projectPath, options)
+      if (!guard.ok) return guard.result
+
+      const days = pickDays(input, options.days, 14)
+      const cycles = buildPerformanceCycles(guard.value, days)
+      console.log(
+        options.md ? formatPerformanceMd(days, cycles) : formatPerformanceText(days, cycles)
+      )
+      return { success: true, days, cycles: cycles.length }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
     }
@@ -314,6 +396,39 @@ function buildMemoryDoctor(projectId: string): {
   }
 }
 
+function buildPerformanceCycles(projectId: string, days: number): PerformanceCycle[] {
+  const since = sinceIso(days)
+  const rows = query<PerformanceRow>(
+    projectId,
+    `SELECT id, description, status, started_at, completed_at, shipped_at,
+            tokens_in, tokens_out, linked_spec_id
+     FROM tasks
+     WHERE COALESCE(completed_at, shipped_at, started_at) >= ?
+     ORDER BY COALESCE(completed_at, shipped_at, started_at) DESC
+     LIMIT 20`,
+    since
+  )
+
+  return rows.map((row) => {
+    const tokensIn = nullableNumber(row.tokens_in)
+    const tokensOut = nullableNumber(row.tokens_out)
+    return {
+      id: row.id,
+      description: row.description,
+      status: row.status,
+      minutes: durationMinutes(row.started_at, row.completed_at ?? row.shipped_at),
+      tokensIn,
+      tokensOut,
+      tokensTotal:
+        tokensIn === null && tokensOut === null ? null : (tokensIn ?? 0) + (tokensOut ?? 0),
+      model: 'unknown',
+      runtime: 'unknown',
+      promptSynthesis: synthesizePrompt(row.description),
+      outcome: row.shipped_at ? 'shipped' : row.completed_at ? 'completed' : row.status,
+    }
+  })
+}
+
 async function buildHumanReport(projectId: string, projectPath: string, days: number) {
   const since = sinceIso(days)
   const active = await resolveActiveTask(projectId, projectPath).catch(() => null)
@@ -452,6 +567,27 @@ function sinceIso(days: number): string {
   return date.toISOString()
 }
 
+function nullableNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function durationMinutes(
+  start: string | null | undefined,
+  end: string | null | undefined
+): number | null {
+  if (!start || !end) return null
+  const started = Date.parse(start)
+  const ended = Date.parse(end)
+  if (!Number.isFinite(started) || !Number.isFinite(ended) || ended < started) return null
+  return Math.round((ended - started) / 60_000)
+}
+
+function synthesizePrompt(description: string): string {
+  const trimmed = description.trim().replace(/\s+/g, ' ')
+  if (trimmed.length <= 140) return trimmed
+  return `${trimmed.slice(0, 137)}...`
+}
+
 function isNoise(content: string): boolean {
   const normalized = content.trim()
   return normalized.length <= 12 || NOISE_RE.test(normalized)
@@ -517,7 +653,7 @@ function formatMemoryDoctorText(report: ReturnType<typeof buildMemoryDoctor>): s
 function formatReportMd(report: Awaited<ReturnType<typeof buildHumanReport>>): string {
   const lines = [`# Weekly Report (${report.days} days)`, '']
   lines.push(`**Value score:** ${report.value.score}/100`)
-  lines.push(`**Active task:** ${report.active?.description ?? 'None'}`, '')
+  lines.push(`**Active work cycle:** ${report.active?.description ?? 'None'}`, '')
   lines.push('## Shipped')
   if (report.ships.length === 0) lines.push('- No shipped features recorded in this window.')
   else {
@@ -528,7 +664,8 @@ function formatReportMd(report: Awaited<ReturnType<typeof buildHumanReport>>): s
     }
   }
   lines.push('', '## Completed Work')
-  if (report.completed.length === 0) lines.push('- No completed tasks recorded in this window.')
+  if (report.completed.length === 0)
+    lines.push('- No completed work cycles recorded in this window.')
   else for (const task of report.completed) lines.push(`- ${task.description}`)
   lines.push('', '## Decisions / Lessons To Carry Forward')
   appendEntries(lines, report.decisions)
@@ -554,12 +691,13 @@ function formatHandoffMd(handoff: Awaited<ReturnType<typeof buildHandoff>>): str
     '',
     '```text',
     `You are taking over this project with prjct available.`,
-    `Active task: ${handoff.active?.description ?? 'none'}.`,
+    `Active work cycle: ${handoff.active?.description ?? 'none'}.`,
     'First run:',
-    '1. prjct status --md',
-    '2. prjct value --md',
-    '3. prjct memory-doctor --md',
-    '4. prjct guardrails --md',
+    '1. prjct work --md',
+    '2. prjct insights value --md',
+    '3. prjct insights quality --md',
+    '4. prjct insights guardrails --md',
+    '5. prjct performance --md',
     'Before editing any risky file, run prjct guard <file> --md.',
     '```',
     '',
@@ -578,7 +716,7 @@ function formatHandoffText(handoff: Awaited<ReturnType<typeof buildHandoff>>): s
   return [
     `Handoff for ${handoff.target}`,
     `Active: ${handoff.active?.description ?? 'none'}`,
-    'Run: prjct status --md; prjct value --md; prjct guardrails --md',
+    'Run: prjct work --md; prjct insights value --md; prjct insights guardrails --md; prjct performance --md',
     `Context entries: ${handoff.memories.length}`,
   ].join('\n')
 }
@@ -608,6 +746,37 @@ function formatGuardrailsText(report: Awaited<ReturnType<typeof buildGuardrails>
   if (report.hits.length === 0)
     return `Risk guardrails: ${report.files.length} files checked, no file-specific hits.`
   return `Risk guardrails: ${report.hits.length} warning(s) across ${report.files.length} changed file(s).`
+}
+
+function formatPerformanceMd(days: number, cycles: PerformanceCycle[]): string {
+  const lines = ['# AI Agile Performance', '', `Window: last ${days} day(s)`, '']
+  if (cycles.length === 0) {
+    lines.push('No work cycles recorded in this window.')
+    return lines.join('\n')
+  }
+  lines.push('| Work cycle | Outcome | Time | Tokens | Model | Runtime | Prompt synthesis |')
+  lines.push('|---|---|---:|---:|---|---|---|')
+  for (const cycle of cycles) {
+    lines.push(
+      `| ${escapeCell(cycle.description)} | ${cycle.outcome} | ${cycle.minutes ?? 'unknown'} | ${cycle.tokensTotal ?? 'unknown'} | ${cycle.model} | ${cycle.runtime} | ${escapeCell(cycle.promptSynthesis)} |`
+    )
+  }
+  lines.push(
+    '',
+    'Model/runtime/tokens are `unknown` when the active editor does not expose them yet. Keep unknown explicit; do not infer.'
+  )
+  return lines.join('\n')
+}
+
+function formatPerformanceText(days: number, cycles: PerformanceCycle[]): string {
+  if (cycles.length === 0) return `AI Agile performance (${days}d): no work cycles recorded.`
+  const knownTime = cycles.filter((cycle) => cycle.minutes !== null)
+  const minutes = knownTime.reduce((sum, cycle) => sum + (cycle.minutes ?? 0), 0)
+  return `AI Agile performance (${days}d): ${cycles.length} cycle(s), ${knownTime.length} with duration, ${minutes} known minute(s).`
+}
+
+function escapeCell(value: string): string {
+  return value.replace(/\|/g, '\\|').replace(/\n/g, ' ')
 }
 
 function appendEntries(lines: string[], entries: MemoryEntry[]): void {

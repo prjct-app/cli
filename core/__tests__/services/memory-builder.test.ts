@@ -39,7 +39,7 @@ describe('buildMemoryFiles — one note per entry', () => {
       tags: { topic: 'memory-ux' },
     }),
   ]
-  const files = buildMemoryFiles(entries, entries)
+  const files = new Map([...buildMemoryFiles(entries, entries), ...buildTagFiles(entries, entries)])
   const keys = [...files.keys()]
 
   it('emits a per-entry note at memory/<type>/<slug>.md', () => {
@@ -73,6 +73,8 @@ describe('buildMemoryFiles — one note per entry', () => {
       if (m) basenames.add(m[1])
       const moc = k.match(/^memory\/([^/]+)\.md$/)
       if (moc) basenames.add(moc[1]) // type MOC, also block-anchor host
+      const tag = k.match(/^tags\/(.+)\.md$/)
+      if (tag) basenames.add(`tags/${tag[1]}`)
     }
     for (const body of files.values()) {
       for (const [, target] of body.matchAll(/\[\[([^|\]#]+)(?:#[^|\]]+)?\|[^\]]+\]\]/g)) {

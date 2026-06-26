@@ -18,8 +18,8 @@ interface NextStep {
  * Command descriptions for display
  */
 const CMD_DESCRIPTIONS: Record<string, string> = {
-  task: 'Start new task',
-  done: 'Complete current task',
+  task: 'Start new work cycle',
+  done: 'Complete current work',
   pause: 'Pause and switch context',
   resume: 'Continue paused task',
   ship: 'Ship the feature',
@@ -28,6 +28,14 @@ const CMD_DESCRIPTIONS: Record<string, string> = {
   sync: 'Analyze project',
   bug: 'Report a bug',
   idea: 'Capture an idea',
+}
+
+const PUBLIC_COMMANDS: Record<string, string> = {
+  task: 'work',
+}
+
+function publicCommand(cmd: string): string {
+  return PUBLIC_COMMANDS[cmd] ?? cmd
 }
 
 /**
@@ -63,7 +71,7 @@ export function showNextSteps(command: string, options: { quiet?: boolean } = {}
   if (validCommands.length === 0) return
 
   const steps: NextStep[] = validCommands.map((cmd) => ({
-    cmd: `p. ${cmd}`,
+    cmd: `p. ${publicCommand(cmd)}`,
     desc: CMD_DESCRIPTIONS[cmd] || cmd,
   }))
 
@@ -82,7 +90,7 @@ export function getNextSteps(command: string, md = false): NextStep[] {
   const validCommands = workflowStateMachine.getValidCommands(resultingState)
 
   return validCommands.map((cmd) => ({
-    cmd: md ? `prjct ${cmd} --md` : `p. ${cmd}`,
+    cmd: md ? `prjct ${publicCommand(cmd)} --md` : `p. ${publicCommand(cmd)}`,
     desc: CMD_DESCRIPTIONS[cmd] || cmd,
   }))
 }

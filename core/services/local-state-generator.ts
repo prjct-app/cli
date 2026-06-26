@@ -2,7 +2,7 @@
  * Local State Generator
  *
  * Generates .prjct-state.md in the project root for local persistence.
- * This provides a quick reference to current task state without needing
+ * This provides a quick reference to current work-cycle state without needing
  * to access global storage.
  *
  * @see PRJ-112
@@ -82,7 +82,7 @@ class LocalStateGenerator {
     if (state.currentTask) {
       // Cast to runtime type (state.json has additional fields)
       const task = state.currentTask as unknown as RuntimeTask
-      lines.push('## Current Task')
+      lines.push('## Current Work Cycle')
       lines.push('')
       lines.push(`**${task.description}**`)
       lines.push('')
@@ -118,19 +118,19 @@ class LocalStateGenerator {
         lines.push('')
       }
     } else {
-      lines.push('*No active task*')
+      lines.push('*No active work cycle*')
       lines.push('')
-      lines.push('Start a task with `p. task "description"`')
+      lines.push('Start work with `p. work "intent"`')
       lines.push('')
     }
 
-    // Previous task info
+    // Previous work-cycle info
     if (state.previousTask) {
       // Cast to runtime type
       const prevTask = state.previousTask as unknown as RuntimePreviousTask
       lines.push('---')
       lines.push('')
-      lines.push('## Previous Task')
+      lines.push('## Previous Work Cycle')
       lines.push('')
       lines.push(`**${prevTask.description}**`)
       lines.push('')

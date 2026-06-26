@@ -54,10 +54,10 @@ export class PrimitiveCommands extends PrjctCommandsBase {
             else out.fail(outcome.message)
             return { success: false, error: outcome.message }
           }
-          // No active task and no paused task to resume — emit the uniform guard.
+          // No active work cycle and no paused cycle to resume — emit the uniform guard.
           const task = await requireActiveTask(pid.value, options, projectPath)
           if (!task.ok) return task.result
-          return { success: false, error: 'No active task' }
+          return { success: false, error: 'No active work cycle' }
         }
         const msg = `status → ${value}`
         if (options.md) console.log(`✓ ${msg}`)
