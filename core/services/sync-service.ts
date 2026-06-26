@@ -55,6 +55,7 @@ import {
 } from './sync/state-update'
 import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-analyzer'
 import { syncVerifier } from './sync-verifier'
+import { publishWorkCostSnapshots } from './work-cost-service'
 
 // SYNC SERVICE
 
@@ -455,6 +456,7 @@ class SyncService {
       const syncMetrics = await phase('metrics', () =>
         recordSyncMetrics(this.projectId!, stats, duration)
       )
+      const workCost = await phase('work-cost', () => publishWorkCostSnapshots(this.projectId!))
 
       // 9b. Archive stale data (PRJ-267)
       await phase('archive', () => archiveStaleData(this.projectId!))
@@ -512,6 +514,7 @@ class SyncService {
         analysisSummary,
         contextQuality,
         syncMetrics,
+        workCost,
         verification,
         incremental: incrementalInfo,
         generatedSkills,

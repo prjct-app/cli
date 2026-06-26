@@ -126,6 +126,21 @@ describe('mapCliEventToWebFormat — entityType-driven', () => {
     ).toBe('archives')
   })
 
+  it('maps work cost snapshots to cloud metrics analytics', () => {
+    const result = mapCliEventToWebFormat(
+      'proj-1',
+      publishedEvent('work_cost_snapshots', 'upsert', {
+        id: 'work-cost-30d',
+        windowDays: 30,
+        tokensTotal: 55000,
+      })
+    )
+    expect(result?.entity_type).toBe('work_cost_snapshots')
+    expect(result?.entity_id).toBe('work-cost-30d')
+    expect(result?.data.window_days).toBe(30)
+    expect(result?.data.tokens_total).toBe(55000)
+  })
+
   it('honors the explicit eventType=delete over the legacy action', () => {
     const result = mapCliEventToWebFormat(
       'proj-1',

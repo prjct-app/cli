@@ -29,6 +29,7 @@ const TABLE_BY_ENTITY: Record<string, string> = {
   shipped_items: 'shipped_items',
   shipped_features: 'shipped_features',
   metrics_daily: 'metrics_daily',
+  work_cost_snapshots: 'work_cost_snapshots',
   velocity_sprints: 'velocity_sprints',
   // Project-understanding artifacts: the sealed analysis (patterns, anti-
   // patterns, tech-debt, risk-areas, insights) and SDD specs. Previously
@@ -49,6 +50,7 @@ const TABLE_BY_ENTITY: Record<string, string> = {
   workflow: 'custom_workflows',
   workflow_rule: 'workflow_rules',
   metric: 'metrics_daily',
+  work_cost_snapshot: 'work_cost_snapshots',
   velocity: 'velocity_sprints',
   spec: 'specs',
   project: 'projects',
@@ -95,6 +97,7 @@ const GROUP_BY_TABLE: Record<string, IncludeGroup> = {
   custom_workflows: 'workflows',
   workflow_rules: 'workflows',
   metrics_daily: 'metrics',
+  work_cost_snapshots: 'metrics',
   velocity_sprints: 'metrics',
   archives: 'archives',
   analysis: 'analysis',
@@ -112,10 +115,9 @@ export const DEFAULT_INCLUDE: Record<IncludeGroup, boolean> = {
   ideas: true,
   shipped: true,
   workflows: true,
-  // `metrics` has no producer yet and `archives` syncs a lossy summary with
-  // no local apply handler — keep both off by default (opt-in) so we don't
-  // push data nothing consumes. Flip on once they round-trip.
-  metrics: false,
+  // `metrics` now includes aggregated cost/context snapshots. It is default-on
+  // because it contains rolled-up analytics, not raw prompts or transcripts.
+  metrics: true,
   archives: false,
   // Raw prompts + agent sessions stay opt-out by default (privacy-sensitive,
   // heavy). Analysis + specs are project-understanding knowledge — on by
