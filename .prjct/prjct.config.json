@@ -1,4 +1,9 @@
 {
   "projectId": "bc401c41-c8b9-436a-ac78-c91cac82ab4f",
-  "dataPath": "~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f"
+  "dataPath": "~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f",
+  "cloud": {
+    "enabled": true,
+    "paused": false,
+    "linkedAt": "2026-06-26T13:45:21.570Z"
+  }
 }

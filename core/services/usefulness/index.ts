@@ -94,6 +94,19 @@ interface UsefulnessRow {
   last_used_at: string
 }
 
+interface SurfaceRow {
+  memory_id: string
+  query_text: string | null
+  surface: string | null
+}
+
+export interface SurfaceOptions {
+  /** User/search query that caused this memory to surface. Stored as data, not instructions. */
+  queryText?: string
+  /** Retrieval surface, e.g. context-memory, guard, prompt-cue. */
+  surface?: string
+}
+
 function bump(
   projectId: string,
   memoryId: string,
@@ -187,18 +200,26 @@ export const usefulnessService = {
     projectId: string,
     memoryIds: string[],
     taskId: string,
-    nowIso: string = new Date().toISOString()
+    nowIso: string = new Date().toISOString(),
+    opts: SurfaceOptions = {}
   ): void {
     if (!taskId || memoryIds.length === 0) return
     try {
+      const queryText = opts.queryText?.trim() || null
+      const surface = opts.surface?.trim() || null
       for (const id of memoryIds) {
         prjctDb.run(
           projectId,
-          `INSERT OR IGNORE INTO memory_surface_log (memory_id, task_id, created_at)
-           VALUES (?, ?, ?)`,
+          `INSERT INTO memory_surface_log (memory_id, task_id, created_at, query_text, surface)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(memory_id, task_id) DO UPDATE SET
+             query_text = COALESCE(memory_surface_log.query_text, excluded.query_text),
+             surface = COALESCE(memory_surface_log.surface, excluded.surface)`,
           id,
           taskId,
-          nowIso
+          nowIso,
+          queryText,
+          surface
         )
       }
     } catch {
@@ -263,13 +284,28 @@ export const usefulnessService = {
   ): number {
     if (!taskId) return 0
     try {
-      const rows = prjctDb.query<{ memory_id: string }>(
+      const rows = prjctDb.query<SurfaceRow>(
         projectId,
-        'SELECT memory_id FROM memory_surface_log WHERE task_id = ?',
+        'SELECT memory_id, query_text, surface FROM memory_surface_log WHERE task_id = ?',
         taskId
       )
       for (const r of rows) {
         addScore(projectId, r.memory_id, SHIP_WEIGHT, nowIso)
+        const queryText = r.query_text?.trim()
+        if (queryText) {
+          prjctDb.run(
+            projectId,
+            `INSERT OR IGNORE INTO retrieval_eval_labels
+               (query_text, positive_id, source, source_task_id, created_at, metadata)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            queryText,
+            r.memory_id,
+            'ship-surfaced',
+            taskId,
+            nowIso,
+            JSON.stringify({ surface: r.surface ?? 'unknown' })
+          )
+        }
       }
       prjctDb.run(projectId, 'DELETE FROM memory_surface_log WHERE task_id = ?', taskId)
       return rows.length

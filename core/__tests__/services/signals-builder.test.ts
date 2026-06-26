@@ -74,7 +74,6 @@ describe('buildSignalsFile', () => {
         'Pattern: User rejects premature workflow execution.',
         'Anti-pattern: Running release commands before explicit green light.',
         'Next action: Pause and run the requested checks first.',
-        'Evidence: user said "no corras el ship manual"',
       ].join('\n'),
       tags: { source: 'friction-detector' },
     }),

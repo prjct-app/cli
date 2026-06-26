@@ -4,10 +4,12 @@
  * OPT-IN (default off, user enables via `prjct config set auto-update on`),
  * throttled to 1/hour, runs as a detached child so the Claude session
  * never waits. Any error is swallowed + logged to update.log. Upgrade
- * path is picked by detecting how prjct was installed (binary, npm, bun).
+ * path is picked by detecting how prjct was installed (npm, bun). Binary
+ * installs are never self-updated here because that would require running a
+ * remote installer script in the background.
  */
 
-import { execFile, spawn } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -107,13 +109,19 @@ function detectInstallSource(): InstallSource {
   // We don't need certainty — if both fail, default to npm which is
   // most common.
   try {
-    const npmGlobal = String(require('node:child_process').execSync('npm root -g')).trim()
+    const npmGlobal = execFileSync('npm', ['root', '-g'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
     if (npmGlobal && fs.existsSync(path.join(npmGlobal, 'prjct-cli'))) return 'npm'
   } catch {
     /* ignore */
   }
   try {
-    const bunBin = String(require('node:child_process').execSync('bun pm bin -g')).trim()
+    const bunBin = execFileSync('bun', ['pm', 'bin', '-g'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
     if (bunBin && fs.existsSync(path.join(bunBin, 'prjct'))) return 'bun'
   } catch {
     /* ignore */
@@ -123,15 +131,9 @@ function detectInstallSource(): InstallSource {
 
 async function applyUpgrade(source: InstallSource, _targetVersion: string): Promise<void> {
   if (source === 'binary') {
-    // Re-run install-via-claude.sh — it handles platform detection,
-    // checksum, atomic swap. Fetch over curl since we know git might
-    // not be present on the user's box.
-    const url =
-      'https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh'
-    await execFileP('bash', ['-c', `curl -sSL '${url}' | bash`], {
-      timeout: 120_000,
-      maxBuffer: 4 * 1024 * 1024,
-    })
+    log(
+      `binary install auto-update skipped for ${_targetVersion}; run the installer manually to upgrade`
+    )
     return
   }
   if (source === 'bun') {

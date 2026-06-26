@@ -40,7 +40,6 @@ describe('buildDeveloperProfile', () => {
           'Pattern: User rejects a workflow or implementation assumption.',
           'Anti-pattern: Treating a convenience dependency as acceptable without checking repo constraints.',
           'Next action: Check existing dependency policy and choose a no-native-deps path.',
-          'Evidence: user said "no native deps"',
         ].join('\n'),
         {
           source: 'friction-detector',
