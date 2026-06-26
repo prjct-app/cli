@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.73.0] - 2026-06-25
+
+### Added
+- fix daemon auth cache for cloud link
+
 ## [2.72.0] - 2026-06-25
 
 ### Added

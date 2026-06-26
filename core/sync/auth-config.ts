@@ -66,6 +66,10 @@ class AuthConfigManager {
    */
   async read(): Promise<AuthConfig> {
     if (this.cachedConfig) {
+      this.cachedConfig = {
+        ...this.cachedConfig,
+        apiKey: await getAuthToken(),
+      }
       return this.cachedConfig
     }
 
