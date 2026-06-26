@@ -198,7 +198,15 @@ class AuthConfigManager {
    */
   async clearAuth(): Promise<void> {
     await clearAuthToken()
-    this.cachedConfig = { ...DEFAULT_CONFIG }
+    // Preserve the machine's install identity (deviceId/hostname) across logout
+    // — it is NOT session state. Wiping it made every logout/login look like a
+    // brand-new machine to the cloud, inflating the "machines" count.
+    const prev = this.cachedConfig ?? (await fileHelper.readJson<AuthConfig>(this.configPath))
+    this.cachedConfig = {
+      ...DEFAULT_CONFIG,
+      deviceId: prev?.deviceId ?? freshDeviceId(),
+      hostname: prev?.hostname ?? os.hostname(),
+    }
     await fileHelper.ensureDir(path.dirname(this.configPath))
     await fileHelper.writeJson(this.configPath, metadataOnly(this.cachedConfig))
     await fs.chmod(this.configPath, 0o600)

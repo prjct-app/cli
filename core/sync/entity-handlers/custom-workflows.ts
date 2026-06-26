@@ -56,15 +56,8 @@ export const customWorkflowsHandler: EntityHandler = {
     )
   },
 
-  async delete(projectId, data) {
-    const name = (data.name as string) || ''
-    if (!name) return
-    // Soft delete (matches customWorkflowStorage.deleteWorkflow); never builtins.
-    prjctDb.run(
-      projectId,
-      'UPDATE custom_workflows SET enabled = 0 WHERE name = ? AND is_builtin = 0',
-      name
-    )
+  async delete(_projectId, _data) {
+    // No-op by design: sync never deletes or modifies a local record.
   },
 }
 

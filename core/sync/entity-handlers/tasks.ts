@@ -63,14 +63,7 @@ export const tasksHandler: EntityHandler = {
     })
   },
 
-  async delete(projectId, data) {
-    const id = (data.id as string) || ''
-    if (!id) return
-    await stateStorage.update(projectId, (state) => {
-      if (state.currentTask?.id === id) {
-        return { ...state, currentTask: null }
-      }
-      return state
-    })
+  async delete(_projectId, _data) {
+    // No-op by design: sync never deletes or modifies a local record.
   },
 }

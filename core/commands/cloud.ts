@@ -129,6 +129,8 @@ export class CloudCommands extends PrjctCommandsBase {
     await configManager.writeConfig(projectPath, config)
     realtimeManager.stop(config.projectId)
     await removeLinkedProject(config.projectId)
+    // Reflect the unlink on the cloud (soft — keeps records). Best-effort.
+    await syncClient.setCloudLifecycle(config.projectId, 'unlink').catch(() => undefined)
     const msg = 'Unlinked — this project is local-only again. Local data was not touched.'
     if (options.md) console.log(mdOutput('## Cloud', `> ${msg}`))
     else out.done(msg)
@@ -187,6 +189,10 @@ export class CloudCommands extends PrjctCommandsBase {
     await configManager.writeConfig(projectPath, config)
     if (paused) realtimeManager.stop(config.projectId)
     else await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
+    // Reflect the pause/resume on the cloud (soft). Best-effort.
+    await syncClient
+      .setCloudLifecycle(config.projectId, paused ? 'pause' : 'resume')
+      .catch(() => undefined)
     const msg = paused
       ? 'Cloud sync paused. Resume with `prjct cloud resume`.'
       : 'Cloud sync resumed.'

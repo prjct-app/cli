@@ -40,12 +40,7 @@ export const queueTasksHandler: EntityHandler = {
     })
   },
 
-  async delete(projectId, data) {
-    const id = (data.id as string) || ''
-    if (!id) return
-    await queueStorage.update(projectId, (queue) => ({
-      ...queue,
-      tasks: queue.tasks.filter((t) => t.id !== id),
-    }))
+  async delete(_projectId, _data) {
+    // No-op by design: sync never deletes or modifies a local record.
   },
 }

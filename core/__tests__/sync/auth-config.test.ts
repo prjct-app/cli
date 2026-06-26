@@ -202,5 +202,13 @@ describe('AuthConfig', () => {
       expect(storedToken).toBeNull()
       expect(cfg.userId).toBeNull()
     })
+
+    it('preserves the deviceId across logout (machine identity is not session state)', async () => {
+      await authConfig.saveAuth('sk_test_123', 'u', 'e@x')
+      const before = await authConfig.getDeviceId()
+      await authConfig.clearAuth()
+      const after = await authConfig.getDeviceId()
+      expect(after).toBe(before)
+    })
   })
 })

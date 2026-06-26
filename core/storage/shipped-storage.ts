@@ -53,12 +53,15 @@ class ShippedStorage extends StorageManager<ShippedJson> {
    */
   async addShipped(
     projectId: string,
-    feature: Omit<ShippedFeature, 'id' | 'shippedAt'>
+    feature: Omit<ShippedFeature, 'id' | 'shippedAt'>,
+    // Optional authored time — when applying a pulled ship from another machine,
+    // preserve its original date instead of stamping "now".
+    shippedAt?: string
   ): Promise<ShippedFeature> {
     const shipped: ShippedFeature = {
       ...feature,
       id: generateUUID(),
-      shippedAt: getTimestamp(),
+      shippedAt: shippedAt || getTimestamp(),
     }
 
     await this.update(projectId, (data) => ({

@@ -169,6 +169,28 @@ class SyncClient {
   }
 
   /**
+   * Reflect a soft lifecycle action on the cloud (pause/resume/unlink). All are
+   * non-destructive — they keep every record. Best-effort: returns false on any
+   * failure so the local action still completes (the CLI never blocks on cloud).
+   */
+  async setCloudLifecycle(
+    projectId: string,
+    action: 'pause' | 'resume' | 'unlink'
+  ): Promise<boolean> {
+    try {
+      const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
+      if (!apiKey) return false
+      const response = await this.fetchWithRetry(`${apiUrl}/sync/projects/${projectId}/${action}`, {
+        method: 'POST',
+        headers: { ...this.authHeaders(apiKey, deviceId) },
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * Publish a product benchmark to the cloud API.
    *
    * This is intentionally a cloud operation, not a GitHub write. The server is

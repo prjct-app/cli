@@ -58,7 +58,7 @@ describe('workflow entity handlers', () => {
     expect(rows[0].description).toBe('ship it (v2)')
   })
 
-  test('custom_workflows delete soft-disables', async () => {
+  test('custom_workflows delete is a no-op — local stays enabled', async () => {
     await customWorkflowsHandler.upsert(projectId, { name: 'temp', enabled: 1, is_builtin: 0 })
     await customWorkflowsHandler.delete(projectId, { name: 'temp' })
     const row = prjctDb.get<{ enabled: number }>(
@@ -66,7 +66,8 @@ describe('workflow entity handlers', () => {
       'SELECT enabled FROM custom_workflows WHERE name = ?',
       'temp'
     )
-    expect(row?.enabled).toBe(0)
+    // A remote delete never disables the local workflow.
+    expect(row?.enabled).toBe(1)
   })
 
   test('custom_workflows handler does not echo to the sync queue', async () => {
@@ -106,7 +107,7 @@ describe('workflow entity handlers', () => {
     expect(rows[0].action).toBe('run tests AND lint')
   })
 
-  test('workflow_rules delete removes by id', async () => {
+  test('workflow_rules delete is a no-op — local row is never removed', async () => {
     await workflowRulesHandler.upsert(projectId, {
       id: 7,
       type: 'step',
@@ -120,7 +121,8 @@ describe('workflow entity handlers', () => {
       'SELECT id FROM workflow_rules WHERE id = ?',
       7
     )
-    expect(row).toBeNull()
+    // A remote delete never drops the local rule.
+    expect(row?.id).toBe(7)
   })
 
   test('ignores malformed events (missing name / id)', async () => {
