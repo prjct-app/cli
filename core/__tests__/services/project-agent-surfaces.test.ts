@@ -22,6 +22,12 @@ describe('writeProjectAgentSurfaces', () => {
     const agents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8')
     expect(agents).toContain('single normal entrypoint')
     expect(agents).toContain('persisted SDD + strict TDD')
+    expect(agents).toContain('second brain')
+    expect(agents).toContain('Context synthesis first')
+    expect(agents).toContain('Key data for UI')
+    expect(agents).toContain('Model')
+    expect(agents).toContain('Token usage')
+    expect(agents).toContain('Raw detector output is input')
     expect(agents).toContain('prjct_*')
   })
 

@@ -63,6 +63,16 @@ export async function showSyncResult(
       `Analysis: ${result.analysisSummary.patterns} patterns | ${result.analysisSummary.antiPatterns} anti-patterns (${result.analysisSummary.criticalAntiPatterns} critical)`
     )
   }
+  if (result.contextQuality) {
+    const q = result.contextQuality
+    const action =
+      q.irrelevantRemoved > 0 || q.repairEntriesCreated > 0
+        ? `, repaired ${q.repairEntriesCreated}, removed ${q.irrelevantRemoved}`
+        : ''
+    generatedItems.push(
+      `Context quality: ${q.score}/${q.threshold}${q.passed ? '' : ' (needs review)'}${action}`
+    )
+  }
 
   out.section('Generated')
   out.list(generatedItems, { bullet: '✓' })

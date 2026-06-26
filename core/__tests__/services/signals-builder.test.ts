@@ -67,7 +67,15 @@ describe('buildSignalsFile', () => {
     }),
     mk({
       id: 'mem_103',
-      content: '[workflow] User pushback: "no corras el ship manual"',
+      content: [
+        '[negation] Lesson: Do not start ship steps before the user confirms sequencing.',
+        'What happened: The user pushed back after the assistant response.',
+        'Why it mattered: The assistant attempted to ship before the requested checks.',
+        'Pattern: User rejects premature workflow execution.',
+        'Anti-pattern: Running release commands before explicit green light.',
+        'Next action: Pause and run the requested checks first.',
+        'Evidence: user said "no corras el ship manual"',
+      ].join('\n'),
       tags: { source: 'friction-detector' },
     }),
   ]
@@ -92,5 +100,20 @@ describe('buildSignalsFile', () => {
   it('sections skill-misses and friction separately', () => {
     expect(body).toContain('## Knowledge being missed')
     expect(body).toContain('## Friction')
+    expect(body).toContain('Do not start ship steps before the user confirms sequencing.')
+    expect(body).toContain('Pause and run the requested checks first.')
+  })
+
+  it('keeps legacy raw friction rows readable', () => {
+    const legacy = [
+      mk({
+        id: 'mem_200',
+        content: '[negation] User pushback: "no corras el ship manual"',
+        tags: { source: 'friction-detector' },
+      }),
+    ]
+    const out = buildSignalsFile(legacy, buildVaultOpts(legacy)) ?? ''
+    expect(out).toContain('User pushback')
+    expect(out).toContain('no corras el ship manual')
   })
 })

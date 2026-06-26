@@ -175,6 +175,7 @@ export const projectMemory = {
         provenance,
       }
     )
+    if (logResult?.projectId && !projectId) projectId = logResult.projectId
 
     // Dual-write to the `memories` table so the FTS5 index (memories_fts)
     // stays fresh. The trigger memories_ai keeps the FTS rows in sync.
@@ -254,6 +255,13 @@ export const projectMemory = {
           rememberedAt: new Date().toISOString(),
         },
       })
+    } catch {
+      // Best-effort — local memory write already succeeded.
+    }
+
+    try {
+      const { requestVaultRegeneration } = await import('../services/vault-regeneration')
+      await requestVaultRegeneration(projectPath, projectId)
     } catch {
       // Best-effort — local memory write already succeeded.
     }

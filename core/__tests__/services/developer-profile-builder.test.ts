@@ -30,9 +30,22 @@ describe('buildDeveloperProfile', () => {
   it('synthesizes preferences from feedback and friction from pushback signals', () => {
     const out = buildDeveloperProfile([
       entry('mem_1', 'feedback', 'Author memory in English regardless of conversation language.'),
-      entry('mem_2', 'improvement-signal', '[negation] User pushback: "no native deps"', {
-        source: 'friction-detector',
-      }),
+      entry(
+        'mem_2',
+        'improvement-signal',
+        [
+          '[negation] Lesson: Confirm dependency constraints before adding packages.',
+          'What happened: The user pushed back after the assistant response.',
+          'Why it mattered: The assistant moved toward native dependencies without confirming the project constraint.',
+          'Pattern: User rejects a workflow or implementation assumption.',
+          'Anti-pattern: Treating a convenience dependency as acceptable without checking repo constraints.',
+          'Next action: Check existing dependency policy and choose a no-native-deps path.',
+          'Evidence: user said "no native deps"',
+        ].join('\n'),
+        {
+          source: 'friction-detector',
+        }
+      ),
       entry('mem_3', 'decision', 'unrelated decision'),
     ])
     expect(out).not.toBeNull()
@@ -40,9 +53,21 @@ describe('buildDeveloperProfile', () => {
     expect(out).toContain('## Preferences & guidance')
     expect(out).toContain('English')
     expect(out).toContain('## Friction history')
-    expect(out).toContain('no native deps')
+    expect(out).toContain('Confirm dependency constraints before adding packages.')
+    expect(out).toContain('Check existing dependency policy')
     expect(out).toContain('`mem_1`')
     expect(out).not.toContain('unrelated decision')
+  })
+
+  it('keeps legacy raw friction entries readable as fallback', () => {
+    const out = buildDeveloperProfile([
+      entry('mem_2', 'improvement-signal', '[negation] User pushback: "no native deps"', {
+        source: 'friction-detector',
+      }),
+    ])
+    expect(out).toContain('## Friction history')
+    expect(out).toContain('User pushback')
+    expect(out).toContain('no native deps')
   })
 
   it('omits the friction section when there is no friction signal', () => {

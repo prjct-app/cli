@@ -96,6 +96,18 @@ export interface SyncAnalysisSummary {
   criticalAntiPatterns: number
 }
 
+export interface ContextQualitySummary {
+  score: number
+  threshold: number
+  passed: boolean
+  iterations: number
+  livingContextCount: number
+  legacyContextCount: number
+  irrelevantRemoved: number
+  repairEntriesCreated: number
+  issues: string[]
+}
+
 // Sync Result & Context Generator Config
 
 export interface IncrementalInfo {
@@ -121,6 +133,7 @@ export interface ProjectSyncResult {
   stack: StackDetection
   context7?: SyncContext7Status
   analysisSummary?: SyncAnalysisSummary
+  contextQuality?: ContextQualitySummary
   syncMetrics?: SyncMetrics
   verification?: VerificationReport
   incremental?: IncrementalInfo

@@ -4,10 +4,11 @@
  * `improvement-signal` memory entries.
  *
  * Design principle (matches the verb-intent-map philosophy: the LLM
- * is the engine, not regex): we DO NOT classify the friction, we just
- * surface it. Each signal is a short verbatim excerpt + the assistant
- * action that preceded it. The next session's Claude reads the
- * signals via topical recall and synthesises improvements from them.
+ * is the engine, not regex): we DO NOT pretend to infer deep intent
+ * from regex. We convert a high-confidence pushback moment into a
+ * conservative structured lesson: what happened, why it mattered,
+ * the pattern/anti-pattern, and the next action. The raw quote stays
+ * as evidence, not the primary value.
  *
  * What counts as friction (precision-over-recall):
  *   - User negation directly after an assistant tool-use:
@@ -216,13 +217,61 @@ function textOf(content: unknown): string {
 }
 
 function formatSignal(signal: FrictionSignal): string {
+  const template = lessonTemplate(signal.category)
+  const evidence = inlineEvidence(signal.excerpt)
+  const assistant = inlineEvidence(signal.precedingAssistantPreview.slice(0, 200))
   const lines = [
-    `[${signal.category}] User pushback: "${signal.excerpt}"`,
-    signal.precedingAssistantPreview
-      ? `Following assistant action: "${signal.precedingAssistantPreview.slice(0, 200)}"`
-      : null,
+    `[${signal.category}] Lesson: ${template.lesson}`,
+    'What happened: The user pushed back after the assistant response.',
+    `Why it mattered: ${template.why}`,
+    `Pattern: ${template.pattern}`,
+    `Anti-pattern: ${template.antiPattern}`,
+    `Next action: ${template.nextAction}`,
+    `Evidence: user said "${evidence}"${assistant ? ` after assistant said "${assistant}"` : ''}.`,
   ]
-  return lines.filter((l): l is string => Boolean(l)).join('\n')
+  return lines.join('\n')
+}
+
+function lessonTemplate(category: FrictionSignal['category']): {
+  lesson: string
+  why: string
+  pattern: string
+  antiPattern: string
+  nextAction: string
+} {
+  if (category === 'complaint') {
+    return {
+      lesson:
+        'Treat explicit failure complaints as evidence that the last result needs diagnosis, not repetition.',
+      why: 'The user reported that the delivered behavior or command did not work.',
+      pattern: 'User names a broken or non-working result after an assistant action.',
+      antiPattern: 'Retrying the same path or moving on without isolating the failure.',
+      nextAction:
+        'Stop, inspect the failing output or assumption, and propose the smallest verifiable fix.',
+    }
+  }
+  if (category === 'correction') {
+    return {
+      lesson: 'Update the working assumption when the user corrects the intended direction.',
+      why: 'The assistant was using an assumption that did not match what the user wanted.',
+      pattern: 'User redirects the implementation or workflow with a correction.',
+      antiPattern: 'Continuing with the original plan after the user clarified a different target.',
+      nextAction: 'Restate the corrected target as an actionable rule before continuing.',
+    }
+  }
+  return {
+    lesson: 'Recalibrate before continuing when the user rejects the assistant’s last step.',
+    why: 'The assistant likely violated sequencing, scope, or approval expectations.',
+    pattern: 'User immediately rejects an assistant action or proposed next step.',
+    antiPattern:
+      'Treating the rejected action as acceptable and continuing without changing course.',
+    nextAction:
+      'Pause, convert the pushback into a workflow constraint, and adjust the next tool use.',
+  }
+}
+
+function inlineEvidence(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().replace(/"/g, "'")
 }
 
 function hashSignal(excerpt: string): string {

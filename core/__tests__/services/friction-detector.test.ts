@@ -87,6 +87,24 @@ describe('friction-detector parseJsonl + extractSignals', () => {
     expect(a).toBe(b)
   })
 
+  it('formats friction as a structured lesson instead of a raw quote lead', () => {
+    const signal = {
+      category: 'negation' as const,
+      excerpt: 'no, primero corramos los tests',
+      precedingAssistantPreview: "I'll run prjct ship now.",
+    }
+    const formatted = _internal.formatSignal(signal)
+
+    expect(formatted).toStartWith('[negation] Lesson:')
+    expect(formatted).toContain('What happened: The user pushed back after the assistant response.')
+    expect(formatted).toContain('Why it mattered:')
+    expect(formatted).toContain('Pattern:')
+    expect(formatted).toContain('Anti-pattern:')
+    expect(formatted).toContain('Next action:')
+    expect(formatted).toContain('Evidence: user said "no, primero corramos los tests"')
+    expect(formatted).not.toStartWith('[negation] User pushback:')
+  })
+
   it('caps signals at MAX_SIGNALS_PER_SESSION', () => {
     expect(_internal.MAX_SIGNALS_PER_SESSION).toBeLessThanOrEqual(10)
   })

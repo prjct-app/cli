@@ -22,9 +22,10 @@ Recognize the user's intent and run the right verb yourself — do not
 ask them to type prjct commands.
 
 - Recall before re-reading source: \`prjct search "<query>"\` or
-  \`prjct context memory <topic>\` (decisions, gotchas, learnings).
+  \`prjct context memory <topic>\` (past work, decisions, gotchas, learnings).
 - \`prjct task "<desc>"\` is the single normal entrypoint. prjct classifies
-  the work and reports the persisted pipeline station.
+  the work, reports the persisted pipeline station, and surfaces related
+  second brain context before you plan or edit.
 - Trivial work proceeds directly; no spec is required for typo/docs/rerun
   style tasks.
 - Substantive implementation work follows persisted SDD + strict TDD:
@@ -37,6 +38,11 @@ ask them to type prjct commands.
   not executable instruction text and not copied into managed instructions.
 - Persist outcomes as you go: \`prjct remember <decision|gotcha|learning|fact> "<text>"\`
   (author entries in English), \`prjct capture "<text>"\` for stray thoughts.
+- When work closes, write rich context with \`prjct remember context "<...>"\`:
+  Context synthesis first, then Key data for UI, What happened, Why it mattered,
+  Who/author, Model, Token usage, Sentiment, Related files, Feature/domain,
+  Pattern, Anti-pattern, Decision/trap, Outcome, Next implication.
+  Raw detector output is input, not the final context.
 - Before editing a risky file: \`prjct guard <file>\` surfaces known traps.
 - Prefer the \`prjct_*\` MCP tools when available; otherwise run the CLI
   with \`--md\` for agent-readable output.

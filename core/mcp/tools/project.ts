@@ -12,7 +12,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { collectActiveTasks } from '../../services/task-overview'
-import { setTaskStatus, startTask } from '../../services/task-service'
+import { formatRelatedContextForAgent, setTaskStatus, startTask } from '../../services/task-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
 import { resolveProjectId } from '../resolve'
@@ -112,6 +112,12 @@ export function registerProjectTools(server: McpServer) {
         if (outcome.instructions && outcome.instructions.length > 0) {
           lines.push('', 'Agent instructions:')
           for (const i of outcome.instructions) lines.push(`- ${i}`)
+        }
+        if (outcome.relatedContext && outcome.relatedContext.length > 0) {
+          lines.push('', 'Related second-brain context:')
+          for (const hit of outcome.relatedContext) {
+            lines.push(`- ${formatRelatedContextForAgent(hit)}`)
+          }
         }
         return { content: [{ type: 'text', text: lines.join('\n') }] }
       }

@@ -16,7 +16,7 @@
  */
 
 import { collectActiveTasks } from '../services/task-overview'
-import { startTask } from '../services/task-service'
+import { formatRelatedContextForAgent, startTask } from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -93,12 +93,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const pipeline = outcome.pipeline
       const harness = outcome.harness
       const related = outcome.relatedContext ?? []
-      const relatedLines = related.map((r) => {
-        const when = r.when ? r.when.slice(0, 10) : ''
-        const who = r.author ? ` by ${r.author}` : ''
-        const meta = [when, who].filter(Boolean).join('')
-        return `[${r.type}] ${r.title}${meta ? ` (${meta.trim()})` : ''}  \`${r.id}\``
-      })
+      const relatedLines = related.map(formatRelatedContextForAgent)
 
       if (options.md) {
         console.log(

@@ -231,8 +231,13 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       if (type === 'context') {
         try {
           const { deriveGitContext } = await import('../services/git-context')
+          const { livingContextTagsFromContent } = await import(
+            '../services/living-context-contract'
+          )
           const gc = await deriveGitContext(projectPath)
+          const structuredTags = livingContextTagsFromContent(content)
           finalTags = {
+            ...structuredTags,
             ...tags,
             ...(gc.commit ? { commit: gc.commit } : {}),
             ...(gc.author ? { author: gc.author } : {}),
@@ -250,14 +255,6 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         tags: finalTags,
         source: active?.id,
       })
-
-      // Keep the agent-crawlable wiki in sync so subagents reading
-      // `.prjct/wiki/_generated/` see the new entry. In daemon mode this
-      // returns before the regen runs; in raw CLI mode it awaits, since
-      // process.exit would drop the promise. The incremental manifest
-      // keeps the cost near-zero for the typical 1-entry delta.
-      const { regenerateWikiDeferred } = await import('../services/wiki-generator')
-      await regenerateWikiDeferred(projectPath, pid.value)
 
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)
       else out.done(`remembered ${type}`)
@@ -305,8 +302,8 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       // Drop the entry from the agent-crawlable vault too, mirroring
       // `remember`'s post-write regen.
-      const { regenerateWikiDeferred } = await import('../services/wiki-generator')
-      await regenerateWikiDeferred(projectPath, pid.value)
+      const { requestVaultRegeneration } = await import('../services/vault-regeneration')
+      await requestVaultRegeneration(projectPath, pid.value)
 
       if (options.md) console.log(`✓ forgot ${target}`)
       else out.done(`forgot ${target}`)

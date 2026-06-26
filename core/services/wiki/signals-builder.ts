@@ -17,6 +17,7 @@
 import type { MemoryEntry } from '../../memory/entries'
 import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
 import { truncate } from './_shared'
+import { summarizeFrictionLesson } from './friction-lessons'
 
 /** `tags.source` values produced by automatic detectors, not by an agent/user. */
 export const MACHINE_SOURCES: ReadonlySet<string> = new Set([
@@ -132,8 +133,8 @@ export function buildSignalsFile(
   if (friction.length > 0) {
     sections.push({
       title: 'Friction',
-      intro: 'Moments the developer pushed back — do not repeat.',
-      rows: friction.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${anchor(e)}`),
+      intro: 'Processed lessons from developer pushback — do not repeat.',
+      rows: friction.map((e) => `- ${summarizeFrictionLesson(e.content)}${stamp(e)} ${anchor(e)}`),
     })
   }
 
