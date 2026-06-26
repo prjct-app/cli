@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.75.0] - 2026-06-26
+
+### Features
+
+- deterministic project id, stable deviceId, local-safe sync (#473)
+
+
 ## [2.74.0] - 2026-06-26
 
 ### Features
