@@ -2,7 +2,7 @@
  * Engine-agnostic guard (HARD RULE).
  *
  * The open-source CLI must reveal NOTHING about how the cloud stores data —
- * it knows only "a storage API at api.prjct.app". This test fails CI if any
+ * it knows only "a storage API at cli-api.prjct.app". This test fails CI if any
  * backend-engine name leaks into the sync/cloud subsystem, so a future change
  * can't quietly couple the client to a specific backend. The backend lives in
  * a separate repo.

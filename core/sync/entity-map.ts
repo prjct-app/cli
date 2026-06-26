@@ -11,7 +11,7 @@
  * canonical storage-table name so nothing is lost.
  *
  * NOTE: these are STORAGE table names, NOT a backend/engine. The CLI knows
- * only "a storage API at api.prjct.app"; the table vocabulary is the wire
+ * only "a storage API at cli-api.prjct.app"; the table vocabulary is the wire
  * contract and reveals nothing about how the cloud stores it.
  */
 

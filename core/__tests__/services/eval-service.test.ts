@@ -133,7 +133,7 @@ describe('eval-service', () => {
     expect(result.projectId).toBe('eval-test')
     expect(result.repo).toBe('acme/prjct-evals')
     expect(result.runId).toBe(run.runId)
-    expect(result.endpoint).toBe('https://api.prjct.app/benchmarks/evals')
+    expect(result.endpoint).toBe('https://cli-api.prjct.app/benchmarks/evals')
     expect(result.payloadBytes).toBeGreaterThan(0)
     expect(result.url).toBeUndefined()
   })
@@ -155,7 +155,7 @@ describe('eval-service', () => {
     expect(result.comparisonId).toBe(comparison.comparisonId)
     expect(result.target).toBe('cloud')
     expect(result.projectId).toBe('eval-test')
-    expect(result.endpoint).toBe('https://api.prjct.app/benchmarks/evals')
+    expect(result.endpoint).toBe('https://cli-api.prjct.app/benchmarks/evals')
     expect(result.payloadBytes).toBeGreaterThan(0)
   })
 

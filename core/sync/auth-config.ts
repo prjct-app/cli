@@ -1,7 +1,8 @@
 /**
  * Auth Config - Manages API key storage for cloud sync
  *
- * Stores credentials in ~/.prjct-cli/config/auth.json
+ * Stores non-sensitive auth metadata in ~/.prjct-cli/config/auth.json.
+ * The Cloud API token is stored only in the platform credential store.
  * Used by SyncClient to authenticate with prjct API
  */
 
@@ -12,8 +13,9 @@ import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import type { AuthConfig } from '../types/sync'
 import * as fileHelper from '../utils/file-helper'
+import { clearAuthToken, getAuthToken, setAuthToken } from './secure-auth-token'
 
-const DEFAULT_API_URL = 'https://api.prjct.app'
+const DEFAULT_API_URL = 'https://cli-api.prjct.app'
 
 const DEFAULT_CONFIG: AuthConfig = {
   apiKey: null,
@@ -30,6 +32,13 @@ const DEFAULT_CONFIG: AuthConfig = {
  */
 function freshDeviceId(): string {
   return crypto.randomUUID()
+}
+
+function metadataOnly(config: AuthConfig): AuthConfig {
+  return {
+    ...config,
+    apiKey: null,
+  }
 }
 
 class AuthConfigManager {
@@ -61,8 +70,22 @@ class AuthConfigManager {
     }
 
     const config = await fileHelper.readJson<AuthConfig>(this.configPath)
-    const merged: AuthConfig = config ?? { ...DEFAULT_CONFIG }
+    const secureToken = await getAuthToken()
+    let merged: AuthConfig = {
+      ...(config ?? DEFAULT_CONFIG),
+      apiKey: secureToken,
+    }
     let mutated = false
+
+    if (!secureToken && config?.apiKey) {
+      await setAuthToken(config.apiKey)
+      merged = {
+        ...merged,
+        apiKey: config.apiKey,
+      }
+      mutated = true
+    }
+
     if (!merged.deviceId) {
       merged.deviceId = freshDeviceId()
       mutated = true
@@ -77,7 +100,7 @@ class AuthConfigManager {
     // logged in — that would just create empty config files).
     if (mutated && config) {
       try {
-        await fileHelper.writeJson(this.configPath, this.cachedConfig)
+        await fileHelper.writeJson(this.configPath, metadataOnly(this.cachedConfig))
         await fs.chmod(this.configPath, 0o600)
       } catch {
         // Best-effort — sync will still get a usable deviceId from cache.
@@ -108,15 +131,25 @@ class AuthConfigManager {
    */
   async write(config: Partial<AuthConfig>): Promise<void> {
     const current = await this.read()
+
+    if (Object.hasOwn(config, 'apiKey')) {
+      if (config.apiKey) {
+        await setAuthToken(config.apiKey)
+      } else {
+        await clearAuthToken()
+      }
+    }
+
     const updated: AuthConfig = {
       ...current,
       ...config,
+      apiKey: await getAuthToken(),
       lastAuth: new Date().toISOString(),
     }
 
     await fileHelper.ensureDir(path.dirname(this.configPath))
-    await fileHelper.writeJson(this.configPath, updated)
-    // Restrict file permissions to owner-only (0600) since it contains API keys
+    await fileHelper.writeJson(this.configPath, metadataOnly(updated))
+    // Restrict metadata permissions to owner-only (0600).
     await fs.chmod(this.configPath, 0o600)
     this.cachedConfig = updated
   }
@@ -125,8 +158,8 @@ class AuthConfigManager {
    * Check if user is authenticated (has valid API key)
    */
   async hasAuth(): Promise<boolean> {
-    const config = await this.read()
-    return config.apiKey !== null && config.apiKey.length > 0
+    const apiKey = await this.getApiKey()
+    return apiKey !== null && apiKey.length > 0
   }
 
   /**
@@ -134,7 +167,7 @@ class AuthConfigManager {
    */
   async getApiKey(): Promise<string | null> {
     const config = await this.read()
-    return config.apiKey
+    return config.apiKey || (await getAuthToken())
   }
 
   /**
@@ -160,8 +193,11 @@ class AuthConfigManager {
    * Clear all auth data (logout)
    */
   async clearAuth(): Promise<void> {
+    await clearAuthToken()
     this.cachedConfig = { ...DEFAULT_CONFIG }
-    await fileHelper.writeJson(this.configPath, this.cachedConfig)
+    await fileHelper.ensureDir(path.dirname(this.configPath))
+    await fileHelper.writeJson(this.configPath, metadataOnly(this.cachedConfig))
+    await fs.chmod(this.configPath, 0o600)
   }
 
   /**
@@ -178,7 +214,7 @@ class AuthConfigManager {
     return {
       authenticated: config.apiKey !== null,
       email: config.email,
-      apiKeyPrefix: config.apiKey ? `${config.apiKey.substring(0, 12)}...` : null,
+      apiKeyPrefix: null,
       lastAuth: config.lastAuth,
     }
   }

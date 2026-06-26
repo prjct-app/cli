@@ -221,7 +221,7 @@ class SyncClient {
         return false
       }
 
-      const response = await fetch(`${apiUrl}/health`, {
+      const response = await fetch(`${apiUrl}/auth/verify`, {
         method: 'GET',
         headers: {
           ...this.authHeaders(apiKey, deviceId),
@@ -230,6 +230,10 @@ class SyncClient {
       })
 
       clearTimeout(timeoutId)
+      if (response.status === 401 || response.status === 403) {
+        await authConfig.clearAuth()
+        return false
+      }
       return response.ok
     } catch (_error) {
       // Network error, timeout, or other issue - expected
@@ -344,6 +348,7 @@ class SyncClient {
       const message = body.detail || body.message || body.error || `HTTP ${response.status}`
 
       if (response.status === 401 || response.status === 403) {
+        await authConfig.clearAuth()
         return this.createError('AUTH_REQUIRED', message, response.status)
       }
 
@@ -356,6 +361,10 @@ class SyncClient {
       return this.createError('API_ERROR', message, response.status)
     } catch (_error) {
       // JSON parse error - use generic message (expected for non-JSON responses)
+      if (response.status === 401 || response.status === 403) {
+        await authConfig.clearAuth()
+        return this.createError('AUTH_REQUIRED', `HTTP ${response.status}`, response.status)
+      }
       return this.createError('API_ERROR', `HTTP ${response.status}`, response.status)
     }
   }

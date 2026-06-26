@@ -35,58 +35,15 @@ export class SetupCommands extends PrjctCommandsBase {
    */
   async auth(action: string | null = null, options: MdOption = {}): Promise<CommandResult> {
     const subcommand = action?.split(' ')[0] || 'status'
-    const args = action?.split(' ').slice(1) || []
 
     switch (subcommand) {
       case 'login': {
-        const apiKey = args[0]
-        if (!apiKey) {
-          if (!options.md) out.fail('Usage: prjct login [--url <url>]')
-          return {
-            success: false,
-            message: options.md ? '## Error\nUsage: `prjct login [--url <url>]`' : '',
-          }
-        }
-
-        // Parse --url flag from remaining args
-        let apiUrl: string | undefined
-        const urlIdx = args.indexOf('--url')
-        if (urlIdx !== -1 && args[urlIdx + 1]) {
-          apiUrl = args[urlIdx + 1]
-        }
-
-        // Save auth with API key (userId and email will be populated on first sync)
-        await authConfig.write({
-          apiKey,
-          ...(apiUrl ? { apiUrl } : {}),
-        })
-
-        // Test connection
-        const connected = await syncClient.testConnection()
-
-        if (connected) {
-          if (!options.md) {
-            out.done('Connected! API key saved')
-            out.info(chalk.dim(`Key: ${apiKey.substring(0, 12)}...`))
-          }
-          return {
-            success: true,
-            message: options.md
-              ? `## Auth\n- **Status**: Connected\n- **Key**: \`${apiKey.substring(0, 12)}...\`\n- **API**: ${apiUrl || 'default'}`
-              : '',
-          }
-        } else {
-          if (!options.md) {
-            out.warn('API key saved, but server is unreachable')
-            out.info(chalk.dim(`Key: ${apiKey.substring(0, 12)}...`))
-            out.info(chalk.dim('The key will be used when the server becomes available'))
-          }
-          return {
-            success: true,
-            message: options.md
-              ? `## Auth\n- **Status**: Key saved (server unreachable)\n- **Key**: \`${apiKey.substring(0, 12)}...\``
-              : '',
-          }
+        if (!options.md) out.fail('Manual token login is not supported. Run prjct login.')
+        return {
+          success: false,
+          message: options.md
+            ? '## Error\nManual token login is not supported. Run `prjct login`.'
+            : '',
         }
       }
 
@@ -105,14 +62,14 @@ export class SetupCommands extends PrjctCommandsBase {
           return {
             success: true,
             message: status.authenticated
-              ? `## Auth Status\n- **Authenticated**: Yes\n- **Email**: ${status.email || 'N/A'}\n- **Key**: \`${status.apiKeyPrefix}\`\n- **Last auth**: ${status.lastAuth || 'N/A'}`
+              ? `## Auth Status\n- **Authenticated**: Yes\n- **Email**: ${status.email || 'N/A'}\n- **Token**: stored securely\n- **Last auth**: ${status.lastAuth || 'N/A'}`
               : '## Auth Status\n- **Authenticated**: No\n- Run `prjct login` to connect',
           }
         }
         if (status.authenticated) {
           out.box(
             'Auth Status',
-            `Email:  ${status.email || 'N/A'}\nKey:    ${status.apiKeyPrefix}\nSince:  ${status.lastAuth || 'N/A'}`
+            `Email:  ${status.email || 'N/A'}\nToken:  stored securely\nSince:  ${status.lastAuth || 'N/A'}`
           )
         } else {
           out.info('Not authenticated')
@@ -125,25 +82,26 @@ export class SetupCommands extends PrjctCommandsBase {
 
   /**
    * Browser-based login: opens browser, user authenticates with OTP, CLI gets API key automatically.
-   * Usage: prjct login [--url <webUrl>]
+   * Usage: prjct login
    */
-  async login(options: { md?: boolean; url?: string } = {}): Promise<CommandResult> {
+  async login(options: { md?: boolean } = {}): Promise<CommandResult> {
     // Check if already authenticated
     const status = await authConfig.getStatus()
     if (status.authenticated) {
       if (!options.md) {
-        out.box('Already Authenticated', `Email:  ${status.email}\nKey:    ${status.apiKeyPrefix}`)
+        out.box('Already Authenticated', `Email:  ${status.email}\nToken:  stored securely`)
         out.info(`Run ${chalk.cyan('prjct logout')} first to re-authenticate`)
       }
       return {
         success: true,
         message: options.md
-          ? `## Already Authenticated\n- **Email**: ${status.email}\n- **Key**: \`${status.apiKeyPrefix}\`\n\nRun \`prjct logout\` first to re-authenticate.`
+          ? `## Already Authenticated\n- **Email**: ${status.email}\n- **Token**: stored securely\n\nRun \`prjct logout\` first to re-authenticate.`
           : '',
       }
     }
 
-    const webUrl = options.url || process.env.PRJCT_WEB_URL || 'http://localhost:5173'
+    const webUrl = 'https://cli.prjct.app'
+    const apiUrl = 'https://cli-api.prjct.app'
 
     return new Promise<CommandResult>((resolve) => {
       const server = http.createServer(async (req, res) => {
@@ -153,33 +111,44 @@ export class SetupCommands extends PrjctCommandsBase {
           const apiKey = url.searchParams.get('key')
           const email = url.searchParams.get('email')
           const userId = url.searchParams.get('user_id')
+          let verified = false
+          let failureMessage = 'No API key received'
 
           if (apiKey) {
-            // Save auth
-            await authConfig.saveAuth(apiKey, userId || '', email || '')
+            try {
+              await authConfig.saveAuth(apiKey, userId || '', email || '')
+              await authConfig.write({ apiUrl })
+              verified = await syncClient.testConnection()
+              if (!verified) {
+                failureMessage = 'Could not verify credentials with prjct Cloud'
+                await authConfig.clearAuth()
+              }
+            } catch (error) {
+              failureMessage =
+                error instanceof Error ? error.message : 'Could not store credentials securely'
+              await authConfig.clearAuth()
+            }
+          }
 
-            // Also save the web URL as the API URL
-            const apiUrl = `${webUrl}/api`
-            await authConfig.write({ apiUrl })
-
+          if (verified) {
             // Send success HTML to browser
             res.writeHead(200, { 'Content-Type': 'text/html' })
-            res.end(this.buildSuccessPage(email || '', apiKey.substring(0, 12)))
+            res.end(this.buildSuccessPage(email || ''))
           } else {
-            res.writeHead(400, { 'Content-Type': 'text/html' })
-            res.end(this.buildErrorPage('No API key received'))
+            res.writeHead(apiKey ? 401 : 400, { 'Content-Type': 'text/html' })
+            res.end(this.buildErrorPage(failureMessage))
           }
 
           // Close server and resolve
           server.close()
 
-          if (apiKey) {
+          if (verified && apiKey) {
             if (!options.md) {
               out.step(3, 3, 'Connected')
               out.stop()
               out.box(
                 'Authentication Complete',
-                `Email:  ${email}\nKey:    ${apiKey.substring(0, 12)}...\nStatus: Connected`
+                `Email:  ${email}\nToken:  stored securely\nStatus: Connected`
               )
             }
 
@@ -189,14 +158,14 @@ export class SetupCommands extends PrjctCommandsBase {
             resolve({
               success: true,
               message: options.md
-                ? `## Authenticated\n- **Email**: ${email}\n- **Key**: \`${apiKey.substring(0, 12)}...\``
+                ? `## Authenticated\n- **Email**: ${email}\n- **Token**: stored securely`
                 : '',
             })
           } else {
-            if (!options.md) out.fail('Authentication failed: no API key received')
+            if (!options.md) out.fail(`Authentication failed: ${failureMessage}`)
             resolve({
               success: false,
-              message: options.md ? '## Error\nAuthentication failed: no API key received' : '',
+              message: options.md ? `## Error\nAuthentication failed: ${failureMessage}` : '',
             })
           }
           return
@@ -328,7 +297,7 @@ export class SetupCommands extends PrjctCommandsBase {
   /**
    * Build branded dark success page for browser callback
    */
-  private buildSuccessPage(email: string, keyPrefix: string): string {
+  private buildSuccessPage(email: string): string {
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>prjct CLI Connected</title>
@@ -356,7 +325,7 @@ margin:1.25rem 0;text-align:left;font-size:.875rem;line-height:1.75}
 <h1>CLI Connected</h1>
 <div class="details">
 <span class="label">Account:</span> <span class="value">${email}</span><br>
-<span class="label">Key:</span> <span class="value">${keyPrefix}...</span>
+<span class="label">Token:</span> <span class="value">stored securely</span>
 </div>
 <p class="hint">Return to your terminal to continue.</p>
 </div></body></html>`

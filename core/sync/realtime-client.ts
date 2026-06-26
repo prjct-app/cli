@@ -29,7 +29,7 @@ export type RealtimeState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'c
 
 export interface RealtimeClientOptions {
   projectId: string
-  /** REST base, e.g. `https://api.prjct.app` or `https://…/api`. */
+  /** REST base, e.g. `https://cli-api.prjct.app`. */
   apiUrl: string
   apiKey: string
   deviceId: string
