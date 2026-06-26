@@ -18,6 +18,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import { STATUS_CHANGE_ACTION } from '../memory/events'
+import { flatDetail } from '../memory/format'
 import { generateUUID } from '../schemas/schemas'
 import type { CurrentTask, TaskFeedback, TaskHarness } from '../schemas/state'
 import { getGitBranch } from '../session/git-helpers'
@@ -25,6 +26,7 @@ import { stateStorage } from '../storage/state-storage'
 import { upsertTaskPipelineState } from '../storage/task-pipeline-storage'
 import * as dateHelper from '../utils/date-helper'
 import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
+import { buildLivingContextPrompt, parseLivingContextFields } from './living-context-contract'
 import { memoryService } from './memory-service'
 import projectService from './project-service'
 import { buildTaskHarness, evaluateHarnessCompletion } from './task-harness'
@@ -71,9 +73,39 @@ export interface RelatedContextHit {
   id: string
   type: string
   title: string
+  detail: string
   /** ISO timestamp the entry was captured. */
   when: string
   author?: string
+  keyData?: string
+  feature?: string
+  files?: string[]
+  why?: string
+  pattern?: string
+  antiPattern?: string
+  decisionTrap?: string
+  outcome?: string
+  nextImplication?: string
+}
+
+export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
+  const when = hit.when ? hit.when.slice(0, 10) : ''
+  const who = hit.author ? ` by ${hit.author}` : ''
+  const meta = [when, who].filter(Boolean).join('')
+  const parts = [
+    `[${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``,
+    hit.feature ? `Feature: ${hit.feature}` : null,
+    hit.keyData ? `Key data: ${hit.keyData}` : null,
+    hit.files?.length ? `Files: ${hit.files.map((file) => `\`${file}\``).join(', ')}` : null,
+    hit.why ? `Why: ${hit.why}` : null,
+    hit.pattern ? `Pattern: ${hit.pattern}` : null,
+    hit.antiPattern ? `Avoid: ${hit.antiPattern}` : null,
+    hit.decisionTrap ? `Decision/trap: ${hit.decisionTrap}` : null,
+    hit.outcome ? `Outcome: ${hit.outcome}` : null,
+    hit.nextImplication ? `Next: ${hit.nextImplication}` : null,
+    hit.detail ? `Detail: ${hit.detail}` : null,
+  ].filter((part): part is string => Boolean(part))
+  return parts.join(' — ')
 }
 
 /**
@@ -258,13 +290,30 @@ async function recallRelatedContext(
       projectPath,
       hits.map((h) => h.id)
     )
-    return hits.map((h) => ({
-      id: h.id,
-      type: h.type,
-      title: deriveTitle(h),
-      when: h.rememberedAt,
-      author: h.tags?.author,
-    }))
+    return hits.map((h) => {
+      const fields = parseLivingContextFields(h.content)
+      const files =
+        fields.relatedFiles ??
+        h.tags?.related_files?.split(',').filter(Boolean) ??
+        h.tags?.files?.split(',').filter(Boolean)
+      return {
+        id: h.id,
+        type: h.type,
+        title: deriveTitle(h),
+        detail: fields.contextSynthesis ?? flatDetail(h.content, 180),
+        when: h.rememberedAt,
+        author: fields.whoAuthor ?? h.tags?.author,
+        keyData: fields.keyData ?? h.tags?.key_data,
+        feature: fields.featureDomain ?? h.tags?.feature,
+        files,
+        why: fields.whyItMattered,
+        pattern: fields.pattern,
+        antiPattern: fields.antiPattern,
+        decisionTrap: fields.decisionTrap,
+        outcome: fields.outcome,
+        nextImplication: fields.nextImplication,
+      }
+    })
   } catch {
     return []
   }
@@ -275,13 +324,7 @@ async function recallRelatedContext(
  * work and understands the sentiment) writes the task's CONTEXT — the per-task
  * unit of the project's second-brain RAG. English, structured, not a raw quote.
  */
-export const TASK_CONTEXT_PROMPT =
-  'Task closed. Capture its CONTEXT for the project’s second brain so the next ' +
-  'session (or collaborator) can recall it:\n' +
-  '  prjct remember context "<what happened · why / what was really wanted (the ' +
-  'sentiment) · the decision + reason · the pattern or anti-pattern · the outcome>"\n' +
-  'Write it in English, one tight paragraph grounded in this task. Not the raw ' +
-  'complaint — the lesson. prjct auto-anchors it to the commit, author and files.'
+export const TASK_CONTEXT_PROMPT = buildLivingContextPrompt()
 
 export type SetStatusOutcome =
   | {
@@ -334,6 +377,7 @@ export async function setTaskStatus(
         harnessWarnings: verification.warnings,
       })
       await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
+      await regenerateVaultAfterTaskWrite(projectPath, projectId)
       return {
         ok: true,
         taskId: wsTask.id,
@@ -406,6 +450,10 @@ export async function setTaskStatus(
     // already-completed task). The audit log still captures intent.
   }
 
+  if (normalized === 'done' || normalized === 'completed') {
+    await regenerateVaultAfterTaskWrite(projectPath, projectId)
+  }
+
   return {
     ok: true,
     taskId: active.id,
@@ -413,6 +461,18 @@ export async function setTaskStatus(
     verificationWarnings: verification.warnings,
     contextPrompt:
       normalized === 'done' || normalized === 'completed' ? TASK_CONTEXT_PROMPT : undefined,
+  }
+}
+
+async function regenerateVaultAfterTaskWrite(
+  projectPath: string,
+  projectId: string
+): Promise<void> {
+  try {
+    const { requestVaultRegeneration } = await import('./vault-regeneration')
+    await requestVaultRegeneration(projectPath, projectId)
+  } catch {
+    // Best-effort: task state is source of truth; next write/hook can recover.
   }
 }
 

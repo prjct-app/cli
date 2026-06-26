@@ -1,16 +1,16 @@
 ---
 name: prjct
-description: Use when the user mentions p., prjct, tasks, specs, shipping, or project memory. Routes to the prjct CLI and MCP tools — run commands on demand, do not preload context.
+description: Use for prjct task/memory/workflow. Run prjct verbs yourself; do not preload context.
 ---
 
-# prjct — project memory & workflow
+# prjct
 
-Run `prjct <command> --md` and follow its output. Pull context on demand; never dump it all.
+Run `prjct <cmd> --md` and follow it.
 
-- Flow: `prjct task` → work → `prjct status done` → `prjct ship`
-- Memory (write in ENGLISH always): `prjct remember <decision|gotcha|learning|fact> "<text>"`, `prjct context memory <topic>` (recall), `prjct guard <file>` (preventive memory before editing)
-- Capture stray thoughts: `prjct capture "<text>"`
-- Worktrees: remove only AFTER the PR merges, from the main worktree; never with unpushed work.
-- `prjct --help` lists commands; prefer prjct MCP tools (`prjct_*`) when available.
+- Start work: `prjct task "<desc>" --md`; read the surfaced second-brain context before planning/editing.
+- Recall: `prjct context memory <topic>` / `prjct search "<query>"`; guard files with `prjct guard <file>`.
+- Save memory in English: `prjct remember <decision|learning|gotcha|context> "<text>"`.
+- On close: `prjct status done --md`, then write context: synthesis first; key data for UI; what happened/why/who/model/tokens/sentiment/files/feature/pattern/anti-pattern/decision/outcome/next. Raw detector output is input, not final context.
+- Ship only after user OK: `prjct ship --md`.
 
 Commit footer: `Generated with [p/](https://www.prjct.app/)`

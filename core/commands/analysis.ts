@@ -211,17 +211,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: false, error: result.error }
       }
 
-      // Refresh the readable vault on every sync — the index/overview is the
-      // human + agent second-brain snapshot, and `prjct sync` is documented as a
-      // regen trigger. Without this it went stale (sync only rebuilt the skill +
-      // analysis, never the vault). Incremental + best-effort; never blocks sync.
-      try {
-        const { generateWiki } = await import('../services/wiki-generator')
-        await generateWiki(projectPath, projectId)
-      } catch {
-        /* vault regen is best-effort — a sync must still succeed without it */
-      }
-
       if (!options.md) out.stop()
 
       if (options.md) {
@@ -298,6 +287,13 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStatsObj['Tokens indexed'] = `${Math.round(totalTokens / 1000)}K`
           mdStatsObj['Import edges'] = idx.importEdges || 0
           mdStatsObj['Co-change commits'] = idx.cochangeCommits || 0
+        }
+        if (result.contextQuality) {
+          mdStatsObj['Context quality'] =
+            `${result.contextQuality.score}/${result.contextQuality.threshold}` +
+            (result.contextQuality.passed ? '' : ' needs review')
+          mdStatsObj['Context removed'] = result.contextQuality.irrelevantRemoved
+          mdStatsObj['Context repairs'] = result.contextQuality.repairEntriesCreated
         }
         const md = mdOutput(
           mdDone(`Sync Complete`),

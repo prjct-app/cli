@@ -39,6 +39,7 @@ import type { Context7Status } from '../types/services.js'
 import type { VerificationReport } from '../types/sync-verifier'
 import { readJson } from '../utils/file-helper'
 import log from '../utils/logger'
+import { repairContextQuality } from './context-quality-service'
 import context7Service from './context7-service'
 import { writeProjectAgentSurfaces } from './project-agent-surfaces'
 import { skillGenerator } from './skill-generator'
@@ -458,7 +459,11 @@ class SyncService {
       // 9b. Archive stale data (PRJ-267)
       await phase('archive', () => archiveStaleData(this.projectId!))
 
-      // 9c. Auto-learn from task history → memory (PRJ-283)
+      // 9c. Context quality cleanup — repair historical generated junk from
+      // older versions so sync leaves the second-brain read model usable.
+      const contextQuality = await phase('context-quality', () =>
+        repairContextQuality(this.projectPath, this.projectId!)
+      )
 
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
@@ -469,6 +474,11 @@ class SyncService {
 
       await phase('install-agent-surfaces', async () => {
         await writeProjectAgentSurfaces(this.projectPath)
+      })
+
+      await phase('vault', async () => {
+        const { generateWiki } = await import('./wiki-generator')
+        await generateWiki(this.projectPath, this.projectId!)
       })
 
       // 11. Run verification checks (built-in + custom from config)
@@ -500,6 +510,7 @@ class SyncService {
           message: context7Status.message,
         },
         analysisSummary,
+        contextQuality,
         syncMetrics,
         verification,
         incremental: incrementalInfo,

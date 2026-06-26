@@ -92,18 +92,22 @@ describe('memories entity handler', () => {
     expect(after).toBe(before)
   })
 
-  test('delete is a no-op — local is never destroyed by a remote delete', async () => {
-    const data = { id: 'mem-d', type: 'fact', content: 'keep me local' }
+  test('delete tombstones by content identity', async () => {
+    const data = {
+      id: 'remote-id',
+      type: 'improvement-signal',
+      content: 'skill-miss: generated garbage',
+    }
     await memoriesHandler.upsert(projectId, data)
     expect(memoryRows()[0].deleted_at).toBeNull()
 
-    // A delete event pulled from another machine must NOT touch the local row.
     await memoriesHandler.delete(projectId, data)
-    const rows = prjctDb.query<{ deleted_at: string | null }>(
+    const rows = prjctDb.query<{ deleted_at: string | null; type: string }>(
       projectId,
-      'SELECT deleted_at FROM memories'
+      'SELECT deleted_at, type FROM memories'
     )
-    expect(rows[0].deleted_at).toBeNull()
+    expect(rows[0].deleted_at).not.toBeNull()
+    expect(rememberEventCount()).toBe(0)
   })
 
   test('ignores events missing content or type', async () => {

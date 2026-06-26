@@ -101,9 +101,42 @@ export const memoriesHandler: EntityHandler = {
     }
   },
 
-  async delete(_projectId, _data) {
-    // No-op by design: sync NEVER deletes or modifies a local record. A memory
-    // removed on another machine stays in this machine's vault — local is the
-    // source of truth and is never destroyed by a pull.
+  async delete(projectId, data) {
+    const id = field(data, 'id', 'id')
+    const content = field(data, 'content', 'content')
+    const type = field(data, 'type', 'type')
+
+    const candidates: string[] = []
+    if (/^mem_\d+$/.test(id)) candidates.push(id)
+    if (content && type) {
+      const contentHash = memoryFingerprint(content)
+      const rows = prjctDb.query<{ id: string }>(
+        projectId,
+        'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL',
+        contentHash,
+        type
+      )
+      candidates.push(...rows.map((row) => row.id))
+    }
+
+    const unique = [...new Set(candidates)]
+    for (const memId of unique) {
+      const numeric = memId.match(/^mem_(\d+)$/)?.[1]
+      if (numeric) {
+        prjctDb.run(
+          projectId,
+          'UPDATE events SET type = ? WHERE id = ?',
+          'memory.deleted.context-quality',
+          Number(numeric)
+        )
+      }
+      prjctDb.run(
+        projectId,
+        'UPDATE memories SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
+        new Date().toISOString(),
+        memId
+      )
+      prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)
+    }
   },
 }

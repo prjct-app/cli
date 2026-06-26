@@ -230,6 +230,7 @@ describe('frontmatter — native Obsidian tag list', () => {
 describe('PER_ENTRY_TYPES contract', () => {
   it('covers substantive types, excludes ephemeral GTD (inbox/todo/idea)', () => {
     expect(PER_ENTRY_TYPES.has('decision')).toBe(true)
+    expect(PER_ENTRY_TYPES.has('context')).toBe(true)
     expect(PER_ENTRY_TYPES.has('gotcha')).toBe(true)
     expect(PER_ENTRY_TYPES.has('inbox')).toBe(false)
     expect(PER_ENTRY_TYPES.has('todo')).toBe(false)
@@ -241,5 +242,21 @@ describe('PER_ENTRY_TYPES contract', () => {
     const files = buildMemoryFiles(entries, entries)
     expect([...files.keys()].some((k) => k.startsWith('memory/inbox/'))).toBe(false)
     expect(files.has('memory/inbox.md')).toBe(true)
+  })
+
+  it('context entries get their own rich note for humans and LLMs', () => {
+    const entries = [
+      mk({
+        id: 'mem_2',
+        type: 'context',
+        content:
+          'What happened: completed a task · Why it mattered: future agents need the lesson · Feature/domain: memory',
+      }),
+    ]
+    const files = buildMemoryFiles(entries, entries)
+    expect([...files.keys()].some((k) => k.startsWith('memory/context/'))).toBe(true)
+    const note = [...files.entries()].find(([k]) => k.startsWith('memory/context/'))?.[1] ?? ''
+    expect(note).toContain('# context:')
+    expect(note).toContain('What happened: completed a task')
   })
 })

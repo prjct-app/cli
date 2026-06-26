@@ -29,9 +29,12 @@ import path from 'node:path'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
+import { setTaskStatus } from '../../services/task-service'
+import { FINGERPRINT_FILE } from '../../services/wiki/fingerprint'
 import { generateWiki } from '../../services/wiki-generator'
 import { prjctDb } from '../../storage/database'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
+import { stateStorage } from '../../storage/state-storage'
 import type { LLMAnalysis, LLMPattern } from '../../types/llm-analysis'
 
 // Sandbox
@@ -136,6 +139,37 @@ function appendMemoryEvent(type: string, content: string): void {
 // A. Manifest-based file diff
 
 describe('Wiki Generator — manifest incrementality', () => {
+  it('regenerates immediately after a project memory write', async () => {
+    await projectMemory.remember(projectRoot, {
+      type: 'decision',
+      content: 'Store synthesized context as the product value.',
+      tags: { feature: 'living-context' },
+      projectId,
+    })
+
+    const decisionPage = await fs.readFile(
+      path.join(generatedRoot, 'memory', 'decision.md'),
+      'utf-8'
+    )
+    expect(decisionPage).toContain('Store synthesized context as the product value.')
+  })
+
+  it('regenerates immediately when a task is completed', async () => {
+    await generateWiki(projectRoot, projectId)
+    const before = await fs.readFile(path.join(generatedRoot, FINGERPRINT_FILE), 'utf-8')
+    await stateStorage.startTask(projectId, {
+      id: 'vault-regen-task',
+      description: 'prove task close regenerates vault',
+      sessionId: 's1',
+    } as Parameters<typeof stateStorage.startTask>[1])
+
+    const done = await setTaskStatus(projectId, projectRoot, 'done')
+
+    expect(done.ok).toBe(true)
+    const after = await fs.readFile(path.join(generatedRoot, FINGERPRINT_FILE), 'utf-8')
+    expect(after).not.toBe(before)
+  })
+
   it('A.1 first regen writes every file; skips none', async () => {
     llmAnalysisStorage.save(
       projectId,

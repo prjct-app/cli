@@ -14,6 +14,7 @@
  * rule the rest of the runtime follows.
  */
 
+import { LIVING_CONTEXT_SYNTHESIS_GUIDANCE } from '../living-context-contract'
 import { formatProjectHeader, formatRichContext } from './formatters'
 import type { SkillContext } from './types'
 
@@ -130,7 +131,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     'Heavy quality workflows (`review`, `qa`, `security`, `investigate`, `audit`, `audit-spec`), model policy, fan-out rules, decision-briefs, the `prjct prefs` protocol, spec stations, builder ethos, and loop-discipline triggers live in `workflows.md` — read it on demand when you actually run one. Do not preload it for simple work.',
     '',
-    '**Context loop — the project\'s second brain.** Starting a task surfaces related past context (has this happened before? who touched it? what was decided?). When a task closes, capture its context: `prjct remember context "what happened · why / what was really wanted (the sentiment) · the decision + reason · the pattern or anti-pattern · the outcome"` — one tight English paragraph, the LESSON not the raw complaint. prjct auto-anchors it to the commit, author, and files so the next session (or a teammate) recalls it on demand. This timeline of contexts is the value — keep it sharp, skip the noise.',
+    `**Living context synthesis.** Task start surfaces related context. On close: ${LIVING_CONTEXT_SYNTHESIS_GUIDANCE} Store via \`prjct remember context "<...>"\`; prjct anchors commit, author, and files.`,
     '',
     '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, no matter what language the user speaks (Spanish, Japanese, German — any). When you `capture`/`remember`, translate the intent into a clean English entry; the persisted knowledge is always English. LLMs comprehend English better and embeddings stay high-quality in one canonical language — mixed-language content produces cross-language retrieval noise and extra token cost on every later recall.',
     '',

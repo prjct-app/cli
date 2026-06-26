@@ -2,12 +2,16 @@
 
 ## [Unreleased]
 
+## [2.77.0] - 2026-06-26
+
+### Added
+- context quality cleanup
+
 ## [2.76.1] - 2026-06-26
 
 ### Bug Fixes
 
 - prjct sync regenerates the vault (was leaving it stale) (#475)
-
 
 ## [2.76.0] - 2026-06-26
 
@@ -15,20 +19,17 @@
 
 - project context RAG — the history of contexts (context is gold) (#474)
 
-
 ## [2.75.0] - 2026-06-26
 
 ### Features
 
 - deterministic project id, stable deviceId, local-safe sync (#473)
 
-
 ## [2.74.0] - 2026-06-26
 
 ### Features
 
 - sync specs + full analysis to the cloud vault (#472)
-
 
 ## [2.73.0] - 2026-06-25
 

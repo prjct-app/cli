@@ -490,6 +490,28 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const description = content.split('description:')[1]?.split('\n')[0] ?? ''
       expect(description).toMatch(/run the prjct verb yourself/i)
     })
+
+    it('teaches living context synthesis as product behavior for every project', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('Living context synthesis')
+      expect(content).toContain('same model that just executed the task')
+      expect(content).toContain('Context synthesis')
+      expect(content).toContain('Key data')
+      expect(content).toContain('UI can filter')
+      expect(content).toContain('What happened')
+      expect(content).toContain('Why it mattered')
+      expect(content).toContain('Who/author')
+      expect(content).toContain('Model')
+      expect(content).toContain('Token usage')
+      expect(content).toContain('Sentiment')
+      expect(content).toContain('Related files')
+      expect(content).toContain('Feature/domain')
+      expect(content).toContain('Pattern')
+      expect(content).toContain('Anti-pattern')
+      expect(content).toContain('Next implication')
+      expect(content).toContain('Raw detector output is input, not the final context')
+    })
   })
 
   // Routing protocol — three tiers based on blast radius (condensed from

@@ -15,6 +15,7 @@
 import type { MemoryEntry } from '../../memory/entries'
 import { deriveTitle } from '../../memory/format'
 import { truncate } from './_shared'
+import { summarizeFrictionLesson } from './friction-lessons'
 
 const MAX_PREFERENCES = 25
 const MAX_FRICTION = 15
@@ -23,10 +24,9 @@ function teaser(content: string): string {
   return truncate(content.replace(/\s+/g, ' ').trim(), 200)
 }
 
-/** First line of a friction signal is `[category] User pushback: "<quote>"`. */
+/** Structured lessons lead; legacy rows fall back to their first line. */
 function frictionLine(content: string): string {
-  const first = content.split('\n')[0] ?? content
-  return truncate(first.replace(/\s+/g, ' ').trim(), 200)
+  return summarizeFrictionLesson(content, 240)
 }
 
 export function buildDeveloperProfile(declared: MemoryEntry[]): string | null {

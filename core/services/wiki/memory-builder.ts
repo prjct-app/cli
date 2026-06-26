@@ -41,6 +41,7 @@ export const PER_ENTRY_TYPES: ReadonlySet<string> = new Set([
   'fact',
   'insight',
   'spec',
+  'context',
   'feedback',
   'improvement-idea',
   'question',
