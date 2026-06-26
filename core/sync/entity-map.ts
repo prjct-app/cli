@@ -30,6 +30,11 @@ const TABLE_BY_ENTITY: Record<string, string> = {
   shipped_features: 'shipped_features',
   metrics_daily: 'metrics_daily',
   velocity_sprints: 'velocity_sprints',
+  // Project-understanding artifacts: the sealed analysis (patterns, anti-
+  // patterns, tech-debt, risk-areas, insights) and SDD specs. Previously
+  // unmapped, so their events were silently dropped on the wire.
+  analysis: 'analysis',
+  specs: 'specs',
   // Producer aliases (singular / variant) → canonical table.
   memory: 'memories',
   memory_entry: 'memories',
@@ -45,6 +50,7 @@ const TABLE_BY_ENTITY: Record<string, string> = {
   workflow_rule: 'workflow_rules',
   metric: 'metrics_daily',
   velocity: 'velocity_sprints',
+  spec: 'specs',
   project: 'projects',
   session: 'sessions',
   agent: 'agents',
@@ -76,6 +82,7 @@ export type IncludeGroup =
   | 'user_prompts'
   | 'agent_sessions'
   | 'analysis'
+  | 'specs'
 
 const GROUP_BY_TABLE: Record<string, IncludeGroup> = {
   memories: 'memories',
@@ -90,6 +97,8 @@ const GROUP_BY_TABLE: Record<string, IncludeGroup> = {
   metrics_daily: 'metrics',
   velocity_sprints: 'metrics',
   archives: 'archives',
+  analysis: 'analysis',
+  specs: 'specs',
 }
 
 /**
@@ -108,9 +117,13 @@ export const DEFAULT_INCLUDE: Record<IncludeGroup, boolean> = {
   // push data nothing consumes. Flip on once they round-trip.
   metrics: false,
   archives: false,
+  // Raw prompts + agent sessions stay opt-out by default (privacy-sensitive,
+  // heavy). Analysis + specs are project-understanding knowledge — on by
+  // default so the cloud vault is a complete picture of the project.
   user_prompts: false,
   agent_sessions: false,
-  analysis: false,
+  analysis: true,
+  specs: true,
 }
 
 /**

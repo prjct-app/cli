@@ -17,6 +17,7 @@ import {
   semanticVerify,
 } from '../schemas/analysis'
 import { generateAnalysisDiff } from '../services/analysis-diff'
+import { publishCRUDSync } from '../sync/publish-helper'
 import type { AnalysisDiff } from '../types/services/extracted'
 import { getTimestamp } from '../utils/date-helper'
 import { sha256 } from '../utils/hash'
@@ -91,9 +92,23 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
       lastUpdated: getTimestamp(),
     }))
 
-    await this.publishEntityEvent(projectId, 'analysis', 'drafted', {
-      commitHash: draft.commitHash,
-      fileCount: draft.fileCount,
+    this.publishAnalysis(projectId, draft)
+  }
+
+  /**
+   * Mirror the full analysis (patterns, anti-patterns, languages, frameworks,
+   * file counts) into the sync queue so the cloud vault holds the real
+   * project-understanding artifact — not just its commit hash. Analysis is a
+   * per-project singleton, so the project id is its stable entity id.
+   * Best-effort: `publishCRUDSync` swallows errors; the local seal never fails.
+   */
+  private publishAnalysis(projectId: string, analysis: AnalysisSchema): void {
+    publishCRUDSync({
+      projectId,
+      entityType: 'analysis',
+      entityId: projectId,
+      eventType: 'upsert',
+      data: { ...analysis, id: projectId },
     })
   }
 
@@ -133,10 +148,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
       lastUpdated: now,
     })
 
-    await this.publishEntityEvent(projectId, 'analysis', 'sealed', {
-      commitHash: sealed.commitHash,
-      signature,
-    })
+    this.publishAnalysis(projectId, sealed)
 
     return { success: true, signature }
   }
@@ -211,10 +223,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
       lastUpdated: now,
     })
 
-    await this.publishEntityEvent(projectId, 'analysis', 'rolled_back', {
-      restoredCommit: data.previousSealed.commitHash,
-      restoredSignature: data.previousSealed.signature,
-    })
+    this.publishAnalysis(projectId, data.previousSealed)
 
     return { success: true, restoredSignature: data.previousSealed.signature }
   }

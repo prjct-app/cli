@@ -7,6 +7,7 @@
  */
 
 import { generateUUID } from '../schemas/schemas'
+import { publishCRUDSync } from '../sync/publish-helper'
 import {
   SPEC_STATUSES,
   type Spec,
@@ -85,7 +86,7 @@ class SpecStorage {
       now
     )
 
-    return {
+    const spec: Spec = {
       id,
       title: args.title,
       status: 'draft',
@@ -98,6 +99,8 @@ class SpecStorage {
       shippedSha: null,
       archivedAt: null,
     }
+    this.publishSync(projectId, spec)
+    return spec
   }
 
   get(projectId: string, id: string): Spec | null {
@@ -145,7 +148,9 @@ class SpecStorage {
       now,
       id
     )
-    return this.get(projectId, id)
+    const spec = this.get(projectId, id)
+    if (spec) this.publishSync(projectId, spec)
+    return spec
   }
 
   /**
@@ -174,7 +179,12 @@ class SpecStorage {
       id,
       expectedUpdatedAt
     )
-    return result.changes === 1
+    const ok = result.changes === 1
+    if (ok) {
+      const spec = this.get(projectId, id)
+      if (spec) this.publishSync(projectId, spec)
+    }
+    return ok
   }
 
   setStatus(projectId: string, id: string, status: SpecStatus): Spec | null {
@@ -195,7 +205,9 @@ class SpecStorage {
     const setClause = ['status = ?', 'updated_at = ?', ...extras].join(', ')
     params.push(id)
     prjctDb.run(projectId, `UPDATE specs SET ${setClause} WHERE id = ?`, ...params)
-    return this.get(projectId, id)
+    const spec = this.get(projectId, id)
+    if (spec) this.publishSync(projectId, spec)
+    return spec
   }
 
   setShippedPr(projectId: string, id: string, pr: number): Spec | null {
@@ -206,7 +218,9 @@ class SpecStorage {
       this.nextUpdatedAt(projectId, id),
       id
     )
-    return this.get(projectId, id)
+    const spec = this.get(projectId, id)
+    if (spec) this.publishSync(projectId, spec)
+    return spec
   }
 
   /**
@@ -222,7 +236,9 @@ class SpecStorage {
       this.nextUpdatedAt(projectId, id),
       id
     )
-    return this.get(projectId, id)
+    const spec = this.get(projectId, id)
+    if (spec) this.publishSync(projectId, spec)
+    return spec
   }
 
   /**
@@ -243,6 +259,7 @@ class SpecStorage {
     const before = this.get(projectId, id)
     if (!before) return false
     prjctDb.run(projectId, 'DELETE FROM specs WHERE id = ?', id)
+    this.publishSync(projectId, before, 'delete')
     return true
   }
 
@@ -258,6 +275,38 @@ class SpecStorage {
       if (r.status === 'shipped') out.shipped = r.n
     }
     return out
+  }
+
+  /**
+   * Mirror a spec write into the sync queue so the cloud vault stays a
+   * complete picture of the project (SDD specs are first-class knowledge).
+   * Best-effort — `publishCRUDSync` swallows errors; local CRUD never fails
+   * because of sync.
+   */
+  private publishSync(
+    projectId: string,
+    spec: Spec,
+    eventType: 'upsert' | 'delete' = 'upsert'
+  ): void {
+    publishCRUDSync({
+      projectId,
+      entityType: 'specs',
+      entityId: spec.id,
+      eventType,
+      data: {
+        id: spec.id,
+        title: spec.title,
+        status: spec.status,
+        content: spec.content,
+        tags: spec.tags,
+        created_at: spec.createdAt,
+        updated_at: spec.updatedAt,
+        shipped_at: spec.shippedAt,
+        shipped_pr: spec.shippedPr,
+        shipped_sha: spec.shippedSha,
+        archived_at: spec.archivedAt,
+      },
+    })
   }
 
   private rowToSpec(row: SpecRow): Spec {
