@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.76.1] - 2026-06-26
+
+### Bug Fixes
+
+- prjct sync regenerates the vault (was leaving it stale) (#475)
+
+
 ## [2.76.0] - 2026-06-26
 
 ### Features
