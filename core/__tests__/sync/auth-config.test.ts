@@ -88,6 +88,26 @@ describe('AuthConfig', () => {
       expect(storedToken).toBe('legacy-key')
       expect(raw.apiKey).toBeNull()
     })
+
+    it('refreshes auth when another process writes the secure token after an unauthenticated read', async () => {
+      const before = await authConfig.read()
+      expect(before.apiKey).toBeNull()
+
+      storedToken = 'external-login-key'
+
+      expect(await authConfig.hasAuth()).toBe(true)
+      expect((await authConfig.read()).apiKey).toBe('external-login-key')
+    })
+
+    it('refreshes auth when another process clears the secure token after an authenticated read', async () => {
+      await authConfig.saveAuth('sk_test_123', 'u', 'e@x')
+      expect(await authConfig.hasAuth()).toBe(true)
+
+      storedToken = null
+
+      expect(await authConfig.hasAuth()).toBe(false)
+      expect((await authConfig.read()).apiKey).toBeNull()
+    })
   })
 
   describe('write + saveAuth', () => {

@@ -321,7 +321,9 @@ function activeStore(): AuthTokenStore {
 }
 
 export async function getAuthToken(): Promise<string | null> {
-  if (cached !== undefined) return cached
+  // Auth can change from a different `prjct` process while the daemon is
+  // alive. Do not let a long-running process keep a stale token or stale
+  // unauthenticated state in memory.
   cached = await activeStore().get()
   return cached
 }
