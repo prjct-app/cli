@@ -25,6 +25,7 @@ import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { buildIndexedFileCue } from '../services/file-cue'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { queueStorage } from '../storage/queue-storage'
@@ -35,7 +36,7 @@ import { fileExists } from '../utils/file-helper'
 import { type HookIo, runHook } from './_runner'
 import { extractKeywords, safeTruncate } from './_shared'
 
-const STATE_BUDGET = 900
+const STATE_BUDGET = 1500
 /** FTS candidates fetched before the preventive-type filter picks ONE. */
 const CUE_CANDIDATES = 8
 
@@ -283,7 +284,8 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
         // keywords hit a gotcha/anti-pattern (see header). State leads;
         // the cue is appended and shares the same hard budget.
         const cue = config?.projectId ? buildTopicalCue(config.projectId, prompt, p) : null
-        return safeTruncate(cue ? `${state}\n\n${cue}` : state, STATE_BUDGET)
+        const files = config?.projectId ? buildIndexedFileCue(config.projectId, prompt) : null
+        return safeTruncate([state, cue, files].filter(Boolean).join('\n\n'), STATE_BUDGET)
       },
     },
     io

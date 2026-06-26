@@ -26,6 +26,7 @@ import { stateStorage } from '../storage/state-storage'
 import { upsertTaskPipelineState } from '../storage/task-pipeline-storage'
 import * as dateHelper from '../utils/date-helper'
 import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
+import { type LikelyFileHit, rankLikelyFiles } from './file-cue'
 import { buildLivingContextPrompt, parseLivingContextFields } from './living-context-contract'
 import { memoryService } from './memory-service'
 import projectService from './project-service'
@@ -67,6 +68,12 @@ export interface StartTaskOutcome {
    * on-demand at task start (PULL, not a session-start dump).
    */
   relatedContext?: RelatedContextHit[]
+  /**
+   * File targets ranked from the sync-built code indexes for THIS work
+   * description. This is the cheap repo map that prevents agents from
+   * spending the first minutes rediscovering where existing code lives.
+   */
+  likelyFiles?: LikelyFileHit[]
 }
 
 export interface RelatedContextHit {
@@ -247,6 +254,7 @@ export async function startTask(
   // on demand. Reuses the one RAG pipeline (enrichedRecall) so it works over
   // the user's EXISTING memory from day one. Best-effort; never blocks a start.
   const relatedContext = await recallRelatedContext(projectPath, projectId, description)
+  const likelyFiles = recallLikelyFiles(projectId, description)
 
   return {
     ok: true,
@@ -265,6 +273,16 @@ export async function startTask(
     },
     instructions: beforeResult.instructions,
     relatedContext,
+    likelyFiles,
+  }
+}
+
+/** Pull likely file targets from prebuilt indexes (best-effort, no live scan). */
+function recallLikelyFiles(projectId: string, description: string): LikelyFileHit[] {
+  try {
+    return rankLikelyFiles(projectId, description)
+  } catch {
+    return []
   }
 }
 

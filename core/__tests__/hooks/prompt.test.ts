@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { indexProject } from '../../domain/bm25'
 import {
   _resetGitSnapshotCacheForTests,
   buildProjectState,
@@ -22,6 +23,7 @@ import {
 } from '../../hooks/prompt'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
+import { buildIndexedFileCue } from '../../services/file-cue'
 import prjctDb from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
 import { execFileAsync } from '../../utils/exec'
@@ -183,5 +185,35 @@ describe('UserPromptSubmit — topical trap cue', () => {
     seedMirror('mem_4', 'gotcha', 'biome resolves zero files inside a git worktree')
     const cue = buildTopicalCue(projectId, 'completely unrelated cooking recipe question')
     expect(cue).toBeNull()
+  })
+})
+
+describe('UserPromptSubmit — indexed file cue', () => {
+  it('returns null before the project has a file index', async () => {
+    await freshProject()
+    const cue = buildIndexedFileCue(projectId, 'map headless API endpoints')
+    expect(cue).toBeNull()
+  })
+
+  it('surfaces likely files from the sync-built BM25 index', async () => {
+    await freshProject()
+    await fs.mkdir(path.join(projectPath, 'core', 'server'), { recursive: true })
+    await fs.mkdir(path.join(projectPath, 'core', 'hooks'), { recursive: true })
+    await fs.writeFile(
+      path.join(projectPath, 'core', 'server', 'headless-api.ts'),
+      'export function mapHeadlessApiEndpoints() { return [] }'
+    )
+    await fs.writeFile(
+      path.join(projectPath, 'core', 'hooks', 'prompt.ts'),
+      'export function promptHook() { return null }'
+    )
+
+    await indexProject(projectPath, projectId)
+
+    const cue = buildIndexedFileCue(projectId, 'map headless API endpoints')
+    expect(cue).not.toBeNull()
+    expect(cue).toContain('Likely files from prjct index')
+    expect(cue).toContain('core/server/headless-api.ts')
+    expect(cue).toContain('bm25')
   })
 })

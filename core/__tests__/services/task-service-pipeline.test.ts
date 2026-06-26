@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { indexProject } from '../../domain/bm25'
 import pathManager from '../../infrastructure/path-manager'
 import { startTask } from '../../services/task-service'
 import { MAIN_WORKSPACE_ID } from '../../services/workspace-id'
@@ -60,5 +61,26 @@ describe('task service pipeline orchestration', () => {
     expect(
       getTaskPipelineState(projectId, outcome.taskId ?? '', MAIN_WORKSPACE_ID)?.requiresTestsFirst
     ).toBe(true)
+  })
+
+  it('surfaces likely files from the project index when work starts', async () => {
+    await fs.mkdir(path.join(projectPath, 'core', 'server'), { recursive: true })
+    await fs.writeFile(
+      path.join(projectPath, 'core', 'server', 'headless-api.ts'),
+      'export function mapHeadlessApiEndpoints() { return [] }'
+    )
+    await fs.writeFile(
+      path.join(projectPath, 'core', 'server', 'billing.ts'),
+      'export function updateBilling() { return null }'
+    )
+    await indexProject(projectPath, projectId)
+
+    const outcome = await startTask(projectId, projectPath, 'map headless API endpoints', {
+      skipHooks: true,
+    })
+
+    expect(outcome.ok).toBe(true)
+    expect(outcome.likelyFiles?.[0]?.path).toBe('core/server/headless-api.ts')
+    expect(outcome.likelyFiles?.[0]?.signals).toContain('bm25')
   })
 })
