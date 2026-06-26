@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.76.2] - 2026-06-26
+
+### Bug Fixes
+
+- vault regen self-heals missing files (no more stale-complete vault) (#476)
+
+
 ## [2.76.1] - 2026-06-26
 
 ### Bug Fixes
