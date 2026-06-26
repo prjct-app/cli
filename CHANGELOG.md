@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-06-26
+
+### Added
+- Investigate why Claude spent 55k tokens exploring existing repo context instead of prjct surfacing files context and repo state
+
 ## [3.2.0] - 2026-06-26
 
 ### Added

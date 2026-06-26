@@ -15,6 +15,7 @@
  *   - md-helpers.ts    — buildFlowDiagram for `--md` output
  */
 
+import { formatLikelyFileForAgent } from '../services/file-cue'
 import { collectActiveTasks } from '../services/task-overview'
 import { formatRelatedContextForAgent, startTask } from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
@@ -94,6 +95,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const harness = outcome.harness
       const related = outcome.relatedContext ?? []
       const relatedLines = related.map(formatRelatedContextForAgent)
+      const likelyFiles = outcome.likelyFiles ?? []
+      const likelyFileLines = likelyFiles.map(formatLikelyFileForAgent)
 
       if (options.md) {
         console.log(
@@ -134,6 +137,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
             relatedLines.length > 0
               ? mdSection('Related context — has this come up before?', mdList(relatedLines))
               : null,
+            likelyFileLines.length > 0
+              ? mdSection('Likely files — from prjct index', mdList(likelyFileLines))
+              : null,
             mdNextSteps([
               { label: 'Pull project memory', command: 'prjct context memory <topic>' },
               { label: 'Synthesize context', command: 'prjct remember context "..."' },
@@ -153,6 +159,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
         if (relatedLines.length > 0) {
           out.info('Related context — has this come up before?')
           for (const line of relatedLines) out.info(`  ${line}`)
+        }
+        if (likelyFileLines.length > 0) {
+          out.info('Likely files — from prjct index')
+          for (const line of likelyFileLines) out.info(`  ${line}`)
         }
         showStateInfo('working')
         showNextSteps('task')

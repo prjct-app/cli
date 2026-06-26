@@ -11,6 +11,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { formatLikelyFileForAgent } from '../../services/file-cue'
 import { collectActiveTasks } from '../../services/task-overview'
 import { formatRelatedContextForAgent, setTaskStatus, startTask } from '../../services/task-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
@@ -115,6 +116,12 @@ export function registerProjectTools(server: McpServer) {
           lines.push('', 'Related second-brain context:')
           for (const hit of outcome.relatedContext) {
             lines.push(`- ${formatRelatedContextForAgent(hit)}`)
+          }
+        }
+        if (outcome.likelyFiles && outcome.likelyFiles.length > 0) {
+          lines.push('', 'Likely files from prjct index:')
+          for (const file of outcome.likelyFiles) {
+            lines.push(`- ${formatLikelyFileForAgent(file)}`)
           }
         }
         return { content: [{ type: 'text', text: lines.join('\n') }] }
