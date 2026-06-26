@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.74.0] - 2026-06-26
+
+### Features
+
+- sync specs + full analysis to the cloud vault (#472)
+
+
 ## [2.73.0] - 2026-06-25
 
 ### Added
