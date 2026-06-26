@@ -30,6 +30,7 @@
  *   - fingerprint.ts            — cheap input-state hash for short-circuit
  */
 
+import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { projectMemory } from '../memory/project-memory'
@@ -126,7 +127,11 @@ export async function generateWiki(
   const fingerprintPath = path.join(generatedRoot, FINGERPRINT_FILE)
   const newFingerprint = await computeRegenFingerprint(projectPath, projectId)
   const oldFingerprint = await fs.readFile(fingerprintPath, 'utf-8').catch(() => null)
-  if (oldFingerprint === newFingerprint) {
+  // Don't short-circuit a vault that's actually incomplete: if the top-level
+  // index.md is missing (deleted, partial wipe, copied without it), force the
+  // full build so the vault self-heals instead of staying stale forever.
+  const vaultIntact = existsSync(path.join(generatedRoot, 'index.md'))
+  if (oldFingerprint === newFingerprint && vaultIntact) {
     const manifest = await readManifest(generatedRoot)
     return {
       wikiRoot,
@@ -324,7 +329,11 @@ export async function generateWiki(
   for (const [rel, body] of files) {
     const hash = sha256(body)
     newManifest[rel] = hash
-    if (oldManifest[rel] === hash) {
+    // Skip ONLY when the content is unchanged AND the file is still on disk.
+    // Trusting the manifest alone left a deleted/missing vault file (a stale or
+    // partially-wiped _generated/) un-regenerated forever — the "context queda
+    // stale" bug. Checking existence makes the vault self-heal.
+    if (oldManifest[rel] === hash && existsSync(path.join(generatedRoot, rel))) {
       filesSkipped++
       continue
     }
