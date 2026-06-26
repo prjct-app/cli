@@ -115,12 +115,6 @@ export async function executeCommand(
       )
     case 'regen':
       return commands.regenVault(request.cwd, { md })
-    case 'login':
-      return commands.login({ md })
-    case 'logout':
-      return commands.logout()
-    case 'auth':
-      return commands.auth(param, { md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

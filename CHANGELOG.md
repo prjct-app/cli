@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.72.0] - 2026-06-25
+
+### Added
+- auth bin only logout
+
 ## [2.71.0] - 2026-06-25
 
 ### Added
