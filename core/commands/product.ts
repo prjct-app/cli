@@ -9,6 +9,7 @@ import type { MemoryEntry, MemoryType } from '../memory/entries'
 import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { resolveActiveTask } from '../services/task-service'
+import { buildWorkCostSnapshot, type WorkCostSnapshot } from '../services/work-cost-service'
 import prjctDb from '../storage/database'
 import type { SqliteBindings } from '../storage/database/sqlite-compat'
 import type { MdOption } from '../types/cli'
@@ -143,9 +144,14 @@ export class ProductCommands extends PrjctCommandsBase {
       case 'guardrails':
       case 'risk':
         return this.guardrails(null, projectPath, options)
+      case 'cost':
+      case 'spend':
+      case 'tokens':
+      case 'usage':
+        return this.cost(forwarded, projectPath, options)
       default:
         return failHard(
-          `Unknown insights view '${sub}'. Use value, quality, report, continue, or guardrails.`,
+          `Unknown insights view '${sub}'. Use value, quality, cost, report, continue, or guardrails.`,
           options
         )
     }
@@ -253,6 +259,24 @@ export class ProductCommands extends PrjctCommandsBase {
         options.md ? formatPerformanceMd(days, cycles) : formatPerformanceText(days, cycles)
       )
       return { success: true, days, cycles: cycles.length }
+    } catch (error) {
+      return failHard(getErrorMessage(error), options)
+    }
+  }
+
+  async cost(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: ProductOptions = {}
+  ): Promise<CommandResult> {
+    try {
+      const guard = await requireProject(projectPath, options)
+      if (!guard.ok) return guard.result
+
+      const days = pickDays(input, options.days, 30)
+      const snapshot = buildWorkCostSnapshot(guard.value, days)
+      console.log(options.md ? formatCostMd(snapshot) : formatCostText(snapshot))
+      return { success: true, ...snapshot }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
     }
@@ -749,9 +773,13 @@ function formatGuardrailsText(report: Awaited<ReturnType<typeof buildGuardrails>
 }
 
 function formatPerformanceMd(days: number, cycles: PerformanceCycle[]): string {
-  const lines = ['# AI Agile Performance', '', `Window: last ${days} day(s)`, '']
+  const lines = ['# AI Work Performance', '', `Window: last ${days} day(s)`, '']
   if (cycles.length === 0) {
-    lines.push('No work cycles recorded in this window.')
+    lines.push(
+      'No work cycles recorded in this window.',
+      '',
+      'Run `prjct insights cost --md` to see the capture gaps that currently prevent token and session attribution.'
+    )
     return lines.join('\n')
   }
   lines.push('| Work cycle | Outcome | Time | Tokens | Model | Runtime | Prompt synthesis |')
@@ -769,10 +797,94 @@ function formatPerformanceMd(days: number, cycles: PerformanceCycle[]): string {
 }
 
 function formatPerformanceText(days: number, cycles: PerformanceCycle[]): string {
-  if (cycles.length === 0) return `AI Agile performance (${days}d): no work cycles recorded.`
+  if (cycles.length === 0) return `AI work performance (${days}d): no work cycles recorded.`
   const knownTime = cycles.filter((cycle) => cycle.minutes !== null)
   const minutes = knownTime.reduce((sum, cycle) => sum + (cycle.minutes ?? 0), 0)
-  return `AI Agile performance (${days}d): ${cycles.length} cycle(s), ${knownTime.length} with duration, ${minutes} known minute(s).`
+  return `AI work performance (${days}d): ${cycles.length} cycle(s), ${knownTime.length} with duration, ${minutes} known minute(s).`
+}
+
+function formatCostMd(snapshot: WorkCostSnapshot): string {
+  const lines = ['# AI Work Cost', '', `Window: last ${snapshot.windowDays} day(s)`, '']
+  lines.push('## Subscription Burn', '', '| Metric | Value |', '|---|---:|')
+  lines.push(`| Work cycles | ${snapshot.workCycles} |`)
+  lines.push(`| Token-measured cycles | ${snapshot.knownTokenCycles} |`)
+  lines.push(`| Token coverage | ${snapshot.tokenCoveragePercent}% |`)
+  lines.push(`| Input tokens | ${snapshot.tokensIn.toLocaleString()} |`)
+  lines.push(`| Output tokens | ${snapshot.tokensOut.toLocaleString()} |`)
+  lines.push(`| Total tokens | ${snapshot.tokensTotal.toLocaleString()} |`)
+  lines.push(`| Agent sessions | ${snapshot.measuredSessions} |`)
+  lines.push('')
+  lines.push('## Historical Rescue', '', '| Signal | Value |', '|---|---:|')
+  lines.push(`| Inferred work cycles | ${snapshot.historicalRescue.inferredWorkCycles} |`)
+  lines.push(`| Normalized task rows | ${snapshot.historicalRescue.taskTableCycles} |`)
+  lines.push(`| Historical work-start events | ${snapshot.historicalRescue.eventWorkStarts} |`)
+  lines.push(`| Historical shipped events | ${snapshot.historicalRescue.eventShips} |`)
+  lines.push(`| Sync runs | ${snapshot.historicalRescue.syncRuns} |`)
+  lines.push(`| Memory events | ${snapshot.historicalRescue.memoryEvents} |`)
+  lines.push(`| Post-edit events | ${snapshot.historicalRescue.postEditEvents} |`)
+  lines.push(`| Declared token mentions | ${snapshot.historicalRescue.declaredTokenMentions} |`)
+  lines.push(
+    `| Declared tokens total | ${snapshot.historicalRescue.declaredTokensTotal.toLocaleString()} |`
+  )
+  lines.push('')
+  lines.push('## Context Efficiency', '', '| Signal | Value |', '|---|---:|')
+  lines.push(`| Context surfaced during work | ${snapshot.surfacedContext} |`)
+  lines.push(`| Proven useful context used | ${snapshot.usefulContext} |`)
+  lines.push(`| Context zone events | ${snapshot.contextZoneEvents} |`)
+  lines.push(`| Compactions | ${snapshot.compactions} |`)
+  lines.push(`| CLI command samples | ${snapshot.commandSamples} |`)
+  lines.push(`| CLI command time | ${formatMs(snapshot.commandMs)} |`)
+  lines.push(
+    `| Avg startup | ${snapshot.avgStartupMs === null ? 'unknown' : formatMs(snapshot.avgStartupMs)} |`
+  )
+  lines.push('', '## Most Expensive Work')
+  if (snapshot.mostExpensive.length === 0) {
+    lines.push('- No token-measured work cycles yet.')
+  } else {
+    lines.push('', '| Work cycle | Tokens | In | Out | Time | Outcome |')
+    lines.push('|---|---:|---:|---:|---:|---|')
+    for (const task of snapshot.mostExpensive) {
+      lines.push(
+        `| ${escapeCell(task.description)} | ${task.tokensTotal.toLocaleString()} | ${task.tokensIn.toLocaleString()} | ${task.tokensOut.toLocaleString()} | ${task.minutes ?? 'unknown'} | ${task.status} |`
+      )
+    }
+  }
+  if (snapshot.historicalRescue.topDeclaredTokenMentions.length > 0) {
+    lines.push('', '## Declared Token Mentions')
+    lines.push('', '| Tokens | Source | When | Summary |')
+    lines.push('|---:|---|---|---|')
+    for (const mention of snapshot.historicalRescue.topDeclaredTokenMentions) {
+      lines.push(
+        `| ${mention.tokens.toLocaleString()} | ${mention.sourceType} | ${mention.occurredAt} | ${escapeCell(mention.summary)} |`
+      )
+    }
+  }
+  lines.push('', '## No-Go Gaps')
+  if (snapshot.gaps.length === 0) {
+    lines.push('- Cost attribution has enough local data to explain recent AI work.')
+  } else {
+    for (const gap of snapshot.gaps) lines.push(`- ${gap}`)
+  }
+  lines.push(
+    '',
+    'Exact tokens stay exact only when the agent/runtime exposes them. Estimated usage must be labeled as estimated; missing usage must stay visible.'
+  )
+  return lines.join('\n')
+}
+
+function formatCostText(snapshot: WorkCostSnapshot): string {
+  return [
+    `AI work cost (${snapshot.windowDays}d)`,
+    `tokens: ${snapshot.tokensTotal.toLocaleString()} total across ${snapshot.knownTokenCycles}/${snapshot.workCycles} measured cycle(s)`,
+    `declared historical tokens: ${snapshot.historicalRescue.declaredTokensTotal.toLocaleString()} across ${snapshot.historicalRescue.declaredTokenMentions} mention(s)`,
+    `context: ${snapshot.surfacedContext} surfaced, ${snapshot.usefulContext} proven useful`,
+    snapshot.gaps.length === 0 ? 'gaps: none' : `gaps: ${snapshot.gaps.length}`,
+  ].join('\n')
+}
+
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
 }
 
 function escapeCell(value: string): string {

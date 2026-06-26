@@ -166,6 +166,7 @@ describe('exhaustiveness: every wire entity_type is categorized', () => {
       'workflow_rules',
       'archives',
       'metrics_daily',
+      'work_cost_snapshots',
       'velocity_sprints',
       'projects',
       'sessions',

@@ -59,8 +59,10 @@ describe('isTableIncluded', () => {
     expect(isTableIncluded('subtasks')).toBe(true)
     expect(isTableIncluded('queue_tasks')).toBe(true)
     expect(isTableIncluded('custom_workflows')).toBe(true)
-    // metrics + archives have no round-trip yet → opt-in (off by default).
-    expect(isTableIncluded('metrics_daily')).toBe(false)
+    // Aggregated metrics are cross-device value now: cost/context snapshots
+    // sync by default while raw prompts/sessions remain opt-out.
+    expect(isTableIncluded('metrics_daily')).toBe(true)
+    expect(isTableIncluded('work_cost_snapshots')).toBe(true)
     expect(isTableIncluded('archives')).toBe(false)
     expect(DEFAULT_INCLUDE.user_prompts).toBe(false)
     expect(DEFAULT_INCLUDE.agent_sessions).toBe(false)

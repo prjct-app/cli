@@ -5,6 +5,7 @@
  * Single source of truth for GitData, ProjectStats, ProjectCommands.
  */
 
+import type { WorkCostSnapshot } from '../services/work-cost-service'
 import type { SyncDiff } from './diff'
 import type { StackDetection } from './stack'
 import type { VerificationReport } from './sync-verifier'
@@ -135,6 +136,7 @@ export interface ProjectSyncResult {
   analysisSummary?: SyncAnalysisSummary
   contextQuality?: ContextQualitySummary
   syncMetrics?: SyncMetrics
+  workCost?: WorkCostSnapshot[]
   verification?: VerificationReport
   incremental?: IncrementalInfo
   generatedSkills?: {

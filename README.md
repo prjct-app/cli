@@ -204,6 +204,7 @@ checks. See [EVALS.md](./EVALS.md) for the full workflow.
 |---|---|
 | `prjct insights value --md` | Durable memory, preventive guardrails, shipped work, sync metrics, and detected agent coverage. |
 | `prjct insights quality --md` | Duplicate, stale, low-signal, or untyped memories before they poison recall. |
+| `prjct insights cost --md` | AI work cost: token coverage, subscription burn, context reuse, and capture gaps. |
 | `prjct insights report 7 --md` | A human/team report from shipped work and carry-forward lessons. |
 | `prjct insights continue codex --md` | A continuation brief for the next agent with checks it should run first. |
 | `prjct insights guardrails --md` | File-specific warnings for the current changeset from preventive memory. |
@@ -280,7 +281,7 @@ Cursor and Windsurf use their installed prjct router files; otherwise run `prjct
 | `prjct search "<query>"` | Search project memory — blended BM25 + semantic + recency recall (`prjct search mem_1234` resolves an entry by id). |
 | `prjct guard <file>` | Surface preventive memory before editing a risky file. |
 | `prjct performance [days]` | Measure dev+LLM efficiency per work cycle. |
-| `prjct insights [value\|quality\|report\|continue\|guardrails]` | Project intelligence and quality proof. |
+| `prjct insights [value\|quality\|cost\|report\|continue\|guardrails]` | Project intelligence, token cost, and quality proof. |
 | `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct agents doctor` | Show the auditable compatibility matrix for local and project agent runtimes. |
