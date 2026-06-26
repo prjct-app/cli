@@ -11,6 +11,28 @@ import type { Migration } from '../../types/storage/extended'
 import { INITIAL_SCHEMA_SQL } from './initial-schema.sql'
 import type { SqliteDatabase } from './sqlite-compat'
 
+function stripLiteralFrictionEvidence(content: string): string {
+  const lines = content.split('\n')
+  if (!/^\[[^\]]+\]\s+Lesson:/i.test(lines[0] ?? '')) return content
+  const cleaned = lines
+    .filter((line) => !/^Evidence:\s*/i.test(line.trim()))
+    .join('\n')
+    .trim()
+  return cleaned || content
+}
+
+function scrubFrictionEventData(raw: string): string | null {
+  try {
+    const data = JSON.parse(raw) as { content?: unknown }
+    if (typeof data.content !== 'string') return null
+    const cleaned = stripLiteralFrictionEvidence(data.content)
+    if (cleaned === data.content) return null
+    return JSON.stringify({ ...data, content: cleaned })
+  } catch {
+    return null
+  }
+}
+
 export const migrations: Migration[] = [
   {
     version: 1,
@@ -1049,4 +1071,79 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 34,
+    name: 'retrieval-eval-labels',
+    up: (db: SqliteDatabase) => {
+      try {
+        db.run('ALTER TABLE memory_surface_log ADD COLUMN query_text TEXT')
+      } catch {
+        // Column may already exist.
+      }
+      try {
+        db.run('ALTER TABLE memory_surface_log ADD COLUMN surface TEXT')
+      } catch {
+        // Column may already exist.
+      }
+      db.run(`
+        CREATE TABLE IF NOT EXISTS retrieval_eval_labels (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          query_text     TEXT NOT NULL,
+          positive_id    TEXT NOT NULL,
+          source         TEXT NOT NULL,
+          source_task_id TEXT NOT NULL DEFAULT '',
+          created_at     TEXT NOT NULL,
+          metadata       TEXT NOT NULL DEFAULT '{}'
+        )
+      `)
+      db.run(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_retrieval_eval_labels_unique
+          ON retrieval_eval_labels(source, source_task_id, positive_id, query_text)
+      `)
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_retrieval_eval_labels_created
+          ON retrieval_eval_labels(created_at)
+      `)
+    },
+  },
+  {
+    version: 35,
+    name: 'scrub-literal-friction-evidence',
+    up: (db: SqliteDatabase) => {
+      const eventRows = db
+        .prepare(
+          `SELECT id, data FROM events
+           WHERE type = 'memory.remember.improvement-signal'
+             AND json_valid(data)
+             AND json_extract(data, '$.tags.source') = 'friction-detector'
+             AND json_extract(data, '$.content') LIKE '%Evidence:%'`
+        )
+        .all() as Array<{ id: number; data: string }>
+      const updateEvent = db.prepare('UPDATE events SET data = ? WHERE id = ?')
+      for (const row of eventRows) {
+        const cleaned = scrubFrictionEventData(row.data)
+        if (cleaned) updateEvent.run(cleaned, row.id)
+      }
+
+      const memoryRows = db
+        .prepare(
+          `SELECT id, content FROM memories
+           WHERE type = 'improvement-signal'
+             AND json_extract(tags, '$.source') = 'friction-detector'
+             AND content LIKE '%Evidence:%'`
+        )
+        .all() as Array<{ id: string; content: string }>
+      const updateMemory = db.prepare(
+        'UPDATE memories SET content = ?, content_hash = ?, updated_at = ? WHERE id = ?'
+      )
+      const now = new Date().toISOString()
+      for (const row of memoryRows) {
+        const cleaned = stripLiteralFrictionEvidence(row.content)
+        if (cleaned !== row.content)
+          updateMemory.run(cleaned, memoryFingerprint(cleaned), now, row.id)
+      }
+    },
+  },
 ]
+
+export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

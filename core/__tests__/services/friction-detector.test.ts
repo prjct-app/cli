@@ -101,7 +101,9 @@ describe('friction-detector parseJsonl + extractSignals', () => {
     expect(formatted).toContain('Pattern:')
     expect(formatted).toContain('Anti-pattern:')
     expect(formatted).toContain('Next action:')
-    expect(formatted).toContain('Evidence: user said "no, primero corramos los tests"')
+    expect(formatted).not.toContain('Evidence:')
+    expect(formatted).not.toContain('no, primero corramos los tests')
+    expect(formatted).not.toContain("I'll run prjct ship now.")
     expect(formatted).not.toStartWith('[negation] User pushback:')
   })
 

@@ -114,7 +114,9 @@ export async function enrichedRecall(
       usefulnessService.recordSurfaced(
         projectId,
         entries.map((e) => e.id),
-        task.id
+        task.id,
+        new Date().toISOString(),
+        { queryText: topic, surface: 'context-memory' }
       )
     }
   } catch {

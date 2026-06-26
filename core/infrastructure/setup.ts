@@ -26,6 +26,7 @@ import { getTemplateContent } from '../agentic/template-loader'
 import context7Service from '../services/context7-service'
 import { dependencyValidator } from '../services/dependency-validator'
 import { prjctDb } from '../storage/database'
+import { LATEST_SCHEMA_VERSION } from '../storage/database/migrations'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { getTimeout } from '../utils/constants'
@@ -387,10 +388,11 @@ async function installAntigravitySkill(): Promise<{
  * test-created entries. Opening SQLite per dir (`getDoc` runs the
  * migration check + a kv query, ~3ms each) made upgrades take up to a
  * minute. A `.cli-version` marker file per dir records "reconciled with
- * VERSION": the steady state is one tiny fs read per dir (~µs), and the
- * DB is only opened for dirs whose marker is missing or stale.
+ * VERSION + schema": the steady state is one tiny fs read per dir (~µs),
+ * and the DB is only opened for dirs whose marker is missing or stale.
  */
 const CLI_VERSION_MARKER = '.cli-version'
+const CLI_PROJECT_RECONCILIATION_MARKER = `${VERSION}\nschema=${LATEST_SCHEMA_VERSION}`
 
 async function migrateProjectsCliVersion(): Promise<void> {
   try {
@@ -410,7 +412,7 @@ async function migrateProjectsCliVersion(): Promise<void> {
       try {
         const markerPath = path.join(projectsDir, projectId, CLI_VERSION_MARKER)
         const marker = await fs.readFile(markerPath, 'utf-8').catch(() => '')
-        if (marker.trim() === VERSION) {
+        if (marker.trim() === CLI_PROJECT_RECONCILIATION_MARKER) {
           continue
         }
 
@@ -423,7 +425,7 @@ async function migrateProjectsCliVersion(): Promise<void> {
 
         // Mark even doc-less dirs (test artifacts) so the next upgrade
         // skips them with a single read instead of a DB open.
-        await fs.writeFile(markerPath, VERSION, 'utf-8').catch(() => {})
+        await fs.writeFile(markerPath, CLI_PROJECT_RECONCILIATION_MARKER, 'utf-8').catch(() => {})
       } catch {
         // Skip projects with database issues
       }

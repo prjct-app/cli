@@ -339,10 +339,6 @@ export async function clearAuthToken(): Promise<void> {
   await activeStore().clear()
 }
 
-export async function getAuthTokenLocation(): Promise<AuthTokenLocation> {
-  return activeStore().location()
-}
-
 export function _setAuthTokenStoreForTests(store: AuthTokenStore | null): void {
   testStore = store
   cached = undefined

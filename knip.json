@@ -6,10 +6,10 @@
     "core/daemon/entry.ts",
     "core/mcp/entry.ts",
     "core/hooks/cold-entry.ts",
-    "scripts/*.{js,ts}",
+    "scripts/*.{js,ts,mjs}",
     "core/__tests__/**/*.test.ts"
   ],
-  "project": ["core/**/*.ts", "bin/**/*.ts", "scripts/**/*.{js,ts}"],
+  "project": ["core/**/*.ts", "bin/**/*.ts", "scripts/**/*.{js,ts,mjs}"],
   "ignore": ["core/types/**"],
   "ignoreExportsUsedInFile": true,
   "rules": {

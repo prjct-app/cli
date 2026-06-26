@@ -7,8 +7,9 @@
  * is the engine, not regex): we DO NOT pretend to infer deep intent
  * from regex. We convert a high-confidence pushback moment into a
  * conservative structured lesson: what happened, why it mattered,
- * the pattern/anti-pattern, and the next action. The raw quote stays
- * as evidence, not the primary value.
+ * the pattern/anti-pattern, and the next action. Raw transcript quotes
+ * are used only transiently for classification/dedup and are NOT stored
+ * in durable memory — context value is the reusable lesson, not the literal.
  *
  * What counts as friction (precision-over-recall):
  *   - User negation directly after an assistant tool-use:
@@ -218,8 +219,6 @@ function textOf(content: unknown): string {
 
 function formatSignal(signal: FrictionSignal): string {
   const template = lessonTemplate(signal.category)
-  const evidence = inlineEvidence(signal.excerpt)
-  const assistant = inlineEvidence(signal.precedingAssistantPreview.slice(0, 200))
   const lines = [
     `[${signal.category}] Lesson: ${template.lesson}`,
     'What happened: The user pushed back after the assistant response.',
@@ -227,7 +226,6 @@ function formatSignal(signal: FrictionSignal): string {
     `Pattern: ${template.pattern}`,
     `Anti-pattern: ${template.antiPattern}`,
     `Next action: ${template.nextAction}`,
-    `Evidence: user said "${evidence}"${assistant ? ` after assistant said "${assistant}"` : ''}.`,
   ]
   return lines.join('\n')
 }
@@ -268,10 +266,6 @@ function lessonTemplate(category: FrictionSignal['category']): {
     nextAction:
       'Pause, convert the pushback into a workflow constraint, and adjust the next tool use.',
   }
-}
-
-function inlineEvidence(text: string): string {
-  return text.replace(/\s+/g, ' ').trim().replace(/"/g, "'")
 }
 
 function hashSignal(excerpt: string): string {

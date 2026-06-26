@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-06-26
+
+### Added
+- synthesis context eval gate
+
 ## [3.1.0] - 2026-06-26
 
 ### Added

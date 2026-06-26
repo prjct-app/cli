@@ -110,7 +110,10 @@ describe('usefulnessService.rerank', () => {
 
 describe('usefulnessService — ship-success attribution', () => {
   it('credits surfaced entries on ship and clears the log', () => {
-    usefulnessService.recordSurfaced(projectId, ['mem_10', 'mem_11'], 'task-1', T0_ISO)
+    usefulnessService.recordSurfaced(projectId, ['mem_10', 'mem_11'], 'task-1', T0_ISO, {
+      queryText: 'authentication migration gotcha',
+      surface: 'context-memory',
+    })
     const credited = usefulnessService.creditShippedTask(projectId, 'task-1', T0_ISO)
     expect(credited).toBe(2)
 
@@ -121,6 +124,32 @@ describe('usefulnessService — ship-success attribution', () => {
 
     // Log cleared → a second credit finds nothing.
     expect(usefulnessService.creditShippedTask(projectId, 'task-1', T0_ISO)).toBe(0)
+
+    const labels = prjctDb.query<{
+      query_text: string
+      positive_id: string
+      source: string
+      source_task_id: string
+    }>(
+      projectId,
+      `SELECT query_text, positive_id, source, source_task_id
+       FROM retrieval_eval_labels
+       ORDER BY positive_id`
+    )
+    expect(labels).toEqual([
+      {
+        query_text: 'authentication migration gotcha',
+        positive_id: 'mem_10',
+        source: 'ship-surfaced',
+        source_task_id: 'task-1',
+      },
+      {
+        query_text: 'authentication migration gotcha',
+        positive_id: 'mem_11',
+        source: 'ship-surfaced',
+        source_task_id: 'task-1',
+      },
+    ])
   })
 
   it('only credits the shipped task, leaving other tasks pending', () => {

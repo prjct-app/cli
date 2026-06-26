@@ -9,7 +9,7 @@
  * - Provides actionable recommendations
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import chalk from 'chalk'
 import { verifyCodexPRouterReady } from '../infrastructure/codex-skill'
@@ -83,24 +83,30 @@ class DoctorService {
     const checks: CheckResult[] = []
 
     // Git (required)
-    checks.push(this.checkCommand('git', 'git --version', /git version ([\d.]+)/, false))
+    checks.push(this.checkCommand('git', ['git', '--version'], /git version ([\d.]+)/, false))
 
     // Node (required)
-    checks.push(this.checkCommand('node', 'node --version', /v([\d.]+)/, false))
+    checks.push(this.checkCommand('node', ['node', '--version'], /v([\d.]+)/, false))
 
     // Bun (optional)
-    checks.push(this.checkCommand('bun', 'bun --version', /([\d.]+)/, true))
+    checks.push(this.checkCommand('bun', ['bun', '--version'], /([\d.]+)/, true))
 
     // GitHub CLI (optional)
     checks.push(
-      this.checkCommand('gh', 'gh --version', /gh version ([\d.]+)/, true, 'needed for PR commands')
+      this.checkCommand(
+        'gh',
+        ['gh', '--version'],
+        /gh version ([\d.]+)/,
+        true,
+        'needed for PR commands'
+      )
     )
 
     // Claude Code (optional)
     checks.push(
       this.checkCommand(
         'claude',
-        'claude --version',
+        ['claude', '--version'],
         /claude ([\d.]+)/,
         true,
         'Anthropic Claude Code CLI'
@@ -109,24 +115,36 @@ class DoctorService {
 
     // Gemini CLI (optional)
     checks.push(
-      this.checkCommand('gemini', 'gemini --version', /gemini ([\d.]+)/, true, 'Google Gemini CLI')
+      this.checkCommand(
+        'gemini',
+        ['gemini', '--version'],
+        /gemini ([\d.]+)/,
+        true,
+        'Google Gemini CLI'
+      )
     )
 
     // OpenAI Codex CLI (optional)
-    checks.push(this.checkCommand('codex', 'codex --version', /([\d.]+)/, true, 'OpenAI Codex CLI'))
+    checks.push(
+      this.checkCommand('codex', ['codex', '--version'], /([\d.]+)/, true, 'OpenAI Codex CLI')
+    )
 
     return checks
   }
 
   private checkCommand(
     name: string,
-    command: string,
+    command: [string, ...string[]],
     versionRegex: RegExp,
     optional: boolean,
     description?: string
   ): CheckResult {
     try {
-      const output = execSync(command, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] })
+      const [bin, ...args] = command
+      const output = execFileSync(bin, args, {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
       const match = output.match(versionRegex)
       const version = match ? match[1] : 'unknown'
 
@@ -217,15 +235,16 @@ class DoctorService {
 
   private async checkGitRepo(): Promise<CheckResult> {
     try {
-      execSync('git rev-parse --git-dir', {
+      execFileSync('git', ['rev-parse', '--git-dir'], {
         cwd: this.projectPath,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
 
       // Check for uncommitted changes
-      const status = execSync('git status --porcelain', {
+      const status = execFileSync('git', ['status', '--porcelain'], {
         cwd: this.projectPath,
         encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
       })
       const hasChanges = status.trim().length > 0
 

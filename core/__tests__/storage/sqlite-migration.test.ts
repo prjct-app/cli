@@ -950,6 +950,64 @@ describe('SQLite Migration', () => {
       expect(migrations[0].name).toBe('initial-schema')
     })
 
+    it('scrubs literal friction transcript evidence from existing memory rows', async () => {
+      await fs.mkdir(path.join(tmpRoot!, testProjectId), { recursive: true })
+      const db = prjctDb.getDb(testProjectId)
+      const literal = [
+        '[negation] Lesson: Recalibrate before continuing.',
+        'What happened: The user pushed back after the assistant response.',
+        'Why it mattered: The assistant likely violated sequencing expectations.',
+        'Pattern: User immediately rejects an assistant action.',
+        'Anti-pattern: Continuing without changing course.',
+        'Next action: Pause and adjust the next tool use.',
+        'Evidence: user said "no literal quotes" after assistant said "I will continue".',
+      ].join('\n')
+
+      db.run('DELETE FROM _migrations WHERE version = 35')
+      prjctDb.appendEvent(testProjectId, 'memory.remember.improvement-signal', {
+        content: literal,
+        tags: { source: 'friction-detector' },
+        provenance: 'extracted',
+      })
+      prjctDb.run(
+        testProjectId,
+        `INSERT INTO memories
+           (id, project_id, title, content, tags, type, provenance, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        'mem_literal',
+        testProjectId,
+        'literal friction',
+        literal,
+        JSON.stringify({ source: 'friction-detector' }),
+        'improvement-signal',
+        'extracted',
+        '2026-01-01T00:00:00.000Z',
+        '2026-01-01T00:00:00.000Z'
+      )
+
+      prjctDb.close(testProjectId)
+      prjctDb.getDb(testProjectId)
+
+      const event = prjctDb.get<{ data: string }>(
+        testProjectId,
+        `SELECT data FROM events
+         WHERE type = 'memory.remember.improvement-signal'
+         ORDER BY id DESC LIMIT 1`
+      )
+      const eventContent = JSON.parse(event!.data).content as string
+      const memory = prjctDb.get<{ content: string }>(
+        testProjectId,
+        "SELECT content FROM memories WHERE id = 'mem_literal'"
+      )
+
+      expect(eventContent).toContain('Why it mattered:')
+      expect(eventContent).toContain('Next action:')
+      expect(eventContent).not.toContain('Evidence:')
+      expect(eventContent).not.toContain('no literal quotes')
+      expect(memory?.content).not.toContain('Evidence:')
+      expect(memory?.content).not.toContain('I will continue')
+    })
+
     it('should support document CRUD operations', async () => {
       await fs.mkdir(path.join(tmpRoot!, testProjectId), { recursive: true })
       // Create
