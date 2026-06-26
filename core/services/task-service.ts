@@ -1,5 +1,5 @@
 /**
- * Task service — the non-printing core of `prjct task` and `prjct status`.
+ * Task service — compatibility backend for `prjct work` and MCP work state.
  *
  * Extracted so the MCP write-path (`prjct_task_start` / `prjct_task_set_status`)
  * fires the SAME gates, memory logs, spec linkage, and state-machine
@@ -109,7 +109,7 @@ export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
 }
 
 /**
- * Start a task: run before/after workflow rules, persist state, link a spec
+ * Start a work cycle: run before/after workflow rules, persist state, link a spec
  * if requested, and log the `task_started` event. Returns structured data;
  * the caller prints. Mirrors the side-effects of `workflow.now`.
  */
@@ -132,8 +132,8 @@ export async function startTask(
     return { ok: false, blocked }
   }
 
-  // SDD strict gate (opt-in via config.sdd.mode === 'strict'): a task must link
-  // a REVIEWED spec. Enforced here so `prjct task` and the MCP write-path share
+  // SDD strict gate (opt-in via config.sdd.mode === 'strict'): a work cycle must
+  // link a REVIEWED intent/spec. Enforced here so CLI and MCP share
   // it. `off`/`advisory` never block (advisory only nudges via the skill).
   {
     const sddConfig = await configManager.readConfig(projectPath).catch(() => null)
@@ -143,7 +143,7 @@ export async function startTask(
         return {
           ok: false,
           blocked:
-            'Strict SDD: a spec is required before a task. Run `prjct spec "<title>"`, pass `prjct audit-spec <id>`, then `prjct task --spec <id>`. (Relax with `prjct sdd advisory`.)',
+            'Strict SDD: an intent/spec is required before work. Run `prjct intent "<title>"`, pass `prjct audit-spec <id>`, then `prjct work --spec <id>`. (Relax with `prjct sdd advisory`.)',
         }
       }
       try {
@@ -390,7 +390,7 @@ export async function setTaskStatus(
     // Pause/resume PER worktree needs a per-workspace paused store (planned
     // follow-up). Returning an explicit `unsupported` — rather than a false
     // success that mutates nothing — avoids leaving the worktree task wedged
-    // in `working` (which would then block the next `prjct task` here).
+    // in `working` (which would then block the next `prjct work` here).
     return {
       ok: false,
       reason: 'unsupported',
@@ -433,7 +433,7 @@ export async function setTaskStatus(
 
   // Drive the real workflow state machine so state.json and the audit log
   // agree. Without this, `status paused` flips the audit trail but leaves
-  // state.currentTask.status='in_progress', which later blocks `prjct task`
+  // state.currentTask.status='in_progress', which later blocks `prjct work`
   // with a bogus "cannot transition from working".
   try {
     if (normalized === 'done' || normalized === 'completed') {

@@ -1,7 +1,7 @@
 /**
  * Spec file builder.
  *
- * Emits `specs/<slug>.md` per spec + `specs/_index.md` overview.
+ * Emits `specs/<slug>.md` per spec + a semantic roadmap overview.
  * Pure function: takes specs in, returns a `{ relPath: body }` map. No
  * I/O — orchestrator (wiki-generator) diffs against the manifest.
  *
@@ -14,7 +14,7 @@
 import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
 import type { QueueTask } from '../../schemas/state'
 import type { Spec } from '../../types/spec'
-import { slugify } from './_shared'
+import { SPEC_ROADMAP_FILE, slugify } from './_shared'
 
 export function buildSpecFiles(
   specs: Spec[],
@@ -71,7 +71,7 @@ export function buildSpecFiles(
     lines.push('')
   }
 
-  files.set('specs/_index.md', `${lines.join('\n')}\n`)
+  files.set(SPEC_ROADMAP_FILE, `${lines.join('\n')}\n`)
   return files
 }
 

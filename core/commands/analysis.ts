@@ -95,7 +95,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}\n`)
       console.log('Next steps:')
       console.log('• p. sync → Generate agents based on stack')
-      console.log('• p. task "<description>" → Start tracked work')
+      console.log('• p. work "<intent>" → Start an AI Agile work cycle')
 
       return {
         success: true,

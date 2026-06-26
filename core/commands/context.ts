@@ -179,7 +179,7 @@ export class ContextCommands {
         sections.push(items.join('\n'))
       }
     } else {
-      sections.push('> No active task')
+      sections.push('> No active work cycle')
     }
 
     // Repo analysis

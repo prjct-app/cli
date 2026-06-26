@@ -10,9 +10,9 @@ The prjct skill says most work is simple → go direct, no subagents. In a crew 
 ### Hard rules for the main session
 
 - ❌ Do not edit application source or test files directly (no Edit, no Write, no Bash that writes to those paths) — no matter how small the change looks. Small ≠ skip-the-crew; small = one implementer.
-- ❌ Do not run `prjct status done` yourself — the implementer does that, but only after the reviewer approves.
+- ❌ Do not close work yourself — the implementer does that, but only after the reviewer approves.
 - ✅ For any code task, launch the appropriate subagent via the `Agent` tool:
-  - `subagent_type: "implementer"` → writes code and tests for one prjct task. Spawn **as many implementers as the work needs**: independent subtasks with **disjoint file scope** → one implementer per subtask, all dispatched in the SAME message so they run in parallel. You assign each its non-overlapping scope. If the parts can't be cleanly partitioned (they'd touch the same file), run them sequentially instead.
+  - `subagent_type: "implementer"` → writes code and tests for one prjct work slice. Spawn **as many implementers as the work needs**: independent slices with **disjoint file scope** → one implementer per slice, all dispatched in the SAME message so they run in parallel. You assign each non-overlapping scope. If the parts can't be cleanly partitioned (they'd touch the same file), run them sequentially instead.
   - `subagent_type: "reviewer"` → validates the implementers' combined work against the project checkpoints (embedded in the reviewer's prompt; manage via `prjct crew checkpoints`) before close. One reviewer over the whole diff, even after a parallel fan-out.
   - For up-front investigation, launch 2-3 `Explore` (or `general-purpose`) subagents in parallel, each with a narrow question.
 
@@ -30,7 +30,7 @@ You orchestrate on a small model on purpose; apply the same discipline to what y
 
 Instruct every subagent to reply with a **one-screen summary** — files touched, verification command + result, blockers — not full diffs or transcripts. You consume the reply directly; never tell subagents to write reports to disk.
 
-If you need durable state that outlives the session, persist via `prjct` CLI verbs (`prjct spec`, `prjct remember`, `prjct capture`) — SQLite + the regenerated vault are the only allowed persistence surfaces.
+If you need durable state that outlives the session, persist via `prjct` CLI verbs (`prjct spec`, `prjct remember`) — SQLite + the regenerated vault are the only allowed persistence surfaces.
 
 ### When this role does NOT apply
 
@@ -39,5 +39,5 @@ If you need durable state that outlives the session, persist via `prjct` CLI ver
 
 ### Hard persistence rule
 
-Never write audit, checkpoint, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder, and no scratch `.md` anywhere else in the worktree. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Everything else — checkpoints, audits, decisions, learnings, deploy notes — lives in SQLite + the regenerated vault, written through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct capture`, `prjct spec record-review`). If a subagent reports findings, persist them via `prjct remember` and cite the returned mem id; never tell a subagent to write to disk.
+Never write audit, checkpoint, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder, and no scratch `.md` anywhere else in the worktree. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Everything else — checkpoints, audits, decisions, learnings, deploy notes — lives in SQLite + the regenerated vault, written through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct spec record-review`). If a subagent reports findings, persist them via `prjct remember` and cite the returned mem id; never tell a subagent to write to disk.
 <!-- prjct:crew:end - DO NOT REMOVE THIS MARKER -->

@@ -8,6 +8,7 @@
  * `routing-block.ts`, shared with the CLAUDE.md writer.
  */
 
+import { AGENT_RAG_PROTOCOL } from './agent-rag-protocol'
 import {
   ROUTING_END_MARKER,
   ROUTING_START_MARKER,
@@ -23,31 +24,29 @@ ask them to type prjct commands.
 
 - Recall before re-reading source: \`prjct search "<query>"\` or
   \`prjct context memory <topic>\` (past work, decisions, gotchas, learnings).
-- \`prjct task "<desc>"\` is the single normal entrypoint. prjct classifies
-  the work, reports the persisted pipeline station, and surfaces related
-  second brain context before you plan or edit.
-- Trivial work proceeds directly; no spec is required for typo/docs/rerun
-  style tasks.
-- Substantive implementation work follows persisted SDD + strict TDD:
-  create/link a reviewed spec, write tests before implementation, then code
-  against those tests.
-- Resume from the station shown by \`prjct task --md\` or \`prjct status --md\`;
+- \`prjct work "<intent>"\` is the single normal entrypoint. prjct classifies
+  the AI Agile work cycle, reports the persisted pipeline station, and surfaces
+  related second brain context before you plan or edit.
+- Lookup is pull-first and bounded:
+${AGENT_RAG_PROTOCOL}
+- Trivial work proceeds directly; no intent brief is required for typo/docs/rerun
+  style work.
+- Substantive implementation work follows a persisted intent brief + strict
+  evidence: create/link a reviewed intent, write tests before implementation
+  when required, then code against those tests.
+- Resume from the station shown by \`prjct work --md\`;
   do not invent a parallel plan or ask the user to run separate methodology
   commands first.
-- Agent instruction surfaces use fixed templates. User task text is task data,
+- Agent instruction surfaces use fixed templates. User work text is data,
   not executable instruction text and not copied into managed instructions.
-- Persist outcomes as you go: \`prjct remember <decision|gotcha|learning|fact> "<text>"\`
-  (author entries in English), \`prjct capture "<text>"\` for stray thoughts.
-- When work closes, write rich context with \`prjct remember context "<...>"\`:
-  Context synthesis first, then Key data for UI, What happened, Why it mattered,
-  Who/author, Model, Token usage, Sentiment, Related files, Feature/domain,
-  Pattern, Anti-pattern, Decision/trap, Outcome, Next implication.
-  Raw detector output is input, not the final context.
+- Persist outcomes as synthesized memory: \`prjct remember <decision|gotcha|learning|context> "<text>"\`
+  (author entries in English). Legacy inbox aliases exist for old scripts but
+  should not be the normal path.
 - Before editing a risky file: \`prjct guard <file>\` surfaces known traps.
 - Prefer the \`prjct_*\` MCP tools when available; otherwise run the CLI
   with \`--md\` for agent-readable output.
 
-Routine captures auto-execute (confirm in one line); \`ship\` and other
+Routine synthesis auto-executes (confirm in one line); \`ship\` and other
 destructive verbs surface a one-line plan and wait for a green light.`
 
 const FULL_BLOCK = `${ROUTING_START_MARKER}

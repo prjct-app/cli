@@ -5,7 +5,7 @@
  * disambiguation. These tests pin the contract:
  *   1. No project config → null (no injection).
  *   2. With a fresh project → at least one fact emitted.
- *   3. Active task → surfaces task description + relative time.
+ *   3. Active work → surfaces work description + relative time.
  *   4. Git working tree → surfaces branch + dirty/clean state.
  *   5. Inbox entries → surfaces count.
  *   6. Empty repo (no HEAD) doesn't break the hook.
@@ -76,7 +76,7 @@ describe('UserPromptSubmit — project state', () => {
     expect(r).toMatch(/Branch: main — working tree \d+ untracked/)
   })
 
-  it('surfaces an active task when one exists', async () => {
+  it('surfaces an active work cycle when one exists', async () => {
     await freshProject()
     await stateStorage.startTask(projectId, {
       id: `t-${Date.now()}`,
@@ -85,7 +85,7 @@ describe('UserPromptSubmit — project state', () => {
       sessionId: 's',
     } as Parameters<typeof stateStorage.startTask>[1])
     const r = await buildProjectState(projectPath)
-    expect(r).toContain('Active task: "fix auth race condition"')
+    expect(r).toContain('Active work cycle: "fix auth race condition"')
   })
 
   it('surfaces dirty working tree counts', async () => {

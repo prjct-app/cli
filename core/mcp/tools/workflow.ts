@@ -85,7 +85,7 @@ export function registerWorkflowTools(server: McpServer) {
 
   s.tool(
     'prjct_workflow_status',
-    'Where the active task sits in its workflow (state + rules currently in force). Read when deciding whether done/ship is allowed next.',
+    'Where the active work cycle sits in its workflow/gates (state + rules currently in force). Read when deciding whether done/ship is allowed next.',
     {
       projectPath: z.string().describe('Project directory path'),
     },
@@ -100,10 +100,10 @@ export function registerWorkflowTools(server: McpServer) {
       const parts: string[] = ['## Workflow Status']
 
       if (currentTask) {
-        parts.push(`\nActive task: **${currentTask.description}**`)
+        parts.push(`\nActive work cycle: **${currentTask.description}**`)
         parts.push(`Started: ${currentTask.startedAt}`)
       } else {
-        parts.push('\nNo active task.')
+        parts.push('\nNo active work cycle.')
       }
 
       const enabledRules = allRules.filter((r) => r.enabled)

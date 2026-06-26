@@ -3,14 +3,14 @@
  *
  * `CHANGELOG.md` is the source of truth and ships in the repo. The vault used
  * to mirror it as one file PER version (hundreds of near-empty notes nobody
- * reads — pure sprawl). Instead we emit a SINGLE `releases/index.md` rollup: a
+ * reads — pure sprawl). Instead we emit a SINGLE semantic release-history rollup: a
  * newest-first table with a one-line summary per version, pointing at
  * `CHANGELOG.md` for the full notes.
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { type ReleaseEntry, truncate } from './_shared'
+import { RELEASE_HISTORY_FILE, type ReleaseEntry, truncate, VAULT_HOME_FILE } from './_shared'
 
 export function parseChangelog(raw: string): ReleaseEntry[] {
   const out: ReleaseEntry[] = []
@@ -58,7 +58,7 @@ function buildReleasesIndex(entries: ReleaseEntry[]): string {
     `${entries.length} version${entries.length === 1 ? '' : 's'} parsed from \`CHANGELOG.md\`. Newest first — full notes live in \`CHANGELOG.md\`.`
   )
   lines.push('')
-  lines.push('See also: [project wiki](../index.md)')
+  lines.push(`See also: [project context](../${VAULT_HOME_FILE})`)
   lines.push('')
   lines.push('| Date | Version | Summary |')
   lines.push('|---|---|---|')
@@ -83,6 +83,6 @@ export async function buildReleasesFiles(projectPath: string): Promise<Map<strin
   if (entries.length === 0) return out
 
   // One consolidated rollup — NOT one file per version (that was the sprawl).
-  out.set('releases/index.md', buildReleasesIndex(entries))
+  out.set(RELEASE_HISTORY_FILE, buildReleasesIndex(entries))
   return out
 }

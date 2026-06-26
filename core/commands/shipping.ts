@@ -112,7 +112,7 @@ export class ShippingCommands extends PrjctCommandsBase {
             return {
               success: false,
               error:
-                'Strict SDD: this work has no linked spec. Start it via `prjct spec` → `audit-spec` → `prjct task --spec <id>`, or override with `prjct ship --no-spec-gate`.',
+                'Strict SDD: this work has no linked intent/spec. Start it via `prjct intent` → `audit-spec` → `prjct work --spec <id>`, or override with `prjct ship --no-spec-gate`.',
             }
           }
         } catch {
@@ -521,13 +521,13 @@ async function buildClarification(
   const activeTask = await resolveActiveTask(projectId, projectPath)
   if (activeTask) return null
 
-  // Case 3 — no active task but steps exist. Dangerous when there's a
+  // Case 3 — no active work cycle but steps exist. Dangerous when there's a
   // PR already open for this branch: we don't know whether the user
   // wants another commit on top or to start fresh. Ask.
   const pr = await findOpenPrForBranch(projectPath)
   if (pr) {
     return {
-      question: `No active task, and PR #${pr.number} ("${pr.title}") is OPEN for this branch. Continue ship anyway?`,
+      question: `No active work cycle, and PR #${pr.number} ("${pr.title}") is OPEN for this branch. Continue ship anyway?`,
       options: ['proceed', 'abort'],
       state: { openPr: pr.number, branch: pr.branch },
     }

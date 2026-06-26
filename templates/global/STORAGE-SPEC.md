@@ -265,11 +265,11 @@ prjctDb.setDoc(projectId, 'key', data)
 ### Verification Test
 
 ```bash
-# Start task with Claude
-p. task "add feature X"
+# Start work with Claude
+p. work "add feature X"
 
 # Switch to Gemini, continue
-prjct status done --md  # Should work seamlessly
+prjct work --md  # Should work seamlessly
 
 # Switch back to Claude
 p. ship  # Should read Gemini's changes correctly

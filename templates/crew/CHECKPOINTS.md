@@ -17,16 +17,16 @@
 
 ## C2 — State is coherent
 
-- [ ] At most **one** task is in `active` status (`prjct status --md`).
-- [ ] No task in `active` is older than the current session without a captured blocker note.
-- [ ] Every task marked `done` has at least one paired test file (or a justified exception in the implementer report).
+- [ ] At most **one** work cycle is active (`prjct work --md`).
+- [ ] No active work cycle is older than the current session without a synthesized blocker note.
+- [ ] Every completed work cycle has at least one paired test file (or a justified exception in the implementer report).
 
 ## C3 — The code respects the architecture
 
 - [ ] Modified files follow the conventions of their neighbouring files (style, naming, imports).
-- [ ] No new runtime dependencies were added without a `prjct capture --tags dep-add` note.
+- [ ] No new runtime dependencies were added without a `prjct remember context --tags dep-add` note.
 - [ ] No debug noise: no `console.log` / `print()` / `dbg!` left in source.
-- [ ] No `TODO` without a captured follow-up in `prjct capture`.
+- [ ] No `TODO` without a synthesized follow-up in `prjct remember`.
 
 ## C4 — Verification is real
 
@@ -40,7 +40,7 @@
 - [ ] No untracked junk in the worktree (`*.tmp`, scratch logs, accidental binaries, any subdirectory of `.prjct/`).
 - [ ] The implementer replied inline with the summary block (STATUS / PLAN / FILES TOUCHED / VERIFICATION / NOTES).
 - [ ] The reviewer replied inline with `VERDICT: APPROVED` (first line).
-- [ ] The task's status was advanced (`prjct status done` for completed work, `prjct status paused` if intentionally paused).
+- [ ] The work cycle was closed or intentionally paused after reviewer approval.
 
 ---
 

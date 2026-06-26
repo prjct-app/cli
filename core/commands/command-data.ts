@@ -10,19 +10,24 @@ import type { CategoryInfo, CommandMeta } from '../types/commands'
 // Category definitions
 export const CATEGORIES: Record<string, CategoryInfo> = {
   core: {
-    title: 'Core Workflow',
-    description: 'Essential commands for daily development workflow',
+    title: 'AI Agile Loop',
+    description: 'Intent, context, execution, learning, and improvement',
     order: 1,
   },
   optional: {
-    title: 'Optional Commands',
-    description: 'Advanced features for specialized workflows',
+    title: 'Intelligence & Quality',
+    description: 'Project intelligence, quality proof, and advanced policies',
     order: 2,
   },
   setup: {
-    title: 'Setup',
-    description: 'Installation and configuration (not for daily use)',
+    title: 'Setup & Infrastructure',
+    description: 'Installation, configuration, and integration plumbing',
     order: 3,
+  },
+  legacy: {
+    title: 'Compatibility',
+    description: 'v2 aliases kept for existing users and scripts',
+    order: 4,
   },
 }
 
@@ -30,8 +35,50 @@ export const CATEGORIES: Record<string, CategoryInfo> = {
 export const COMMANDS: CommandMeta[] = [
   // ===== CORE COMMANDS =====
   {
+    name: 'intent',
+    group: 'core',
+    surface: 'ai-agile',
+    routing: { group: 'spec', method: 'draft' },
+    routingMode: 'cold-only',
+    optionSchema: { strings: ['goal', 'tags'] },
+    description: 'Frame the work brief: objective, constraints, risks, and success signal',
+    usage: {
+      claude: 'p. intent "<title>"',
+      terminal: 'prjct intent "<title>" [--goal "..."] [--tags k:v,...]',
+    },
+    params: '"<title>" [--goal] [--tags]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'v3 AI Agile replacement for ticket-style planning',
+      'Stores the durable brief in SQLite + regenerated vault',
+      'Sub-verbs mirror spec for compatibility: list, show, update, audit, link-work, ship',
+    ],
+  },
+  {
+    name: 'work',
+    group: 'core',
+    surface: 'ai-agile',
+    routing: { group: 'workflow', method: 'now' },
+    optionSchema: { strings: ['spec'] },
+    description: 'Start or inspect an AI Agile work cycle with context and evidence',
+    usage: { claude: 'p. work "<intent>"', terminal: 'prjct work "<intent>"' },
+    params: '[intent]',
+    implemented: true,
+    hasTemplate: true,
+    requiresProject: true,
+    features: [
+      'v3 name for the execution cycle formerly exposed as task',
+      'No arg → shows the active work cycle',
+      'Surfaces related context before planning/editing',
+      'Captures harness/evidence expectations for the cycle',
+    ],
+  },
+  {
     name: 'init',
     group: 'core',
+    surface: 'support',
     routing: { group: 'planning', method: 'init' },
     description: 'Deep project analysis and initialization',
     usage: { claude: 'p. init "[idea]"', terminal: 'prjct init "[idea]"' },
@@ -48,17 +95,19 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'task',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'workflow', method: 'now' },
     optionSchema: { strings: ['spec'] },
-    description: 'Register a task, auto-classify its harness, or show the active one',
-    usage: { claude: 'p. task "<description>"', terminal: 'prjct task "<description>"' },
+    description: 'Compatibility alias for `work`',
+    usage: { claude: null, terminal: 'prjct task "<description>"' },
     params: '[description]',
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
     features: [
       'No arg → shows the active task (or none)',
+      'Deprecated public language: use `prjct work` for the v3 AI Agile cycle',
       'Auto-harness classifies H0-H3 and stores expected evidence on the task',
       'Writes to stateStorage; runs before/after workflow rules',
       'Optional Linear issue link when the arg matches `[A-Z]+-\\d+`',
@@ -67,6 +116,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'ship',
     group: 'core',
+    surface: 'ai-agile',
     routing: { group: 'shipping', method: 'ship' },
     optionSchema: { booleans: ['skipHooks', 'noSpecGate', 'noTestGate'], strings: ['intent'] },
     description: 'Commit, push, and celebrate shipped feature',
@@ -81,6 +131,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'sync',
     group: 'core',
+    surface: 'ai-agile',
     routing: { group: 'analysis', method: 'sync' },
     description: 'Sync project state and update workflow agents',
     usage: { claude: 'p. sync', terminal: 'prjct sync [--package=<name>] [--full]' },
@@ -98,10 +149,11 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'regen',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'analysis', method: 'regenVault' },
-    description: 'Full rebuild of the Obsidian vault for the current project',
-    usage: { claude: 'p. regen', terminal: 'prjct regen [--md]' },
+    description: 'Compatibility repair alias; prefer `sync --full`',
+    usage: { claude: null, terminal: 'prjct regen [--md]' },
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
@@ -115,6 +167,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'eval',
     group: 'optional',
+    surface: 'support',
     routing: { group: 'eval', method: 'eval' },
     optionSchema: {
       booleans: ['publish', 'dryRun', 'json'],
@@ -139,11 +192,12 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'status',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'primitives', method: 'status' },
     optionSchema: {},
-    description: 'Inline status change on the active task (Linear-style escape hatch)',
-    usage: { claude: 'p. status <value>', terminal: 'prjct status <value>' },
+    description: 'Compatibility lifecycle escape hatch; prefer `work` outcomes',
+    usage: { claude: null, terminal: 'prjct status <value>' },
     params: '[value]',
     implemented: true,
     hasTemplate: false,
@@ -155,11 +209,12 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'tag',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'primitives', method: 'tag' },
     optionSchema: {},
-    description: 'Attach k:v tags to the active task (type:bug, domain:frontend, …)',
-    usage: { claude: 'p. tag type:bug', terminal: 'prjct tag type:bug domain:auth' },
+    description: 'Compatibility metadata escape hatch; prefer synthesized context tags',
+    usage: { claude: null, terminal: 'prjct tag type:bug domain:auth' },
     params: '<pairs...>',
     implemented: true,
     hasTemplate: false,
@@ -172,6 +227,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'remember',
     group: 'core',
+    surface: 'ai-agile',
     routing: { group: 'primitives', method: 'remember' },
     optionSchema: { strings: ['tags'] },
     description: 'Capture a project memory entry (fact, decision, learning, gotcha, …)',
@@ -191,6 +247,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'forget',
     group: 'core',
+    surface: 'ai-agile',
     routing: { group: 'primitives', method: 'forget' },
     optionSchema: {},
     description: 'Delete a project memory entry by id (the delete half of `remember`)',
@@ -207,12 +264,13 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'capture',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'capture', method: 'capture' },
     optionSchema: { strings: ['tags'], booleans: ['force'] },
-    description: 'GTD-style universal inbox — dump anything to project memory with zero ceremony',
+    description: 'Compatibility inbox fallback; prefer synthesized `remember context`',
     usage: {
-      claude: 'p. capture "<anything>"',
+      claude: null,
       terminal: 'prjct capture "call Ana re pricing" --tags domain:sales',
     },
     params: '"<content>" [--tags k:v,...]',
@@ -227,7 +285,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'seed',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'seed', method: 'seed' },
     routingMode: 'bin-only',
     optionSchema: {},
@@ -248,7 +307,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'mcp',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'mcp', method: 'mcp' },
     routingMode: 'bin-only',
     optionSchema: {},
@@ -271,7 +331,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'install',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'install', method: 'install' },
     routingMode: 'bin-only',
     optionSchema: {},
@@ -294,7 +355,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'help',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routingMode: 'bin-only',
     description: 'Contextual help and guidance',
     usage: { claude: 'p. help [topic]', terminal: 'prjct help [topic]' },
@@ -308,6 +370,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'analysis-save-llm',
     group: 'optional',
+    surface: 'internal',
     routing: { group: 'analysis', method: 'saveLlmAnalysis' },
     description: 'Persist analysis notes produced by an LLM run',
     usage: { claude: null, terminal: 'prjct analysis-save-llm <file|text|json>' },
@@ -319,10 +382,11 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'analyze',
-    group: 'optional',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'analysis', method: 'analyze' },
-    description: 'Analyze repository and sync tasks',
-    usage: { claude: 'p. analyze', terminal: 'prjct analyze' },
+    description: 'Compatibility alias for sync analysis',
+    usage: { claude: null, terminal: 'prjct analyze' },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
@@ -332,6 +396,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'lean',
     group: 'optional',
+    surface: 'support',
     routing: { group: 'lean', method: 'lean' },
     optionSchema: {},
     description: 'Anti-over-engineering: set intensity, review/audit/debt (read-only)',
@@ -353,6 +418,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'tdd',
     group: 'optional',
+    surface: 'support',
     routing: { group: 'tdd', method: 'tdd' },
     optionSchema: {},
     description: 'Test-Driven Development: set intensity, run the test command (check)',
@@ -374,6 +440,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'sdd',
     group: 'optional',
+    surface: 'support',
     routing: { group: 'sdd', method: 'sdd' },
     optionSchema: {},
     description: 'Spec-Driven Development: gate the spec pipeline (off/advisory/strict)',
@@ -394,7 +461,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'notify',
-    group: 'optional',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'notify', method: 'notify' },
     optionSchema: {},
     description: 'Desktop notifications (default on): ping on Claude-waiting + subagent-finished',
@@ -415,7 +483,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'agents',
-    group: 'optional',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'agents', method: 'agents' },
     optionSchema: { booleans: ['fix'] },
     description: 'Show the concrete compatibility matrix for AI coding agents',
@@ -437,12 +506,13 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'value',
-    group: 'optional',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'product', method: 'value' },
     optionSchema: {},
-    description: 'Show concrete proof that prjct is paying for itself',
+    description: 'Compatibility alias for `insights value`',
     usage: {
-      claude: 'p. value',
+      claude: null,
       terminal: 'prjct value [--md]',
     },
     params: '',
@@ -458,12 +528,13 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'memory-doctor',
-    group: 'optional',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'product', method: 'memoryDoctor' },
     optionSchema: {},
-    description: 'Audit memory quality before it becomes noisy context',
+    description: 'Compatibility alias for `insights quality`',
     usage: {
-      claude: 'p. memory-doctor',
+      claude: null,
       terminal: 'prjct memory-doctor [--md]',
     },
     params: '',
@@ -479,12 +550,13 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'report',
-    group: 'optional',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'product', method: 'report' },
     optionSchema: { numbers: ['days'] },
-    description: 'Generate a human weekly report from shipped work and project memory',
+    description: 'Compatibility alias for `insights report`',
     usage: {
-      claude: 'p. report [7]',
+      claude: null,
       terminal: 'prjct report [days] [--md]',
     },
     params: '[days]',
@@ -500,12 +572,13 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'handoff',
-    group: 'optional',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'product', method: 'handoff' },
     optionSchema: {},
-    description: 'Create an agent handoff prompt with durable project context',
+    description: 'Compatibility alias for `insights continue`',
     usage: {
-      claude: 'p. handoff codex',
+      claude: null,
       terminal: 'prjct handoff codex [--md]',
     },
     params: '[agent]',
@@ -521,12 +594,13 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'guardrails',
-    group: 'optional',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'product', method: 'guardrails' },
     optionSchema: {},
-    description: 'Show risk guardrails for the current changeset',
+    description: 'Compatibility alias for `insights guardrails`',
     usage: {
-      claude: 'p. guardrails',
+      claude: null,
       terminal: 'prjct guardrails [--md]',
     },
     params: '',
@@ -541,8 +615,54 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
-    name: 'cloud',
+    name: 'insights',
     group: 'optional',
+    surface: 'ai-agile',
+    routing: { group: 'product', method: 'insights' },
+    optionSchema: { numbers: ['days'] },
+    description: 'AI Agile intelligence: value, quality, reports, continuation, and guardrails',
+    usage: {
+      claude: 'p. insights [value|quality|report|continue|guardrails]',
+      terminal: 'prjct insights [value|quality|report|continue|guardrails] [--md]',
+    },
+    params: '[value|quality|report|continue|guardrails] [agent|days]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'v3 surface for project intelligence formerly spread across value/report/handoff/memory-doctor/guardrails',
+      'Default view summarizes whether the project is compounding',
+      'Subcommands remain read-only except where underlying compatibility commands already mutate nothing',
+    ],
+  },
+  {
+    name: 'performance',
+    group: 'optional',
+    surface: 'ai-agile',
+    routing: { group: 'product', method: 'performance' },
+    optionSchema: { numbers: ['days'] },
+    description:
+      'Measure dev+LLM efficiency per work cycle: time, tokens, model/runtime, tools, friction',
+    usage: {
+      claude: 'p. performance [7]',
+      terminal: 'prjct performance [days] [--md]',
+    },
+    params: '[days]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Uses real task/session rows and available token columns',
+      'Stores unknown when a runtime does not expose exact model/token data',
+      'Designed to guide the next work cycle, not to create scrum velocity reports',
+    ],
+  },
+  {
+    name: 'cloud',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'cloud', method: 'cloud' },
     optionSchema: {},
     description: 'Cloud sync (paid): link/unlink a project, sync/pull, pause/resume, status',
@@ -564,6 +684,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'workflow',
     group: 'optional',
+    surface: 'support',
     routing: { group: 'workflow', method: 'workflow' },
     optionSchema: {},
     description: 'Configure workflow hooks via natural language',
@@ -584,6 +705,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'start',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'setup', method: 'start' },
     routingMode: 'bin-only',
     description: 'First-time setup (install commands to editors)',
@@ -595,6 +717,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'setup',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'setup', method: 'setup' },
     routingMode: 'bin-only',
     description: 'Reconfigure editor installations and user-owned defaults',
@@ -607,6 +730,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'login',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'setup', method: 'login' },
     description: 'Authenticate with prjct cloud (opens browser)',
     usage: { claude: null, terminal: 'prjct login' },
@@ -619,6 +743,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'logout',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'setup', method: 'logout' },
     description: 'Sign out from prjct cloud',
     usage: { claude: null, terminal: 'prjct logout' },
@@ -630,6 +755,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'auth',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'setup', method: 'auth' },
     description: 'Manage cloud authentication',
     usage: { claude: 'p. auth [action]', terminal: 'prjct auth [action]' },
@@ -642,6 +768,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'context',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'context', method: 'context' },
     routingMode: 'bin-only',
     optionSchema: {},
@@ -662,6 +789,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'search',
     group: 'core',
+    surface: 'ai-agile',
     routing: { group: 'context', method: 'search' },
     optionSchema: {},
     description:
@@ -680,6 +808,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'update',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'update', method: 'update' },
     routingMode: 'bin-only',
     description: 'Update prjct system-wide: package + migrations + daemon restart',
@@ -698,6 +827,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'uninstall',
     group: 'setup',
+    surface: 'support',
     routing: { group: 'uninstall', method: 'uninstall' },
     routingMode: 'bin-only',
     description: 'Complete system removal of prjct',
@@ -715,7 +845,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'team',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'team', method: 'team' },
     optionSchema: { booleans: ['required', 'enforce'], strings: ['minVersion'] },
     description:
@@ -737,7 +868,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'embeddings',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'embeddings', method: 'embeddings' },
     optionSchema: {
       strings: ['key', 'model', 'baseUrl', 'authHeader', 'authScheme', 'headers', 'query'],
@@ -767,6 +899,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'guard',
     group: 'core',
+    surface: 'ai-agile',
     routing: { group: 'guard', method: 'guard' },
     optionSchema: { numbers: ['limit'] },
     description:
@@ -789,7 +922,8 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'config',
-    group: 'core',
+    group: 'setup',
+    surface: 'support',
     routing: { group: 'config', method: 'config' },
     optionSchema: {},
     description: 'Read/write global prjct config — auto-update opt-in, suggestions toggle, etc.',
@@ -811,13 +945,14 @@ export const COMMANDS: CommandMeta[] = [
   // ===== SDD: spec-driven development primitives =====
   {
     name: 'spec',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'spec', method: 'draft' },
     routingMode: 'cold-only',
     description:
-      'Draft a spec — Goal/Acceptance/Scope/Risks. The SDD entry point: spec → audit → task → ship.',
+      'Compatibility alias for `intent` — Goal/Acceptance/Scope/Risks before work starts.',
     usage: {
-      claude: 'p. spec "<title>"',
+      claude: null,
       terminal: 'prjct spec "<title>" [--goal "..."] [--tags k:v,...]',
     },
     params: '"<title>" [--goal] [--tags]',
@@ -833,12 +968,12 @@ export const COMMANDS: CommandMeta[] = [
   },
   {
     name: 'audit-spec',
-    group: 'core',
+    group: 'legacy',
+    surface: 'legacy',
     routing: { group: 'spec', method: 'audit' },
     routingMode: 'cold-only',
-    description:
-      'Emit subagent dispatch for parallel strategic/architecture/design review of a spec',
-    usage: { claude: 'p. audit-spec <id>', terminal: 'prjct audit-spec <id>' },
+    description: 'Compatibility alias for `intent audit <id>`',
+    usage: { claude: null, terminal: 'prjct audit-spec <id>' },
     params: '<spec-id>',
     implemented: true,
     hasTemplate: false,

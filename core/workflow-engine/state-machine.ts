@@ -27,29 +27,29 @@ interface TransitionResult {
 const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
   idle: {
     transitions: ['task'],
-    prompt: 'prjct task <description>   Start working',
-    description: 'No active task',
+    prompt: 'prjct work <intent>   Start working',
+    description: 'No active work cycle',
   },
   working: {
     transitions: ['done', 'pause'],
-    prompt: 'prjct status done   Complete task  |  prjct status paused   Switch context',
-    description: 'Task in progress',
+    prompt: 'prjct status done   Complete work  |  prjct status paused   Switch context',
+    description: 'Work in progress',
   },
   paused: {
     transitions: ['resume', 'task', 'ship'],
     prompt:
-      'prjct status active   Continue  |  prjct task <new>   Start different  |  prjct ship   Ship directly',
+      'prjct status active   Continue  |  prjct work <new>   Start different  |  prjct ship   Ship directly',
     description: 'Task paused',
   },
   completed: {
     transitions: ['ship', 'task', 'pause', 'reopen'],
     prompt:
-      'prjct ship   Ship it  |  prjct task <next>   Start next  |  prjct status active   Reopen',
+      'prjct ship   Ship it  |  prjct work <next>   Start next  |  prjct status active   Reopen',
     description: 'Task completed',
   },
   shipped: {
     transitions: ['task'],
-    prompt: 'prjct task <description>   Start new task',
+    prompt: 'prjct work <intent>   Start new work cycle',
     description: 'Feature shipped',
   },
 }
@@ -75,7 +75,7 @@ export class WorkflowStateMachine {
     // task in activeTasks[]. We deliberately do NOT fall back to the singular
     // currentTask here — that belongs to the main worktree, and letting it leak
     // in would make a main-worktree task block sibling worktrees. No task for
-    // this workspace ⇒ idle ⇒ `prjct task` is allowed.
+    // this workspace ⇒ idle ⇒ `prjct work` is allowed.
     if (workspaceId) {
       const wsTask = (storageState?.activeTasks ?? []).find((t) => t.workspaceId === workspaceId)
       if (!wsTask) return 'idle'
@@ -192,9 +192,9 @@ export class WorkflowStateMachine {
     return stateConfig.transitions.map((cmd) => {
       switch (cmd) {
         case 'task':
-          return 'prjct task <desc>       Start new task'
+          return 'prjct work <intent>     Start new work cycle'
         case 'done':
-          return 'prjct status done       Complete current task'
+          return 'prjct status done       Complete current work'
         case 'pause':
           return 'prjct status paused     Pause and switch context'
         case 'resume':

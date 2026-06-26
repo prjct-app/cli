@@ -73,7 +73,7 @@ export async function requireActiveTask(
   if (!active) {
     return {
       ok: false,
-      result: failWith('No active task — start one with `prjct task "<desc>"`', options),
+      result: failWith('No active work cycle — start one with `prjct work "<intent>"`', options),
     }
   }
   return { ok: true, value: active }

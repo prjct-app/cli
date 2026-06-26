@@ -28,7 +28,7 @@ export type WorkflowState = 'idle' | 'working' | 'paused' | 'completed' | 'shipp
 
 // Internal lifecycle tokens used by the state machine. These are NOT CLI
 // verbs — they're transition labels. In v2 the user invokes most of them
-// via `prjct status <value>` (done/paused/active) or via `prjct task`/
+// via `prjct status <value>` (done/paused/active) or via `prjct work`/
 // `prjct ship`. The `reopen` token maps to `prjct status active` on a
 // completed task.
 export type WorkflowCommand = 'task' | 'done' | 'pause' | 'resume' | 'ship' | 'reopen'

@@ -66,12 +66,12 @@ export const ERRORS = {
     hint: 'Check your API key or network connection',
   },
   NO_ACTIVE_TASK: {
-    message: 'No active task',
-    hint: 'Start a task with \'p. task "description"\'',
+    message: 'No active work cycle',
+    hint: 'Start work with \'p. work "intent"\'',
   },
   TASK_ALREADY_ACTIVE: {
-    message: 'A task is already in progress',
-    hint: "Use 'p. status done' to complete it or 'p. status paused' to pause it",
+    message: 'A work cycle is already in progress',
+    hint: "Use 'p. work' to inspect it or ship when complete",
   },
   SYNC_FAILED: {
     message: 'Project sync failed',

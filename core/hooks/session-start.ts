@@ -22,7 +22,7 @@
  * For that reason this hook is intentionally **bytes-identical given
  * the same persona**. An earlier version interpolated "Recent memory"
  * (the last 5 captured entries) into the body, which meant every
- * `prjct remember`, `prjct capture`, or `prjct ship` between sessions
+ * `prjct remember`, legacy inbox capture, or `prjct ship` between sessions
  * shifted the bytes and busted the cache on resume / cwd change /
  * subagent spawn. Per-turn topical recall already happens in the
  * UserPromptSubmit hook (`core/hooks/prompt.ts`) and on demand via
@@ -220,13 +220,13 @@ const SUBAGENT_DIGEST_MAX_CHARS = 500
 const SUBAGENT_GOTCHA_COUNT = 2
 
 /**
- * Compact context for a spawned subagent: role, the active task for THIS
+ * Compact context for a spawned subagent: role, the active work cycle for THIS
  * worktree, and the top preventive traps. Subagents previously received the
  * persona block only and re-investigated facts the main session already knew.
  *
  * SubagentStart's response schema rejects `additionalContext`, so this is
  * emitted as `systemMessage` — outside the cached system-prompt prefix —
- * which is why variable content (the active task) is safe here while the
+ * which is why variable content (the active work cycle) is safe here while the
  * SessionStart persona block must stay byte-identical.
  */
 export async function buildSubagentDigest(projectPath: string): Promise<string | null> {
@@ -239,7 +239,7 @@ export async function buildSubagentDigest(projectPath: string): Promise<string |
   try {
     const { resolveActiveTask } = await import('../services/task-service')
     const task = await resolveActiveTask(config.projectId, projectPath)
-    if (task) lines.push(`Active task (this worktree): ${task.description}`)
+    if (task) lines.push(`Active work cycle (this worktree): ${task.description}`)
   } catch {
     // best-effort — a digest without the task is still useful
   }

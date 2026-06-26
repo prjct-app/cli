@@ -139,7 +139,7 @@ class QueueStorage extends StorageManager<QueueJson> {
    * Used by breakdownSpecToTasks partial-recovery: a crashed breakdown
    * leaves orphan queue rows tagged with `featureId = spec.id`; recovery
    * wipes them before re-running the loop. NOT `linkedSpecId` — that
-   * field is reserved for `prjct task --spec` invocations.
+   * field is reserved for `prjct work --spec` invocations.
    * See spec a50b32d1 AC #13.
    */
   async deleteByFeatureId(projectId: string, featureId: string): Promise<number> {

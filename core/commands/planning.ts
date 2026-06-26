@@ -214,7 +214,7 @@ export class PlanningCommands extends PrjctCommandsBase {
     console.log('')
     console.log('  If you want to drive manually:')
     console.log('    prjct sync       Refresh context + skill body')
-    console.log('    prjct task       Start a task')
+    console.log('    prjct work       Start a work cycle')
     console.log('    prjct hooks      Auto-sync on commit/checkout')
     console.log('')
 

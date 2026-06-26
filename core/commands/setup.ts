@@ -785,9 +785,9 @@ echo "⚡ prjct"
       `   ${chalk.bold.cyan('prjct')}${chalk.magenta('/')}${chalk.green('cli')}  ${chalk.dim.white(`v${VERSION} installed`)}`
     )
     console.log('')
-    console.log(`   ${chalk.yellow('⚡')} Ship faster with zero friction`)
-    console.log(`   ${chalk.green('📝')} From idea to technical tasks in minutes`)
-    console.log(`   ${chalk.cyan('🤖')} Perfect context for AI agents`)
+    console.log(`   ${chalk.yellow('⚡')} Improve developer + agent performance`)
+    console.log(`   ${chalk.green('🧠')} Rich project context without context bloat`)
+    console.log(`   ${chalk.cyan('🤖')} Human-in-the-loop AI Agile work cycles`)
     console.log('')
     console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'))
     console.log('')
@@ -797,8 +797,8 @@ echo "⚡ prjct"
     console.log(`  ${chalk.bold('1.')} Initialize your project:`)
     console.log(`     ${chalk.green('cd your-project && prjct init')}`)
     console.log('')
-    console.log(`  ${chalk.bold('2.')} Start your first task:`)
-    console.log(`     ${chalk.green('prjct task "build auth"')}`)
+    console.log(`  ${chalk.bold('2.')} Start your first work cycle:`)
+    console.log(`     ${chalk.green('prjct work "build auth"')}`)
     console.log('')
     console.log(`  ${chalk.bold('3.')} Ship & celebrate:`)
     console.log(`     ${chalk.green('prjct ship "user login"')}`)
@@ -810,7 +810,7 @@ echo "⚡ prjct"
       `  ${chalk.dim('Report issues:')} ${chalk.cyan('https://github.com/jlopezlira/prjct-cli/issues')}`
     )
     console.log('')
-    console.log(chalk.bold.magenta('Happy shipping! 🚀'))
+    console.log(chalk.bold.magenta('Ship with better context.'))
     console.log('')
   }
 }

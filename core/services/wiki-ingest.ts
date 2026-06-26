@@ -38,12 +38,14 @@ import type { WorkflowRule } from '../types/storage/extended'
 import { scanForPromptInjection } from '../utils/prompt-injection'
 import { scanForSecrets } from '../utils/secret-scanner'
 import { EXTRACTABLE_EXTENSIONS, extractHint, extractText } from './ingest-extractors'
+import { CAPTURED_GUIDE_FILE, WORKFLOWS_GUIDE_FILE } from './wiki/_shared'
 import { resolveVaultRoot } from './wiki-migration'
 
 const CAPTURED_SUBDIR = 'captured'
 const WORKFLOWS_SUBDIR = 'workflows'
 const INGESTED_SUBDIR = '_ingested'
 const README_FILENAME = 'README.md'
+const INDEX_FILENAME = 'index.md'
 
 /**
  * Text formats we ingest directly (no dependency, no extraction step). Binary
@@ -269,13 +271,13 @@ function slugifyName(name: string): string {
 }
 
 /**
- * Write the captured/README.md if it's absent. Called from wiki-generator
+ * Write the captured guide if it's absent. Called from wiki-generator
  * on every regen so users who open the vault discover the workflow.
  */
 export async function ensureCapturedReadme(projectPath: string): Promise<void> {
   const capturedRoot = await resolveCapturedRoot(projectPath)
   await fs.mkdir(capturedRoot, { recursive: true })
-  const readmePath = path.join(capturedRoot, README_FILENAME)
+  const readmePath = path.join(capturedRoot, CAPTURED_GUIDE_FILE)
   const exists = await fs.stat(readmePath).then(
     () => true,
     () => false
@@ -284,7 +286,7 @@ export async function ensureCapturedReadme(projectPath: string): Promise<void> {
   await fs.writeFile(readmePath, CAPTURED_README_BODY, 'utf-8')
 }
 
-const CAPTURED_README_BODY = `# Captured notes (Obsidian dropzone)
+const CAPTURED_README_BODY = `# How to Capture Notes
 
 Drop a file here, run \`prjct context wiki sync\`, and it becomes project
 memory — searchable and vectorized into the DB. Processed files move to
@@ -346,7 +348,8 @@ async function listNoteFiles(capturedRoot: string): Promise<string[]> {
   for (const name of entries) {
     if (name.startsWith('.')) continue
     if (name === INGESTED_SUBDIR) continue
-    if (name === README_FILENAME) continue
+    if (name === README_FILENAME || name === INDEX_FILENAME || name === CAPTURED_GUIDE_FILE)
+      continue
     const fileExt = path.extname(name).toLowerCase()
     if (!TEXT_EXTENSIONS.has(fileExt) && !EXTRACTABLE_EXTENSIONS.has(fileExt)) continue
     files.push(path.join(capturedRoot, name))
@@ -562,7 +565,7 @@ export async function ingestWorkflowEdits(
 export async function ensureWorkflowsReadme(projectPath: string): Promise<void> {
   const workflowsRoot = await resolveWorkflowsRoot(projectPath)
   await fs.mkdir(workflowsRoot, { recursive: true })
-  const readmePath = path.join(workflowsRoot, README_FILENAME)
+  const readmePath = path.join(workflowsRoot, WORKFLOWS_GUIDE_FILE)
   const exists = await fs.stat(readmePath).then(
     () => true,
     () => false
@@ -571,7 +574,7 @@ export async function ensureWorkflowsReadme(projectPath: string): Promise<void> 
   await fs.writeFile(readmePath, WORKFLOWS_README_BODY, 'utf-8')
 }
 
-const WORKFLOWS_README_BODY = `# Workflows (Obsidian dropzone)
+const WORKFLOWS_README_BODY = `# How to Edit Workflows
 
 Drop a markdown file here to OVERRIDE a workflow's rules in SQLite. Format:
 
@@ -610,7 +613,7 @@ name: ship
 
 - This is destructive: SQLite rules for the named workflow are REPLACED, not merged.
 - To restore a built-in workflow, run \`prjct workflow reset <name>\`.
-- \`README.md\` and \`index.md\` are ignored.
+- Guide files, \`README.md\`, and \`index.md\` are ignored.
 - Files in \`_ingested/\` are ignored.
 `
 
@@ -697,7 +700,8 @@ async function listWorkflowFiles(workflowsRoot: string): Promise<string[]> {
   const out: string[] = []
   for (const entry of entries) {
     if (entry.startsWith('.') || entry.startsWith('_')) continue
-    if (entry === README_FILENAME || entry === 'index.md') continue
+    if (entry === README_FILENAME || entry === INDEX_FILENAME || entry === WORKFLOWS_GUIDE_FILE)
+      continue
     if (!entry.endsWith('.md')) continue
     const abs = path.join(workflowsRoot, entry)
     const stat = await fs.stat(abs)

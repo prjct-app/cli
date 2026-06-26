@@ -1,5 +1,5 @@
 /**
- * Pause / resume / archive helpers for the active task. Extracted to
+ * Pause / resume / archive helpers for the active work cycle. Extracted to
  * keep the StateStorage facade small.
  */
 

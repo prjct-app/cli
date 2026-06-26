@@ -14,7 +14,7 @@
       "name": "Implementer",
       "role": "Worker",
       "color": "purple",
-      "summary": "Takes one prjct task from active to ready-for-review. Writes code, writes tests, self-verifies. Never approves its own work."
+      "summary": "Takes one prjct work cycle from active to ready-for-review. Writes code, writes tests, self-verifies. Never approves its own work."
     },
     {
       "id": "reviewer",

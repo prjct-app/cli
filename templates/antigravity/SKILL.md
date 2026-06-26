@@ -1,25 +1,16 @@
 ---
 name: prjct
-description: Use when user mentions p., prjct, task tracking, or workflow commands.
+description: Use when user mentions p., prjct, AI Agile work, memory, or workflow commands.
 ---
 
-# prjct — Context layer for AI agents
+# prjct
 
-Grammar: `p. <command> [args]` or `prjct <command> --md`
-
-Core commands: sync, task, status, ship, workflow, spec, guard, capture, remember, context
-Issue trackers: use MCP tools configured in the AI client
-Other: run `prjct <command> --md` and follow CLI output
-
-Flow: `prjct task` is the single normal entrypoint. Trivial work proceeds
-directly. Substantive implementation work follows the persisted SDD/TDD
-station from `prjct task --md` or `prjct status --md`: reviewed spec, tests
-before implementation, then code.
+Run `prjct <cmd> --md` and follow it. Use `p. <command>` as shorthand.
 
 Rules:
-- Persist everything (memories, captures, specs) in ENGLISH, whatever language the user speaks
-- prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
-- All commits include footer: `Generated with [p/](https://www.prjct.app/)`
-- All storage through `prjct` CLI (SQLite internally)
-- Start code tasks with `prjct task "<desc>" --md` and follow the CLI output
-- Worktree hygiene: if working in a git worktree, remove it AFTER its PR merges — `git worktree remove` from the main worktree; never with uncommitted/unpushed work, never `--force`
+- Start code work with `prjct work "<intent>" --md`; trivial work proceeds, substantive work follows the surfaced AI Agile station.
+- prjct is a RAG-backed project memory harness; do not preload project history.
+- Pull relevant context with `prjct work/search/context/guard` or MCP tools; vault `_generated/` is a SQLite snapshot fallback, not something to load wholesale.
+- Persist memory in ENGLISH. On close, save synthesized context; raw quotes/counters/transcripts are inputs, not final memory.
+- Commit footer: `Generated with [p/](https://www.prjct.app/)`
+- Worktree hygiene: remove a worktree only after its PR merges, from the main worktree, never dirty/unpushed/forced.

@@ -1,9 +1,9 @@
 /**
- * Workflow Commands — `now` (task start) + `workflow` CRUD + `run`.
+ * Workflow Commands — `now` (work start) + `workflow` CRUD + `run`.
  *
- * Lean path: `prjct task "<desc>"` registers a task, runs the
- * before_task workflow rules, emits a minimal context block, and
- * runs after_task rules. All the agentic orchestration (command
+ * Lean path: `prjct work "<intent>"` registers a work cycle, runs the
+ * workflow rules, emits a minimal context block, and preserves quality gates.
+ * All the agentic orchestration (command
  * executor, loop detector, plan mode, orchestrator-executor,
  * prompt-builder, context-builder) was dropped — it was harness.
  * Context arrives via hooks; Claude pulls on demand via the memory
@@ -55,7 +55,7 @@ import {
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
-   * `prjct task "<desc>"` — register the task, run before/after rules,
+   * `prjct work "<intent>"` — register the work cycle, run before/after rules,
    * emit a lean context block. Everything that used to go through the
    * agentic orchestration stack (commandExecutor → contextBuilder +
    * promptBuilder + orchestratorExecutor) was harness — dropped.
@@ -72,7 +72,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       if (!proj.ok) return proj.result
       const projectId = proj.value
 
-      // No task arg → show the active one (or none).
+      // No work arg → show the active one (or none).
       if (!task) return this._showActiveTask(projectId, projectPath, options)
 
       // Side-effecting core lives in task-service so the MCP write-path
@@ -103,7 +103,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
               'State',
               mdList(
                 [
-                  `Task: \`${taskId}\``,
+                  `Work cycle: \`${taskId}\``,
                   branch ? `Branch: \`${branch}\`` : null,
                   linearId ? `Linear: \`${linearId}\`` : null,
                   harness ? `Harness: ${harness.level} ${harness.kind}/${harness.risk}` : null,
@@ -136,14 +136,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
               : null,
             mdNextSteps([
               { label: 'Pull project memory', command: 'prjct context memory <topic>' },
-              { label: 'Tag the task', command: 'prjct tag type:bug domain:auth' },
-              { label: 'Capture learnings', command: 'prjct remember learning "..."' },
+              { label: 'Synthesize context', command: 'prjct remember context "..."' },
+              { label: 'Measure performance', command: 'prjct performance --md' },
               { label: 'Ship when done', command: 'prjct ship --md' },
             ])
           )
         )
       } else {
-        out.done(`Task: ${taskDescription}`)
+        out.done(`Work: ${taskDescription}`)
         if (harness) {
           out.info(`Harness: ${harness.level} ${harness.kind}/${harness.risk}`)
           if (harness.expectedEvidence.length > 0) {
@@ -168,7 +168,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
   }
 
   /**
-   * Render the active task when `prjct task` is called without args.
+   * Render the active work cycle when `prjct work` is called without args.
    * Null-path when nothing's active — clean exit, no pressure.
    */
   private async _showActiveTask(
@@ -182,7 +182,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
     if (!active) {
       // Nothing in THIS worktree — but sibling worktrees may be busy.
-      const base = 'no active task. `prjct task "<description>"` to start one.'
+      const base = 'no active work cycle. `prjct work "<intent>"` to start one.'
       const hint =
         others.length > 0
           ? `\n${others.length} active in other workspace(s):\n${others
@@ -192,7 +192,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const msg = base + hint
       if (options.md) console.log(`> ${msg}`)
       else out.info(msg)
-      return { success: true, message: 'no active task' }
+      return { success: true, message: 'no active work cycle' }
     }
     if (options.md) {
       console.log(
@@ -202,7 +202,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
             'State',
             mdList(
               [
-                `Task: \`${active.id}\``,
+                `Work cycle: \`${active.id}\``,
                 `Workspace: \`${active.label}\``,
                 active.branch ? `Branch: \`${active.branch}\`` : null,
                 active.linearId ? `Linear: \`${active.linearId}\`` : null,
@@ -221,7 +221,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 mdList([
                   active.pipeline.requiresTestsFirst
                     ? 'Write tests before implementation for substantive work.'
-                    : 'Proceed directly for this trivial task.',
+                    : 'Proceed directly for this trivial work.',
                 ])
               )
             : null,

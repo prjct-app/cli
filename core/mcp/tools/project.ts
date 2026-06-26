@@ -27,7 +27,7 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_task_status',
-    'The active task (description, branch, when it started) plus the queued tasks. Read this to see what is in progress before starting new work.',
+    'The active AI Agile work cycle (description, branch, when it started) plus queued work. Read this to see what is in progress before starting new work.',
     {
       projectPath: z.string().describe('Project directory path'),
     },
@@ -38,10 +38,10 @@ export function registerProjectTools(server: McpServer) {
 
       const parts: string[] = []
       if (overview.all.length === 0) {
-        parts.push('No active task.')
+        parts.push('No active work cycle.')
       } else if (overview.all.length === 1 && overview.current) {
         const v = overview.current
-        parts.push(`## Active Task\n**${v.description}**`)
+        parts.push(`## Active Work Cycle\n**${v.description}**`)
         parts.push(`Workspace: ${v.label}`)
         if (v.branch) parts.push(`Branch: ${v.branch}`)
         parts.push(`Started: ${v.startedAt}`)
@@ -54,7 +54,7 @@ export function registerProjectTools(server: McpServer) {
       }
 
       if (queue.length > 0) {
-        parts.push(`\n## Queue (${queue.length} tasks)`)
+        parts.push(`\n## Queue (${queue.length} work items)`)
         for (const t of queue.slice(0, 10)) {
           parts.push(`- ${t.description} [${t.priority || 'medium'}]`)
         }
@@ -66,14 +66,14 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_task_start',
-    'Start a task. Fires the same before/after workflow gates and memory logging as `prjct task` — a gate may block the start. Pass linked_spec_id to wire the task to a spec for the ship gate. Use when the user begins concrete work.',
+    'Start an AI Agile work cycle. Fires before/after workflow gates and memory logging through the compatibility task backend; a gate may block the start. Pass linked_spec_id only when a durable intent/spec brief is required. Use when the user begins concrete work.',
     {
       projectPath: z.string().describe('Project directory path'),
-      description: z.string().describe('What the task is — a short imperative phrase'),
+      description: z.string().describe('What the work cycle is — a short intent phrase'),
       linked_spec_id: z
         .string()
         .optional()
-        .describe('Spec id to link for the SDD ship gate (e.g. "spec_12")'),
+        .describe('Intent/spec id to link for high-stakes work (e.g. "spec_12")'),
       skip_hooks: z
         .boolean()
         .optional()
@@ -93,11 +93,9 @@ export function registerProjectTools(server: McpServer) {
           skipHooks: args.skip_hooks,
         })
         if (!outcome.ok) {
-          return {
-            content: [{ type: 'text', text: outcome.blocked ?? 'Task start was blocked.' }],
-          }
+          return { content: [{ type: 'text', text: outcome.blocked ?? 'Work start was blocked.' }] }
         }
-        const lines = [`✓ Task started: ${outcome.description}`, `Id: ${outcome.taskId}`]
+        const lines = [`✓ Work cycle started: ${outcome.description}`, `Id: ${outcome.taskId}`]
         if (outcome.branch) lines.push(`Branch: ${outcome.branch}`)
         if (outcome.linearId) lines.push(`Linear: ${outcome.linearId}`)
         if (outcome.linkedSpecId) lines.push(`Linked spec: ${outcome.linkedSpecId}`)
@@ -126,7 +124,7 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_task_set_status',
-    'Change the active task\'s status (e.g. "done", "paused", "active"). Records the transition and drives the workflow state machine, exactly like `prjct status <value>`. "active"/"resume" promotes a paused task back to focus.',
+    'Change the active work cycle status (e.g. "done", "paused", "active"). Records the transition and drives the workflow state machine through the compatibility status backend. "active"/"resume" promotes paused work back to focus.',
     {
       projectPath: z.string().describe('Project directory path'),
       status: z
@@ -140,7 +138,7 @@ export function registerProjectTools(server: McpServer) {
         const text =
           outcome.reason === 'unsupported'
             ? outcome.message
-            : 'No active task to update. Start one with prjct_task_start.'
+            : 'No active work cycle to update. Start one with prjct_task_start.'
         return { content: [{ type: 'text', text }] }
       }
       const warnings = outcome.verificationWarnings ?? []

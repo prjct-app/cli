@@ -40,6 +40,10 @@ describe('writeProjectClaudeMd', () => {
     expect(body).toContain(_routing.END_MARKER)
     expect(body).toContain('## prjct usage')
     expect(body).toContain('Do not ask the\nuser to run prjct commands')
+    expect(body).toContain('RAG-backed project memory harness')
+    expect(body).toContain('Do not preload project history')
+    expect(body).toContain('Pull more context on demand')
+    expect(body).toContain('not something to load wholesale')
   })
 
   it('appends the block to an existing CLAUDE.md without markers', async () => {

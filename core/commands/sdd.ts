@@ -2,13 +2,13 @@
  * `prjct sdd` — opt-in Spec-Driven Development discipline (same shape as
  * `prjct lean`/`tdd`: one registered verb, subcommand-parsed, a single file).
  *
- *   prjct sdd                       → show mode + the active task's spec station
+ *   prjct sdd                       → show mode + the active work's spec station
  *   prjct sdd off|advisory|strict   → set intensity (writes config.sdd)
  *
- * prjct already HAS the spec pipeline (spec → audit-spec → task --spec → ship);
+ * prjct already HAS the spec pipeline (intent/spec → audit-spec → work --spec → ship);
  * this only gates it. `off` (default) changes nothing — the pipeline stays
  * escalate-only. `advisory` nudges (skill + the existing ship acceptance
- * surface). `strict` enforces: every `prjct task` must link a REVIEWED spec
+ * surface). `strict` enforces: every `prjct work` cycle must link a REVIEWED spec
  * (gate lives in task-service so CLI + MCP share it) and `ship` blocks work
  * with no linked spec (`--no-spec-gate` overrides). The CLI carries no
  * enforcement engine beyond those gates — the agent walks the stations.
@@ -28,7 +28,7 @@ type SddMode = 'off' | 'advisory' | 'strict'
 const SDD_MODES: readonly SddMode[] = ['off', 'advisory', 'strict']
 
 // The pipeline stations, in order — rendered as a checklist against the
-// active task's linked spec status so a dev can see where the work stands.
+// active work cycle's linked spec status so a dev can see where the work stands.
 const STATIONS: ReadonlyArray<{ key: string; reached: (status: string) => boolean }> = [
   { key: 'spec drafted', reached: () => true },
   { key: 'audit-spec passed (reviewed)', reached: (s) => s !== 'draft' },
@@ -52,14 +52,14 @@ export class SddCommands extends PrjctCommandsBase {
     return failWith(`Unknown sdd subcommand "${sub}". Use: ${SDD_MODES.join('|')}.`, options)
   }
 
-  /** Mode + the active task's spec station (the pipeline as a checklist). */
+  /** Mode + the active work cycle's spec station (the pipeline as a checklist). */
   private async showStatus(projectPath: string, options: MdOption): Promise<CommandResult> {
     const config = await configManager.readConfig(projectPath).catch(() => null)
     if (!config?.projectId)
       return failHard('No prjct project here — run `prjct init` first.', options)
 
     const mode = effectiveSddMode(config)
-    let station = 'no active task'
+    let station = 'no active work cycle'
     let specLine = 'Active spec: none'
     try {
       const active = await resolveActiveTask(config.projectId, projectPath)
@@ -71,7 +71,7 @@ export class SddCommands extends PrjctCommandsBase {
           station = STATIONS.map((s) => `${s.reached(spec.status) ? '✓' : '○'} ${s.key}`).join('  ')
         }
       } else if (active) {
-        specLine = 'Active task has NO linked spec'
+        specLine = 'Active work cycle has NO linked spec'
       }
     } catch {
       // best-effort — status is read-only
@@ -109,7 +109,7 @@ export class SddCommands extends PrjctCommandsBase {
         ? 'SDD mode off — the spec pipeline stays escalate-only (no gating).'
         : mode === 'advisory'
           ? 'SDD mode → advisory. The skill nudges toward a spec for complex work; `ship` surfaces acceptance criteria.'
-          : 'SDD mode → strict. Every `prjct task` must link a REVIEWED spec, and `ship` blocks unspecced work (override: `prjct ship --no-spec-gate`).'
+          : 'SDD mode → strict. Every `prjct work` cycle must link a REVIEWED intent/spec, and `ship` blocks unspecced work (override: `prjct ship --no-spec-gate`).'
     if (options.md) console.log(mdOutput('## SDD', `> ${msg}`))
     else out.done(msg)
     return { success: true, mode }

@@ -77,6 +77,7 @@ class CommandRegistry {
     this.metadata.set(name, {
       name,
       group: meta?.group ?? 'unknown',
+      surface: meta?.surface,
       description: meta?.description ?? '',
       requiresProject,
       usage: meta?.usage ?? { claude: null, terminal: null },

@@ -55,6 +55,6 @@ export function buildArchitectureBaseline(declared: MemoryEntry[]): string | nul
     lines.push('')
   }
 
-  lines.push('---', '', 'See also: [project wiki](index.md)', '')
+  lines.push('---', '', 'See also: [project context](project-context.md)', '')
   return `${lines.join('\n')}\n`
 }

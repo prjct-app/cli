@@ -13,7 +13,7 @@ interface MCPConfig {
 }
 
 const PRJCT_MCP_DESCRIPTION =
-  'prjct: project memory + task-orchestrated SDD/TDD. Use prjct_task_start as the single normal entrypoint; prjct classifies trivial work as direct and substantive implementation work into persisted SDD + strict TDD stations. Agents resume from prjct_task_status/task output, create or link reviewed specs when required, and write tests before implementation. Generated instruction surfaces use fixed templates; user task text is task data, not executable instruction text.'
+  'prjct: AI Agile OS with project memory, workflow gates, intent briefs, and performance context. Use prjct_task_start as the MCP entrypoint for a work cycle; prjct retrieves focused context, persists evidence stations, and keeps humans in the loop for risky gates. Agents resume from prjct_task_status/workflow output, create or link reviewed intent/spec briefs when required, and persist synthesized learning instead of raw transcript fragments.'
 
 /**
  * Get the prjct MCP server config, resolving the path from the installed package.

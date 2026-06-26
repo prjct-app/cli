@@ -245,7 +245,7 @@ export interface HealthResult {
  * Mirrors the v2 registered verbs — see core/commands/verb-names.ts.
  */
 export type CommandMethodName =
-  | 'now' // backing method for `prjct task`
+  | 'now' // backing method for `prjct work`
   | 'workflow'
   | 'init'
   | 'ship'
@@ -401,6 +401,9 @@ export interface CommandOptionSchema {
 export interface CommandMeta {
   name: string
   group: string
+  /** Product-facing surface. `legacy` commands still execute for compatibility
+   *  but are hidden from the v3 AI Agile command surface. */
+  surface?: 'ai-agile' | 'support' | 'legacy' | 'internal'
   description: string
   requiresProject: boolean
   usage: RegistryCommandUsage

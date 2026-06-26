@@ -93,7 +93,7 @@ export const migrations: Migration[] = [
         -- Seed built-in workflows (task, done, ship, sync)
         INSERT INTO custom_workflows (name, description, is_builtin, enabled, created_at, updated_at)
         VALUES
-          ('task', 'Start working on a task', 1, 1, datetime('now'), datetime('now')),
+          ('task', 'Start an AI Agile work cycle', 1, 1, datetime('now'), datetime('now')),
           ('done', 'Complete current task/subtask', 1, 1, datetime('now'), datetime('now')),
           ('ship', 'Ship feature with version bump and PR', 1, 1, datetime('now'), datetime('now')),
           ('sync', 'Analyze project and regenerate context', 1, 1, datetime('now'), datetime('now'));
@@ -481,7 +481,7 @@ export const migrations: Migration[] = [
     up: (db: SqliteDatabase) => {
       // SDD: specs are first-class entities. A spec captures Goal /
       // Acceptance Criteria / Scope / Out-of-scope / Risks before
-      // implementation starts. `prjct task --spec <id>` links a task
+      // implementation starts. `prjct work --spec <id>` links a work cycle
       // to its spec; `prjct ship` reads the linked spec's acceptance
       // criteria as a gate.
       //
