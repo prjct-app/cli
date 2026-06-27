@@ -69,8 +69,14 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       lastUpdated: getTimestamp(),
     }))
 
-    // Publish event
-    await this.publishEvent(projectId, 'feature.shipped', {
+    // Publish a canonical `shipped_item` event: `shipped_item.created` derives
+    // to entityType `shipped_items` (the table the cloud reads for ships) and a
+    // top-level `id` so the event carries a stable entity id. The legacy
+    // `feature.shipped` shape pluralized to `features` (off-contract → dropped)
+    // and exposed only `shipId` (unrecognized → null entity id), so ships never
+    // reached the cloud.
+    await this.publishEvent(projectId, 'shipped_item.created', {
+      id: shipped.id,
       shipId: shipped.id,
       name: shipped.name,
       version: shipped.version,
