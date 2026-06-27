@@ -88,6 +88,7 @@ class QueueStorage extends StorageManager<QueueJson> {
       description: newTask.description,
       priority: newTask.priority,
       section: newTask.section,
+      created_at: newTask.createdAt,
     })
 
     return newTask
@@ -116,7 +117,11 @@ class QueueStorage extends StorageManager<QueueJson> {
     // Publish event for batch add
     await this.publishEvent(projectId, 'queue.tasks_added', {
       count: newTasks.length,
-      tasks: newTasks.map((t) => ({ id: t.id, description: t.description })),
+      tasks: newTasks.map((t) => ({
+        id: t.id,
+        description: t.description,
+        created_at: t.createdAt,
+      })),
     })
 
     return newTasks

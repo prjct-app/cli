@@ -138,7 +138,9 @@ describe('applyEvent — unhandled entity_type warn (Phase 1.6 / B3)', () => {
       await applyEvent({
         entity_type: 'fake_handled',
         event_type: 'upsert',
-        data: { id: 'x' },
+        // created_at present so this stays focused on the no_local_handler
+        // warn — a missing origin would (correctly) trigger a separate warn.
+        data: { id: 'x', created_at: '2020-01-01T00:00:00.000Z' },
       })
       expect(warnCalls).toHaveLength(0)
     } finally {

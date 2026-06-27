@@ -1144,6 +1144,32 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 36,
+    name: 'sync-applied-hashes-created-at',
+    up: (db: SqliteDatabase) => {
+      // Per-record origin timestamp on the generic sync side table.
+      //
+      // `applied_at` already records when THIS machine ingested the event
+      // (== synced_at). What was missing is `created_at`: the ORIGIN
+      // creation time, authored on whichever machine first produced the
+      // entity. Storing both here — instead of a column on every entity
+      // table — keeps the created_at/synced_at distinction in one place,
+      // applies uniformly to all synced entity types, and avoids churning
+      // each business schema.
+      //
+      // Nullable + backfilled to applied_at: rows that predate this
+      // migration have no recorded origin, so their best available
+      // approximation is the time we applied them. New rows get the real
+      // origin from the wire payload (sync-manager.applyEvent).
+      try {
+        db.run('ALTER TABLE sync_applied_hashes ADD COLUMN created_at TEXT')
+        db.run('UPDATE sync_applied_hashes SET created_at = applied_at WHERE created_at IS NULL')
+      } catch {
+        // Column may already exist (re-run safety).
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
