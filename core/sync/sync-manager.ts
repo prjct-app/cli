@@ -20,6 +20,7 @@ import type {
 import authConfig from './auth-config'
 import { entityHandlers, UNKNOWN_ENTITY_TYPES } from './entity-handlers'
 import { isTableIncluded, toCloudTable } from './entity-map'
+import { hashPayload } from './publish-helper'
 import { clearApplied, getApplied, recordApplied } from './sync-applied-hashes'
 import { syncClient } from './sync-client'
 
@@ -41,12 +42,29 @@ function warnNoLocalHandler(entityType: string): void {
   )
 }
 
+// Per-process dedupe for the "inbound event has no origin created_at"
+// warn. A producer that omits created_at from its payload forces the
+// receiver to lose origin chronology; this surfaces it once per
+// entity_type instead of per-event.
+const WARN_CREATED_AT: Set<string> = new Set()
+
+function warnMissingCreatedAt(entityType: string): void {
+  if (WARN_CREATED_AT.has(entityType)) return
+  WARN_CREATED_AT.add(entityType)
+  console.warn(
+    `[sync] inbound '${entityType}' event has no created_at — origin chronology ` +
+      `cannot be preserved. The producer should include created_at in its payload. ` +
+      `code=missing_origin_created_at`
+  )
+}
+
 /**
  * @internal — exposed for tests so a fresh process state can be
  * simulated without spawning a child. Do not call from prod code.
  */
 export function _resetWarnDedupeForTest(): void {
   WARN_LOGGED.clear()
+  WARN_CREATED_AT.clear()
 }
 
 // Event normalization (Phase 1.5 / B2)
@@ -474,8 +492,22 @@ class SyncManager {
     await handler.upsert(projectId, data)
     // Record AFTER handler success — handler durability is the source
     // of truth, this just trails what we last applied.
-    if (contentHash && entityId) {
-      recordApplied(projectId, entityType, entityId, contentHash)
+    //
+    // Meta recording is decoupled from contentHash: legacy producers
+    // (publishEvent, e.g. queue/shipped) don't carry a hash, but we
+    // still need their per-record created_at/synced_at. Fall back to a
+    // hash of the payload so every applied upsert gets a side-table row.
+    if (entityId) {
+      // Origin creation time from the wire payload. NEVER substitute
+      // local now() here: created_at must reflect when the entity was
+      // authored on its origin machine, not when we ingested it
+      // (that's applied_at / synced_at, stamped inside recordApplied).
+      // Missing origin is a producer bug — warn once so it surfaces.
+      const originCreatedAt =
+        (data.created_at as string | undefined) ?? (data.createdAt as string | undefined) ?? null
+      if (!originCreatedAt) warnMissingCreatedAt(entityType)
+      const effectiveHash = contentHash ?? hashPayload(data)
+      recordApplied(projectId, entityType, entityId, effectiveHash, originCreatedAt)
     }
   }
 

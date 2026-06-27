@@ -58,7 +58,7 @@ const LEGACY_TYPE_OF: Record<CrudEventType, string> = {
  * we sort top-level keys before stringifying so two equivalent
  * payloads produce the same hash.
  */
-function hashPayload(data: unknown): string {
+export function hashPayload(data: unknown): string {
   const canonical =
     data && typeof data === 'object' && !Array.isArray(data)
       ? JSON.stringify(sortKeys(data as Record<string, unknown>))

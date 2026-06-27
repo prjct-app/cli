@@ -63,7 +63,8 @@ describe('isTableIncluded', () => {
     // sync by default while raw prompts/sessions remain opt-out.
     expect(isTableIncluded('metrics_daily')).toBe(true)
     expect(isTableIncluded('work_cost_snapshots')).toBe(true)
-    expect(isTableIncluded('archives')).toBe(false)
+    // Archives are bidirectional now (handler + full entity_data) → default-on.
+    expect(isTableIncluded('archives')).toBe(true)
     expect(DEFAULT_INCLUDE.user_prompts).toBe(false)
     expect(DEFAULT_INCLUDE.agent_sessions).toBe(false)
     // Analysis + specs are project-understanding knowledge → on by default so

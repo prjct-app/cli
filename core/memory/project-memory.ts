@@ -252,6 +252,10 @@ export const projectMemory = {
           tags: args.tags ?? {},
           source: args.source ?? null,
           provenance: args.provenance ?? 'declared',
+          // Origin authored time. We're creating the memory right now on
+          // THIS machine, so now() IS the origin — receivers preserve it
+          // verbatim instead of stamping their own ingestion clock.
+          created_at: new Date().toISOString(),
           rememberedAt: new Date().toISOString(),
         },
       })
