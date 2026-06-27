@@ -320,3 +320,37 @@ export async function spawnDaemon(): Promise<boolean> {
 
   return false
 }
+
+/**
+ * Restart the daemon so it re-reads auth/session state and reopens realtime
+ * connections with fresh credentials.
+ *
+ * The daemon is long-lived: `prjct login`/`logout` run in a separate cold
+ * process and update the secure token + auth.json, but the daemon keeps its
+ * realtime clients (and any sync state) bound to the credentials it booted
+ * with. Without a restart, `cloud status`/`link` keep reporting the OLD
+ * authenticated/unauthenticated state until a manual `daemon restart`
+ * (mem_2880). Login/logout call this so the new state takes effect at once.
+ *
+ * Best-effort and a no-op when no daemon is running (ephemeral / pull-based
+ * mode covers that). Graceful stop falls back to force-kill, then respawn.
+ * Returns whether a daemon is live afterward.
+ */
+export async function restartDaemon(): Promise<boolean> {
+  try {
+    if (!(await isDaemonRunning())) {
+      // Nothing to refresh — the next command spawns a daemon that reads
+      // the new auth on boot.
+      return false
+    }
+    const stopped = await stopDaemon()
+    if (!stopped) forceKillDaemon()
+    // Give the OS a beat to release the socket before respawning.
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    return await spawnDaemon()
+  } catch {
+    // Never let a daemon refresh failure break login/logout — the user is
+    // still authenticated; worst case they run `daemon restart` manually.
+    return false
+  }
+}

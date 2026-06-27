@@ -49,6 +49,10 @@ export class SetupCommands extends PrjctCommandsBase {
 
       case 'logout': {
         await authConfig.clearAuth()
+        // Refresh the long-lived daemon so it drops the cleared session
+        // instead of reporting stale "authenticated" until a manual restart
+        // (mem_2880).
+        await this.refreshDaemonAuth()
         if (!options.md) out.done('Logged out. Auth credentials cleared')
         return {
           success: true,
@@ -151,6 +155,13 @@ export class SetupCommands extends PrjctCommandsBase {
                 `Email:  ${email}\nToken:  stored securely\nStatus: Connected`
               )
             }
+
+            // Refresh the long-lived daemon FIRST so it picks up the new
+            // token before anything routes through it. Without this the
+            // daemon keeps its boot-time (unauthenticated) state and
+            // cloud status/link report "not authenticated" until a manual
+            // `daemon restart` (mem_2880).
+            await this.refreshDaemonAuth()
 
             // Auto-sync if inside a prjct project
             await this.autoSync()
@@ -258,6 +269,21 @@ export class SetupCommands extends PrjctCommandsBase {
   /**
    * Auto-sync pending events if inside a prjct project
    */
+  /**
+   * Bounce the long-lived daemon after an auth change (login/logout) so it
+   * re-reads the secure token and reopens realtime with fresh credentials.
+   * Best-effort: a no-op when no daemon runs, and never throws — the auth
+   * change already succeeded regardless of the daemon's state (mem_2880).
+   */
+  private async refreshDaemonAuth(): Promise<void> {
+    try {
+      const { restartDaemon } = await import('../daemon/client')
+      await restartDaemon()
+    } catch {
+      // Best-effort: worst case the user runs `prjct daemon restart`.
+    }
+  }
+
   private async autoSync(): Promise<void> {
     try {
       const config = await configManager.readConfig(process.cwd()).catch(() => null)
