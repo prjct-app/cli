@@ -19,6 +19,30 @@ import type {
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
 
+/**
+ * Build the sync payload for an archived item. Includes `entity_data`
+ * (the full archived row, JSON-encoded like the local column) so a
+ * receiving machine can reconstruct the archive instead of holding a
+ * lossy id-only stub, and `created_at` = the archive time so origin
+ * chronology survives the round trip (== `archived_at`).
+ */
+function archiveSyncPayload(
+  id: string,
+  item: ArchiveItem,
+  archivedAt: string
+): Record<string, unknown> {
+  return {
+    id,
+    entity_type: item.entityType,
+    entity_id: item.entityId,
+    entity_data: JSON.stringify(item.entityData),
+    summary: item.summary ?? null,
+    reason: item.reason,
+    archived_at: archivedAt,
+    created_at: archivedAt,
+  }
+}
+
 // Archival Policy Constants
 
 export const ARCHIVE_POLICIES = {
@@ -56,14 +80,7 @@ class ArchiveStorage {
       entityType: 'archives',
       entityId: id,
       eventType: 'upsert',
-      data: {
-        id,
-        entity_type: item.entityType,
-        entity_id: item.entityId,
-        summary: item.summary ?? null,
-        reason: item.reason,
-        archived_at: now,
-      },
+      data: archiveSyncPayload(id, item, now),
     })
 
     return id
@@ -76,6 +93,7 @@ class ArchiveStorage {
     if (items.length === 0) return 0
 
     const now = getTimestamp()
+    const published: Array<{ id: string; item: ArchiveItem }> = []
 
     prjctDb.transaction(projectId, (db) => {
       const stmt = db.prepare(
@@ -83,8 +101,9 @@ class ArchiveStorage {
       )
 
       for (const item of items) {
+        const id = generateUUID()
         stmt.run(
-          generateUUID(),
+          id,
           item.entityType,
           item.entityId,
           JSON.stringify(item.entityData),
@@ -92,8 +111,23 @@ class ArchiveStorage {
           now,
           item.reason
         )
+        published.push({ id, item })
       }
     })
+
+    // Sync AFTER the transaction commits. Bulk archives previously emitted
+    // no sync event at all — archives never reached other machines. Each
+    // archived item rides as a full upsert (entity_data included) so the
+    // receiver can reconstruct the row, not just know an id was archived.
+    for (const { id, item } of published) {
+      publishCRUDSync({
+        projectId,
+        entityType: 'archives',
+        entityId: id,
+        eventType: 'upsert',
+        data: archiveSyncPayload(id, item, now),
+      })
+    }
 
     return items.length
   }

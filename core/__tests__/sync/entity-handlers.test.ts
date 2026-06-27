@@ -38,6 +38,7 @@ describe('entity-handlers registry', () => {
   test('exposes the canonical entity_types as keys', () => {
     expect(SUPPORTED_ENTITY_TYPES.sort()).toEqual(
       [
+        'archives',
         'custom_workflows',
         'ideas',
         'memories',

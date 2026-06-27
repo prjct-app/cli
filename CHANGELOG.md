@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-06-26
+
+### Added
+- make all sync entities bidirectional (pull+push) and preserve per-record created_at (origin creation time) distinct from synced_at (ingestion time on receiving machine)
+
 ## [3.4.0] - 2026-06-26
 
 ### Added

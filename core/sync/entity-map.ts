@@ -118,7 +118,11 @@ export const DEFAULT_INCLUDE: Record<IncludeGroup, boolean> = {
   // `metrics` now includes aggregated cost/context snapshots. It is default-on
   // because it contains rolled-up analytics, not raw prompts or transcripts.
   metrics: true,
-  archives: false,
+  // Archives are now bidirectional (handler + full entity_data payload), so
+  // they round-trip like any other authored record. Default-on to honor the
+  // "every entity syncs to every machine" directive — flip to false per
+  // project via cloud.include if archived volume becomes noise.
+  archives: true,
   // Raw prompts + agent sessions stay opt-out by default (privacy-sensitive,
   // heavy). Analysis + specs are project-understanding knowledge — on by
   // default so the cloud vault is a complete picture of the project.
