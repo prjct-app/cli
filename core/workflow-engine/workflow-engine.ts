@@ -232,20 +232,46 @@ async function runGitCommit(
   await execFileAsync('git', ['commit', '-m', msg], { cwd: projectPath })
 }
 
+/**
+ * Decide the `git push` args from the current branch and its configured
+ * upstream.
+ *
+ * A bare `git push` fails on a branch with no upstream (any fresh feature
+ * branch) — and it fails AFTER git:commit already ran, leaving the ship
+ * half-done. So respect a configured upstream when one exists (custom remotes
+ * keep working), but set `-u origin HEAD` otherwise so new branches ship
+ * cleanly.
+ *
+ * CRITICAL: only trust an upstream that tracks THIS branch. Git worktrees
+ * created from `main` inherit `origin/main` as the new branch's upstream; a
+ * bare `git push` there would push the feature commits straight to `main`.
+ * When the upstream points at a differently-named branch, treat it as "no
+ * usable upstream" and push `-u origin HEAD` so the branch tracks its own ref.
+ */
+export function decideGitPushArgs(currentBranch: string, upstream: string): string[] {
+  const branch = currentBranch.trim()
+  const up = upstream.trim()
+  // Upstream looks like "origin/<branch>"; only a same-named branch is safe.
+  const upstreamBranch = up.includes('/') ? up.slice(up.indexOf('/') + 1) : ''
+  const upstreamTracksThisBranch = !!branch && upstreamBranch === branch
+  return upstreamTracksThisBranch ? ['push'] : ['push', '-u', 'origin', 'HEAD']
+}
+
 async function runGitPush(projectPath: string): Promise<void> {
-  // A bare `git push` fails on a branch with no upstream (any fresh feature
-  // branch) — and it fails AFTER git:commit already ran, leaving the ship
-  // half-done. So: respect a configured upstream when one exists (custom
-  // remotes keep working), but set `-u origin HEAD` on the first push so new
-  // branches ship cleanly.
-  const hasUpstream = await execFileAsync(
+  const currentBranch = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    cwd: projectPath,
+  })
+    .then((r) => r.stdout.trim())
+    .catch(() => '')
+  const upstream = await execFileAsync(
     'git',
     ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
     { cwd: projectPath }
   )
-    .then(() => true)
-    .catch(() => false)
-  const args = hasUpstream ? ['push'] : ['push', '-u', 'origin', 'HEAD']
+    .then((r) => r.stdout.trim())
+    .catch(() => '')
+
+  const args = decideGitPushArgs(currentBranch, upstream)
   await execFileAsync('git', args, { cwd: projectPath })
 }
 

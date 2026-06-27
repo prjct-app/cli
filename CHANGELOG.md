@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-06-26
+
+### Added
+- kimi cli doesn't know what prjct is — surface prjct agent protocol to Kimi CLI
+
+### Fixed
+- make commits and `prjct ship` safe inside git worktrees (staged-file pre-commit lint; never bare-push to an inherited `origin/main` upstream)
+
 ## [3.6.0] - 2026-06-26
 
 ### Added

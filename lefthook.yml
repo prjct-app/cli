@@ -11,9 +11,15 @@ pre-commit:
   commands:
     check:
       glob: "*.{ts,tsx,js,jsx,json,md}"
+      # Pass the staged files explicitly instead of `biome check .`. Biome
+      # ignores `.` when the cwd is itself an ignored path — which is the case
+      # inside a git worktree (biome.json ignores `**/.claude/worktrees`), so a
+      # bare `biome check .` reports "No files were processed" and exits 1,
+      # blocking every commit. Explicit file args are force-checked regardless
+      # of the ignore list, and only linting staged files is faster anyway.
       run: |
-        if command -v bun >/dev/null 2>&1; then bun run check
-        elif command -v npm >/dev/null 2>&1; then npm run check
+        if command -v bun >/dev/null 2>&1; then bunx biome check {staged_files}
+        elif command -v npm >/dev/null 2>&1; then npx biome check {staged_files}
         else echo "Neither bun nor npm found in PATH" >&2; exit 1
         fi
       stage_fixed: true

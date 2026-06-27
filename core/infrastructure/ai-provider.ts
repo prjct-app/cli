@@ -409,7 +409,11 @@ export function getProviderBranding(provider: AIProviderName): ProviderBranding 
 
 // Antigravity Detection
 
-import type { AntigravityDetection, CodexDetection } from '../types/infrastructure.js'
+import type {
+  AntigravityDetection,
+  CodexDetection,
+  KimiDetection,
+} from '../types/infrastructure.js'
 
 // AntigravityDetection type moved to core/types/infrastructure.ts
 
@@ -468,6 +472,25 @@ export async function detectCodex(): Promise<CodexDetection> {
     installed,
     skillInstalled,
     configPath: installed ? configPath : undefined,
+  }
+}
+
+// Kimi CLI Detection
+
+/**
+ * Detect if Moonshot's Kimi CLI is installed.
+ *
+ * Detection: the `kimi` CLI command on PATH, or a `~/.kimi/` config directory
+ * (Kimi writes config.toml/mcp.json there). A logged-in or configured install
+ * counts even when PATH is minimal (hooks/daemon shells).
+ */
+export async function detectKimi(): Promise<KimiDetection> {
+  const configDir = resolveUserPath('.kimi')
+  const [cliPath, dirPresent] = await Promise.all([whichCommand('kimi'), fileExists(configDir)])
+  const installed = !!cliPath || dirPresent
+  return {
+    installed,
+    configPath: installed ? configDir : undefined,
   }
 }
 
