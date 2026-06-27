@@ -226,3 +226,10 @@ export interface CodexDetection {
   /** Path to config directory */
   configPath?: string
 }
+
+export interface KimiDetection {
+  /** Whether the `kimi` CLI is available or ~/.kimi/ exists */
+  installed: boolean
+  /** Path to config directory (~/.kimi) when installed */
+  configPath?: string
+}

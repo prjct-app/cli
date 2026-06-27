@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-06-26
+
+### Added
+- kimi cli doesn't know what prjct is — surface prjct agent protocol to Kimi CLI
+
 ## [3.4.0] - 2026-06-26
 
 ### Added

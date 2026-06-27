@@ -7,10 +7,11 @@
  *    setup commands.
  */
 
-import { detectCodex } from '../../infrastructure/ai-provider'
+import { detectCodex, detectKimi } from '../../infrastructure/ai-provider'
 import context7Service from '../../services/context7-service'
 import { getErrorMessage } from '../../types/fs'
 import { ensureCodexMcpServer } from '../../utils/codex-mcp'
+import { ensureKimiMcpServer } from '../../utils/kimi-mcp'
 import {
   getClaudeMcpConfigPath,
   hasMcpServer,
@@ -89,6 +90,28 @@ export async function setupMcpServers(
   } catch (error) {
     if (!options.silent) {
       console.log(`⚠️  Codex config setup failed: ${getErrorMessage(error)}`)
+      console.log('   Run `prjct start` again to retry.')
+    }
+  }
+
+  // Kimi CLI reads MCP servers from ~/.kimi/mcp.json (standard mcpServers
+  // JSON, same shape as Claude). Without this block, Kimi sessions see the
+  // AGENTS.md routing text but have no prjct_* tools behind it.
+  try {
+    const kimi = await detectKimi()
+    if (kimi.installed) {
+      const result = await ensureKimiMcpServer()
+      if (!options.silent) {
+        console.log(
+          result.changed
+            ? '✅ prjct Kimi config updated in ~/.kimi/mcp.json'
+            : '✅ prjct Kimi config already ready'
+        )
+      }
+    }
+  } catch (error) {
+    if (!options.silent) {
+      console.log(`⚠️  Kimi config setup failed: ${getErrorMessage(error)}`)
       console.log('   Run `prjct start` again to retry.')
     }
   }

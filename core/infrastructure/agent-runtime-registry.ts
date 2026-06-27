@@ -254,6 +254,7 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
     status: 'emerging',
     detectsBy: { homeDirs: ['.kimi'], projectDirs: ['.kimi'], commands: ['kimi'] },
     contextFiles: ['AGENTS.md'],
+    mcpTargets: [{ format: 'claude-json', pathHint: '~/.kimi/mcp.json', writable: true }],
     supports: {
       agentsMd: true,
       mcp: true,

@@ -42,6 +42,15 @@ describe('agent runtime registry', () => {
     }
   })
 
+  it('exposes a writable MCP target for Kimi CLI (~/.kimi/mcp.json)', () => {
+    const kimi = getAgentRuntime('kimi-cli')
+
+    expect(kimi.supports.mcp).toBe(true)
+    const writable = (kimi.mcpTargets ?? []).filter((target) => target.writable)
+    expect(writable.length).toBeGreaterThan(0)
+    expect(writable[0]?.pathHint).toContain('.kimi/mcp.json')
+  })
+
   it('separates runtime compatibility from model/provider names', () => {
     const qwen = getAgentRuntime('qwen-code')
 

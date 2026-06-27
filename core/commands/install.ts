@@ -20,6 +20,7 @@ import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { ensureCodexMcpServer } from '../utils/codex-mcp'
+import { ensureKimiMcpServer } from '../utils/kimi-mcp'
 import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
@@ -43,6 +44,8 @@ export class InstallCommands extends PrjctCommandsBase {
       const detected = runtimes.filter((runtime) => runtime.detected)
       const codexDetected = detected.some((runtime) => runtime.runtime.id === 'codex')
       const codexConfig = codexDetected ? await ensureCodexMcpServer() : null
+      const kimiDetected = detected.some((runtime) => runtime.runtime.id === 'kimi-cli')
+      const kimiConfig = kimiDetected ? await ensureKimiMcpServer() : null
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
       const msg = `installed Claude hooks adapter: ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
@@ -74,6 +77,9 @@ export class InstallCommands extends PrjctCommandsBase {
                     codexConfig.statusLineChanged ? 'installed' : 'already configured'
                   }`,
                 ]
+              : []),
+            ...(kimiConfig
+              ? [`- Kimi config: ${kimiConfig.changed ? 'updated' : 'already ready'}`]
               : []),
             ``,
             `## Claude hooks adapter`,
@@ -114,6 +120,9 @@ export class InstallCommands extends PrjctCommandsBase {
             `Codex status line: ${codexConfig.statusLineChanged ? 'installed' : 'already configured'}`
           )
         }
+        if (kimiConfig) {
+          out.info(`Kimi config: ${kimiConfig.changed ? 'updated' : 'already ready'}`)
+        }
       }
       return {
         success: true,
@@ -126,6 +135,12 @@ export class InstallCommands extends PrjctCommandsBase {
               changed: codexConfig.changed,
               skipped: codexConfig.skipped,
               statusLineChanged: codexConfig.statusLineChanged ?? false,
+            }
+          : null,
+        kimiConfig: kimiConfig
+          ? {
+              path: kimiConfig.path,
+              changed: kimiConfig.changed,
             }
           : null,
       }
