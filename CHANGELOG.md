@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-06-26
+
+### Added
+- investigate and fix multiple cloud sync problems users are reporting after recent v3.4.0/v3.5.0 sync ships
+
 ## [3.5.0] - 2026-06-26
 
 ### Added
