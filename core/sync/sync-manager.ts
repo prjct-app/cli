@@ -7,6 +7,7 @@
 
 import { syncEventBus } from '../events/sync-events'
 import { buildProjectMeta } from '../services/sync/project-meta'
+import { shippedStorage } from '../storage/shipped-storage'
 import type { SyncEvent } from '../types/events'
 import type {
   PullResult,
@@ -192,6 +193,15 @@ class SyncManager {
     }
 
     const result: SyncResult = { success: true, skipped: false }
+
+    // One-time per project: re-publish historical ships as canonical events so
+    // ships shipped before the canonical-event fix reach the cloud. Best-effort
+    // — the enqueued events ride the push below; the normal queue owns delivery.
+    try {
+      await shippedStorage.republishShips(projectId)
+    } catch {
+      // never block sync on the backfill
+    }
 
     // Push first
     const pushResult = await this.push(projectId, opts)
