@@ -103,17 +103,78 @@ export function getAgentModelPolicy(role: AgentRole): AgentModelPolicy {
 }
 
 /**
- * One-line directive to inline into a subagent dispatch prompt so the
- * orchestrator passes the right `model:` to the Agent tool and the
- * subagent calibrates its effort. Implementer keeps max; every other
- * role is told, explicitly, to go smaller + decent.
+ * Rig sovereignty: graceful degradation when the preferred tier is throttled
+ * or unavailable. For each tier, the ordered list of tiers to try — the
+ * preferred one first, then the nearest still-capable option. The brain is
+ * rented and can be pulled; the harness keeps working on whatever tier is
+ * available rather than failing. Reviewer/orchestrator prefer to degrade
+ * CHEAPER first (cost discipline); the implementer degrades by capability.
  */
-export function renderModelDirective(role: AgentRole): string {
-  const p = getAgentModelPolicy(role)
-  if (p.model === 'opus' && p.effort === 'max') {
+export const MODEL_TIER_FALLBACK: Record<AgentModelTier, readonly AgentModelTier[]> = {
+  opus: ['opus', 'sonnet', 'haiku'],
+  sonnet: ['sonnet', 'haiku', 'opus'],
+  haiku: ['haiku', 'sonnet', 'opus'],
+}
+
+export interface ResolvedAgentModel extends AgentModelPolicy {
+  /** The tier the role would use with no constraints. */
+  preferred: AgentModelTier
+  /** True when the preferred tier was unavailable and we degraded. */
+  degraded: boolean
+}
+
+/**
+ * Resolve the tier a role should actually dispatch with, given the set of
+ * currently-available tiers (e.g. derived from the active provider). Walks the
+ * role's fallback chain and returns the first available tier. When `available`
+ * is empty/unknown we assume the preferred tier is usable (no info → don't
+ * degrade). Effort is unchanged by degradation — a weaker tier needs its full
+ * effort budget more, not less.
+ */
+export function resolveAgentModel(
+  role: AgentRole,
+  available?: ReadonlySet<AgentModelTier>
+): ResolvedAgentModel {
+  const policy = getAgentModelPolicy(role)
+  if (!available || available.size === 0) {
+    return { ...policy, preferred: policy.model, degraded: false }
+  }
+  for (const tier of MODEL_TIER_FALLBACK[policy.model]) {
+    if (available.has(tier)) {
+      return { ...policy, model: tier, preferred: policy.model, degraded: tier !== policy.model }
+    }
+  }
+  // No tier in the chain is available — keep the preferred as a last resort.
+  return { ...policy, preferred: policy.model, degraded: false }
+}
+
+/**
+ * One-line directive to inline into a subagent dispatch prompt so the
+ * orchestrator passes the right `model:` to the Agent tool and the subagent
+ * calibrates its effort. Implementer keeps max; every other role is told,
+ * explicitly, to go smaller + decent.
+ *
+ * Pass `available` (the tiers the active rig can currently dispatch) to make
+ * the directive degrade gracefully when the preferred tier is throttled —
+ * the multi-agent fan-out keeps running on the best available brain instead
+ * of failing. Omit it and the directive is byte-identical to the original.
+ */
+export function renderModelDirective(
+  role: AgentRole,
+  available?: ReadonlySet<AgentModelTier>
+): string {
+  const r = resolveAgentModel(role, available)
+  const isImplementer = r.preferred === 'opus' && r.effort === 'max'
+  if (isImplementer && !r.degraded) {
     return 'Dispatch with the Agent tool using `model: "opus"` and full reasoning effort — this is the IMPLEMENTER; it writes code and needs the best model.'
   }
-  return `Dispatch with the Agent tool using \`model: "${p.model}"\` (NOT the parent's max model). Apply ${p.effort}, not exhaustive, effort — this is an orchestration/review role: return the verdict, don't over-deliberate. A smaller model at decent effort is correct here and far faster.`
+  if (isImplementer) {
+    return `Dispatch with the Agent tool using \`model: "${r.model}"\` — this is the IMPLEMENTER, but its preferred tier \`opus\` is unavailable/throttled, so it is degraded to \`${r.model}\` at full effort. Compensate by leaning harder on verification (\`verify:\` gates) before ship.`
+  }
+  const base = `Dispatch with the Agent tool using \`model: "${r.model}"\` (NOT the parent's max model). Apply ${r.effort}, not exhaustive, effort — this is an orchestration/review role: return the verdict, don't over-deliberate. A smaller model at decent effort is correct here and far faster.`
+  return r.degraded
+    ? `${base} (Preferred tier \`${r.preferred}\` is unavailable/throttled — degraded to \`${r.model}\`.)`
+    : base
 }
 
 // Model Metadata - Recorded Per Operation
