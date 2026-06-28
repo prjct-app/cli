@@ -10,7 +10,12 @@ import { ShippedJsonSchema } from '../schemas/shipped'
 import type { ShippedFeature, ShippedJson } from '../types/storage'
 import { getDaysAgo, getTimestamp } from '../utils/date-helper'
 import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
+import { prjctDb } from './database'
 import { StorageManager } from './storage-manager'
+
+// Per-project guard so the historical-ship backfill runs once. Bump the suffix
+// to force a re-backfill in a future release.
+const SHIP_BACKFILL_FLAG = 'shipped:backfilled:v1'
 
 class ShippedStorage extends StorageManager<ShippedJson> {
   constructor() {
@@ -36,6 +41,31 @@ class ShippedStorage extends StorageManager<ShippedJson> {
   async getAll(projectId: string): Promise<ShippedFeature[]> {
     const data = await this.read(projectId)
     return data.shipped
+  }
+
+  /**
+   * One-time backfill: re-publish every locally-stored ship as a canonical
+   * `shipped_item.created` event so ships shipped BEFORE the canonical-event fix
+   * (which previously emitted off-contract `feature.shipped` and were dropped at
+   * /sync/batch) finally reach the cloud. Guarded by a per-project kv flag so it
+   * runs once; idempotent server-side via (project_id, entity_id, content_hash)
+   * dedup. Returns the number of ships re-published (0 if already backfilled).
+   */
+  async republishShips(projectId: string): Promise<number> {
+    if (prjctDb.getDoc<{ at: string }>(projectId, SHIP_BACKFILL_FLAG)) return 0
+    const data = await this.read(projectId)
+    const ships = Array.isArray(data.shipped) ? data.shipped : []
+    for (const ship of ships) {
+      await this.publishEvent(projectId, 'shipped_item.created', {
+        id: ship.id,
+        shipId: ship.id,
+        name: ship.name,
+        version: ship.version,
+        shippedAt: ship.shippedAt,
+      })
+    }
+    prjctDb.setDoc(projectId, SHIP_BACKFILL_FLAG, { at: getTimestamp(), count: ships.length })
+    return ships.length
   }
 
   /**
