@@ -443,6 +443,20 @@ export async function seedCodeShipRules(projectId: string, projectPath: string):
     })
   }
 
+  // Stop-Slop on by default: verify before shipping when the project has a
+  // detected test command. Seeded with the resolved command (not `verify:auto`,
+  // which would block when nothing is detected). The user can disable or remove
+  // this rule like any other — the harness compensates for a degraded model by
+  // catching unverified output at the line, not after release.
+  const detected = await detectProjectCommands(projectPath).catch(() => null)
+  if (detected?.test?.command) {
+    gates.push({
+      action: `verify:${detected.test.command}`,
+      description: 'Verify before shipping (Stop-Slop)',
+      timeoutMs: 300000,
+    })
+  }
+
   const steps: Array<{ action: string; description: string; timeoutMs: number }> = [
     { action: 'version:bump', description: 'Bump version (stack-aware)', timeoutMs: 10000 },
     { action: 'changelog:add', description: 'Append CHANGELOG entry', timeoutMs: 10000 },

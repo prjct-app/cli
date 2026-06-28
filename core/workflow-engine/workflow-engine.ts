@@ -41,6 +41,7 @@ import { getErrorMessage } from '../types/fs'
 import type { WorkflowRule } from '../types/storage/extended'
 import type { WorkflowExecutionResult, WorkflowRunContext } from '../types/workflow.js'
 import { execAsync, execFileAsync } from '../utils/exec'
+import { detectProjectCommands } from '../utils/project-commands'
 import { evaluateWhen, type WhenContext } from './when-evaluator'
 
 const STATUS_ACTION_PREFIX = 'status:'
@@ -97,43 +98,15 @@ async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<
  * model would otherwise ship. Unlike `script:<path>` it runs an inline
  * command; unlike a raw shell rule it turns exit≠0 into actionable guidance.
  */
-async function pathExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** Best-effort package-manager detection from lockfiles; defaults to npm. */
-async function detectPackageManager(projectPath: string): Promise<string> {
-  if (
-    (await pathExists(path.join(projectPath, 'bun.lockb'))) ||
-    (await pathExists(path.join(projectPath, 'bun.lock')))
-  )
-    return 'bun'
-  if (await pathExists(path.join(projectPath, 'pnpm-lock.yaml'))) return 'pnpm'
-  if (await pathExists(path.join(projectPath, 'yarn.lock'))) return 'yarn'
-  return 'npm'
-}
-
 /**
  * Resolve `verify:auto` to the project's own verification command so a
- * Stop-Slop gate is one token, no hardcoding. Prefers `package.json`'s
- * `scripts.test`, run via the detected package manager. Returns null when no
- * convention is found — the caller turns that into actionable guidance.
+ * Stop-Slop gate is one token, no hardcoding. Reuses the canonical detector
+ * (DRY) — JS/TS package-manager `scripts.test` AND Python/pytest. Returns null
+ * when no convention is found; the caller turns that into actionable guidance.
  */
 export async function detectVerifyCommand(projectPath: string): Promise<string | null> {
-  try {
-    const pkg = JSON.parse(await fs.readFile(path.join(projectPath, 'package.json'), 'utf-8'))
-    if (pkg?.scripts?.test) {
-      return `${await detectPackageManager(projectPath)} test`
-    }
-  } catch {
-    // No/invalid package.json — fall through to "not detected".
-  }
-  return null
+  const { test } = await detectProjectCommands(projectPath)
+  return test?.command ?? null
 }
 
 async function runVerifyAction(rule: WorkflowRule, projectPath: string): Promise<void> {
