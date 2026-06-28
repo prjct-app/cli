@@ -23,24 +23,21 @@ user to run prjct commands** — recognize their intent and run the right
 verb yourself.
 
 The full verb intent map and the suggest-vs-auto-execute protocol live
-in the global skill at \`~/.claude/skills/prjct/SKILL.md\`. Two reminders
-that travel with this project:
+in the global skill at \`~/.claude/skills/prjct/SKILL.md\`. Reminders that
+travel with this project:
 
-- **\`prjct work\` is the single normal entrypoint.** prjct classifies the
-  AI Agile work cycle and reports the persisted pipeline station. Trivial work
-  proceeds directly. Substantive implementation work follows an intent brief +
-  strict evidence: reviewed intent, tests before implementation when required,
-  then code. Resume from \`prjct work --md\`; do not invent a parallel plan.
+- **\`prjct work\` is the single normal entrypoint.** It classifies the AI Agile
+  work cycle and reports the persisted pipeline station. Trivial work proceeds
+  directly; substantive work follows an intent brief + strict evidence (reviewed
+  intent, tests before implementation when required, then code). Resume from
+  \`prjct work --md\`; do not invent a parallel plan.
 - **Lookup is pull-first and bounded.**
 ${AGENT_RAG_PROTOCOL}
-- **Routine synthesis auto-executes, no permission.** When the user mentions
-  a decision, learning, gotcha, or reusable context, save it via
-  \`prjct remember <type>\` immediately and confirm in one line. Legacy inbox
-  aliases exist for old scripts but should not be the normal path. Asking "want
-  me to save that?" is the failure mode. Author every entry in ENGLISH.
-- **Destructive verbs suggest first.** \`ship\`, \`prefs set\`,
-  and the audit/security/investigate workflows surface a one-line plan
-  ("I'll run \`prjct ship\` — bumps version, opens PR. Ok?") and wait for
+- **Routine synthesis auto-executes, no permission.** Save decisions, learnings,
+  gotchas, and reusable context via \`prjct remember <type>\` immediately (in
+  English) and confirm in one line. Asking "want me to save that?" is the failure mode.
+- **Destructive verbs suggest first.** \`ship\`, \`prefs set\`, and the
+  audit/security/investigate workflows surface a one-line plan and wait for a
   green light.
 
 When in doubt: synthesized memory is safe; ship is never silent.`

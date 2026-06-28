@@ -51,9 +51,13 @@ export async function enrichedRecall(
     }
   }
 
-  // Backfill with recency + substring recall so a fresh/unindexed DB or a
-  // cross-vocabulary topic still returns something.
-  if (entries.length < limit) {
+  // Backfill ONLY when the topical leg found NOTHING — a fresh/unindexed DB,
+  // a cross-vocabulary topic, or no topic at all (recent-memory listing).
+  // Padding a HEALTHY FTS result set up to `limit` with recency/substring
+  // matches injected off-topic noise (a "token efficiency" search dragging in
+  // an unrelated recent decision). Selective beats full: relevance leads, the
+  // agent pulls more by id or refines the topic (mem_1012).
+  if (entries.length === 0) {
     const seen = new Set(entries.map((e) => e.id))
     const pool = projectMemory.recall(projectId, { topic, types, tags, limit })
     for (const e of pool) {

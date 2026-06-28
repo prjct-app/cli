@@ -126,7 +126,7 @@ export function registerMemoryTools(server: McpServer) {
 
   s.tool(
     'prjct_mem_list',
-    'Recall memory entries. Optional filters: topic (keyword across content + tag values), types, tags, limit.',
+    'Recall memory entries as compact one-line cues (id + type + truncated body). Pull a full body on demand by id (`prjct context memory <id>`). Optional filters: topic (keyword across content + tag values), types, tags, limit.',
     {
       projectPath: z.string().describe('Project directory path'),
       topic: z.string().optional().describe('Keyword to match over content + tag values'),
@@ -157,14 +157,18 @@ export function registerMemoryTools(server: McpServer) {
           tags: args.tags,
           limit: args.limit,
         })
-        return { content: [{ type: 'text', text: formatMemoryMd(entries, { boundary: 'llm' }) }] }
+        return {
+          content: [
+            { type: 'text', text: formatMemoryMd(entries, { boundary: 'llm', compact: true }) },
+          ],
+        }
       }
     )
   )
 
   s.tool(
     'prjct_mem_similar',
-    'Find memory entries similar to a free-text description. Keyword-based, best-effort.',
+    'Find memory entries similar to a free-text description. Keyword-based, best-effort. Returns compact one-line cues; pull a full body by id on demand.',
     {
       projectPath: z.string().describe('Project directory path'),
       description: z.string().describe('Free-text description to find similar memories for'),
@@ -186,7 +190,11 @@ export function registerMemoryTools(server: McpServer) {
         if (entries.length === 0) {
           return { content: [{ type: 'text', text: 'No similar memories found.' }] }
         }
-        return { content: [{ type: 'text', text: formatMemoryMd(entries, { boundary: 'llm' }) }] }
+        return {
+          content: [
+            { type: 'text', text: formatMemoryMd(entries, { boundary: 'llm', compact: true }) },
+          ],
+        }
       }
     )
   )

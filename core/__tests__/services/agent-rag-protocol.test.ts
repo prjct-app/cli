@@ -67,4 +67,14 @@ describe('compact RAG-first agent protocol', () => {
       )
     }
   })
+
+  // These routing blocks are loaded EVERY session (CLAUDE.md / AGENTS.md), so
+  // their byte cost is recurring. The budget locks in the progressive-
+  // disclosure trim (full protocol lives in SKILL.md, pulled on demand) and
+  // fails loudly if a future edit lets them creep back toward history-carrier
+  // bloat. Raise deliberately, never by accident.
+  it('keeps the always-loaded routing blocks under their byte budget', () => {
+    expect(Buffer.byteLength(agentsRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(2200)
+    expect(Buffer.byteLength(claudeRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(2100)
+  })
 })

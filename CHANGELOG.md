@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-06-28
+
+### Added
+- token-efficiency program: compact pull verbs, lean routing blocks, search relevance threshold, guard precision, fix BM25 file-index prototype crash
+
 ## [3.8.0] - 2026-06-27
 
 ### Added

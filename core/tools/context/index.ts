@@ -207,12 +207,17 @@ async function runMemoryTool(
   // usefulness rerank, link expansion, surface attribution) lives in
   // enrichedRecall — shared with the MCP memory tools so every agent
   // surface retrieves identically.
-  const entries = await enrichedRecall(projectPath, projectId, { topic, types, limit: 30 })
+  // Compact scan list, not full bodies: a topic search is "what's been said
+  // about X?", answered by cues the agent can pull in full by id on demand
+  // (`prjct context memory mem_N`). Full-body dump of 30 hits was the single
+  // heaviest agent-facing surface (~7.7k tok) and undercut 3.8.0's own
+  // "pull more" directive. Lower cap reinforces it — a scan, not an archive.
+  const entries = await enrichedRecall(projectPath, projectId, { topic, types, limit: 12 })
 
   return {
     tool: opts.kind,
     result: {
-      markdown: formatMemoryMd(entries),
+      markdown: formatMemoryMd(entries, { compact: true }),
       entryCount: entries.length,
       topic,
     },

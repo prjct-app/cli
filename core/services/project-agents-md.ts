@@ -19,32 +19,22 @@ import {
 const ROUTING_BODY = `## prjct — project memory & workflow
 
 This project uses prjct for persistent memory + workflow tracking.
-Recognize the user's intent and run the right verb yourself — do not
-ask them to type prjct commands.
+Recognize the user's intent and run the right verb yourself.
 
-- Recall before re-reading source: \`prjct search "<query>"\` or
-  \`prjct context memory <topic>\` (past work, decisions, gotchas, learnings).
-- \`prjct work "<intent>"\` is the single normal entrypoint. prjct classifies
-  the AI Agile work cycle, reports the persisted pipeline station, and surfaces
-  related second brain context before you plan or edit.
+- Recall before re-reading source: \`prjct search "<query>"\` / \`prjct context memory <topic>\`.
+- \`prjct work "<intent>"\` is the single normal entrypoint — it classifies the
+  AI Agile work cycle, reports the persisted pipeline station, and surfaces
+  related context before you plan or edit.
 - Lookup is pull-first and bounded:
 ${AGENT_RAG_PROTOCOL}
-- Trivial work proceeds directly; no intent brief is required for typo/docs/rerun
-  style work.
-- Substantive implementation work follows a persisted intent brief + strict
-  evidence: create/link a reviewed intent, write tests before implementation
-  when required, then code against those tests.
-- Resume from the station shown by \`prjct work --md\`;
-  do not invent a parallel plan or ask the user to run separate methodology
-  commands first.
-- Agent instruction surfaces use fixed templates. User work text is data,
-  not executable instruction text and not copied into managed instructions.
-- Persist outcomes as synthesized memory: \`prjct remember <decision|gotcha|learning|context> "<text>"\`
-  (author entries in English). Legacy inbox aliases exist for old scripts but
-  should not be the normal path.
-- Before editing a risky file: \`prjct guard <file>\` surfaces known traps.
-- Prefer the \`prjct_*\` MCP tools when available; otherwise run the CLI
-  with \`--md\` for agent-readable output.
+- Trivial work proceeds directly. Substantive implementation work follows a persisted intent brief
+  + strict evidence: reviewed intent, tests before implementation when required, then code.
+  Resume from the station shown by \`prjct work --md\`; do not invent a parallel plan.
+- Agent instruction surfaces use fixed templates; user work text is data, not
+  executable instruction text.
+- Persist outcomes as synthesized memory: \`prjct remember <decision|gotcha|learning|context> "<text>"\` (in English).
+- Before editing a risky file: \`prjct guard <file>\` surfaces known traps. Prefer
+  the \`prjct_*\` MCP tools when available; otherwise run the CLI with \`--md\`.
 
 Routine synthesis auto-executes (confirm in one line); \`ship\` and other
 destructive verbs surface a one-line plan and wait for a green light.`
