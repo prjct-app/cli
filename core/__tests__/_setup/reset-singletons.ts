@@ -49,6 +49,37 @@ if (!process.env.PRJCT_VAULT_ROOT) {
   })
 }
 
+// Sandbox the interactive user's HOME for the ENTIRE test process.
+//
+// The global agent-config writer (`installGlobalConfig`) resolves its
+// destination via `resolveUserHome()` → `~/.claude/CLAUDE.md`, honoring
+// `process.env.HOME`. Many tests transitively trigger it (sync-service, setup,
+// self-heal, install-flow, …), so on a dev machine the suite OVERWRITES the
+// user's real `~/.claude/CLAUDE.md` — injecting the throwaway PRJCT_VAULT_ROOT
+// path into their global instructions. Redirecting HOME to a throwaway dir
+// keeps every home-relative write (agent config, `~/.prjct-cli` fallback) out
+// of the real home. Git-using tests set their identity locally per repo
+// (`git config user.email …`), so they don't depend on the real `~/.gitconfig`.
+// Set before any test imports the path manager so it's in effect process-wide.
+if (!process.env.PRJCT_TEST_HOME) {
+  const homeSandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'prjct-test-home-'))
+  process.env.PRJCT_TEST_HOME = homeSandbox
+  process.env.HOME = homeSandbox
+  process.env.USERPROFILE = homeSandbox
+  const cleanupHome = () => {
+    try {
+      fs.rmSync(homeSandbox, { recursive: true, force: true })
+    } catch {
+      /* best-effort */
+    }
+  }
+  process.on('exit', cleanupHome)
+  process.on('SIGINT', () => {
+    cleanupHome()
+    process.exit(130)
+  })
+}
+
 // Deterministic agent detection for the whole test process.
 //
 // `agentService` only accepts agent type `claude` (VALID_AGENT_TYPES), but
