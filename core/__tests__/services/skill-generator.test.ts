@@ -188,6 +188,19 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toMatch(/intent-first|SDD/)
     })
 
+    it('teaches the sovereign knowledge base so agents pull it, never inject it', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      // KB facets are first-class, capturable, and discoverable to any rig.
+      for (const facet of ['identity', 'voice', 'glossary', 'framework']) {
+        expect(content).toContain(facet)
+      }
+      expect(content).toContain('sovereign knowledge base')
+      expect(content).toContain('prjct context memory <facet>')
+      // Clean-repo doctrine surfaced in the skill itself.
+      expect(content).toContain('never injected into CLAUDE.md / AGENTS.md')
+    })
+
     it('frames work as the single entrypoint for transparent AI Agile orchestration', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
