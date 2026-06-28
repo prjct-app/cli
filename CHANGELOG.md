@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-06-27
+
+### Added
+- work token savings
+
 ## [3.7.0] - 2026-06-26
 
 ### Added

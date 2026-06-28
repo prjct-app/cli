@@ -95,24 +95,31 @@ export interface RelatedContextHit {
   nextImplication?: string
 }
 
+const RELATED_SALIENT_MAX = 120
+
+/**
+ * Compact but self-sufficient one-liner for the passive `work` surface:
+ * `[type] title (date) \`id\` — <single most salient field>`.
+ *
+ * The full body stays one `prjct search <id>` away. We surface only the field
+ * most likely to change what the agent does — a trap/decision/anti-pattern
+ * outranks generic "why/outcome/key data" — instead of joining every field
+ * (which ran ~500 chars/entry). Drops the passive surface to ~100 chars/entry
+ * while still carrying the actionable signal.
+ */
 export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
   const when = hit.when ? hit.when.slice(0, 10) : ''
   const who = hit.author ? ` by ${hit.author}` : ''
   const meta = [when, who].filter(Boolean).join('')
-  const parts = [
-    `[${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``,
-    hit.feature ? `Feature: ${hit.feature}` : null,
-    hit.keyData ? `Key data: ${hit.keyData}` : null,
-    hit.files?.length ? `Files: ${hit.files.map((file) => `\`${file}\``).join(', ')}` : null,
-    hit.why ? `Why: ${hit.why}` : null,
-    hit.pattern ? `Pattern: ${hit.pattern}` : null,
-    hit.antiPattern ? `Avoid: ${hit.antiPattern}` : null,
-    hit.decisionTrap ? `Decision/trap: ${hit.decisionTrap}` : null,
-    hit.outcome ? `Outcome: ${hit.outcome}` : null,
-    hit.nextImplication ? `Next: ${hit.nextImplication}` : null,
-    hit.detail ? `Detail: ${hit.detail}` : null,
-  ].filter((part): part is string => Boolean(part))
-  return parts.join(' — ')
+  const head = `[${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``
+
+  // Priority: what would make me act differently first.
+  const salient =
+    hit.decisionTrap ?? hit.antiPattern ?? hit.why ?? hit.outcome ?? hit.keyData ?? hit.detail
+  if (!salient) return head
+  const trimmed =
+    salient.length > RELATED_SALIENT_MAX ? `${salient.slice(0, RELATED_SALIENT_MAX - 1)}…` : salient
+  return `${head} — ${trimmed}`
 }
 
 /**

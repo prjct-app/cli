@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { formatLikelyFileForAgent } from '../../services/file-cue'
 import { collectActiveTasks } from '../../services/task-overview'
 import { formatRelatedContextForAgent, setTaskStatus, startTask } from '../../services/task-service'
+import { recordTaskTokenUsage } from '../../services/work-cost-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
 import { resolveProjectId } from '../resolve'
@@ -113,13 +114,16 @@ export function registerProjectTools(server: McpServer) {
           for (const i of outcome.instructions) lines.push(`- ${i}`)
         }
         if (outcome.relatedContext && outcome.relatedContext.length > 0) {
-          lines.push('', 'Related second-brain context:')
-          for (const hit of outcome.relatedContext) {
+          lines.push('', 'Related second-brain context (pull full bodies with prjct_search):')
+          for (const hit of outcome.relatedContext.slice(0, 4)) {
             lines.push(`- ${formatRelatedContextForAgent(hit)}`)
           }
         }
         if (outcome.likelyFiles && outcome.likelyFiles.length > 0) {
-          lines.push('', 'Likely files from prjct index:')
+          lines.push(
+            '',
+            'Likely files from prjct index — read these first, do not grep-walk the repo:'
+          )
           for (const file of outcome.likelyFiles) {
             lines.push(`- ${formatLikelyFileForAgent(file)}`)
           }
@@ -131,34 +135,56 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_task_set_status',
-    'Change the active work cycle status (e.g. "done", "paused", "active"). Records the transition and drives the workflow state machine through the compatibility status backend. "active"/"resume" promotes paused work back to focus.',
+    'Change the active work cycle status (e.g. "done", "paused", "active"). Records the transition and drives the workflow state machine through the compatibility status backend. "active"/"resume" promotes paused work back to focus. Optionally report this cycle\'s token usage (tokensIn/tokensOut) so prjct can measure net savings — any agent (Claude, Codex, Gemini, …) should pass its own counts when closing work.',
     {
       projectPath: z.string().describe('Project directory path'),
       status: z
         .string()
         .describe('New status: done | completed | paused | active | resume | in_progress'),
+      tokensIn: z
+        .number()
+        .optional()
+        .describe('Optional: total input tokens this work cycle consumed (any provider).'),
+      tokensOut: z
+        .number()
+        .optional()
+        .describe('Optional: total output tokens this work cycle produced (any provider).'),
     },
-    safeMcpCall('prjct_task_set_status', async (args: { projectPath: string; status: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
-      if (!outcome.ok) {
-        const text =
-          outcome.reason === 'unsupported'
-            ? outcome.message
-            : 'No active work cycle to update. Start one with prjct_task_start.'
-        return { content: [{ type: 'text', text }] }
+    safeMcpCall(
+      'prjct_task_set_status',
+      async (args: {
+        projectPath: string
+        status: string
+        tokensIn?: number
+        tokensOut?: number
+      }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
+        if (!outcome.ok) {
+          const text =
+            outcome.reason === 'unsupported'
+              ? outcome.message
+              : 'No active work cycle to update. Start one with prjct_task_start.'
+          return { content: [{ type: 'text', text }] }
+        }
+        // Agent-agnostic token attribution: any agent reports its own usage here
+        // (Claude also auto-records via the Stop hook transcript; both write the
+        // same column, last write wins with the authoritative total).
+        if (outcome.taskId && (args.tokensIn != null || args.tokensOut != null)) {
+          recordTaskTokenUsage(projectId, outcome.taskId, args.tokensIn ?? 0, args.tokensOut ?? 0)
+        }
+        const warnings = outcome.verificationWarnings ?? []
+        const text = [`✓ status → ${outcome.status} (task ${outcome.taskId})`]
+        if (warnings.length > 0) {
+          text.push('', 'Harness warnings:')
+          for (const warning of warnings) text.push(`- ${warning}`)
+        }
+        if (outcome.contextPrompt) text.push('', outcome.contextPrompt)
+        return {
+          content: [{ type: 'text', text: text.join('\n') }],
+        }
       }
-      const warnings = outcome.verificationWarnings ?? []
-      const text = [`✓ status → ${outcome.status} (task ${outcome.taskId})`]
-      if (warnings.length > 0) {
-        text.push('', 'Harness warnings:')
-        for (const warning of warnings) text.push(`- ${warning}`)
-      }
-      if (outcome.contextPrompt) text.push('', outcome.contextPrompt)
-      return {
-        content: [{ type: 'text', text: text.join('\n') }],
-      }
-    })
+    )
   )
 
   s.tool(

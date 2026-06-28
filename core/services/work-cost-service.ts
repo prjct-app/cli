@@ -83,6 +83,108 @@ export interface WorkCostSnapshot {
   gaps: string[]
 }
 
+export const TASK_TOKENS_EVENT = 'memory.task_tokens'
+
+/**
+ * Persist measured token usage for a work cycle. Agent-agnostic: any agent
+ * (Claude via the Stop-hook transcript, or Codex/Gemini/… via the
+ * `prjct_task_set_status` MCP tool / `prjct status --tokens-*` CLI) records the
+ * same way, so `tokenCoveragePercent` becomes real — the prerequisite for
+ * proving prjct's net token savings.
+ *
+ * Primary write is an EVENT (prjct's north star: inputs are events to process,
+ * not rows to dump), keyed by task so the snapshot can aggregate it even though
+ * the live work flow keeps state in state-storage, not the legacy `tasks`
+ * table. We also mirror onto `tasks` best-effort for migrated installs. SET
+ * semantics: the latest report is the authoritative cumulative total.
+ * Never throws.
+ */
+export function recordTaskTokenUsage(
+  projectId: string,
+  taskId: string,
+  tokensIn: number,
+  tokensOut: number,
+  meta?: { description?: string; agent?: string }
+): void {
+  if (!taskId || tokensIn + tokensOut <= 0) return
+  const ti = Math.round(tokensIn)
+  const to = Math.round(tokensOut)
+  try {
+    prjctDb.appendEvent(
+      projectId,
+      TASK_TOKENS_EVENT,
+      {
+        taskId,
+        tokensIn: ti,
+        tokensOut: to,
+        ...(meta?.description ? { description: meta.description } : {}),
+        ...(meta?.agent ? { agent: meta.agent } : {}),
+      },
+      taskId
+    )
+  } catch {
+    /* measurement must never block the caller */
+  }
+  try {
+    prjctDb.run(
+      projectId,
+      'UPDATE tasks SET tokens_in = ?, tokens_out = ? WHERE id = ?',
+      ti,
+      to,
+      taskId
+    )
+  } catch {
+    /* best-effort mirror — the event is the source of truth */
+  }
+}
+
+interface TokenEventRow {
+  task_id: string | null
+  data: string
+}
+
+/**
+ * Aggregate measured token usage from `memory.task_tokens` events in the
+ * window, one cycle per task (latest event wins — SET semantics). This is what
+ * makes measurement work for the live flow, where work cycles never land in the
+ * `tasks` table.
+ */
+function measuredCyclesFromEvents(projectId: string, since: string): Map<string, WorkCostTask> {
+  const rows = query<TokenEventRow>(
+    projectId,
+    `SELECT task_id, data
+     FROM events
+     WHERE type = ? AND timestamp >= ? AND json_valid(data)
+     ORDER BY id DESC`,
+    TASK_TOKENS_EVENT,
+    since
+  )
+  const byTask = new Map<string, WorkCostTask>()
+  for (const row of rows) {
+    let parsed: { taskId?: string; tokensIn?: number; tokensOut?: number; description?: string }
+    try {
+      parsed = JSON.parse(row.data)
+    } catch {
+      continue
+    }
+    const id = row.task_id ?? parsed.taskId
+    if (!id || byTask.has(id)) continue // first seen = latest (DESC) = authoritative
+    const tokensIn = nullableNumber(parsed.tokensIn ?? null) ?? 0
+    const tokensOut = nullableNumber(parsed.tokensOut ?? null) ?? 0
+    if (tokensIn + tokensOut <= 0) continue
+    byTask.set(id, {
+      id,
+      description: parsed.description ?? id,
+      status: 'measured',
+      tokensIn,
+      tokensOut,
+      tokensTotal: tokensIn + tokensOut,
+      minutes: null,
+    })
+  }
+  return byTask
+}
+
 export function buildWorkCostSnapshot(projectId: string, days: number): WorkCostSnapshot {
   const since = sinceIso(days)
   const now = new Date().toISOString()
@@ -94,10 +196,17 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
      ORDER BY COALESCE(completed_at, shipped_at, started_at) DESC`,
     since
   )
-  const measuredTasks = taskRows
-    .map(toCostTask)
-    .filter((task): task is WorkCostTask => task !== null)
-    .sort((a, b) => b.tokensTotal - a.tokensTotal)
+  // Merge two measurement sources, event wins (it's the authoritative latest
+  // SET and the only one the live flow actually populates): the legacy `tasks`
+  // table (migrated installs) and `memory.task_tokens` events (every agent).
+  const merged = new Map<string, WorkCostTask>()
+  for (const task of taskRows.map(toCostTask)) {
+    if (task) merged.set(task.id, task)
+  }
+  for (const [id, cycle] of measuredCyclesFromEvents(projectId, since)) {
+    merged.set(id, cycle)
+  }
+  const measuredTasks = [...merged.values()].sort((a, b) => b.tokensTotal - a.tokensTotal)
 
   const eventWorkStarts = eventCount(projectId, 'memory.task_started', since)
   const eventStatusChanges = eventCount(projectId, 'memory.status.changed', since)

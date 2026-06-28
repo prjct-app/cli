@@ -14,6 +14,7 @@ import { projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { readLastStatus, resolveActiveTask, setTaskStatus } from '../services/task-service'
+import { recordTaskTokenUsage } from '../services/work-cost-service'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -37,7 +38,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   async status(
     value: string | null = null,
     projectPath: string = process.cwd(),
-    options: MdOption = {}
+    options: MdOption & { tokensIn?: string; tokensOut?: string } = {}
   ): Promise<CommandResult> {
     try {
       const pid = await requireProject(projectPath)
@@ -58,6 +59,19 @@ export class PrimitiveCommands extends PrjctCommandsBase {
           const task = await requireActiveTask(pid.value, options, projectPath)
           if (!task.ok) return task.result
           return { success: false, error: 'No active work cycle' }
+        }
+        // Agent-agnostic token attribution: any CLI-driven agent (Codex,
+        // Gemini, …) can report this cycle's usage with `--tokens-in/--tokens-out`
+        // so prjct measures net savings without a Claude-style transcript.
+        const tokensIn = Number.parseInt(options.tokensIn ?? '', 10)
+        const tokensOut = Number.parseInt(options.tokensOut ?? '', 10)
+        if (outcome.taskId && (Number.isFinite(tokensIn) || Number.isFinite(tokensOut))) {
+          recordTaskTokenUsage(
+            pid.value,
+            outcome.taskId,
+            Number.isFinite(tokensIn) ? tokensIn : 0,
+            Number.isFinite(tokensOut) ? tokensOut : 0
+          )
         }
         const msg = `status → ${value}`
         if (options.md) console.log(`✓ ${msg}`)

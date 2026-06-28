@@ -195,7 +195,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'legacy',
     surface: 'legacy',
     routing: { group: 'primitives', method: 'status' },
-    optionSchema: {},
+    optionSchema: { strings: ['tokensIn', 'tokensOut'] },
     description: 'Compatibility lifecycle escape hatch; prefer `work` outcomes',
     usage: { claude: null, terminal: 'prjct status <value>' },
     params: '[value]',
