@@ -17,9 +17,16 @@ pre-commit:
       # bare `biome check .` reports "No files were processed" and exits 1,
       # blocking every commit. Explicit file args are force-checked regardless
       # of the ignore list, and only linting staged files is faster anyway.
+      #
+      # `--no-errors-on-unmatched`: when EVERY staged file is biome-ignored
+      # (e.g. a lone regenerated package-lock.json, or AGENTS.md), biome would
+      # otherwise exit 1 with "No files were processed" and block the commit —
+      # a false positive that was failing the release CI commit and ad-hoc
+      # docs-only commits. Real files are still fully linted; we only stop
+      # treating "nothing to lint" as an error.
       run: |
-        if command -v bun >/dev/null 2>&1; then bunx biome check {staged_files}
-        elif command -v npm >/dev/null 2>&1; then npx biome check {staged_files}
+        if command -v bun >/dev/null 2>&1; then bunx biome check --no-errors-on-unmatched {staged_files}
+        elif command -v npm >/dev/null 2>&1; then npx biome check --no-errors-on-unmatched {staged_files}
         else echo "Neither bun nor npm found in PATH" >&2; exit 1
         fi
       stage_fixed: true
