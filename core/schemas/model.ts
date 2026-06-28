@@ -148,6 +148,118 @@ export function resolveAgentModel(
   return { ...policy, preferred: policy.model, degraded: false }
 }
 
+// Provider-agnostic capability layer — the rig (model) is intercambiable.
+
+/**
+ * What a ROLE needs, independent of vendor. The Claude tiers above are one
+ * provider's expression of these classes; mapping roles to classes (not to
+ * Claude models) is what lets the same harness run on Gemini, Codex, or an
+ * open model without rewriting the per-role policy.
+ *   frontier → the best model (implementer writes code)
+ *   balanced → strong judgment, cheaper (reviewers)
+ *   fast     → routing/decomposition only (orchestrator)
+ */
+export type AgentCapabilityClass = 'frontier' | 'balanced' | 'fast'
+
+const ROLE_CAPABILITY_CLASS: Record<AgentRole, AgentCapabilityClass> = {
+  implementer: 'frontier',
+  orchestrator: 'fast',
+  'strategic-review': 'balanced',
+  'architecture-review': 'balanced',
+  'design-review': 'balanced',
+  'spec-review': 'balanced',
+  review: 'balanced',
+  security: 'balanced',
+  investigate: 'balanced',
+  reviewer: 'balanced',
+}
+
+export function capabilityClassForRole(role: AgentRole): AgentCapabilityClass {
+  return ROLE_CAPABILITY_CLASS[role] ?? 'balanced'
+}
+
+/**
+ * Per-provider model for each capability class, ordered best→fallback for
+ * graceful degradation WITHIN the provider. Multi-model IDEs (cursor/windsurf/
+ * antigravity) pick the model in-app, so they have no fixed map (model = null).
+ * Keep `claude` in lockstep with AGENT_MODEL_POLICY — a test asserts it.
+ */
+export const PROVIDER_CAPABILITY_MODELS: Record<
+  string,
+  Record<AgentCapabilityClass, readonly string[]>
+> = {
+  claude: {
+    frontier: ['opus', 'sonnet', 'haiku'],
+    balanced: ['sonnet', 'haiku', 'opus'],
+    fast: ['haiku', 'sonnet', 'opus'],
+  },
+  gemini: {
+    frontier: ['2.5-pro', '2.5-flash', '2.0-flash'],
+    balanced: ['2.5-flash', '2.0-flash', '2.5-pro'],
+    fast: ['2.0-flash', '2.5-flash', '2.5-pro'],
+  },
+}
+
+export interface ResolvedProviderModel {
+  provider: string
+  /** Concrete model id; null for multi-model rigs that select in-app. */
+  model: string | null
+  capability: AgentCapabilityClass
+  degraded: boolean
+}
+
+/**
+ * Resolve the concrete model a role should dispatch with on a given provider,
+ * degrading within that provider when the preferred model is unavailable. This
+ * is the sovereignty primitive: rent any brain, keep the same role policy.
+ */
+export function resolveProviderModel(
+  role: AgentRole,
+  provider: string,
+  available?: ReadonlySet<string>
+): ResolvedProviderModel {
+  const capability = capabilityClassForRole(role)
+  const chain = PROVIDER_CAPABILITY_MODELS[provider]?.[capability]
+  if (!chain || chain.length === 0) {
+    // Multi-model IDE or unknown provider — the rig selects the model itself.
+    return { provider, model: null, capability, degraded: false }
+  }
+  const preferred = chain[0]
+  if (!available || available.size === 0) {
+    return { provider, model: preferred, capability, degraded: false }
+  }
+  for (const m of chain) {
+    if (available.has(m)) return { provider, model: m, capability, degraded: m !== preferred }
+  }
+  return { provider, model: preferred, capability, degraded: false }
+}
+
+/**
+ * Provider-aware dispatch directive: emit the concrete model for `role` on
+ * `provider`, or — for a multi-model rig — name the capability and let the rig
+ * pick. The same role policy renders correctly whatever brain is rented.
+ */
+export function renderModelDirectiveForProvider(
+  role: AgentRole,
+  provider: string,
+  available?: ReadonlySet<string>
+): string {
+  const r = resolveProviderModel(role, provider, available)
+  if (r.model === null) {
+    const want =
+      r.capability === 'frontier'
+        ? 'your strongest model'
+        : r.capability === 'fast'
+          ? 'a fast, cheap model'
+          : 'a balanced mid-tier model'
+    return `Dispatch this ${role} as a ${r.capability}-class task — select ${want} on this rig (${provider}).`
+  }
+  const degraded = r.degraded
+    ? ` (preferred ${r.capability} model unavailable — degraded to "${r.model}")`
+    : ''
+  return `Dispatch this ${role} on ${provider} with model "${r.model}" — a ${r.capability}-class task${degraded}.`
+}
+
 /**
  * One-line directive to inline into a subagent dispatch prompt so the
  * orchestrator passes the right `model:` to the Agent tool and the subagent
