@@ -15,52 +15,68 @@ afterEach(async () => {
 })
 
 describe('writeProjectAgentSurfaces', () => {
-  it('always writes AGENTS.md as the universal agent surface', async () => {
+  // Clean-repo sovereignty doctrine: automatic flows (sync/install/setup/work)
+  // call this WITHOUT `explicit` and must write nothing into the repo. The sole
+  // repo footprint is .prjct/. Only `prjct agents` opts in via `explicit: true`.
+  it('writes nothing into the repo unless explicitly asked', async () => {
     const result = await writeProjectAgentSurfaces(dir)
+
+    expect(result.agentsMd.action).toBe('unchanged')
+    expect(result.claudeMd).toBeUndefined()
+    expect(result.ideRules).toEqual([])
+    const entries = await fs.readdir(dir)
+    expect(entries).toEqual([])
+  })
+
+  it('is still a no-op even when agents are selected but not explicit', async () => {
+    const result = await writeProjectAgentSurfaces(dir, { agents: ['cursor', 'windsurf'] })
+
+    expect(result.ideRules).toEqual([])
+    expect(await fs.readdir(dir)).toEqual([])
+  })
+
+  it('writes AGENTS.md as a minimal pointer on explicit opt-in', async () => {
+    const result = await writeProjectAgentSurfaces(dir, { explicit: true })
 
     expect(result.agentsMd.action).toBe('created')
     const agents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8')
-    expect(agents).toContain('single normal entrypoint')
-    expect(agents).toContain('persisted intent brief')
-    expect(agents).toContain('related context')
-    expect(agents).toContain('RAG-backed project memory harness')
-    expect(agents).toContain('Do not preload project history')
-    expect(agents).toContain('Pull more context on demand')
-    expect(agents).toContain('not something to load wholesale')
-    expect(agents).toContain('raw quotes')
-    expect(agents).toContain('transcript chunks')
-    expect(agents).toContain('prjct_*')
+    expect(agents).toContain('prjct work --md')
+    expect(agents).toContain('This file holds no rules')
+    // No inlined ruleset / RAG protocol in a client-repo surface.
+    expect(agents).not.toContain('RAG-backed project memory harness')
+    expect(agents).not.toContain('intent brief')
   })
 
-  it('keeps the Claude project surface when Claude is selected', async () => {
-    const result = await writeProjectAgentSurfaces(dir, { agents: ['claude'] })
+  it('keeps the Claude project surface when Claude is selected (explicit)', async () => {
+    const result = await writeProjectAgentSurfaces(dir, { explicit: true, agents: ['claude'] })
 
     expect(result.claudeMd?.action).toBe('created')
     const claude = await fs.readFile(path.join(dir, 'CLAUDE.md'), 'utf-8')
-    expect(claude).toContain('prjct usage')
-    expect(claude).toContain('prjct work')
-    expect(claude).toContain('RAG-backed project memory harness')
-    expect(claude).toContain('Do not preload project history')
-    expect(claude).toContain('Pull more context on demand')
-    expect(claude).toContain('not something to load wholesale')
+    expect(claude).toContain('## prjct')
+    expect(claude).toContain('prjct work --md')
+    expect(claude).not.toContain('RAG-backed project memory harness')
   })
 
-  it('writes known project rule adapters when selected', async () => {
-    const result = await writeProjectAgentSurfaces(dir, { agents: ['cursor', 'windsurf'] })
+  it('writes known project rule adapters as minimal pointers when selected (explicit)', async () => {
+    const result = await writeProjectAgentSurfaces(dir, {
+      explicit: true,
+      agents: ['cursor', 'windsurf'],
+    })
 
     expect(result.ideRules).toEqual(['.cursor/rules/prjct.mdc', '.windsurf/rules/prjct.md'])
     const cursor = await fs.readFile(path.join(dir, '.cursor', 'rules', 'prjct.mdc'), 'utf-8')
     const windsurf = await fs.readFile(path.join(dir, '.windsurf', 'rules', 'prjct.md'), 'utf-8')
     for (const body of [cursor, windsurf]) {
-      expect(body).toContain('RAG-backed project memory harness')
-      expect(body).toContain('do not preload project history')
-      expect(body).toContain('Pull only relevant context')
-      expect(body).toContain('not something to load wholesale')
+      expect(body).toContain('prjct work --md')
+      expect(body).toContain('This file holds no rules')
+      expect(body).not.toContain('RAG-backed project memory harness')
+      expect(body).not.toContain('Pull only relevant context')
     }
   })
 
-  it('does not invent project files for runtimes covered by AGENTS.md only', async () => {
+  it('does not invent project files for runtimes covered by AGENTS.md only (explicit)', async () => {
     const result = await writeProjectAgentSurfaces(dir, {
+      explicit: true,
       agents: ['opencode', 'qwen-code', 'cline'],
     })
 

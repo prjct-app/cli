@@ -63,7 +63,9 @@ async function repairAgentSurfaces(
 ): Promise<CommandResult | AgentRepairResult> {
   const guard = await requireProject(projectPath, options)
   if (!guard.ok) return guard.result
-  const result = await writeProjectAgentSurfaces(projectPath)
+  // The explicit opt-in path: `prjct agents` is the only way prjct writes a
+  // pointer into the repo (clean-repo doctrine). All automatic flows no-op.
+  const result = await writeProjectAgentSurfaces(projectPath, { explicit: true })
   return {
     success: true,
     agentsMd: result.agentsMd.action,

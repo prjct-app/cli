@@ -14,6 +14,21 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 export const ROUTING_START_MARKER = '<!-- prjct:routing - do not edit between markers -->'
 export const ROUTING_END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
 
+/**
+ * The ONLY content prjct ever writes into a client repo's instruction
+ * surfaces (AGENTS.md / CLAUDE.md), and only when the user explicitly runs
+ * `prjct agents`. Clean-repo sovereignty doctrine: a project repo's sole
+ * prjct footprint is `.prjct/`; every rule and all project knowledge live in
+ * the GLOBAL agent config + prjct's SQLite and are pulled on demand. This
+ * block is a pointer, never a ruleset. Keep it minimal — never reintroduce
+ * inline rules, RAG protocol, or verb maps here; those belong in prjct.
+ */
+export const MINIMAL_ROUTING_BODY = `## prjct
+This project uses prjct for memory + workflow.
+Recognize intent and run the verb yourself.
+This file holds no rules — pull on demand,
+start with \`prjct work --md\`.`
+
 export interface RoutingWriteResult {
   action: 'created' | 'updated' | 'unchanged'
   path: string

@@ -38,12 +38,11 @@ describe('writeProjectClaudeMd', () => {
     const body = await readClaudeMd()
     expect(body).toContain(_routing.START_MARKER)
     expect(body).toContain(_routing.END_MARKER)
-    expect(body).toContain('## prjct usage')
-    expect(body).toContain('Do not ask the\nuser to run prjct commands')
-    expect(body).toContain('RAG-backed project memory harness')
-    expect(body).toContain('Do not preload project history')
-    expect(body).toContain('Pull more context on demand')
-    expect(body).toContain('not something to load wholesale')
+    expect(body).toContain('## prjct')
+    expect(body).toContain('prjct work --md')
+    expect(body).toContain('This file holds no rules')
+    // Clean-repo doctrine: a pointer, never an inlined ruleset.
+    expect(body).not.toContain('RAG-backed project memory harness')
   })
 
   it('appends the block to an existing CLAUDE.md without markers', async () => {
@@ -80,7 +79,8 @@ trailing notes here
     // Old stale content is gone.
     expect(body).not.toContain('old stale routing instructions')
     // New block is in place.
-    expect(body).toContain('Do not ask the\nuser to run prjct commands')
+    expect(body).toContain('## prjct')
+    expect(body).toContain('prjct work --md')
   })
 
   it('is idempotent — second run on a current file reports unchanged', async () => {

@@ -35,12 +35,11 @@ describe('writeProjectAgentsMd', () => {
     const body = await readAgentsMd()
     expect(body).toContain(_routing.START_MARKER)
     expect(body).toContain(_routing.END_MARKER)
-    expect(body).toContain('## prjct — project memory & workflow')
-    expect(body).toContain('prjct work')
-    expect(body).toContain('RAG-backed project memory harness')
-    expect(body).toContain('Do not preload project history')
-    expect(body).toContain('Pull more context on demand')
-    expect(body).toContain('not something to load wholesale')
+    expect(body).toContain('## prjct')
+    expect(body).toContain('prjct work --md')
+    expect(body).toContain('This file holds no rules')
+    // Clean-repo doctrine: a pointer, never an inlined ruleset.
+    expect(body).not.toContain('RAG-backed project memory harness')
   })
 
   it('appends the block to an existing AGENTS.md without markers', async () => {
@@ -68,7 +67,7 @@ describe('writeProjectAgentsMd', () => {
     expect(body).not.toContain('OLD CONTENT')
     expect(body).toContain('# Mine')
     expect(body).toContain('Trailing notes.')
-    expect(body).toContain('## prjct — project memory & workflow')
+    expect(body).toContain('## prjct')
   })
 
   it('is idempotent — re-run reports unchanged', async () => {
@@ -86,13 +85,14 @@ describe('writeProjectAgentsMd', () => {
     expect(body).not.toContain('Claude Code')
   })
 
-  it('documents work as the single AI Agile orchestration entrypoint', async () => {
+  it('is a minimal pointer — names the pull entrypoint, carries no ruleset', async () => {
     await writeProjectAgentsMd(dir)
     const body = await readAgentsMd()
-    expect(body).toContain('single normal entrypoint')
-    expect(body).toContain('Trivial work proceeds directly')
-    expect(body).toContain('Substantive implementation work follows a persisted intent brief')
-    expect(body).toContain('strict')
-    expect(body).toContain('fixed templates')
+    expect(body).toContain('prjct work --md')
+    expect(body).toContain('This file holds no rules')
+    // None of the old inlined rules survive in the repo surface.
+    expect(body).not.toContain('intent brief')
+    expect(body).not.toContain('prjct guard')
+    expect(body).not.toContain('prjct remember')
   })
 })
