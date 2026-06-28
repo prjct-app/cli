@@ -150,6 +150,29 @@ describe('BM25', () => {
       expect(Object.keys(index.documents)).toContain('button.tsx')
     })
 
+    it('builds without crashing on prototype-colliding tokens (constructor/__proto__/toString)', async () => {
+      // Regression: the inverted index was a plain `{}`, so a token equal to an
+      // Object.prototype member made `!index[token]` truthy, skipped the `= []`
+      // init, and threw on `.push` — aborting the WHOLE build (silently, via
+      // sync's non-critical catch) and leaving file cues dark.
+      await fs.writeFile(
+        path.join(testDir, 'proto.ts'),
+        `// constructor prototype hasOwnProperty valueOf toString __proto__ tokens here
+         export class Thing {
+           constructor() {}
+           hasOwnProperty() {}
+           toString() {}
+           valueOf() {}
+         }`
+      )
+      let index!: Awaited<ReturnType<typeof buildIndex>>
+      expect(() => buildIndex(testDir).then((i) => (index = i))).not.toThrow()
+      index = await buildIndex(testDir)
+      expect(index.totalDocs).toBe(1)
+      // The colliding tokens are real, queryable index entries — not lost.
+      expect(score('constructor prototype', index).length).toBeGreaterThan(0)
+    })
+
     it('should rank auth files higher for auth query', async () => {
       await fs.writeFile(
         path.join(testDir, 'auth.ts'),

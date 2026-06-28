@@ -93,6 +93,37 @@ describe('enrichedRecall', () => {
     expect(got[0].tags.domain).toBe('auth')
   })
 
+  it('does not pad a healthy FTS result set with off-topic recency (P3 selectivity)', async () => {
+    write('decision', 'token efficiency: compact the work surface')
+    write('decision', 'token budget for the pull verbs')
+    // Off-topic but MORE RECENT — the recency backfill would have dragged
+    // these in to fill the limit before the selectivity fix.
+    write('gotcha', 'daemon caches stale code')
+    write('decision', 'cloud sync uses three tiers')
+    write('learning', 'biome handles formatting')
+    const got = await enrichedRecall(projectPath, projectId, {
+      topic: 'token efficiency',
+      limit: 10,
+      expandLinks: false,
+    })
+    const contents = got.map((e) => e.content)
+    expect(contents).toContain('token efficiency: compact the work surface')
+    expect(contents).not.toContain('cloud sync uses three tiers')
+    expect(contents.every((c) => c.toLowerCase().includes('token'))).toBe(true)
+  })
+
+  it('still backfills via substring recall when FTS tokenization misses (zero-FTS fallback)', async () => {
+    // 'factor' is a substring of 'refactoring' but not a separate FTS token,
+    // so the FTS leg returns nothing and the backfill must still rescue it.
+    write('decision', 'refactoring the recall pipeline')
+    const got = await enrichedRecall(projectPath, projectId, {
+      topic: 'factor',
+      limit: 10,
+      expandLinks: false,
+    })
+    expect(got.length).toBeGreaterThanOrEqual(1)
+  })
+
   it('expandLinks:false returns only the direct matches', async () => {
     write('decision', 'standalone decision with no relations')
     const got = await enrichedRecall(projectPath, projectId, {

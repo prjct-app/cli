@@ -638,4 +638,20 @@ describe('projectMemory.recallForFile — anticipation (pre-edit)', () => {
     }
     expect(projectMemory.recallForFile(projectId, 'core/hot.ts', 2).length).toBe(2)
   })
+
+  it('includes file-history context by default but excludes it with preventiveOnly', async () => {
+    await writeMemoryEntry({
+      type: 'context',
+      content: 'file changed during the auth refactor',
+      tags: { files: 'core/authz.ts' },
+    })
+    // Default (pull `prjct guard`): history surfaces.
+    const withHistory = projectMemory.recallForFile(projectId, 'core/authz.ts')
+    expect(withHistory.some((e) => e.type === 'context')).toBe(true)
+    // preventiveOnly (pre-edit push): traps only, no history.
+    const trapsOnly = projectMemory.recallForFile(projectId, 'core/authz.ts', 3, {
+      preventiveOnly: true,
+    })
+    expect(trapsOnly).toEqual([])
+  })
 })

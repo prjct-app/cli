@@ -239,11 +239,24 @@ export function tokenizeQuery(query: string): string[] {
  *
  * Performance target: <5 seconds for 500-file project.
  */
+/**
+ * Null-prototype map for the inverted index. The index is keyed by raw source
+ * TOKENS, and tokens like `constructor`, `toString`, `hasOwnProperty`, or
+ * `__proto__` collide with `Object.prototype` on a plain `{}`: `!index[token]`
+ * reads the inherited method as truthy, the `= []` init is skipped, and the
+ * subsequent `.push` throws — aborting the WHOLE BM25 build. sync swallows it
+ * as "non-critical", so the file index silently never builds and the anti-
+ * grep-walk file cues go dark. A prototype-less object can't collide.
+ */
+function emptyInvertedIndex(): BM25Index['invertedIndex'] {
+  return Object.create(null) as BM25Index['invertedIndex']
+}
+
 export async function buildIndex(projectPath: string): Promise<BM25Index> {
   const files = await walkDir(projectPath)
 
   const documents: BM25Index['documents'] = {}
-  const invertedIndex: BM25Index['invertedIndex'] = {}
+  const invertedIndex: BM25Index['invertedIndex'] = emptyInvertedIndex()
   let totalLength = 0
 
   // Process files in parallel batches of 50
@@ -492,7 +505,7 @@ function loadIndexFromPerFileTables(
       if (stored?.totalDocs === 0) {
         const index: BM25Index = {
           documents: {},
-          invertedIndex: {},
+          invertedIndex: emptyInvertedIndex(),
           avgDocLength: 0,
           totalDocs: 0,
           builtAt: stored.builtAt,
@@ -504,7 +517,7 @@ function loadIndexFromPerFileTables(
     }
 
     const documents: BM25Index['documents'] = {}
-    const invertedIndex: BM25Index['invertedIndex'] = {}
+    const invertedIndex: BM25Index['invertedIndex'] = emptyInvertedIndex()
     let totalLength = 0
     for (const doc of docs) {
       const tokens = JSON.parse(doc.tokens) as string[]
@@ -567,7 +580,10 @@ export function loadIndex(projectId: string): BM25Index | null {
 
   const index: BM25Index = {
     documents,
-    invertedIndex: stored.invertedIndex,
+    // Normalize the JSON-loaded map: JSON.parse restores Object.prototype, so a
+    // `constructor`/`__proto__` token query would collide again. Rehome onto a
+    // prototype-less object.
+    invertedIndex: Object.assign(emptyInvertedIndex(), stored.invertedIndex),
     avgDocLength: stored.avgDocLength,
     totalDocs: stored.totalDocs,
     builtAt: stored.builtAt,

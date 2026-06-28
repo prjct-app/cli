@@ -41,7 +41,12 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
 
   let hits: MemoryEntry[]
   try {
-    hits = projectMemory.recallForFile(config.projectId, filePath, MAX_ENTRIES)
+    // preventiveOnly: this push fires on EVERY edit, so it carries only traps
+    // (gotchas / anti-patterns / recurring-bugs). File history ("what happened
+    // here") is noise at edit time and stays one pull away via `prjct guard`.
+    hits = projectMemory.recallForFile(config.projectId, filePath, MAX_ENTRIES, {
+      preventiveOnly: true,
+    })
   } catch {
     return null
   }

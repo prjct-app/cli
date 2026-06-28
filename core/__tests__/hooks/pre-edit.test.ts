@@ -101,4 +101,14 @@ describe('pre-edit hook', () => {
     const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
     expect(out.trim()).toBe('{}')
   })
+
+  test('does NOT surface file history (context entries) — push carries only traps', async () => {
+    await projectMemory.remember(projectPath, {
+      type: 'context',
+      content: 'this file was refactored during the token-efficiency work cycle',
+      tags: { files: 'core/state.ts' },
+    })
+    const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
+    expect(out.trim()).toBe('{}')
+  })
 })
