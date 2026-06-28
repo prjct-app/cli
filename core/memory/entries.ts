@@ -10,6 +10,19 @@
 import { REMEMBER_EVENT_PREFIX } from './events'
 
 /**
+ * Sovereign knowledge-base facets — the model-agnostic project knowledge
+ * (identity, voice, glossary, frameworks) any LLM brain reads on demand.
+ * Authored in SQLite via `prjct remember <facet> "..."`, recalled via
+ * `prjct context memory <facet>` / search, and projected to the vault as
+ * first-class per-entry notes + a cohesive `knowledge.md` index. This is the
+ * "knowledge base" pillar of the harness: rules/knowledge live in prjct, never
+ * injected into client-repo surfaces (clean-repo doctrine). Single source of
+ * truth — the vault projection (memory-builder `PER_ENTRY_TYPES`) imports this
+ * list so capture and projection can never drift.
+ */
+export const KB_MEMORY_TYPES = ['identity', 'voice', 'glossary', 'framework'] as const
+
+/**
  * Base memory types. Additional types come from `packs/*` manifests;
  * user-invented types persist as freeform strings (`MemoryType = string`).
  */
@@ -22,6 +35,8 @@ export const BASE_MEMORY_TYPES = [
   'pattern',
   'anti-pattern',
   'shipped',
+  // Sovereign knowledge base — see KB_MEMORY_TYPES.
+  ...KB_MEMORY_TYPES,
   // The history of contexts: one rich, git-linked entry per task — what
   // happened, why (the sentiment), the decision, the trap, the outcome. The
   // recoverable unit of the project's "second brain" RAG. Embedded by default
