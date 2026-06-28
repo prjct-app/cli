@@ -15,6 +15,7 @@
  *   - md-helpers.ts    — buildFlowDiagram for `--md` output
  */
 
+import { safeTruncate } from '../hooks/_shared'
 import { formatLikelyFileForAgent } from '../services/file-cue'
 import { collectActiveTasks } from '../services/task-overview'
 import { formatRelatedContextForAgent, startTask } from '../services/task-service'
@@ -93,61 +94,70 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const beforeInstructions = outcome.instructions ?? []
       const pipeline = outcome.pipeline
       const harness = outcome.harness
-      const related = outcome.relatedContext ?? []
+      // Cap the passive surface: 3–4 reranked hits are enough as a "has this
+      // come up before?" cue. The agent pulls full bodies on demand via
+      // `prjct search <id>` / `prjct context memory`. Keeps work --md lean.
+      const related = (outcome.relatedContext ?? []).slice(0, 4)
       const relatedLines = related.map(formatRelatedContextForAgent)
       const likelyFiles = outcome.likelyFiles ?? []
       const likelyFileLines = likelyFiles.map(formatLikelyFileForAgent)
 
       if (options.md) {
-        console.log(
-          mdOutput(
-            mdTaskHeader({ description: taskDescription, status: 'active' }),
-            mdSection(
-              'State',
-              mdList(
-                [
-                  `Work cycle: \`${taskId}\``,
-                  branch ? `Branch: \`${branch}\`` : null,
-                  linearId ? `Linear: \`${linearId}\`` : null,
-                  harness ? `Harness: ${harness.level} ${harness.kind}/${harness.risk}` : null,
-                  harness?.expectedEvidence.length
-                    ? `Evidence: ${harness.expectedEvidence.join(', ')}`
-                    : null,
-                  beforeInstructions.length > 0
-                    ? `Agent instructions: ${beforeInstructions.length}`
-                    : null,
-                ].filter((s): s is string => s !== null)
+        const md = mdOutput(
+          mdTaskHeader({ description: taskDescription, status: 'active' }),
+          mdSection(
+            'State',
+            mdList(
+              [
+                `Work cycle: \`${taskId}\``,
+                branch ? `Branch: \`${branch}\`` : null,
+                linearId ? `Linear: \`${linearId}\`` : null,
+                harness ? `Harness: ${harness.level} ${harness.kind}/${harness.risk}` : null,
+                harness?.expectedEvidence.length
+                  ? `Evidence: ${harness.expectedEvidence.join(', ')}`
+                  : null,
+                beforeInstructions.length > 0
+                  ? `Agent instructions: ${beforeInstructions.length}`
+                  : null,
+              ].filter((s): s is string => s !== null)
+            )
+          ),
+          pipeline
+            ? mdSection(
+                'Task Pipeline',
+                mdList([
+                  `Classification: \`${pipeline.classification}\``,
+                  `Station: \`${pipeline.station}\``,
+                  `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
+                  `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
+                  `Next action: ${pipeline.nextAction}`,
+                ])
               )
-            ),
-            pipeline
-              ? mdSection(
-                  'Task Pipeline',
-                  mdList([
-                    `Classification: \`${pipeline.classification}\``,
-                    `Station: \`${pipeline.station}\``,
-                    `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
-                    `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
-                    `Next action: ${pipeline.nextAction}`,
-                  ])
-                )
-              : null,
-            beforeInstructions.length > 0
-              ? mdSection('Agent Instructions', mdList(beforeInstructions))
-              : null,
-            relatedLines.length > 0
-              ? mdSection('Related context — has this come up before?', mdList(relatedLines))
-              : null,
-            likelyFileLines.length > 0
-              ? mdSection('Likely files — from prjct index', mdList(likelyFileLines))
-              : null,
-            mdNextSteps([
-              { label: 'Pull project memory', command: 'prjct context memory <topic>' },
-              { label: 'Synthesize context', command: 'prjct remember context "..."' },
-              { label: 'Measure performance', command: 'prjct performance --md' },
-              { label: 'Ship when done', command: 'prjct ship --md' },
-            ])
-          )
+            : null,
+          beforeInstructions.length > 0
+            ? mdSection('Agent Instructions', mdList(beforeInstructions))
+            : null,
+          relatedLines.length > 0
+            ? mdSection('Related context — has this come up before?', mdList(relatedLines))
+            : null,
+          likelyFileLines.length > 0
+            ? mdSection(
+                'Likely files — from prjct index',
+                [
+                  '> Read these first. Pull more with `prjct search`/`prjct context memory` before grep-walking the repo.',
+                  mdList(likelyFileLines),
+                ].join('\n')
+              )
+            : null,
+          mdNextSteps([
+            { label: 'Synthesize context on close', command: 'prjct remember context "..."' },
+            { label: 'Ship when done', command: 'prjct ship --md' },
+          ])
         )
+        // Hard budget on the passive surface — no single work start should blow
+        // up the agent's context. Per-entry caps already bound the parts; this
+        // is the belt-and-suspenders ceiling.
+        console.log(safeTruncate(md, 2000))
       } else {
         out.done(`Work: ${taskDescription}`)
         if (harness) {

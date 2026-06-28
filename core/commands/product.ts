@@ -803,6 +803,38 @@ function formatPerformanceText(days: number, cycles: PerformanceCycle[]): string
   return `AI work performance (${days}d): ${cycles.length} cycle(s), ${knownTime.length} with duration, ${minutes} known minute(s).`
 }
 
+/**
+ * Net-savings view: measured tokens/cycle now vs. the declared historical
+ * baseline (e.g. a captured "90k tokens" mention from before this optimization).
+ * This is the line that answers prjct's north star — "does using prjct cost
+ * fewer tokens than not?" Renders an honest "insufficient data" note until both
+ * sides have signal, rather than a fake number.
+ */
+function formatNetSavingsMd(snapshot: WorkCostSnapshot): string[] {
+  const lines = ['## Net Savings vs. Baseline', '']
+  const avgMeasured =
+    snapshot.knownTokenCycles > 0 ? snapshot.tokensTotal / snapshot.knownTokenCycles : null
+  const mentions = snapshot.historicalRescue.declaredTokenMentions
+  const avgDeclared = mentions > 0 ? snapshot.historicalRescue.declaredTokensTotal / mentions : null
+
+  if (avgMeasured === null || avgDeclared === null || avgDeclared === 0) {
+    lines.push(
+      '- Insufficient data yet: need at least one token-measured cycle and one declared baseline mention.',
+      ''
+    )
+    return lines
+  }
+
+  const deltaPct = Math.round(((avgDeclared - avgMeasured) / avgDeclared) * 100)
+  const verdict = deltaPct > 0 ? `${deltaPct}% fewer` : `${Math.abs(deltaPct)}% more`
+  lines.push('| Metric | Value |', '|---|---:|')
+  lines.push(`| Avg measured tokens/cycle | ${Math.round(avgMeasured).toLocaleString()} |`)
+  lines.push(`| Avg declared baseline tokens | ${Math.round(avgDeclared).toLocaleString()} |`)
+  lines.push(`| Net | **${verdict} tokens/cycle** |`)
+  lines.push('')
+  return lines
+}
+
 function formatCostMd(snapshot: WorkCostSnapshot): string {
   const lines = ['# AI Work Cost', '', `Window: last ${snapshot.windowDays} day(s)`, '']
   lines.push('## Subscription Burn', '', '| Metric | Value |', '|---|---:|')
@@ -814,6 +846,7 @@ function formatCostMd(snapshot: WorkCostSnapshot): string {
   lines.push(`| Total tokens | ${snapshot.tokensTotal.toLocaleString()} |`)
   lines.push(`| Agent sessions | ${snapshot.measuredSessions} |`)
   lines.push('')
+  lines.push(...formatNetSavingsMd(snapshot))
   lines.push('## Historical Rescue', '', '| Signal | Value |', '|---|---:|')
   lines.push(`| Inferred work cycles | ${snapshot.historicalRescue.inferredWorkCycles} |`)
   lines.push(`| Normalized task rows | ${snapshot.historicalRescue.taskTableCycles} |`)

@@ -25,11 +25,16 @@ import { detectAndPersistLeanDebt } from '../services/lean-detector'
 import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
 import { detectSkillMisses } from '../services/skill-miss-detector'
-import { parseTranscriptJsonl, type TranscriptJsonlLine } from '../services/transcript-jsonl'
+import {
+  parseTranscriptJsonl,
+  sumTranscriptUsage,
+  type TranscriptJsonlLine,
+} from '../services/transcript-jsonl'
 import { ingestTranscript } from '../services/transcript-learner'
 import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
+import { recordTaskTokenUsage } from '../services/work-cost-service'
 import { type HookIo, runHook } from './_runner'
 
 interface HookInput {
@@ -53,6 +58,28 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         if (input.transcript_path) {
           const raw = await fs.readFile(input.transcript_path, 'utf-8').catch(() => null)
           if (raw !== null) transcriptLines = parseTranscriptJsonl(raw)
+        }
+
+        // Measure the work cycle's token cost: sum the transcript usage and
+        // write it onto the active task. Closes the work-cost coverage gap so
+        // `prjct performance` can prove prjct's net token savings. Best-effort.
+        if (transcriptLines && transcriptLines.length > 0) {
+          try {
+            const usage = sumTranscriptUsage(transcriptLines)
+            if (usage.tokensIn + usage.tokensOut > 0) {
+              const { collectActiveTasks } = await import('../services/task-overview')
+              const overview = await collectActiveTasks(config.projectId, p)
+              const taskId = overview.current?.id
+              if (taskId) {
+                recordTaskTokenUsage(config.projectId, taskId, usage.tokensIn, usage.tokensOut, {
+                  description: overview.current?.description,
+                  agent: 'claude',
+                })
+              }
+            }
+          } catch {
+            /* measurement must never block session end */
+          }
         }
 
         // Captured notes → memory entries (existing behavior).

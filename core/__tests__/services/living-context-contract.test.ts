@@ -82,7 +82,7 @@ describe('living context contract', () => {
     expect(tags.feature).toBe('memory')
   })
 
-  it('formats retrieved context with UI key data and synthesized detail', () => {
+  it('formats retrieved context as a compact, self-sufficient one-liner', () => {
     const line = formatRelatedContextForAgent({
       id: 'mem_1',
       type: 'context',
@@ -92,7 +92,29 @@ describe('living context contract', () => {
       when: '2026-06-26T00:00:00Z',
     } satisfies RelatedContextHit)
 
-    expect(line).toContain('Key data: feature=memory; surface=dashboard')
-    expect(line).toContain('Detail: Durable synthesis for the next LLM.')
+    // Compact surface: head (type, title, date, id) + the single most salient
+    // field. Full body stays one `prjct search <id>` away — no verbose
+    // "Key data:"/"Detail:" prefixes that bloated the passive work surface.
+    expect(line).toContain('[context] Living context')
+    expect(line).toContain('`mem_1`')
+    expect(line).toContain('feature=memory; surface=dashboard')
+    expect(line).not.toContain('Key data:')
+    expect(line).not.toContain('Detail:')
+  })
+
+  it('prioritizes a trap/decision over generic fields in the compact line', () => {
+    const line = formatRelatedContextForAgent({
+      id: 'mem_2',
+      type: 'gotcha',
+      title: 'Worktree ship trap',
+      detail: 'long body about worktree ship behavior',
+      when: '2026-06-26T00:00:00Z',
+      why: 'generic reason',
+      decisionTrap: 'ship inside a worktree double-bumps the version',
+      keyData: 'k=v',
+    } satisfies RelatedContextHit)
+
+    expect(line).toContain('ship inside a worktree double-bumps the version')
+    expect(line).not.toContain('generic reason')
   })
 })
