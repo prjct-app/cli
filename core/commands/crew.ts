@@ -13,6 +13,7 @@ import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { type AgentRole, getAgentModelPolicy } from '../schemas/model'
 import { checkpointsStorage } from '../storage/checkpoints-storage'
 import crewRunStorage from '../storage/crew-run-storage'
 import type { MdOption } from '../types/cli'
@@ -68,6 +69,26 @@ const AGENT_FILES: CrewFile[] = [
   { templateKey: 'crew/agents/implementer.md', destRelative: '.claude/agents/implementer.md' },
   { templateKey: 'crew/agents/reviewer.md', destRelative: '.claude/agents/reviewer.md' },
 ]
+
+/** Crew agent → AgentRole, so the model is one source of truth. */
+const CREW_AGENT_ROLES: Record<string, AgentRole> = {
+  '.claude/agents/leader.md': 'orchestrator',
+  '.claude/agents/implementer.md': 'implementer',
+  '.claude/agents/reviewer.md': 'reviewer',
+}
+
+/**
+ * Stamp each crew agent's `model:` frontmatter from AGENT_MODEL_POLICY at
+ * install time, so the per-role model lives in ONE place (the policy SSOT) and
+ * the static templates can never drift from it. No-op for files not mapped to a
+ * role, or templates without a `model:` line.
+ */
+export function applyCrewModelPolicy(content: string, destRelative: string): string {
+  const role = CREW_AGENT_ROLES[destRelative]
+  if (!role) return content
+  const { model } = getAgentModelPolicy(role)
+  return content.replace(/^model:[ \t].*$/m, `model: ${model}`)
+}
 
 const CHECKPOINTS_FILE: CrewFile = {
   templateKey: 'crew/CHECKPOINTS.md',
@@ -220,6 +241,7 @@ export class CrewCommands extends PrjctCommandsBase {
         if (f.destRelative === '.claude/agents/reviewer.md') {
           content = spliceCheckpoints(content, checkpointsRow.content)
         }
+        content = applyCrewModelPolicy(content, f.destRelative)
         const exists = await fileExists(dest)
         await writeFileEnsureDir(dest, content)
         if (exists) skipped.push(`${f.destRelative} (overwritten)`)
