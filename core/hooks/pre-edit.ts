@@ -23,7 +23,9 @@ import configManager from '../infrastructure/config-manager'
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { loopGuardVerdict } from '../services/loop-guard'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
+import { stateStorage } from '../storage/state-storage'
 import { type HookIo, runHook } from './_runner'
 import { safeTruncate } from './_shared'
 
@@ -76,11 +78,31 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
   return safeTruncate(lines.join('\n'), MAX_CHARS)
 }
 
+/**
+ * Hard loop guard: when the active cycle has run past `config.maxTurnsPerCycle`
+ * without `prjct work --extend`, DENY the edit. Rig-agnostic — any host that
+ * honors a PreToolUse deny blocks here; others ignore it and get the forceful
+ * per-turn injection instead. Best-effort: any error ⇒ no deny (never blocks on
+ * a bug). Returns null when the guard is unset/under budget/acknowledged.
+ */
+async function decideHardStop(projectPath: string): Promise<{ deny: string } | null> {
+  try {
+    const config = await configManager.readConfig(projectPath)
+    if (!config?.projectId || !config.maxTurnsPerCycle) return null
+    const task = await stateStorage.getCurrentTask(config.projectId)
+    const verdict = loopGuardVerdict(config, task)
+    return verdict.stopped ? { deny: verdict.message } : null
+  } catch {
+    return null
+  }
+}
+
 export function runPreEditHook(projectPath: string = process.cwd(), io?: HookIo): Promise<void> {
   return runHook<HookInput>(
     {
       event: 'PreToolUse',
       projectPath,
+      decide: (_input, p) => decideHardStop(p),
       build: async (input, p) => {
         const filePath = input.tool_input?.file_path?.trim()
         if (!filePath) return null

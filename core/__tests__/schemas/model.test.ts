@@ -31,6 +31,7 @@ import {
   type ModelMetadata,
   meetsMinVersion,
   renderModelDirective,
+  renderModelDirectiveForProvider,
 } from '../../schemas/model'
 
 // Provider Model Configuration
@@ -308,5 +309,21 @@ describe('AGENT_MODEL_POLICY — per-role model + effort for subagent dispatch',
     expect(d).toContain("NOT the parent's max model")
     expect(d).toContain('decent')
     expect(d).not.toContain('model: "opus"')
+  })
+
+  it('renderModelDirective: a classOverride routes a narrow specialist to the cheap model', () => {
+    // Default review-tier (no override) → sonnet; opting down to `fast` → haiku.
+    expect(renderModelDirective('spec-review')).toContain('model: "sonnet"')
+    const fast = renderModelDirective('spec-review', undefined, 'fast')
+    expect(fast).toContain('model: "haiku"')
+    expect(fast).not.toContain('model: "sonnet"')
+  })
+
+  it('renderModelDirectiveForProvider: classOverride picks the rig-correct cheap model', () => {
+    // Behavior-preserving default for gemini review-tier → 2.5-flash (balanced).
+    expect(renderModelDirectiveForProvider('spec-review', 'gemini')).toContain('2.5-flash')
+    // Opting down to `fast` on gemini → the fast-class model.
+    const fast = renderModelDirectiveForProvider('spec-review', 'gemini', undefined, 'fast')
+    expect(fast).toContain('2.0-flash')
   })
 })

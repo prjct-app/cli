@@ -96,6 +96,15 @@ export interface LocalConfig {
    */
   sdd?: { mode: 'off' | 'advisory' | 'strict' }
   /**
+   * Hard loop guard — the max turns one work cycle may run before prjct STOPS
+   * it (anti-infinite-loop). Unset ⇒ zero behaviour change (only the soft
+   * goal-discipline escalation in the per-turn block). When set, exceeding it
+   * blocks `ship`/cycle-advance on EVERY rig (CLI gate) and, on hosts whose
+   * hook contract supports it, denies further edits — until the human runs
+   * `prjct work --extend` to lift it consciously. Opt-in, like `lean`/`tdd`/`sdd`.
+   */
+  maxTurnsPerCycle?: number
+  /**
    * Desktop notifications. **Default ON** (absent / `on`) — prjct pings you
    * when Claude is waiting for input and when a subagent finishes, so a wait
    * never hangs silently. `off` (via `prjct notify off`) silences the OS

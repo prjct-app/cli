@@ -13,7 +13,7 @@
  * displayed label is always a legible title, never the `mem_N` DB key.
  */
 
-import type { MemoryEntry } from '../../memory/entries'
+import { KB_MEMORY_TYPES, type MemoryEntry } from '../../memory/entries'
 import {
   deriveTitle,
   type FormatMemoryMdOptions,
@@ -48,6 +48,9 @@ export const PER_ENTRY_TYPES: ReadonlySet<string> = new Set([
   'source',
   'person',
   'retro',
+  // Sovereign knowledge base — each facet gets per-entry notes + a MOC hub,
+  // surfaced cohesively by `knowledge.md` (buildMemoryFiles).
+  ...KB_MEMORY_TYPES,
 ])
 
 /**
@@ -406,6 +409,27 @@ export function buildMemoryFiles(
       indexLines.push(`- [chunk ${i + 1}](${chunkRel}) — ${chunks[i].length} entries`)
     }
     files.set(`memory/${type}.md`, `${indexLines.join('\n')}\n`)
+  }
+
+  // Sovereign knowledge base: a cohesive home linking the present KB facet
+  // MOCs. The KB lives in prjct (SQLite) and is browsable here on demand —
+  // never injected into client-repo instruction files (clean-repo doctrine).
+  const kbFacets = KB_MEMORY_TYPES.filter((facet) => (byType.get(facet)?.length ?? 0) > 0)
+  if (kbFacets.length > 0) {
+    const lines = [
+      '# Knowledge Base',
+      '',
+      'Sovereign, model-agnostic project knowledge — authored in prjct, pulled on demand. Rules and knowledge live here, not in CLAUDE.md / AGENTS.md.',
+      '',
+    ]
+    for (const facet of kbFacets) {
+      const n = byType.get(facet)?.length ?? 0
+      lines.push(
+        `- [[memory/${facet}|${labelForTagKey(facet)}]] — ${n} ${n === 1 ? 'entry' : 'entries'}`
+      )
+    }
+    lines.push('')
+    files.set('knowledge.md', `${lines.join('\n')}\n`)
   }
 
   return files

@@ -1,6 +1,6 @@
 /**
  * Template Loader, Skill Loader, Chain of Thought, Learned Patterns,
- * Orchestrator, Context Health, RPI Flow types.
+ * Context Health types.
  * Split out of agentic.ts to keep each file under 500 LOC.
  */
 
@@ -74,87 +74,6 @@ export interface LearnedPatterns {
   [key: string]: string | null | undefined
 }
 
-// Orchestrator Types
-
-/**
- * Subtask for task fragmentation
- */
-export interface OrchestratorSubtask {
-  id: string
-  description: string
-  domain: string
-  agent: string
-  status: 'pending' | 'in_progress' | 'completed' | 'failed'
-  dependsOn: string[]
-  order: number
-  /** Handoff from previous subtask — injected into prompt for context continuity (PRJ-262) */
-  handoff?: {
-    fromSubtask: string
-    outputForNextAgent: string
-    filesChanged: Array<{ path: string; action: string }>
-    whatWasDone: string[]
-  }
-}
-
-/**
- * Real codebase context gathered proactively before agent execution.
- * Provides git state, relevant files, and code signatures so the agent
- * doesn't need to explore before starting work.
- */
-export interface RealCodebaseContext {
-  /** Current git branch */
-  gitBranch: string
-  /** Short git status (e.g., "3 files modified, 1 untracked") */
-  gitStatus: string
-  /** Files scored by relevance to the task */
-  relevantFiles: Array<{ path: string; score: number; reason: string }>
-  /** Recently changed files */
-  recentFiles: Array<{ path: string; lastChanged: string; changes: number }>
-  /** Code signatures from top relevant files */
-  signatures: Array<{ path: string; content: string }>
-}
-
-/**
- * Full orchestrator context returned after execution
- */
-/**
- * Context degradation tracking (PRJ-277).
- * Reports which context tools succeeded/failed so the LLM can adjust behavior.
- */
-export interface ContextDegradation {
-  /** Overall degradation level */
-  level: 'full' | 'partial' | 'minimal'
-  /** Names of tools that failed (e.g., 'realContext', 'sealedAnalysis', 'velocity') */
-  failedTools: string[]
-}
-
-export interface OrchestratorContext {
-  /** Domains detected for this task */
-  detectedDomains: string[]
-  /** Primary domain (most important) */
-  primaryDomain: string
-  /** Whether task requires fragmentation (3+ domains) */
-  requiresFragmentation: boolean
-  /** Subtasks if fragmented, null otherwise */
-  subtasks: OrchestratorSubtask[] | null
-  /** Project info */
-  project: {
-    id: string
-    ecosystem: string
-    conventions: string[]
-  }
-  /** Real codebase context gathered proactively */
-  realContext?: RealCodebaseContext
-  /** Sealed/active analysis from PRJ-263 storage — injected into prompt context (PRJ-260) */
-  sealedAnalysis?: SealedAnalysisContext | null
-  /** Velocity context for estimation guidance (PRJ-296) */
-  velocityContext?: string | null
-  /** Context degradation tracking (PRJ-277) */
-  contextDegradation?: ContextDegradation
-  /** RPI phase context (research → plan → implement) */
-  rpiContext?: RpiContext | null
-}
-
 // Context Health (Dex Horthy context management)
 
 /** Context zone based on usage percentage of input budget */
@@ -176,48 +95,6 @@ export interface ZoneTransition {
   usagePercent: number
   timestamp: string
   action: string | null
-}
-
-// RPI Flow (Research → Plan → Implement)
-
-/** Current phase of the RPI flow */
-export type RpiPhase = 'research' | 'plan' | 'implement'
-
-/** Context for the active RPI phase */
-export interface RpiContext {
-  phase: RpiPhase
-  researchDoc?: string
-  planDoc?: string
-  scopedFiles?: string[]
-}
-
-/**
- * Subset of analysis data injected into prompt context.
- * Extracted from AnalysisSchema to avoid coupling types to storage schema.
- *
- * @see PRJ-260
- */
-export interface SealedAnalysisContext {
-  /** Programming languages detected */
-  languages: string[]
-  /** Frameworks detected */
-  frameworks: string[]
-  /** Package manager (e.g., 'bun', 'npm', 'pnpm') */
-  packageManager?: string
-  /** Source directory */
-  sourceDir?: string
-  /** Test directory */
-  testDir?: string
-  /** Total files analyzed */
-  fileCount: number
-  /** Code patterns found */
-  patterns: Array<{ name: string; description: string; location?: string }>
-  /** Anti-patterns found */
-  antiPatterns: Array<{ issue: string; file: string; suggestion: string }>
-  /** Lifecycle status */
-  status: 'draft' | 'verified' | 'sealed'
-  /** Git commit hash when analysis was performed */
-  commitHash?: string
 }
 
 // Response Validator Types

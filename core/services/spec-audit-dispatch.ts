@@ -22,54 +22,24 @@
  * rubric and resolve to the sonnet reviewer tier via the model policy fallback.
  */
 
-import { renderModelDirective } from '../schemas/model'
+import type { AIProviderName } from '../types/provider'
 import type { SpecContent } from '../types/spec'
+import type { DomainDefinition } from '../types/storage/extended'
+import { resolveDispatchMechanism } from './agent-dispatch'
+import { domainLensRubric, GENERIC_RUBRIC, LENS_CATALOG } from './review-lenses'
 
-export interface LensSpec {
-  /** Short parenthetical shown after the lens name in the dispatch. */
-  label: string
-  /**
-   * Lens-specific reviewer instruction. The renderer prepends the
-   * "first read the spec from prjct" line and appends the verdict ask.
-   */
-  rubric: string
+/**
+ * Does this spec touch a domain? A keyword present in the combined text, or a
+ * filePattern literal segment present in a scope path. Cheap + deterministic.
+ */
+function domainMatchesSpec(d: DomainDefinition, hay: string, scopePaths: string[]): boolean {
+  if (d.keywords.some((k) => k && hay.includes(k.toLowerCase()))) return true
+  for (const pat of d.filePatterns) {
+    const literals = pat.split('/').filter((s) => s && !s.includes('*'))
+    if (literals.some((lit) => scopePaths.some((p) => p.includes(lit)))) return true
+  }
+  return false
 }
-
-export const LENS_CATALOG: Record<string, LensSpec> = {
-  strategic: {
-    label: 'scope sanity',
-    rubric:
-      'Review it for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory via `prjct context memory <topic>` if useful.',
-  },
-  architecture: {
-    label: 'eng feasibility',
-    rubric:
-      'Then read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable.',
-  },
-  design: {
-    label: 'UX/DX',
-    rubric:
-      'Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Pass only if all dimensions ≥6; include the four scores in notes.',
-  },
-  security: {
-    label: 'threat surface',
-    rubric:
-      'Threat-model the surface this spec defines: authn/authz, secret handling, input validation & injection, sandbox/exec boundaries, network egress, PII. Name the highest-severity gap and whether the acceptance criteria mitigate it. Pass only if no high-severity gap is left unmitigated.',
-  },
-  data: {
-    label: 'data integrity',
-    rubric:
-      'Review the data design. Are schema / migration changes backward-compatible and reversible? Index / query implications, write amplification, migration idempotency, data-loss risk on partial failure. Pass only if the migration path is safe and rollbackable.',
-  },
-  performance: {
-    label: 'perf profile',
-    rubric:
-      'Identify the hottest path this spec touches and its expected complexity / allocation / IO profile. Do the acceptance criteria bound latency or throughput where it matters? Name the single biggest perf risk. Pass only if no hot-path regression is left unbounded.',
-  },
-}
-
-const GENERIC_RUBRIC =
-  'Review the spec through this lens. Identify the most important risk or gap it implies and whether the acceptance criteria address it.'
 
 /**
  * Deterministic BASELINE lens set for a spec. `architecture` is always
@@ -77,7 +47,7 @@ const GENERIC_RUBRIC =
  * text signals their concern. This is the floor, not the final word — the
  * agent can adjust via `--lenses`.
  */
-export function selectReviewers(content: SpecContent): string[] {
+export function selectReviewers(content: SpecContent, domains: DomainDefinition[] = []): string[] {
   const lenses = new Set<string>(['architecture'])
 
   const hay = [
@@ -105,6 +75,17 @@ export function selectReviewers(content: SpecContent): string[] {
     lenses.add('data')
   if (/\b(perf|latency|throughput|hot path|scale|cache|cold start)\b/.test(hay))
     lenses.add('performance')
+
+  // DOMAIN specialists: add an expert for each project domain this spec touches.
+  // A function lens of the same name wins (no shadowing); the architecture floor
+  // is untouched. Empty `domains` ⇒ byte-identical to the function-only baseline.
+  if (domains.length > 0) {
+    const scopePaths = extractScopePaths(content.scope)
+    for (const d of domains) {
+      if (LENS_CATALOG[d.name]) continue
+      if (domainMatchesSpec(d, hay, scopePaths)) lenses.add(d.name)
+    }
+  }
 
   return [...lenses]
 }
@@ -151,13 +132,17 @@ function extractScopePaths(scope: string[]): string[] {
  * The spec body is NEVER embedded — each reviewer runs `prjct spec show <id>
  * --md` itself in its own fresh context.
  */
-export function renderAuditDispatch(
+export async function renderAuditDispatch(
   id: string,
   title: string,
   content: SpecContent,
-  lenses?: string[]
-): string {
-  const chosen = lenses && lenses.length > 0 ? lenses : selectReviewers(content)
+  lenses?: string[],
+  projectProvider?: AIProviderName,
+  domains: DomainDefinition[] = []
+): Promise<string> {
+  const dispatch = await resolveDispatchMechanism(projectProvider)
+  const chosen = lenses && lenses.length > 0 ? lenses : selectReviewers(content, domains)
+  const domainMap = new Map(domains.map((d) => [d.name, d]))
   const scopePaths = extractScopePaths(content.scope)
   const scopeBlock =
     scopePaths.length > 0
@@ -167,20 +152,26 @@ export function renderAuditDispatch(
   const reviewerSections: string[] = []
   chosen.forEach((lens, i) => {
     const spec = LENS_CATALOG[lens]
-    const label = spec ? spec.label : 'custom lens'
-    const rubric = spec ? spec.rubric : GENERIC_RUBRIC
+    const domain = domainMap.get(lens)
+    // Rubric resolution: function lens → its rubric; else a project domain →
+    // the domain-expert rubric; else the generic fallback (open vocabulary).
+    const label = spec ? spec.label : domain ? 'domain expert' : 'custom lens'
+    const rubric = spec ? spec.rubric : domain ? domainLensRubric(domain) : GENERIC_RUBRIC
     const letter = String.fromCharCode(65 + (i % 26))
+    // A narrow lens can opt down to a cheaper model class — name it inline so
+    // THIS reviewer runs on the small/cheap model. Lenses without an override
+    // fall under the global review-tier directive below (unchanged).
+    const modelLine = spec?.capabilityClass
+      ? ` ${dispatch.modelDirective('spec-review', spec.capabilityClass)}`
+      : ''
     reviewerSections.push(
       `## Reviewer ${letter} — ${lens} (${label})`,
-      `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. ${rubric} Return verdict (pass|fail) and 2-4 sentence notes."`,
+      `Reviewer prompt: "First run \`prjct spec show ${id} --md\` to read the spec. ${rubric} Return verdict (pass|fail) and 2-4 sentence notes."${modelLine}`,
       ''
     )
   })
 
-  const runLine =
-    chosen.length === 1
-      ? 'Run this review subagent via the Agent tool. It reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.'
-      : `Run these ${chosen.length} review subagents IN PARALLEL via the Agent tool — one tool-use block per lens, all in the SAME message so they run concurrently. Each subagent reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.`
+  const runLine = dispatch.runLine(chosen.length)
 
   return [
     `# audit-spec dispatch — ${title}`,
@@ -192,10 +183,10 @@ export function renderAuditDispatch(
     runLine,
     '',
     '## Where the spec lives — read it from prjct, it is NOT in this prompt',
-    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer subagent runs \`prjct spec show ${id} --md\` itself, in its own fresh context window, to read the full spec. Do NOT paste the spec body into the subagent prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the subagent, not pre-pasted by you.)`,
+    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer runs \`prjct spec show ${id} --md\` itself, fresh, to read the full spec. Do NOT paste the spec body into the prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the reviewer, not pre-pasted by you.)`,
     '',
     '## Model policy (perf — read before dispatching)',
-    `${renderModelDirective('spec-review')} The SAME applies to every lens — they judge a spec, they do not implement, so they must NOT run on the parent's max model. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,
+    `${dispatch.modelDirective('spec-review')} The same applies to every lens — they judge a spec, they do not implement, so they run on a review-tier model, not the heaviest one. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,
     scopeBlock,
     '',
     ...reviewerSections,

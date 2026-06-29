@@ -87,12 +87,6 @@ export interface AIProviderConfig {
 
   /** Minimum CLI version required. Null for non-CLI providers */
   minCliVersion: string | null
-
-  /** Capability tier preset */
-  capabilityTier: CapabilityTier
-
-  /** Optional per-provider overrides on top of the tier */
-  capabilityOverrides?: Partial<ProviderCapabilities>
 }
 
 /**
@@ -154,34 +148,6 @@ export interface WindsurfProjectDetection {
   /** Project root path */
   projectRoot?: string
 }
-
-/**
- * What an AI provider can do — used by templates to emit provider-agnostic instructions
- */
-export interface ProviderCapabilities {
-  /** Execute shell commands */
-  shell: boolean
-  /** Read files */
-  fileRead: boolean
-  /** Write/edit files */
-  fileWrite: boolean
-  /** Search/glob files */
-  fileSearch: boolean
-  /** AskUserQuestion-style structured prompts */
-  structuredQuestions: boolean
-  /** Spawn parallel sub-agents */
-  subagents: boolean
-  /** Fetch URLs */
-  webFetch: boolean
-  /** Task/todo tracking */
-  todoTracking: boolean
-}
-
-/**
- * Capability tiers — presets for common provider profiles.
- * Add new tiers as ecosystems evolve.
- */
-export type CapabilityTier = 'full' | 'standard' | 'basic'
 
 /**
  * Provider-aware branding configuration

@@ -37,9 +37,15 @@ You assign the work; the implementers never negotiate scope between themselves. 
 - If you **cannot** cleanly partition — two parts would edit the same file — **do NOT parallelize them**. Run those parts sequentially (or merge them into one subtask). Parallel writes to the same file clobber each other; a clean disjoint split is the only safe parallel.
 - One shared concern that several subtasks depend on (a type, a shared util) → do that part FIRST in its own implementer, let it return, THEN fan out the dependents.
 
-### Reviewing a fan-out
+### Reviewing — compose the specialists the change needs (not a fixed reviewer)
 
-After all parallel implementers return, launch **one** `reviewer` over the **combined** diff (`git diff --stat` shows every file touched across the fan-out). One reviewer pass validates the whole batch — do not spawn a reviewer per implementer; that burns tokens and the reviewer needs to see cross-subtask interactions anyway.
+The review is **not** one generic `reviewer` by default — it is the set of specialists the change actually raises, the same way `prjct spec audit` selects lenses from a spec. Over the **combined** diff (`git diff --stat`):
+
+- `architecture` (eng feasibility) is the **floor** — always reviewed.
+- Add a specialist when the diff signals its concern: `security` (auth/secrets/exec/network/PII), `data` (schema/migration/query), `performance` (hot path/latency/cache), `design` (CLI/UI/UX surface), `strategic` (scope sanity on a large or risky change). The vocabulary is open — spawn a specialist the change demands even if it is not in this list.
+- Dispatch **one specialist pass per applicable concern** over the whole combined diff (each as a `reviewer` Agent call whose prompt names its lens + rubric), not a reviewer per implementer. A trivial one-file change needs only `architecture`; a change touching several concerns gets several specialists.
+
+The work advances only when **every** selected specialist returns `VERDICT: APPROVED`.
 
 ## Keep subagent replies tight
 

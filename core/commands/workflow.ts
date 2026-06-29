@@ -20,6 +20,7 @@ import { formatLikelyFileForAgent } from '../services/file-cue'
 import { collectActiveTasks } from '../services/task-overview'
 import { formatRelatedContextForAgent, startTask } from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
+import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -67,12 +68,24 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async now(
     task: string | null = null,
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean; md?: boolean; spec?: string } = {}
+    options: { skipHooks?: boolean; md?: boolean; spec?: string; extend?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const proj = await requireProject(projectPath)
       if (!proj.ok) return proj.result
       const projectId = proj.value
+
+      // `prjct work --extend` — consciously lift the hard turn-budget block for
+      // the active cycle so editing can continue (advisory-by-consent).
+      if (options.extend) {
+        const ok = await stateStorage.acknowledgeTurnLimit(projectId, new Date().toISOString())
+        const msg = ok
+          ? 'Turn budget extended for the active cycle — the hard stop is lifted. Keep it honest: finish it, then `prjct status done`.'
+          : 'No active cycle to extend. Start one with `prjct work "<intent>"`.'
+        if (options.md) console.log(`> ${msg}`)
+        else out.done(msg)
+        return { success: ok, error: ok ? undefined : 'no active cycle' }
+      }
 
       // No work arg → show the active one (or none).
       if (!task) return this._showActiveTask(projectId, projectPath, options)
@@ -101,6 +114,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const relatedLines = related.map(formatRelatedContextForAgent)
       const likelyFiles = outcome.likelyFiles ?? []
       const likelyFileLines = likelyFiles.map(formatLikelyFileForAgent)
+      // Predictive risk — the preventive memory for the area this cycle touches,
+      // surfaced BEFORE the edit. Higher priority than the file map, so it leads.
+      const risks = outcome.risks ?? []
+      const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
 
       if (options.md) {
         const md = mdOutput(
@@ -137,6 +154,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
           beforeInstructions.length > 0
             ? mdSection('Agent Instructions', mdList(beforeInstructions))
             : null,
+          riskLines.length > 0
+            ? mdSection(
+                '⚠ Risk — what bit us in this area before (read before you edit)',
+                mdList(riskLines)
+              )
+            : null,
           relatedLines.length > 0
             ? mdSection('Related context — has this come up before?', mdList(relatedLines))
             : null,
@@ -165,6 +188,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
           if (harness.expectedEvidence.length > 0) {
             out.info(`Evidence: ${harness.expectedEvidence.join(', ')}`)
           }
+        }
+        if (riskLines.length > 0) {
+          out.info('⚠ Risk — what bit us in this area before (read before you edit)')
+          for (const line of riskLines) out.info(`  ${line}`)
         }
         if (relatedLines.length > 0) {
           out.info('Related context — has this come up before?')

@@ -86,6 +86,38 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Loop control: bump the active cycle's turn counter by one and return the new
+   * value (0 when there is no active cycle). Called once per turn from the
+   * UserPromptSubmit hook so the state block can escalate a stuck loop. A new
+   * cycle starts with no turnCount, so it resets naturally.
+   */
+  async bumpTurnCount(projectId: string): Promise<number> {
+    const resultRef: { count: number } = { count: 0 }
+    await this.update(projectId, (state) => {
+      if (!state.currentTask) return state
+      const next = (state.currentTask.turnCount ?? 0) + 1
+      resultRef.count = next
+      return { ...state, currentTask: { ...state.currentTask, turnCount: next } }
+    })
+    return resultRef.count
+  }
+
+  /**
+   * Hard loop guard consent: stamp the active cycle as acknowledged so the
+   * maxTurnsPerCycle block stops firing for THIS cycle (`prjct work --extend`).
+   * Returns false when there is no active cycle. A new cycle clears it naturally.
+   */
+  async acknowledgeTurnLimit(projectId: string, at: string): Promise<boolean> {
+    const resultRef: { ok: boolean } = { ok: false }
+    await this.update(projectId, (state) => {
+      if (!state.currentTask) return state
+      resultRef.ok = true
+      return { ...state, currentTask: { ...state.currentTask, turnLimitAcknowledgedAt: at } }
+    })
+    return resultRef.ok
+  }
+
+  /**
    * Get paused tasks (most-recent first). Returns empty array if none.
    */
   async getPausedTasks(projectId: string): Promise<PreviousTask[]> {

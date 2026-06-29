@@ -14,7 +14,12 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { buildHookOutput, safeTruncate, stripLoneSurrogates } from '../../hooks/_shared'
+import {
+  buildDenyOutput,
+  buildHookOutput,
+  safeTruncate,
+  stripLoneSurrogates,
+} from '../../hooks/_shared'
 
 /** True iff `s` round-trips through UTF-8 — i.e. contains no unpaired
  *  surrogate. A lone surrogate encodes to U+FFFD, so the round-trip
@@ -156,5 +161,11 @@ describe('buildHookOutput routes per Claude Code schema', () => {
         expect(ALLOWED_TOP_LEVEL.has(key)).toBe(true)
       }
     }
+    // The hard-stop deny channel rides the whitelisted hookSpecificOutput key.
+    const deny = buildDenyOutput('PreToolUse', 'turn budget exceeded')
+    expect(Object.keys(deny)).toEqual(['hookSpecificOutput'])
+    expect(ALLOWED_TOP_LEVEL.has('hookSpecificOutput')).toBe(true)
+    expect(deny.hookSpecificOutput.permissionDecision).toBe('deny')
+    expect(deny.hookSpecificOutput.permissionDecisionReason).toContain('turn budget exceeded')
   })
 })

@@ -5,11 +5,19 @@
  * pnpm, lerna, nx, rush, turborepo, plus npm/yarn `workspaces`.
  */
 
-import { globSync } from 'node:fs'
+import nodeFs from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { MonorepoInfo, MonorepoPackage } from '../../types/infrastructure'
 import * as fileHelper from '../../utils/file-helper'
+
+// `fs.globSync` exists at runtime (Node >=22 / Bun) — typed locally because the
+// pinned @types/node predates it. Avoids re-adding the npm `glob` dependency.
+const globSync = (
+  nodeFs as unknown as {
+    globSync: (pattern: string, options?: { cwd?: string }) => string[]
+  }
+).globSync
 
 export async function detectMonorepo(projectPath: string): Promise<MonorepoInfo> {
   const result: MonorepoInfo = {

@@ -141,6 +141,14 @@ export const CurrentTaskSchema = z.object({
   // Transparent auto-harness: created on task start so agents get the expected
   // evidence/gates without the user running another command.
   harness: TaskHarnessSchema.optional(),
+  // Loop control: turns the agent has spent on THIS cycle. Incremented once per
+  // UserPromptSubmit; resets when a new cycle starts. Drives the stuck-loop
+  // escalation in the per-turn state block so a weak rig doesn't grind forever.
+  turnCount: z.number().optional(),
+  // Hard loop guard: when set, the human has consciously lifted the
+  // maxTurnsPerCycle block (`prjct work --extend`) for THIS cycle, so the gate
+  // stops firing until a new cycle resets it.
+  turnLimitAcknowledgedAt: z.string().optional(),
 })
 
 export const PreviousTaskSchema = z.object({

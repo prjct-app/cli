@@ -14,6 +14,26 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 export const ROUTING_START_MARKER = '<!-- prjct:routing - do not edit between markers -->'
 export const ROUTING_END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
 
+/**
+ * The ONLY content prjct ever writes into a client repo's instruction surfaces
+ * (AGENTS.md / CLAUDE.md), and only when the user explicitly runs `prjct
+ * agents`. Clean-repo sovereignty doctrine: a project repo's sole prjct
+ * footprint is `.prjct/`; every rule and all project knowledge live in prjct's
+ * SQLite and the global agent config, pulled on demand.
+ *
+ * This is a MAP of the harness, not a ruleset: it names each organ (memory/KB,
+ * skills, agents, guardrails) and the ONE command to pull it, so the model
+ * knows WHERE to look without loading anything wholesale. Never inline the
+ * rules/RAG protocol/verb map themselves — those belong in prjct.
+ */
+export const MINIMAL_ROUTING_BODY = `## prjct — map of this project's harness
+This project uses prjct. Recognize intent and run the verb yourself.
+This file holds no rules — pull on demand. The harness lives in prjct:
+- \`prjct work --md\` — entrypoint: the work cycle + related context.
+- \`prjct context memory <topic>\` / \`prjct search "<q>"\` — memory + knowledge base (voice, glossary, decisions, gotchas, learnings).
+- \`prjct guard <file>\` before a risky edit · \`prjct remember <type> "<text>"\` to persist outcomes.
+Skills, the agent catalog, and rules live in prjct — pulled, never inlined here.`
+
 export interface RoutingWriteResult {
   action: 'created' | 'updated' | 'unchanged'
   path: string

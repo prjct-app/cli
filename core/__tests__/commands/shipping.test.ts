@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { ShippingCommands } from '../../commands/shipping'
+import { ShippingCommands, seedCodeShipRules } from '../../commands/shipping'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { prjctDb } from '../../storage/database'
@@ -161,6 +161,26 @@ describe('ship() — workflow-first', () => {
     const pkg = JSON.parse(await fs.readFile(path.join(projectPath, 'package.json'), 'utf-8'))
     // "first ship" is a described feature (no fix/chore prefix) → MINOR bump.
     expect(pkg.version).toBe('0.6.0')
+  })
+
+  test('seeds a Stop-Slop verify gate when the project has a test command', async () => {
+    await fs.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'codeproj', version: '0.5.0', scripts: { test: 'true' } })
+    )
+    await seedCodeShipRules(projectId, projectPath)
+    const actions = workflowRuleStorage.getRulesForCommand(projectId, 'ship').map((r) => r.action)
+    expect(actions.some((a) => a.startsWith('verify:'))).toBe(true)
+  })
+
+  test('seeds no verify gate when the project has no test command', async () => {
+    await fs.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'codeproj', version: '0.5.0' })
+    )
+    await seedCodeShipRules(projectId, projectPath)
+    const actions = workflowRuleStorage.getRulesForCommand(projectId, 'ship').map((r) => r.action)
+    expect(actions.some((a) => a.startsWith('verify:'))).toBe(false)
   })
 
   test('no-arg code ship derives the release description from the feature branch', async () => {

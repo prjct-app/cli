@@ -16,6 +16,7 @@ import { runPreEditHook } from '../../hooks/pre-edit'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
+import { stateStorage } from '../../storage/state-storage'
 
 let projectPath: string
 let projectId: string
@@ -110,5 +111,52 @@ describe('pre-edit hook', () => {
     })
     const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
     expect(out.trim()).toBe('{}')
+  })
+})
+
+describe('pre-edit hook — hard loop guard (GAP 3)', () => {
+  const withLimit = async (limit: number) =>
+    configManager.writeConfig(projectPath, {
+      projectId,
+      dataPath: path.join(projectPath, '.prjct-data'),
+      maxTurnsPerCycle: limit,
+    } as Parameters<typeof configManager.writeConfig>[1])
+
+  const startCycle = async (over: Record<string, unknown>) =>
+    stateStorage.startTask(projectId, {
+      id: 't',
+      description: 'grind',
+      startedAt: new Date().toISOString(),
+      sessionId: 's',
+      ...over,
+    } as Parameters<typeof stateStorage.startTask>[1])
+
+  test('DENIES the edit once the cycle exceeds maxTurnsPerCycle', async () => {
+    await withLimit(3)
+    await startCycle({ turnCount: 5 })
+    const out = await runWith({ file_path: '/abs/repo/x.ts' })
+    expect(out).toContain('permissionDecision')
+    expect(out).toContain('deny')
+    expect(out).toContain('hard stop')
+  })
+
+  test('does NOT deny once the cycle is acknowledged (--extend)', async () => {
+    await withLimit(3)
+    await startCycle({ turnCount: 9, turnLimitAcknowledgedAt: new Date().toISOString() })
+    const out = await runWith({ file_path: '/abs/repo/x.ts' })
+    expect(out).not.toContain('deny')
+  })
+
+  test('does NOT deny under the limit', async () => {
+    await withLimit(10)
+    await startCycle({ turnCount: 2 })
+    const out = await runWith({ file_path: '/abs/repo/x.ts' })
+    expect(out).not.toContain('deny')
+  })
+
+  test('does NOT deny when the limit is unset (opt-in, behavior-preserving)', async () => {
+    await startCycle({ turnCount: 99 })
+    const out = await runWith({ file_path: '/abs/repo/x.ts' })
+    expect(out).not.toContain('deny')
   })
 })

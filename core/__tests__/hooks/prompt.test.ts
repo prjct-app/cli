@@ -88,6 +88,39 @@ describe('UserPromptSubmit — project state', () => {
     } as Parameters<typeof stateStorage.startTask>[1])
     const r = await buildProjectState(projectPath)
     expect(r).toContain('Active work cycle: "fix auth race condition"')
+    // Goal discipline injected with the cycle — keeps a weaker rig on the goal
+    // and out of loops (the agentic capability the harness gives the model).
+    expect(r).toContain('Stay on this goal')
+    expect(r).toContain('Do not loop')
+  })
+
+  it('escalates from goal-discipline to stop-looping once a cycle grinds past the threshold', async () => {
+    await freshProject()
+    await stateStorage.startTask(projectId, {
+      id: `t-${Date.now()}`,
+      description: 'refactor the parser',
+      startedAt: new Date().toISOString(),
+      sessionId: 's',
+      turnCount: 20, // already well past STUCK_TURN_THRESHOLD
+    } as Parameters<typeof stateStorage.startTask>[1])
+    const r = await buildProjectState(projectPath)
+    expect(r).toContain('turns on this cycle')
+    expect(r).toContain('STOP looping')
+    // The escalation REPLACES the calm discipline line — not both.
+    expect(r).not.toContain('Stay on this goal')
+  })
+
+  it('bumpTurnCount increments the active cycle from zero', async () => {
+    await freshProject()
+    await stateStorage.startTask(projectId, {
+      id: `t-${Date.now()}`,
+      description: 'first cycle',
+      startedAt: new Date().toISOString(),
+      sessionId: 's',
+    } as Parameters<typeof stateStorage.startTask>[1])
+    expect(await stateStorage.bumpTurnCount(projectId)).toBe(1)
+    expect(await stateStorage.bumpTurnCount(projectId)).toBe(2)
+    expect(await stateStorage.bumpTurnCount(projectId)).toBe(3)
   })
 
   it('surfaces dirty working tree counts', async () => {

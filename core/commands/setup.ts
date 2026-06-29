@@ -641,8 +641,10 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
       const result = await writeProjectAgentSurfaces(projectPath, {
         agents: await detectInstalledAgents(projectPath),
       })
-      console.log('✅ Project AGENTS.md ready')
-      if (result.claudeMd) console.log('✅ Project CLAUDE.md ready')
+      if (result.agentsMd.action !== 'unchanged') console.log('✅ Project AGENTS.md ready')
+      if (result.claudeMd && result.claudeMd.action !== 'unchanged') {
+        console.log('✅ Project CLAUDE.md ready')
+      }
       if (result.ideRules.length > 0) {
         console.log(`✅ Project IDE rules ready: ${result.ideRules.join(', ')}`)
       }
@@ -678,7 +680,6 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     try {
       const os = await import('node:os')
       const { getTemplateContent } = await import('../agentic/template-loader')
-      const { PACKAGE_ROOT } = await import('../utils/version')
       const antigravitySkillDir = path.join(
         os.homedir(),
         '.gemini',
@@ -687,12 +688,9 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
         'prjct'
       )
       const skillPath = path.join(antigravitySkillDir, 'SKILL.md')
-      let templateContent = getTemplateContent('antigravity/SKILL.md')
+      const templateContent = getTemplateContent('antigravity/SKILL.md')
       if (!templateContent) {
-        templateContent = await fs.readFile(
-          path.join(PACKAGE_ROOT, 'templates', 'antigravity', 'SKILL.md'),
-          'utf-8'
-        )
+        throw new Error('Antigravity SKILL.md template not found')
       }
       await fs.mkdir(antigravitySkillDir, { recursive: true })
       await fs.writeFile(skillPath, templateContent, 'utf-8')

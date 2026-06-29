@@ -170,15 +170,6 @@ function shouldRunSetup(version) {
   const claudeSkillDest = path.join(HOME, '.claude', 'skills', 'prjct', 'SKILL.md')
   if (fileMissingWhenSourceExists(claudeSkillSrc, claudeSkillDest)) return true
 
-  const codexSkillSrc = path.join(ROOT_DIR, 'templates', 'codex', 'SKILL.md')
-  const codexSkillDest = path.join(HOME, '.codex', 'skills', 'prjct', 'SKILL.md')
-  if (
-    fs.existsSync(path.join(HOME, '.codex')) &&
-    fileMissingWhenSourceExists(codexSkillSrc, codexSkillDest)
-  ) {
-    return true
-  }
-
   return false
 }
 
@@ -235,12 +226,6 @@ function ensureSetup() {
     path.join(HOME, '.claude', 'skills', 'prjct', 'SKILL.md')
   )
 
-  if (fs.existsSync(path.join(HOME, '.codex')) || findCommand('codex')) {
-    copyIfNewer(
-      path.join(ROOT_DIR, 'templates', 'codex', 'SKILL.md'),
-      path.join(HOME, '.codex', 'skills', 'prjct', 'SKILL.md')
-    )
-  }
 }
 
 function runMcpServer(args) {

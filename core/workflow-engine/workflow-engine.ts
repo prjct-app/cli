@@ -13,6 +13,10 @@
  *         the LLM (prjct-cli can't hold an MCP connection; we declare
  *         the QUÉ and let Claude call the CÓMO)
  *       `persona:context`  → re-inject the project persona into output
+ *       `verify:<command>` → deterministic Stop-Slop gate: run <command>;
+ *         a non-zero exit blocks the lifecycle with actionable stop-the-line
+ *         guidance (the harness catching what a degraded model would ship).
+ *         `verify:auto` auto-detects the project's test command.
  *
  * Alpha.10 removed: gate result caching and the Spanish/English NL
  * intent parser in `core/commands/workflow.ts`. Both were harness —
@@ -37,6 +41,7 @@ import { getErrorMessage } from '../types/fs'
 import type { WorkflowRule } from '../types/storage/extended'
 import type { WorkflowExecutionResult, WorkflowRunContext } from '../types/workflow.js'
 import { execAsync, execFileAsync } from '../utils/exec'
+import { detectProjectCommands } from '../utils/project-commands'
 import { evaluateWhen, type WhenContext } from './when-evaluator'
 
 const STATUS_ACTION_PREFIX = 'status:'
@@ -47,6 +52,7 @@ const VERSION_BUMP_PREFIX = 'version:bump'
 const CHANGELOG_ADD_ACTION = 'changelog:add'
 const GIT_COMMIT_PREFIX = 'git:commit'
 const GIT_PUSH_ACTION = 'git:push'
+const VERIFY_ACTION_PREFIX = 'verify:'
 
 async function runStatusTransition(
   projectId: string,
@@ -80,6 +86,56 @@ async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<
     cwd: projectPath,
     env: { ...process.env },
   })
+}
+
+/**
+ * `verify:<command>` — a deterministic Stop-Slop gate. Runs <command> as a
+ * blocking check in the project; a non-zero exit throws a STANDARDIZED
+ * stop-the-line error. As a `gate` rule it lands in `gatesFailed` and blocks
+ * the lifecycle verb (e.g. `ship`), and the wrapped message tells a possibly
+ * degraded model exactly what to do: do not proceed, fix, re-run. This is the
+ * harness compensating for the brain — structure catches the slop a weaker
+ * model would otherwise ship. Unlike `script:<path>` it runs an inline
+ * command; unlike a raw shell rule it turns exit≠0 into actionable guidance.
+ */
+/**
+ * Resolve `verify:auto` to the project's own verification command so a
+ * Stop-Slop gate is one token, no hardcoding. Reuses the canonical detector
+ * (DRY) — JS/TS package-manager `scripts.test` AND Python/pytest. Returns null
+ * when no convention is found; the caller turns that into actionable guidance.
+ */
+export async function detectVerifyCommand(projectPath: string): Promise<string | null> {
+  const { test } = await detectProjectCommands(projectPath)
+  return test?.command ?? null
+}
+
+async function runVerifyAction(rule: WorkflowRule, projectPath: string): Promise<void> {
+  if (rule.trustSource === 'imported') {
+    throw new Error(
+      `Refusing to run imported verify rule without approval: ${rule.description || rule.action}.`
+    )
+  }
+  let command = rule.action.slice(VERIFY_ACTION_PREFIX.length).trim()
+  if (!command) throw new Error(`Empty command in verify action '${rule.action}'`)
+  if (command === 'auto') {
+    const detected = await detectVerifyCommand(projectPath)
+    if (!detected) {
+      throw new Error(
+        'verify:auto found no test script (package.json `scripts.test`). ' +
+          'Specify an explicit check, e.g. `verify:bun test` or `verify:npm run typecheck`.'
+      )
+    }
+    command = detected
+  }
+  try {
+    await execAsync(command, { timeout: rule.timeoutMs, cwd: projectPath, env: { ...process.env } })
+  } catch (error) {
+    throw new Error(
+      `Verification failed: \`${command}\`\n${getErrorMessage(error)}\n` +
+        'Stop-the-line: do not proceed. Fix the failure and re-run this check — ' +
+        'unverified output must not advance.'
+    )
+  }
 }
 
 /**
@@ -329,8 +385,16 @@ async function runRuleAction(
     return
   }
 
+  if (action.startsWith(VERIFY_ACTION_PREFIX)) {
+    await runVerifyAction(rule, projectPath)
+    return
+  }
+
   await runShellAction(rule, projectPath)
 }
+
+// Test-only surface for the deterministic verification gate.
+export const _verify = { runVerifyAction, VERIFY_ACTION_PREFIX }
 
 async function buildWhenContext(projectId: string, projectPath: string): Promise<WhenContext> {
   // All three sub-queries are best-effort — a missing branch or empty

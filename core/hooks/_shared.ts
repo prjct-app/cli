@@ -39,6 +39,32 @@ const ADDITIONAL_CONTEXT_EVENTS = new Set([
   'PostToolUse',
 ])
 
+/**
+ * A PreToolUse DENY decision — the one true per-tool-call block the host
+ * contract defines (`permissionDecision`/`Reason` are whitelisted top-level
+ * keys). Emitted RIG-AGNOSTICALLY (never gated to Claude): any host that honors
+ * a PreToolUse deny blocks the tool call; hosts that don't simply ignore it and
+ * fall back to the forceful per-turn injection. The deny channel is how the
+ * hard loop guard reaches "all rigs" without prjct owning the loop.
+ */
+export interface DenyOutput {
+  hookSpecificOutput: {
+    hookEventName: string
+    permissionDecision: 'deny'
+    permissionDecisionReason: string
+  }
+}
+
+export function buildDenyOutput(event: string, reason: string): DenyOutput {
+  return {
+    hookSpecificOutput: {
+      hookEventName: event,
+      permissionDecision: 'deny',
+      permissionDecisionReason: stripLoneSurrogates(reason),
+    },
+  }
+}
+
 export async function readStdinSafe<T = Record<string, unknown>>(): Promise<T> {
   if (process.stdin.isTTY) return {} as T
   return new Promise((resolve) => {
@@ -63,7 +89,7 @@ export async function readStdinSafe<T = Record<string, unknown>>(): Promise<T> {
  * should flow through this — it guarantees a valid JSON line on stdout
  * so the host parser is happy.
  */
-export function emit(output: HookOutput | Record<string, never>): void {
+export function emit(output: HookOutput | DenyOutput | Record<string, never>): void {
   process.stdout.write(`${JSON.stringify(output)}\n`)
 }
 

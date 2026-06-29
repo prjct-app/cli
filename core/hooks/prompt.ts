@@ -26,10 +26,12 @@ import configManager from '../infrastructure/config-manager'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { buildIndexedFileCue } from '../services/file-cue'
+import { loopGuardVerdict } from '../services/loop-guard'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
@@ -37,6 +39,12 @@ import { type HookIo, runHook } from './_runner'
 import { extractKeywords, safeTruncate } from './_shared'
 
 const STATE_BUDGET = 1500
+/**
+ * Turns on a single cycle before the state block escalates from "stay on goal"
+ * to "stop looping". Set above a normal multi-step cycle so it only fires on a
+ * genuine grind, not honest iteration.
+ */
+const STUCK_TURN_THRESHOLD = 15
 /** FTS candidates fetched before the preventive-type filter picks ONE. */
 const CUE_CANDIDATES = 8
 
@@ -72,6 +80,39 @@ export async function buildProjectState(
       lines.push(
         `- Active work cycle: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
       )
+      // Loop control — count the turns spent on this cycle (best-effort write,
+      // resets when a new cycle starts) so the harness can tell a grind from
+      // honest iteration.
+      let turns = 0
+      let guardMessage = ''
+      try {
+        turns = await stateStorage.bumpTurnCount(config.projectId)
+        const task = await stateStorage.getCurrentTask(config.projectId)
+        // Hard guard (config.maxTurnsPerCycle) reads the SAME verdict the
+        // edit-deny uses, so the message and the block never disagree.
+        guardMessage = loopGuardVerdict(config, task).message
+      } catch {
+        /* best-effort — never block the state block on the counter */
+      }
+      if (guardMessage) {
+        // HARD tier — the cycle exceeded the configured turn budget. The
+        // pre-edit hook denies further edits on hosts that honor it; here we
+        // say it forcefully for every rig.
+        lines.push(`  ${guardMessage}`)
+      } else if (turns >= STUCK_TURN_THRESHOLD) {
+        // Escalation: a frontier model would have re-planned by now; say it
+        // explicitly so a weaker rig breaks the loop instead of grinding.
+        lines.push(
+          `  ⚠ ${turns} turns on this cycle and it is still open. If you are not nearly done, STOP looping: split it, ship the slice that works, or check in with the user — then \`prjct status done\`. A re-plan beats another grinding turn.`
+        )
+      } else {
+        // Goal discipline — the loop control a frontier model self-applies,
+        // given explicitly every turn so a weaker / non-agentic rig stays
+        // agentic: anchor the objective, check progress, escalate not loop.
+        lines.push(
+          '  ↳ Stay on this goal. Each turn, before acting: is this step ADVANCING it? If you have hit the same wall twice, or you are exploring rather than progressing, STOP — re-plan, split the cycle, or ask the user. Do not loop; finish the cycle, then `prjct status done`.'
+        )
+      }
       hasContent = true
     }
     const others = overview.all.filter((v) => !v.isCurrent)

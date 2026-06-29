@@ -12,17 +12,27 @@ export interface ProjectAgentSurfacesResult {
 }
 
 /**
- * Install/refresh repo-local agent instruction surfaces.
+ * Install/refresh repo-local agent instruction surfaces — ONLY when the
+ * caller explicitly asks (`options.explicit`).
  *
- * AGENTS.md is intentionally unconditional: it is the portable baseline for
- * Codex, OpenCode, Qwen Code, Cline, Roo, Copilot coding agent, hosted agents,
- * and future runtimes that adopt the standard. Runtime-specific files are
- * best-effort adapters on top of that baseline.
+ * Clean-repo sovereignty doctrine: prjct never writes rule/routing files into
+ * a client repo automatically. A project's sole prjct footprint is `.prjct/`;
+ * all rules + knowledge live in the global agent config + prjct's SQLite and
+ * are pulled on demand. Automatic flows (sync, install, setup, work) call this
+ * without `explicit` and get a no-op. The only opt-in path is `prjct agents`,
+ * which passes `explicit: true` and writes the MINIMAL pointer block (never a
+ * ruleset). Default: write nothing.
  */
 export async function writeProjectAgentSurfaces(
   projectPath: string,
-  options: { agents?: readonly string[] } = {}
+  options: { agents?: readonly string[]; explicit?: boolean } = {}
 ): Promise<ProjectAgentSurfacesResult> {
+  if (!options.explicit) {
+    return {
+      agentsMd: { action: 'unchanged', path: path.join(projectPath, 'AGENTS.md') },
+      ideRules: [],
+    }
+  }
   const selected = new Set(options.agents ?? [])
   const agentsMd = await writeProjectAgentsMd(projectPath)
   const projectClaude = await fileExists(path.join(projectPath, 'CLAUDE.md'))

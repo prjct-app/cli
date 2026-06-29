@@ -20,6 +20,7 @@
 import configManager from '../infrastructure/config-manager'
 import { renderAuditDispatch, selectReviewers } from '../services/spec-audit-dispatch'
 import { specService } from '../services/spec-service'
+import { indexStorage } from '../storage/index-storage'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { SPEC_STATUSES, type SpecContent, SpecContentSchema, type SpecStatus } from '../types/spec'
@@ -391,16 +392,30 @@ export class SpecCommands extends PrjctCommandsBase {
       // Dynamic lenses: `--lenses` overrides; otherwise prjct computes a
       // deterministic baseline from the spec. Persist the chosen set so the
       // auto-promote gate (`reviewsGatePassed`) knows what to expect.
+      // Domain experts: the project's own discovered domains, so a change that
+      // touches `auth`/`billing`/… composes that domain's specialist alongside
+      // the function lenses. Best-effort — none/no-index ⇒ function lenses only.
+      const auditProjectId = await configManager.getProjectId(projectPath).catch(() => null)
+      const domains = auditProjectId
+        ? (indexStorage.readDomainsSync(auditProjectId)?.domains ?? [])
+        : []
       const lenses =
         typeof options.lenses === 'string' && options.lenses.trim() !== ''
           ? options.lenses
               .split(',')
               .map((s) => s.trim().toLowerCase())
               .filter(Boolean)
-          : selectReviewers(spec.content)
+          : selectReviewers(spec.content, domains)
       await specService.setSelectedReviewers(projectPath, id, lenses)
 
-      const dispatch = renderAuditDispatch(spec.id, spec.title, spec.content, lenses)
+      const dispatch = await renderAuditDispatch(
+        spec.id,
+        spec.title,
+        spec.content,
+        lenses,
+        undefined,
+        domains
+      )
       console.log(dispatch)
       return { success: true, specId: id, dispatch: 'emitted' }
     } catch (error) {
