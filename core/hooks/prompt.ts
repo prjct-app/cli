@@ -30,6 +30,7 @@ import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
 import type { LocalConfig } from '../types/config'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
@@ -37,6 +38,12 @@ import { type HookIo, runHook } from './_runner'
 import { extractKeywords, safeTruncate } from './_shared'
 
 const STATE_BUDGET = 1500
+/**
+ * Turns on a single cycle before the state block escalates from "stay on goal"
+ * to "stop looping". Set above a normal multi-step cycle so it only fires on a
+ * genuine grind, not honest iteration.
+ */
+const STUCK_TURN_THRESHOLD = 15
 /** FTS candidates fetched before the preventive-type filter picks ONE. */
 const CUE_CANDIDATES = 8
 
@@ -72,13 +79,29 @@ export async function buildProjectState(
       lines.push(
         `- Active work cycle: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
       )
-      // Goal discipline — the loop control a frontier model self-applies, given
-      // explicitly every turn so a weaker / non-agentic rig stays agentic: it
-      // anchors the objective, checks for progress, and escalates instead of
-      // looping. This is how the harness gives a non-goal-setting model a goal.
-      lines.push(
-        '  ↳ Stay on this goal. Each turn, before acting: is this step ADVANCING it? If you have hit the same wall twice, or you are exploring rather than progressing, STOP — re-plan, split the cycle, or ask the user. Do not loop; finish the cycle, then `prjct status done`.'
-      )
+      // Loop control — count the turns spent on this cycle (best-effort write,
+      // resets when a new cycle starts) so the harness can tell a grind from
+      // honest iteration.
+      let turns = 0
+      try {
+        turns = await stateStorage.bumpTurnCount(config.projectId)
+      } catch {
+        /* best-effort — never block the state block on the counter */
+      }
+      if (turns >= STUCK_TURN_THRESHOLD) {
+        // Escalation: a frontier model would have re-planned by now; say it
+        // explicitly so a weaker rig breaks the loop instead of grinding.
+        lines.push(
+          `  ⚠ ${turns} turns on this cycle and it is still open. If you are not nearly done, STOP looping: split it, ship the slice that works, or check in with the user — then \`prjct status done\`. A re-plan beats another grinding turn.`
+        )
+      } else {
+        // Goal discipline — the loop control a frontier model self-applies,
+        // given explicitly every turn so a weaker / non-agentic rig stays
+        // agentic: anchor the objective, check progress, escalate not loop.
+        lines.push(
+          '  ↳ Stay on this goal. Each turn, before acting: is this step ADVANCING it? If you have hit the same wall twice, or you are exploring rather than progressing, STOP — re-plan, split the cycle, or ask the user. Do not loop; finish the cycle, then `prjct status done`.'
+        )
+      }
       hasContent = true
     }
     const others = overview.all.filter((v) => !v.isCurrent)
