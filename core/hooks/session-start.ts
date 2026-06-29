@@ -35,6 +35,7 @@ import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { createStalenessChecker } from '../services/staleness-checker'
 import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
@@ -87,9 +88,13 @@ export async function buildSessionContext(
 
   const persona = config.persona
   const digest = opts.digest ? buildKnowledgeDigest(config.projectId) : null
+  // Continuous understanding — once per session, flag genuine drift since the
+  // last sync so the model refreshes the architecture/risks map instead of
+  // trusting a frozen snapshot for the session's big calls.
+  const staleness = await buildStalenessNotice(projectPath, config.projectId)
 
-  // Nothing to say (no persona declared AND no knowledge yet) → stay silent.
-  if (!persona && !digest) return null
+  // Nothing to say (no persona, no knowledge, no drift) → stay silent.
+  if (!persona && !digest && !staleness) return null
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
@@ -106,7 +111,33 @@ export async function buildSessionContext(
     if (persona) sections.push('')
     sections.push(digest)
   }
+  if (staleness) {
+    if (persona || digest) sections.push('')
+    sections.push(staleness)
+  }
   return sections.join('\n')
+}
+
+/**
+ * One-line drift notice: surfaced only on GENUINE staleness — code actually
+ * changed since a real sync AND it crossed the threshold. The never-synced
+ * bootstrap nag belongs to onboarding, not every session, so commitsSinceSync
+ * must be > 0. Best-effort; never blocks the session block.
+ */
+async function buildStalenessNotice(
+  projectPath: string,
+  projectId: string
+): Promise<string | null> {
+  try {
+    const checker = createStalenessChecker(projectPath)
+    const status = await checker.check(projectId)
+    if (!status.isStale || status.commitsSinceSync <= 0) return null
+    const warning = checker.getWarning(status)
+    if (!warning) return null
+    return `**Understanding may be stale:** ${warning} — the architecture/risks map was built at the last sync; refresh before trusting it for big calls.`
+  } catch {
+    return null
+  }
 }
 
 /**
