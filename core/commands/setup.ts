@@ -710,6 +710,19 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
       const settingsPath = pathManager.getClaudeSettingsPath()
       const statusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
 
+      // Don't clobber the modern modular ("v2") statusline if it's already
+      // installed — that system (statusline-installer.ts) requires bash 4+.
+      // This monolithic generator is the bash-3.2-safe variant; only (re)write
+      // it when the installed statusline is absent or this same kind. Refreshing
+      // it here is what lets self-heal repair the legacy false-upgrade-banner
+      // body on upgrade without downgrading modular users.
+      if (await fileExists(statusLinePath)) {
+        const existing = await fs.readFile(statusLinePath, 'utf-8')
+        if (existing.includes('build_statusline')) {
+          return { success: true }
+        }
+      }
+
       // Version is embedded at install time
       const scriptContent = `#!/bin/bash
 # prjct Status Line for Claude Code
