@@ -72,6 +72,13 @@ export async function buildProjectState(
       lines.push(
         `- Active work cycle: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
       )
+      // Goal discipline — the loop control a frontier model self-applies, given
+      // explicitly every turn so a weaker / non-agentic rig stays agentic: it
+      // anchors the objective, checks for progress, and escalates instead of
+      // looping. This is how the harness gives a non-goal-setting model a goal.
+      lines.push(
+        '  ↳ Stay on this goal. Each turn, before acting: is this step ADVANCING it? If you have hit the same wall twice, or you are exploring rather than progressing, STOP — re-plan, split the cycle, or ask the user. Do not loop; finish the cycle, then `prjct status done`.'
+      )
       hasContent = true
     }
     const others = overview.all.filter((v) => !v.isCurrent)

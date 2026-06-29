@@ -88,6 +88,10 @@ describe('UserPromptSubmit — project state', () => {
     } as Parameters<typeof stateStorage.startTask>[1])
     const r = await buildProjectState(projectPath)
     expect(r).toContain('Active work cycle: "fix auth race condition"')
+    // Goal discipline injected with the cycle — keeps a weaker rig on the goal
+    // and out of loops (the agentic capability the harness gives the model).
+    expect(r).toContain('Stay on this goal')
+    expect(r).toContain('Do not loop')
   })
 
   it('surfaces dirty working tree counts', async () => {
