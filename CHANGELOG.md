@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.12.1] - 2026-06-29
+
+### Bug Fixes
+
+- statusline version check owned by daemon, not legacy files (#495)
+
+
 ## [3.12.0] - 2026-06-29
 
 ### Added
