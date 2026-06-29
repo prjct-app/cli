@@ -19,6 +19,7 @@ import { resetGroupLoaders } from '../commands/register'
 import { commandRegistry } from '../commands/registry'
 import type { HookIo } from '../hooks/_runner'
 import { getHookRunner } from '../hooks/registry'
+import { refreshUpdateStatus } from '../services/update-checker'
 import prjctDb from '../storage/database'
 import { realtimeManager } from '../sync/realtime-manager'
 import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
@@ -53,11 +54,15 @@ const WAL_CHECKPOINT_INTERVAL = 50
  */
 const VERSION_DRIFT_CHECK_MIN_MS = 1000
 
+/** How often the daemon re-checks npm for a newer published version. */
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
+
 let ipcServer: Server | null = null
 let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
 let ownVersion: string | null = null
 let lastDriftCheckMs = 0
+let updateTimer: ReturnType<typeof setInterval> | null = null
 
 // Serializes command execution. handleRequestInner patches the GLOBAL
 // console.log/error to capture a command's output; with concurrent socket
@@ -130,6 +135,21 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     } catch {
       // never block daemon startup
     }
+  }
+
+  // Own the "is a newer prjct published?" question. The daemon is the one
+  // process that reliably knows the installed version, so it refreshes the
+  // global update-status flag here (and hourly below). The statusline only
+  // READS that flag — it no longer does any version comparison itself.
+  // Best-effort + non-blocking: a slow/offline registry must never delay
+  // startup or serving.
+  if (ownVersion) {
+    const version = ownVersion
+    void refreshUpdateStatus(version).catch(() => undefined)
+    updateTimer = setInterval(() => {
+      void refreshUpdateStatus(version).catch(() => undefined)
+    }, UPDATE_CHECK_INTERVAL_MS)
+    updateTimer.unref?.()
   }
 
   // Pre-load modules (this is the whole point — do it once)
@@ -504,6 +524,10 @@ function shutdown(exitCode: number): void {
   }
 
   if (state?.idleTimer) clearTimeout(state.idleTimer)
+  if (updateTimer) {
+    clearInterval(updateTimer)
+    updateTimer = null
+  }
 
   if (ipcServer) {
     ipcServer.close()
