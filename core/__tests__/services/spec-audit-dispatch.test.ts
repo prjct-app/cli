@@ -8,7 +8,12 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import { reviewsGatePassed, selectReviewers } from '../../services/spec-audit-dispatch'
+import { LENS_CATALOG } from '../../services/review-lenses'
+import {
+  renderAuditDispatch,
+  reviewsGatePassed,
+  selectReviewers,
+} from '../../services/spec-audit-dispatch'
 import { emptySpecContent, type SpecContent, type SpecReview } from '../../types/spec'
 
 const pass: SpecReview = { verdict: 'pass', notes: 'ok', ts: '2026-06-19T00:00:00.000Z' }
@@ -89,5 +94,42 @@ describe('reviewsGatePassed — gate over the selected set', () => {
 
   it('no reviews at all ⇒ false', () => {
     expect(reviewsGatePassed(emptySpecContent('g'))).toBe(false)
+  })
+})
+
+describe('renderAuditDispatch — per-lens model routing (GAP 2)', () => {
+  it('runs a capabilityClass:fast lens on the cheap model; the rest stay review-tier', async () => {
+    // Inject a narrow opt-in lens; clean up after so the catalog is unchanged.
+    LENS_CATALOG['narrow-lint'] = {
+      label: 'cheap lint',
+      rubric: 'Lint the spec for trivial issues.',
+      capabilityClass: 'fast',
+    }
+    try {
+      const out = await renderAuditDispatch(
+        'spec_1',
+        'T',
+        emptySpecContent('x'),
+        ['architecture', 'narrow-lint'],
+        'claude'
+      )
+      // The narrow lens names the fast model inline...
+      expect(out).toContain('model: "haiku"')
+      // ...while the global review-tier directive stays on the balanced model.
+      expect(out).toContain('model: "sonnet"')
+    } finally {
+      delete LENS_CATALOG['narrow-lint']
+    }
+  })
+
+  it('with no opt-in lens, every reviewer stays on the review tier (behavior-preserving)', async () => {
+    const out = await renderAuditDispatch(
+      'spec_2',
+      'T',
+      emptySpecContent('x'),
+      ['architecture', 'security'],
+      'claude'
+    )
+    expect(out).not.toContain('model: "haiku"')
   })
 })

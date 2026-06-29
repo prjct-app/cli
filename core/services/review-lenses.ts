@@ -1,3 +1,5 @@
+import type { AgentCapabilityClass } from '../schemas/model'
+
 /**
  * Review lenses — the SHARED specialist roster.
  *
@@ -19,6 +21,13 @@ export interface LensSpec {
    * "first read the spec from prjct" line and appends the verdict ask.
    */
   rubric: string
+  /**
+   * Optional model-class override for THIS specialist. Unset → the reviewer
+   * class (balanced) like every lens today. A genuinely narrow lens can opt
+   * down to `fast` (a small, cheap model) — the "137x cheaper" lever — without
+   * touching any other lens.
+   */
+  capabilityClass?: AgentCapabilityClass
 }
 
 export const LENS_CATALOG: Record<string, LensSpec> = {

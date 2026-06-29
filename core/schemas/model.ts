@@ -143,9 +143,12 @@ export interface ResolvedAgentModel extends AgentModelPolicy {
  */
 export function resolveAgentModel(
   role: AgentRole,
-  available?: ReadonlySet<AgentModelTier>
+  available?: ReadonlySet<AgentModelTier>,
+  classOverride?: AgentCapabilityClass
 ): ResolvedAgentModel {
-  const policy = getAgentModelPolicy(role)
+  // classOverride lets a narrow SPECIALIST opt down to a cheaper class than its
+  // role implies (a per-lens decision); unset → the role's policy (unchanged).
+  const policy = classOverride ? policyForClass(classOverride) : getAgentModelPolicy(role)
   if (!available || available.size === 0) {
     return { ...policy, preferred: policy.model, degraded: false }
   }
@@ -175,9 +178,10 @@ export interface ResolvedProviderModel {
 export function resolveProviderModel(
   role: AgentRole,
   provider: string,
-  available?: ReadonlySet<string>
+  available?: ReadonlySet<string>,
+  classOverride?: AgentCapabilityClass
 ): ResolvedProviderModel {
-  const capability = capabilityClassForRole(role)
+  const capability = classOverride ?? capabilityClassForRole(role)
   const chain = PROVIDER_CAPABILITY_MODELS[provider]?.[capability]
   if (!chain || chain.length === 0) {
     return { provider, model: null, capability, degraded: false }
@@ -200,9 +204,10 @@ export function resolveProviderModel(
 export function renderModelDirectiveForProvider(
   role: AgentRole,
   provider: string,
-  available?: ReadonlySet<string>
+  available?: ReadonlySet<string>,
+  classOverride?: AgentCapabilityClass
 ): string {
-  const r = resolveProviderModel(role, provider, available)
+  const r = resolveProviderModel(role, provider, available, classOverride)
   if (r.model === null) {
     const want =
       r.capability === 'frontier'
@@ -225,9 +230,10 @@ export function renderModelDirectiveForProvider(
  */
 export function renderModelDirective(
   role: AgentRole,
-  available?: ReadonlySet<AgentModelTier>
+  available?: ReadonlySet<AgentModelTier>,
+  classOverride?: AgentCapabilityClass
 ): string {
-  const r = resolveAgentModel(role, available)
+  const r = resolveAgentModel(role, available, classOverride)
   const isImplementer = r.preferred === 'opus' && r.effort === 'max'
   if (isImplementer && !r.degraded) {
     return 'Dispatch with the Agent tool using `model: "opus"` and full reasoning effort — this is the IMPLEMENTER; it writes code and needs the best model.'

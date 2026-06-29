@@ -12,6 +12,7 @@
 
 import { getActiveProvider } from '../infrastructure/ai-provider'
 import {
+  type AgentCapabilityClass,
   type AgentRole,
   renderModelDirective,
   renderModelDirectiveForProvider,
@@ -25,8 +26,12 @@ export interface DispatchMechanism {
   native: boolean
   /** How to run `count` reviewers/workers concurrently (or emulated). */
   runLine(count: number): string
-  /** The model directive for a role on this rig. */
-  modelDirective(role: AgentRole): string
+  /**
+   * The model directive for a role on this rig. `classOverride` lets a narrow
+   * specialist opt down to a cheaper capability class than its role implies
+   * (the per-lens routing); unset → the role's policy (unchanged).
+   */
+  modelDirective(role: AgentRole, classOverride?: AgentCapabilityClass): string
 }
 
 /** A stage of the multi-agent flow — what the role does in the dispatch. */
@@ -55,7 +60,7 @@ export const CREW_ROLES: readonly CrewRole[] = [
 function claudeMechanism(): Omit<DispatchMechanism, 'provider'> {
   return {
     native: true,
-    modelDirective: (role) => renderModelDirective(role),
+    modelDirective: (role, classOverride) => renderModelDirective(role, undefined, classOverride),
     runLine: (count) =>
       count === 1
         ? 'Run this review subagent via the Agent tool. It reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.'
@@ -66,7 +71,8 @@ function claudeMechanism(): Omit<DispatchMechanism, 'provider'> {
 function emulatedMechanism(provider: AIProviderName): Omit<DispatchMechanism, 'provider'> {
   return {
     native: false,
-    modelDirective: (role) => renderModelDirectiveForProvider(role, provider),
+    modelDirective: (role, classOverride) =>
+      renderModelDirectiveForProvider(role, provider, undefined, classOverride),
     runLine: (count) =>
       count === 1
         ? `This rig (${provider}) has no native subagent tool. Run this review as ONE focused, fresh pass: read the spec FROM prjct (command below) and the relevant codebase paths, apply the rubric, return a structured verdict — do not carry over assumptions from the planning context.`

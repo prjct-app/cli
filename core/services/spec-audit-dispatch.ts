@@ -128,9 +128,15 @@ export async function renderAuditDispatch(
     const label = spec ? spec.label : 'custom lens'
     const rubric = spec ? spec.rubric : GENERIC_RUBRIC
     const letter = String.fromCharCode(65 + (i % 26))
+    // A narrow lens can opt down to a cheaper model class — name it inline so
+    // THIS reviewer runs on the small/cheap model. Lenses without an override
+    // fall under the global review-tier directive below (unchanged).
+    const modelLine = spec?.capabilityClass
+      ? ` ${dispatch.modelDirective('spec-review', spec.capabilityClass)}`
+      : ''
     reviewerSections.push(
       `## Reviewer ${letter} — ${lens} (${label})`,
-      `Reviewer prompt: "First run \`prjct spec show ${id} --md\` to read the spec. ${rubric} Return verdict (pass|fail) and 2-4 sentence notes."`,
+      `Reviewer prompt: "First run \`prjct spec show ${id} --md\` to read the spec. ${rubric} Return verdict (pass|fail) and 2-4 sentence notes."${modelLine}`,
       ''
     )
   })
