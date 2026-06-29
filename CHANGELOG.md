@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.12.2] - 2026-06-29
+
+### Bug Fixes
+
+- regenerate statusline body on upgrade so the version-check fix ships (#496)
+
+
 ## [3.12.1] - 2026-06-29
 
 ### Bug Fixes
