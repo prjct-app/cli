@@ -13,16 +13,31 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {
+  buildAntigravityConfig,
+  buildAntigravitySkill,
+  buildCodexSkill,
+  buildGeminiConfig,
+} from '../core/services/skill-generator/editor-surfaces'
+import {
   buildPrjctSkill,
   emptySkillContext,
 } from '../core/services/skill-generator/prjct-skill-body'
 
 const ROOT = path.resolve(__dirname, '..')
-const OUT = path.join(ROOT, 'templates', 'skills', 'prjct', 'SKILL.md')
 
-const content = buildPrjctSkill(emptySkillContext())
+function emit(relParts: string[], content: string): void {
+  const out = path.join(ROOT, 'templates', ...relParts)
+  fs.mkdirSync(path.dirname(out), { recursive: true })
+  fs.writeFileSync(out, content)
+  console.log(`  → templates/${relParts.join('/')} (${Buffer.byteLength(content, 'utf-8')} bytes)`)
+}
 
-fs.mkdirSync(path.dirname(OUT), { recursive: true })
-fs.writeFileSync(OUT, content)
+// Canonical Claude skill (full, project-aware at sync; baseline here).
+emit(['skills', 'prjct', 'SKILL.md'], buildPrjctSkill(emptySkillContext()))
 
-console.log(`  → templates/skills/prjct/SKILL.md (${content.length} bytes)`)
+// Compact non-Claude surfaces — generated from the same contract SSOT so they
+// can never drift from the canonical skill (editor-surfaces.ts).
+emit(['codex', 'SKILL.md'], buildCodexSkill())
+emit(['antigravity', 'SKILL.md'], buildAntigravitySkill())
+emit(['global', 'GEMINI.md'], buildGeminiConfig())
+emit(['global', 'ANTIGRAVITY.md'], buildAntigravityConfig())
