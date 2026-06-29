@@ -20,9 +20,9 @@ const START_MARKER = '# prjct:mcp:start - managed by prjct, do not edit between 
 const END_MARKER = '# prjct:mcp:end'
 const CODEX_STATUS_LINE_ITEMS = [
   'model-with-reasoning',
-  'cwd',
-  'git',
-  'context-left',
+  'current-dir',
+  'git-branch',
+  'context-remaining',
   'five-hour-limit',
   'weekly-limit',
   'task-progress',

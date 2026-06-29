@@ -42,7 +42,7 @@ describe('prjct install Codex surface', () => {
     expect(config).toContain('[mcp_servers.prjct]')
     expect(config).toContain('[tui]')
     expect(config).toContain(
-      'status_line = ["model-with-reasoning", "cwd", "git", "context-left", "five-hour-limit", "weekly-limit", "task-progress"]'
+      'status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-remaining", "five-hour-limit", "weekly-limit", "task-progress"]'
     )
   })
 })

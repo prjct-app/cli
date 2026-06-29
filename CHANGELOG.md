@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-06-29
+
+### Added
+- hacer que prjct sea el mejor harness agéntico del mercado para devs: estructura de workspace, bucle de agentes, arquitectura multi-agente, skills/comandos, y soberanía del rig (modelo intercambiable)
+
 ## [3.9.0] - 2026-06-28
 
 ### Added
