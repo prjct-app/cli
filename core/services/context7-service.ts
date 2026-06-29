@@ -7,6 +7,11 @@ import { CONTEXT7_VERIFY_TTL_MS } from '../constants/timings'
 import { resolveCliHome } from '../infrastructure/cli-home'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Context7Status } from '../types/services.js'
+import {
+  codexHasContext7Server,
+  ensureCodexContext7Server,
+  getCodexConfigTomlPath,
+} from '../utils/codex-mcp'
 import { execFileAsync } from '../utils/exec'
 import { writeJson } from '../utils/file-helper'
 import { MCP_SERVER_PRESETS } from '../utils/mcp-config'
@@ -23,22 +28,31 @@ export function getVerifyCachePath(): string {
   return path.join(resolveCliHome(), 'state', 'context7-verify.json')
 }
 
-async function readPersistedVerify(): Promise<{ at: number; status: Context7Status } | null> {
+type PersistedVerify = { at: number; provider: string; status: Context7Status }
+
+async function readPersistedVerify(): Promise<PersistedVerify | null> {
   try {
     const raw = await fs.readFile(getVerifyCachePath(), 'utf-8')
-    const parsed = JSON.parse(raw) as { at: number; status: Context7Status }
-    if (typeof parsed?.at === 'number' && parsed.status) return parsed
+    const parsed = JSON.parse(raw) as PersistedVerify
+    // `provider` defaults to 'claude' for caches written before provider-awareness.
+    if (typeof parsed?.at === 'number' && parsed.status) {
+      return { ...parsed, provider: parsed.provider ?? 'claude' }
+    }
   } catch {
     // missing / corrupt — fall through to fresh verify
   }
   return null
 }
 
-async function writePersistedVerify(at: number, status: Context7Status): Promise<void> {
+async function writePersistedVerify(
+  at: number,
+  provider: string,
+  status: Context7Status
+): Promise<void> {
   const file = getVerifyCachePath()
   try {
     await fs.mkdir(path.dirname(file), { recursive: true })
-    await fs.writeFile(file, JSON.stringify({ at, status }), 'utf-8')
+    await fs.writeFile(file, JSON.stringify({ at, provider, status }), 'utf-8')
   } catch {
     // best-effort; cache miss is acceptable
   }
@@ -55,7 +69,7 @@ interface Context7TemplateConfig {
 }
 
 const CONTEXT7_DEFAULT = MCP_SERVER_PRESETS.context7
-let cachedVerify: { at: number; status: Context7Status } | null = null
+let cachedVerify: { at: number; provider: string; status: Context7Status } | null = null
 
 const CONTEXT7_SMOKE_SYSTEM_PATH_DIRS = [
   path.dirname(process.execPath),
@@ -201,7 +215,23 @@ async function runSmokeCheck(): Promise<void> {
 }
 
 class Context7Service {
-  async install(): Promise<Context7Status> {
+  /**
+   * Configure the Context7 MCP server for the given harness. Claude uses
+   * `~/.claude/mcp.json`; Codex uses `[mcp_servers.context7]` in its TOML.
+   * Providers without a managed path return a non-error "unsupported" status
+   * so callers can skip rather than fail.
+   */
+  async install(provider: string = 'claude'): Promise<Context7Status> {
+    if (provider === 'codex') return this.installCodex()
+    if (provider !== 'claude') {
+      return {
+        installed: false,
+        verified: false,
+        configPath: '',
+        message: `Context7 auto-config not supported for ${provider}; skipping`,
+      }
+    }
+
     const configPath = getConfigPath()
     const claudeDir = path.dirname(configPath)
     await fs.mkdir(claudeDir, { recursive: true })
@@ -239,65 +269,99 @@ class Context7Service {
     }
   }
 
-  async verify(): Promise<Context7Status> {
+  private async installCodex(): Promise<Context7Status> {
+    const result = await ensureCodexContext7Server()
+    if (result.changed) cachedVerify = null
+    return {
+      installed: true,
+      verified: false,
+      configPath: result.path,
+      message:
+        result.skipped === 'user-managed'
+          ? 'Context7 MCP user-managed in config.toml'
+          : 'Context7 MCP configured in config.toml',
+    }
+  }
+
+  /** Whether Context7 is registered for `provider`, and where. */
+  private async resolveConfigured(
+    provider: string
+  ): Promise<{ ok: boolean; configPath: string; message?: string }> {
+    if (provider === 'codex') {
+      const configPath = getCodexConfigTomlPath()
+      const has = await codexHasContext7Server(configPath)
+      return has
+        ? { ok: true, configPath }
+        : { ok: false, configPath, message: 'Context7 MCP not configured in ~/.codex/config.toml' }
+    }
+    if (provider !== 'claude') {
+      return { ok: false, configPath: '', message: `Context7 not managed for ${provider}` }
+    }
+    const configPath = getConfigPath()
+    const config = await readConfig(configPath)
+    const mcpServers = (config.mcpServers as Record<string, unknown>) || {}
+    const context7 = mcpServers.context7 as { command?: string; args?: string[] } | undefined
+    if (!context7?.command || !Array.isArray(context7.args) || context7.args.length === 0) {
+      return { ok: false, configPath, message: 'Context7 MCP not configured in ~/.claude/mcp.json' }
+    }
+    return { ok: true, configPath }
+  }
+
+  async verify(provider: string = 'claude'): Promise<Context7Status> {
     const now = Date.now()
-    if (cachedVerify && now - cachedVerify.at < CONTEXT7_VERIFY_TTL_MS) {
+    if (
+      cachedVerify &&
+      cachedVerify.provider === provider &&
+      now - cachedVerify.at < CONTEXT7_VERIFY_TTL_MS
+    ) {
       return cachedVerify.status
     }
 
-    // Persistent cache — skip the ~1.1s `npx ... --help` smoke check when
-    // a recent successful verify exists for the same configPath.
+    // Persistent cache — skip the ~1.1s `npx ... --help` smoke check when a
+    // recent successful verify exists for the same provider.
     const persisted = await readPersistedVerify()
     if (
       persisted?.status.verified &&
-      now - persisted.at < CONTEXT7_VERIFY_TTL_MS &&
-      persisted.status.configPath === getConfigPath()
+      persisted.provider === provider &&
+      now - persisted.at < CONTEXT7_VERIFY_TTL_MS
     ) {
       cachedVerify = persisted
       return persisted.status
     }
 
-    const configPath = getConfigPath()
-    const config = await readConfig(configPath)
-    const mcpServers = (config.mcpServers as Record<string, unknown>) || {}
-    const context7 = mcpServers.context7 as { command?: string; args?: string[] } | undefined
-
-    if (!context7?.command || !Array.isArray(context7.args) || context7.args.length === 0) {
+    const configured = await this.resolveConfigured(provider)
+    if (!configured.ok) {
       return {
         installed: false,
         verified: false,
-        configPath,
-        message: 'Context7 MCP not configured in ~/.claude/mcp.json',
+        configPath: configured.configPath,
+        message: configured.message,
       }
     }
 
     try {
       await runSmokeCheck()
-      const status = {
-        installed: true,
-        verified: true,
-        configPath,
-      }
-      cachedVerify = { at: now, status }
+      const status = { installed: true, verified: true, configPath: configured.configPath }
+      cachedVerify = { at: now, provider, status }
       // Persist successful verify so subsequent CLI invocations skip the smoke check.
-      await writePersistedVerify(now, status)
+      await writePersistedVerify(now, provider, status)
       return status
     } catch (error) {
       const status = {
         installed: true,
         verified: false,
-        configPath,
+        configPath: configured.configPath,
         message: `Context7 smoke check failed: ${getErrorMessage(error)}`,
       }
-      cachedVerify = { at: now, status }
+      cachedVerify = { at: now, provider, status }
       // Don't persist failures — next invocation should retry.
       return status
     }
   }
 
-  async ensureReady(): Promise<Context7Status> {
-    await this.install()
-    const status = await this.verify()
+  async ensureReady(provider: string = 'claude'): Promise<Context7Status> {
+    await this.install(provider)
+    const status = await this.verify(provider)
     if (!status.verified) {
       const msg =
         status.message ||

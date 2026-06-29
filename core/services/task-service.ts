@@ -16,6 +16,7 @@
  *    so it is safe under MCP stdio.
  */
 
+import { REGISTERED_VERBS_SET } from '../commands/verb-names'
 import configManager from '../infrastructure/config-manager'
 import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { deriveTitle as deriveMemTitle, flatDetail, preventiveLabel } from '../memory/format'
@@ -149,6 +150,20 @@ export async function startTask(
   description: string,
   options: { skipHooks?: boolean; spec?: string } = {}
 ): Promise<StartTaskOutcome> {
+  // Verb-collision guard. Agents on non-Claude harnesses (e.g. Codex) that
+  // don't have the verb-intent map memorized tend to wrap a bare CLI verb as
+  // a work description — `prjct work "sync"` instead of `prjct sync`. A lone
+  // registered verb is never a real work intent, so reject it and point at the
+  // command they meant. Multi-word descriptions ("ship the onboarding flow")
+  // pass untouched.
+  const lone = description.trim().toLowerCase()
+  if (REGISTERED_VERBS_SET.has(lone)) {
+    return {
+      ok: false,
+      blocked: `'${lone}' is a prjct command, not a work intent. Did you mean \`prjct ${lone}\`? To start a work cycle, describe the task (e.g. \`prjct work "fix the ${lone} flow"\`).`,
+    }
+  }
+
   // before_task workflow rules (gates may block, hooks may nudge).
   const beforeResult = await executeWorkflowRules(projectId, 'task', 'before', {
     projectPath,

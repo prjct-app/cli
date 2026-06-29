@@ -2,8 +2,34 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { SKIP_DIRS } from '../constants/file-patterns'
 import { safeRead } from '../storage/safe-reader'
-import { isNotFoundError } from '../types/fs'
+import {
+  describeFsWriteError,
+  isNotFoundError,
+  isPermissionError,
+  isReadonlyError,
+} from '../types/fs'
 import type { ValidationSchema } from '../types/storage/extended'
+
+/**
+ * Run a write and, if it fails because the target is read-only / permission
+ * denied (the sandboxed-agent case), rethrow with an actionable message.
+ * Transient or other errors (ENOSPC, EBUSY, …) pass through untouched so
+ * callers that inspect `error.code` keep working.
+ */
+async function withWriteErrorContext<T>(
+  targetPath: string,
+  subject: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    if (isReadonlyError(error) || isPermissionError(error)) {
+      throw new Error(describeFsWriteError(error, targetPath, subject))
+    }
+    throw error
+  }
+}
 
 /**
  * File Helper - Centralized file operations with error handling
@@ -118,10 +144,12 @@ export async function readJson<T = unknown>(
  * Write object to JSON file (pretty-printed)
  */
 export async function writeJson(filePath: string, data: unknown, indent = 2): Promise<void> {
-  const dir = path.dirname(filePath)
-  await fs.mkdir(dir, { recursive: true })
-  const content = `${JSON.stringify(data, null, indent)}\n`
-  await fs.writeFile(filePath, content, 'utf-8')
+  await withWriteErrorContext(filePath, 'config', async () => {
+    const dir = path.dirname(filePath)
+    await fs.mkdir(dir, { recursive: true })
+    const content = `${JSON.stringify(data, null, indent)}\n`
+    await fs.writeFile(filePath, content, 'utf-8')
+  })
 }
 
 /**
@@ -142,9 +170,11 @@ export async function readFile(filePath: string, defaultValue = ''): Promise<str
  * Write text file
  */
 export async function writeFile(filePath: string, content: string): Promise<void> {
-  const dir = path.dirname(filePath)
-  await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(filePath, content, 'utf-8')
+  await withWriteErrorContext(filePath, 'file', async () => {
+    const dir = path.dirname(filePath)
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(filePath, content, 'utf-8')
+  })
 }
 
 /**
@@ -156,11 +186,13 @@ export async function writeFile(filePath: string, content: string): Promise<void
  * row is the source of truth; this is the mirror writer.
  */
 export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
-  const dir = path.dirname(filePath)
-  await fs.mkdir(dir, { recursive: true })
-  const tmpPath = `${filePath}.tmp`
-  await fs.writeFile(tmpPath, content, 'utf-8')
-  await fs.rename(tmpPath, filePath)
+  await withWriteErrorContext(filePath, 'file', async () => {
+    const dir = path.dirname(filePath)
+    await fs.mkdir(dir, { recursive: true })
+    const tmpPath = `${filePath}.tmp`
+    await fs.writeFile(tmpPath, content, 'utf-8')
+    await fs.rename(tmpPath, filePath)
+  })
 }
 
 /**

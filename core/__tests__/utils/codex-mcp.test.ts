@@ -17,7 +17,10 @@ import os from 'node:os'
 import path from 'node:path'
 import {
   buildCodexStatusLineToml,
+  buildContext7McpTomlBlock,
   buildPrjctMcpTomlBlock,
+  codexHasContext7Server,
+  ensureCodexContext7Server,
   ensureCodexMcpServer,
 } from '../../utils/codex-mcp'
 
@@ -119,6 +122,59 @@ describe('ensureCodexMcpServer', () => {
     expect(body).toContain(
       '[tui]\nstatus_line = ["model-with-reasoning", "current-dir", "git-branch", "context-remaining", "five-hour-limit", "weekly-limit", "task-progress"]\nraw_output_mode = true'
     )
+  })
+})
+
+describe('ensureCodexContext7Server', () => {
+  it('creates config.toml with the context7 server when missing', async () => {
+    const r = await ensureCodexContext7Server(configPath)
+    expect(r.changed).toBe(true)
+    const body = await fs.readFile(configPath, 'utf-8')
+    expect(body).toContain('[mcp_servers.context7]')
+    expect(body).toContain('# prjct:mcp:context7:start')
+    expect(body).toContain('# prjct:mcp:context7:end')
+    expect(await codexHasContext7Server(configPath)).toBe(true)
+  })
+
+  it('co-exists with the prjct MCP block (both managed independently)', async () => {
+    await ensureCodexMcpServer(configPath)
+    await ensureCodexContext7Server(configPath)
+    const body = await fs.readFile(configPath, 'utf-8')
+    expect(body).toContain('[mcp_servers.prjct]')
+    expect(body).toContain('[mcp_servers.context7]')
+    // Exactly one of each — no accumulation.
+    expect(body.split('[mcp_servers.prjct]').length - 1).toBe(1)
+    expect(body.split('[mcp_servers.context7]').length - 1).toBe(1)
+  })
+
+  it('is idempotent — second run reports unchanged', async () => {
+    await ensureCodexContext7Server(configPath)
+    const first = await fs.readFile(configPath, 'utf-8')
+    const r = await ensureCodexContext7Server(configPath)
+    expect(r.changed).toBe(false)
+    expect(await fs.readFile(configPath, 'utf-8')).toBe(first)
+  })
+
+  it('preserves a user-managed [mcp_servers.context7] entry', async () => {
+    const user = '[mcp_servers.context7]\ncommand = "my-context7"\nargs = []\n'
+    await fs.writeFile(configPath, user, 'utf-8')
+    const r = await ensureCodexContext7Server(configPath)
+    expect(r.skipped).toBe('user-managed')
+    const body = await fs.readFile(configPath, 'utf-8')
+    expect(body).toContain('command = "my-context7"')
+  })
+
+  it('codexHasContext7Server is false for a missing file', async () => {
+    expect(await codexHasContext7Server(path.join(dir, 'nope.toml'))).toBe(false)
+  })
+})
+
+describe('buildContext7McpTomlBlock', () => {
+  it('emits a context7 table with its own markers', () => {
+    const block = buildContext7McpTomlBlock()
+    expect(block).toContain('[mcp_servers.context7]')
+    expect(block).toContain('# prjct:mcp:context7:start')
+    expect(block).not.toContain('description')
   })
 })
 

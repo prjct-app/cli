@@ -21,7 +21,7 @@ import { indexProject as indexBm25, updateProjectIndex as updateBm25 } from '../
 import { indexCoChanges } from '../domain/git-cochange'
 import { indexImports, updateImportGraph } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
-import { detectCodex } from '../infrastructure/ai-provider'
+import { detectCodex, getActiveProvider } from '../infrastructure/ai-provider'
 import { verifyCodexPRouterReady } from '../infrastructure/codex-skill'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
@@ -123,24 +123,27 @@ class SyncService {
       // Keep prjct-managed MCP defaults self-healing from sync as well as setup.
       await phase('mcp-defaults', () => setupMcpServers({ silent: true, verifyContext7: false }))
 
-      // Context7 is mandatory for deterministic coding workflows
+      // Context7 is best-effort, never a hard gate, and provider-aware: it
+      // configures into the ACTIVE harness's MCP config (Claude → mcp.json,
+      // Codex → config.toml). Its smoke check needs network, so a hard failure
+      // here used to abort sync entirely for Codex/Gemini and any sandboxed/
+      // offline run — even though indexing, memory and vault regen don't depend
+      // on it. Mirror the Codex-router check above: try, warn on failure, keep
+      // going. `verified:false` still surfaces so `prjct start`/setup can repair.
+      const activeProvider = await getActiveProvider().catch(() => null)
+      const context7Provider = activeProvider?.name ?? 'claude'
       try {
-        context7Status = await phase('context7', () => context7Service.ensureReady())
+        context7Status = await phase('context7', () =>
+          context7Service.ensureReady(context7Provider)
+        )
       } catch (error) {
-        return {
-          success: false,
-          projectId: this.projectId,
-          cliVersion: this.cliVersion,
-          git: emptyGitData(),
-          stats: emptyStats(),
-          commands: emptyCommands(),
-          stack: emptyStack(),
-          context7: {
-            installed: context7Status.installed,
-            verified: false,
-            message: getErrorMessage(error),
-          },
-          error: `Context7 MCP is required but not ready: ${getErrorMessage(error)}. Run 'prjct start' to repair.`,
+        const message = getErrorMessage(error)
+        log.warn(`Context7 MCP not ready (continuing sync): ${message}`)
+        context7Status = {
+          installed: context7Status.installed,
+          verified: false,
+          configPath: context7Status.configPath,
+          message,
         }
       }
 
