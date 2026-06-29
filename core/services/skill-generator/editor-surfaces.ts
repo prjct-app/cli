@@ -13,9 +13,12 @@
  */
 
 import { KB_MEMORY_TYPES } from '../../memory/entries'
+import { MINIMAL_ROUTING_BODY } from '../routing-block'
 
 const KB = KB_MEMORY_TYPES.join('/')
 const FOOTER = 'Generated with [p/](https://www.prjct.app/)'
+const POINTER_START = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
+const POINTER_END = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
 /**
  * Atomic, rig-agnostic contract lines — the single source of truth every
@@ -105,3 +108,32 @@ export function buildGlobalConfig(rigName: string): string {
 
 export const buildGeminiConfig = (): string => buildGlobalConfig('Gemini')
 export const buildAntigravityConfig = (): string => buildGlobalConfig('Antigravity')
+
+/**
+ * IDE rule pointers (Cursor `.mdc`, Windsurf `.md`). Clean-repo doctrine: these
+ * carry the SAME minimal pointer as AGENTS.md/CLAUDE.md (MINIMAL_ROUTING_BODY,
+ * one source) — never a ruleset. Only the per-rig frontmatter differs.
+ */
+function buildIdePointer(frontmatter: string): string {
+  return `${[
+    '---',
+    frontmatter,
+    '---',
+    '',
+    POINTER_START,
+    MINIMAL_ROUTING_BODY,
+    '',
+    '**Auto-managed by prjct-cli** | https://prjct.app',
+    POINTER_END,
+  ].join('\n')}\n`
+}
+
+export const buildCursorRule = (): string =>
+  buildIdePointer(
+    'description: "prjct — pull project memory + workflow on demand"\nalwaysApply: true'
+  )
+
+export const buildWindsurfRule = (): string =>
+  buildIdePointer(
+    'trigger: always_on\ndescription: "prjct — pull project memory + workflow on demand"'
+  )

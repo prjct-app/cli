@@ -16,7 +16,9 @@ import {
   buildAntigravityConfig,
   buildAntigravitySkill,
   buildCodexSkill,
+  buildCursorRule,
   buildGeminiConfig,
+  buildWindsurfRule,
 } from '../core/services/skill-generator/editor-surfaces'
 import {
   buildPrjctSkill,
@@ -41,3 +43,7 @@ emit(['codex', 'SKILL.md'], buildCodexSkill())
 emit(['antigravity', 'SKILL.md'], buildAntigravitySkill())
 emit(['global', 'GEMINI.md'], buildGeminiConfig())
 emit(['global', 'ANTIGRAVITY.md'], buildAntigravityConfig())
+
+// IDE rule pointers (clean-repo: same minimal pointer as AGENTS.md/CLAUDE.md).
+emit(['global', 'CURSOR.mdc'], buildCursorRule())
+emit(['global', 'WINDSURF.md'], buildWindsurfRule())

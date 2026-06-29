@@ -11,7 +11,9 @@ import {
   buildAntigravityConfig,
   buildAntigravitySkill,
   buildCodexSkill,
+  buildCursorRule,
   buildGeminiConfig,
+  buildWindsurfRule,
   CONTRACT,
 } from '../../services/skill-generator/editor-surfaces'
 
@@ -52,5 +54,24 @@ describe('multi-editor surfaces generated from one contract', () => {
 
   it('every surface composes the shared CONTRACT (single source of truth)', () => {
     for (const surface of all) expect(surface).toContain(CONTRACT.rag)
+  })
+})
+
+describe('IDE rule pointers — same minimal pointer, per-rig frontmatter', () => {
+  const cursor = buildCursorRule()
+  const windsurf = buildWindsurfRule()
+
+  it('carry the shared minimal pointer (clean-repo: no ruleset)', () => {
+    for (const rule of [cursor, windsurf]) {
+      expect(rule).toContain('prjct work --md')
+      expect(rule).toContain('This file holds no rules')
+      expect(rule).toContain('<!-- prjct:start')
+      expect(rule).not.toContain('RAG-backed project memory harness') // pointer, not contract
+    }
+  })
+
+  it('use each rig frontmatter format', () => {
+    expect(cursor).toContain('alwaysApply: true')
+    expect(windsurf).toContain('trigger: always_on')
   })
 })

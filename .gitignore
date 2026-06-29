@@ -17,6 +17,8 @@ templates/codex/SKILL.md
 templates/antigravity/SKILL.md
 templates/global/GEMINI.md
 templates/global/ANTIGRAVITY.md
+templates/global/CURSOR.mdc
+templates/global/WINDSURF.md
 docs/
 website/dist/
 out/
