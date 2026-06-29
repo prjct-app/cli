@@ -12,6 +12,14 @@ import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { TemplateError } from '../errors'
+import {
+  buildAntigravityConfig,
+  buildAntigravitySkill,
+  buildCodexSkill,
+  buildCursorRule,
+  buildGeminiConfig,
+  buildWindsurfRule,
+} from '../services/skill-generator/editor-surfaces'
 import type { Frontmatter } from '../types/agentic'
 import type { ParsedTemplate } from '../types/agentic/templates-orchestration'
 import { PACKAGE_ROOT } from '../utils/version'
@@ -164,12 +172,34 @@ export function getTemplateContent(relativePath: string): string | null {
     return bundle[relativePath]
   }
 
+  const generated = getGeneratedTemplateContent(relativePath)
+  if (generated) return generated
+
   // Fall back to filesystem
   const filePath = path.join(PACKAGE_ROOT, 'templates', relativePath)
   try {
     return fsSync.readFileSync(filePath, 'utf-8')
   } catch {
     return null
+  }
+}
+
+function getGeneratedTemplateContent(relativePath: string): string | null {
+  switch (relativePath) {
+    case 'codex/SKILL.md':
+      return buildCodexSkill()
+    case 'antigravity/SKILL.md':
+      return buildAntigravitySkill()
+    case 'global/GEMINI.md':
+      return buildGeminiConfig()
+    case 'global/ANTIGRAVITY.md':
+      return buildAntigravityConfig()
+    case 'global/CURSOR.mdc':
+      return buildCursorRule()
+    case 'global/WINDSURF.md':
+      return buildWindsurfRule()
+    default:
+      return null
   }
 }
 

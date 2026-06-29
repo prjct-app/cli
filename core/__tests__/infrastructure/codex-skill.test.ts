@@ -17,9 +17,10 @@ import { describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { buildCodexSkillContent, CODEX_SKILL_MAX_BYTES } from '../../infrastructure/codex-skill'
+import { buildCodexSkill } from '../../services/skill-generator/editor-surfaces'
 
 const ROOT = path.resolve(__dirname, '../../..')
-const TEMPLATE = fs.readFileSync(path.join(ROOT, 'templates/codex/SKILL.md'), 'utf-8')
+const TEMPLATE = buildCodexSkill()
 
 describe('codex skill size guard', () => {
   test('built SKILL.md (template + metadata) stays under the Codex hard cap', () => {
@@ -49,10 +50,9 @@ describe('codex skill size guard', () => {
 describe('bin shim skill self-heal', () => {
   const shim = fs.readFileSync(path.join(ROOT, 'bin/prjct.cjs'), 'utf-8')
 
-  test('Codex destination receives the Codex template, not the Claude baseline', () => {
+  test('Codex destination never receives the Claude baseline', () => {
     // The exact regression: one loop copied templates/skills/prjct/SKILL.md
     // (the ~9.5KB Claude baseline) into BOTH ~/.claude and ~/.codex.
-    expect(shim).toContain("'templates', 'codex', 'SKILL.md'")
     for (const line of shim.split('\n')) {
       if (line.includes('.codex/skills')) {
         expect(line).not.toContain('templates/skills/prjct')

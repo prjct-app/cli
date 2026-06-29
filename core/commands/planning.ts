@@ -195,10 +195,10 @@ export class PlanningCommands extends PrjctCommandsBase {
   ): void {
     console.log('')
     console.log('  ✓ global prjct router refreshed where supported')
-    if (surfaces?.claudeMd) {
+    if (surfaces?.claudeMd && surfaces.claudeMd.action !== 'unchanged') {
       console.log('  ✓ project CLAUDE.md updated with routing block')
     }
-    if (surfaces?.agentsMd) {
+    if (surfaces?.agentsMd && surfaces.agentsMd.action !== 'unchanged') {
       console.log('  ✓ project AGENTS.md updated with universal routing block')
     }
     if ((surfaces?.ideRules.length ?? 0) > 0) {

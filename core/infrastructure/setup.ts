@@ -32,7 +32,7 @@ import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { getTimeout } from '../utils/constants'
 import { fileExists } from '../utils/file-helper'
 import log from '../utils/logger'
-import { PACKAGE_ROOT, VERSION } from '../utils/version'
+import { VERSION } from '../utils/version'
 import {
   detectAllProviders,
   detectAntigravity,
@@ -296,11 +296,12 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     // Ensure ~/.gemini directory exists
     await fs.mkdir(geminiDir, { recursive: true })
 
-    // Read template content - try bundle first
-    let templateContent = getTemplateContent('global/GEMINI.md')
+    // Read template content from the package bundle or synthesize it from the
+    // editor-surfaces SSOT in source checkouts.
+    const templateContent = getTemplateContent('global/GEMINI.md')
     if (!templateContent) {
-      const templatePath = path.join(PACKAGE_ROOT, 'templates', 'global', 'GEMINI.md')
-      templateContent = await fs.readFile(templatePath, 'utf-8')
+      log.warn('Gemini global config template not found')
+      return { success: false, action: null }
     }
 
     // Check if global config already exists
@@ -358,15 +359,12 @@ async function installAntigravitySkill(): Promise<{
     // Check if SKILL.md already exists
     const skillExists = await fileExists(skillMdPath)
 
-    // Read template content - try bundle first
-    let templateContent = getTemplateContent('antigravity/SKILL.md')
+    // Read template content from the package bundle or synthesize it from the
+    // editor-surfaces SSOT in source checkouts.
+    const templateContent = getTemplateContent('antigravity/SKILL.md')
     if (!templateContent) {
-      const templatePath = path.join(PACKAGE_ROOT, 'templates', 'antigravity', 'SKILL.md')
-      if (!(await fileExists(templatePath))) {
-        log.warn('Antigravity SKILL.md template not found')
-        return { success: false, action: null }
-      }
-      templateContent = await fs.readFile(templatePath, 'utf-8')
+      log.warn('Antigravity SKILL.md template not found')
+      return { success: false, action: null }
     }
 
     // Write SKILL.md

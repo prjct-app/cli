@@ -15,7 +15,7 @@ import type { CodexPRouterStatus } from '../types/infrastructure.js'
 import { fileExists } from '../utils/file-helper'
 import { sha256 } from '../utils/hash'
 import log from '../utils/logger'
-import { PACKAGE_ROOT, VERSION } from '../utils/version'
+import { VERSION } from '../utils/version'
 import { detectCodex } from './ai-provider'
 
 const CODEX_SKILL_META_MARKER = 'prjct-codex-router'
@@ -70,15 +70,7 @@ function hashContent(content: string): string {
 }
 
 async function loadCodexSkillTemplate(): Promise<string | null> {
-  const bundled = getTemplateContent('codex/SKILL.md')
-  if (bundled) return bundled
-
-  const templatePath = path.join(PACKAGE_ROOT, 'templates', 'codex', 'SKILL.md')
-  if (!(await fileExists(templatePath))) {
-    return null
-  }
-
-  return fs.readFile(templatePath, 'utf-8')
+  return getTemplateContent('codex/SKILL.md')
 }
 
 export function buildCodexSkillContent(templateContent: string): {
@@ -127,7 +119,7 @@ export async function installCodexSkill(): Promise<{
       // Install anyway (Codex may relax the cap), but surface it loudly:
       // over the cap, Codex rejects the whole skill with no error shown.
       log.warn(
-        `Codex SKILL.md is ${bytes} bytes — over Codex's ~${CODEX_SKILL_MAX_BYTES}-byte hard limit; the skill may be rejected. Trim templates/codex/SKILL.md.`
+        `Codex SKILL.md is ${bytes} bytes — over Codex's ~${CODEX_SKILL_MAX_BYTES}-byte hard limit; the skill may be rejected. Trim editor-surfaces.ts.`
       )
     }
 

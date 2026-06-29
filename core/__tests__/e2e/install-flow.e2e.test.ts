@@ -83,9 +83,13 @@ describe('e2e: install/upgrade onboarding contract', () => {
   test('`prjct init` then `prjct setup` reach a configured state', async () => {
     const init = await sb.cli(['init'], { timeoutMs: 90_000 })
     expect(init.code).toBe(0)
+    expect(init.stdout + init.stderr).not.toContain('project AGENTS.md updated')
+    expect(existsSync(path.join(sb.dir, 'AGENTS.md'))).toBe(false)
 
     const setup = await sb.cli(['setup'], { timeoutMs: 90_000 })
     expect(setup.code).toBe(0)
+    expect(setup.stdout + setup.stderr).not.toContain('Project AGENTS.md ready')
+    expect(existsSync(path.join(sb.dir, 'AGENTS.md'))).toBe(false)
 
     // Configured ⇒ a normal command no longer hits the "not configured" gate.
     const task = await sb.cli(['task', 'post-setup smoke', '--md'])
@@ -97,6 +101,7 @@ describe('e2e: install/upgrade onboarding contract', () => {
     const r = await sb.cli(['sync', '--md', '--yes'], { timeoutMs: 120_000 })
     expect(r.code).toBe(0)
     expect(r.stdout.toLowerCase()).toMatch(/sync|indexed|analysis/)
+    expect(existsSync(path.join(sb.dir, 'AGENTS.md'))).toBe(false)
   })
 
   test('`prjct doctor` reports health without crashing', async () => {

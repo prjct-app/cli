@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-06-29
+
+### Added
+- harness pillars
+
 ## [3.10.0] - 2026-06-29
 
 ### Added

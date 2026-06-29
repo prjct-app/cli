@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'bun:test'
-import fs from 'node:fs'
-import path from 'node:path'
 import { _routing as agentsRouting } from '../../services/project-agents-md'
 import { _routing as claudeRouting } from '../../services/project-claude-md'
-
-const ROOT = path.resolve(__dirname, '..', '..', '..')
+import {
+  buildAntigravityConfig,
+  buildAntigravitySkill,
+  buildCodexSkill,
+  buildGeminiConfig,
+} from '../../services/skill-generator/editor-surfaces'
 
 // GLOBAL agent-config surfaces — the pull layer where the protocol LIVES.
 // Per-repo IDE pointers (CURSOR.mdc / WINDSURF.md) are deliberately excluded:
 // under the clean-repo doctrine they are minimal pointers, not protocol
 // carriers (see the minimal-pointer test below).
 const STATIC_AGENT_SURFACES = [
-  'templates/codex/SKILL.md',
-  'templates/antigravity/SKILL.md',
-  'templates/global/GEMINI.md',
-  'templates/global/ANTIGRAVITY.md',
+  buildCodexSkill,
+  buildAntigravitySkill,
+  buildGeminiConfig,
+  buildAntigravityConfig,
 ] as const
 
-const SIZE_CAPPED_SKILLS = ['templates/codex/SKILL.md', 'templates/antigravity/SKILL.md'] as const
+const SIZE_CAPPED_SKILLS = [buildCodexSkill, buildAntigravitySkill] as const
 
 const MAX_SKILL_BYTES = 1024
 
@@ -34,10 +36,6 @@ const FORBIDDEN_ALWAYS_ON_PHRASES = [
   'load full project history',
   'preload full project history',
 ] as const
-
-function readRepoFile(relativePath: string): string {
-  return fs.readFileSync(path.join(ROOT, relativePath), 'utf-8')
-}
 
 function expectProtocol(body: string): void {
   const normalized = body.toLowerCase()
@@ -61,19 +59,17 @@ describe('compact RAG-first agent protocol', () => {
     }
   })
 
-  it('keeps static agent adapters aligned with the lookup-first protocol', () => {
-    for (const relativePath of STATIC_AGENT_SURFACES) {
-      const body = readRepoFile(relativePath)
+  it('keeps generated agent adapters aligned with the lookup-first protocol', () => {
+    for (const buildSurface of STATIC_AGENT_SURFACES) {
+      const body = buildSurface()
       expectProtocol(body)
       for (const forbidden of FORBIDDEN_ALWAYS_ON_PHRASES) expect(body).not.toContain(forbidden)
     }
   })
 
   it('keeps always-loaded skills below the Codex skill size ceiling', () => {
-    for (const relativePath of SIZE_CAPPED_SKILLS) {
-      expect(Buffer.byteLength(readRepoFile(relativePath), 'utf-8')).toBeLessThanOrEqual(
-        MAX_SKILL_BYTES
-      )
+    for (const buildSkill of SIZE_CAPPED_SKILLS) {
+      expect(Buffer.byteLength(buildSkill(), 'utf-8')).toBeLessThanOrEqual(MAX_SKILL_BYTES)
     }
   })
 

@@ -107,13 +107,13 @@ ensure_setup() {
     fi
   fi
 
-  # Ensure prjct skill is installed where Claude / Codex can see it.
+  # Ensure prjct skill is installed where Claude can see it.
   # postinstall is unreliable (--ignore-scripts, npm policies), so the
   # bin shim self-heals on every invocation. mtime-based: source newer
   # than dest → overwrite. Common case (skill up-to-date) = two stats.
-  # Each agent gets ITS OWN template: Codex enforces a hard ~1KB limit
-  # on the whole SKILL.md and silently rejects the entire skill when
-  # the (much larger) Claude baseline lands there.
+  # Codex skill installation is handled by the TypeScript setup path, which
+  # synthesizes the compact skill from editor-surfaces.ts rather than reading
+  # a generated source-tree file.
   install_skill() {
     if [ -f "$1" ] && { [ ! -f "$2" ] || [ "$1" -nt "$2" ]; }; then
       mkdir -p "$(dirname "$2")" 2>/dev/null
@@ -121,10 +121,6 @@ ensure_setup() {
     fi
   }
   install_skill "$ROOT_DIR/templates/skills/prjct/SKILL.md" "$HOME/.claude/skills/prjct/SKILL.md"
-  # Codex only if present — don't create ~/.codex on machines without it
-  if [ -d "$HOME/.codex" ] || command -v codex >/dev/null 2>&1; then
-    install_skill "$ROOT_DIR/templates/codex/SKILL.md" "$HOME/.codex/skills/prjct/SKILL.md"
-  fi
 }
 
 # Check if bun is available
