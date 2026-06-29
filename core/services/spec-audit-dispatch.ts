@@ -25,52 +25,7 @@
 import type { AIProviderName } from '../types/provider'
 import type { SpecContent } from '../types/spec'
 import { resolveDispatchMechanism } from './agent-dispatch'
-
-export interface LensSpec {
-  /** Short parenthetical shown after the lens name in the dispatch. */
-  label: string
-  /**
-   * Lens-specific reviewer instruction. The renderer prepends the
-   * "first read the spec from prjct" line and appends the verdict ask.
-   */
-  rubric: string
-}
-
-export const LENS_CATALOG: Record<string, LensSpec> = {
-  strategic: {
-    label: 'scope sanity',
-    rubric:
-      'Review it for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory via `prjct context memory <topic>` if useful.',
-  },
-  architecture: {
-    label: 'eng feasibility',
-    rubric:
-      'Then read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable.',
-  },
-  design: {
-    label: 'UX/DX',
-    rubric:
-      'Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Pass only if all dimensions ≥6; include the four scores in notes.',
-  },
-  security: {
-    label: 'threat surface',
-    rubric:
-      'Threat-model the surface this spec defines: authn/authz, secret handling, input validation & injection, sandbox/exec boundaries, network egress, PII. Name the highest-severity gap and whether the acceptance criteria mitigate it. Pass only if no high-severity gap is left unmitigated.',
-  },
-  data: {
-    label: 'data integrity',
-    rubric:
-      'Review the data design. Are schema / migration changes backward-compatible and reversible? Index / query implications, write amplification, migration idempotency, data-loss risk on partial failure. Pass only if the migration path is safe and rollbackable.',
-  },
-  performance: {
-    label: 'perf profile',
-    rubric:
-      'Identify the hottest path this spec touches and its expected complexity / allocation / IO profile. Do the acceptance criteria bound latency or throughput where it matters? Name the single biggest perf risk. Pass only if no hot-path regression is left unbounded.',
-  },
-}
-
-const GENERIC_RUBRIC =
-  'Review the spec through this lens. Identify the most important risk or gap it implies and whether the acceptance criteria address it.'
+import { GENERIC_RUBRIC, LENS_CATALOG } from './review-lenses'
 
 /**
  * Deterministic BASELINE lens set for a spec. `architecture` is always

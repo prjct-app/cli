@@ -11,21 +11,25 @@ import { describe, expect, it } from 'bun:test'
 import { buildEmulatedCrewProtocol, resolveDispatchMechanism } from '../../services/agent-dispatch'
 
 describe('emulated crew protocol', () => {
-  it('plays the three roles with the rig per-role models + embeds checkpoints', async () => {
+  it('composes specialists (not a fixed trio) with the rig per-role models + checkpoints', async () => {
     const m = await resolveDispatchMechanism('gemini')
     const proto = buildEmulatedCrewProtocol(m, 'Tests must pass; no stray console.log.')
 
     expect(proto).toContain('emulated on gemini')
+    expect(proto).toContain('composed per task, not a fixed trio')
     expect(proto).toContain('Leader')
     expect(proto).toContain('Implementer')
-    expect(proto).toContain('Reviewer')
+    // Review is a DYNAMIC specialist panel, not one generic reviewer.
+    expect(proto).toContain('Review specialists')
+    expect(proto).toContain('architecture') // floor lens
+    for (const lens of ['security', 'data', 'performance', 'design', 'strategic']) {
+      expect(proto).toContain(lens)
+    }
     // Per-role rig models resolved from the policy via the bridge.
     expect(proto).toContain('2.5-pro') // implementer → frontier
     expect(proto).toContain('2.0-flash') // leader → fast
     expect(proto).toContain('2.5-flash') // reviewer → balanced
-    // Checkpoints the reviewer applies are embedded.
-    expect(proto).toContain('Tests must pass')
-    // Persistence + record-run discipline carried over from the native crew.
+    expect(proto).toContain('Tests must pass') // checkpoints embedded
     expect(proto).toContain('prjct crew record-run')
     expect(proto).toContain('VERDICT: APPROVED')
   })

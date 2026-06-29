@@ -130,9 +130,14 @@ describe('crew leader template — parallel executor fan-out', () => {
     expect(leader).toMatch(/do NOT parallelize/i)
   })
 
-  it('leader reviews the combined diff with a single reviewer after fan-out', () => {
+  it('leader composes review SPECIALISTS over the combined diff (not a fixed single reviewer)', () => {
     const leader = read('leader.md')
-    expect(leader).toContain('over the **combined** diff')
-    expect(leader).toMatch(/do not spawn a reviewer per implementer/i)
+    // Still one review pass-set over the whole batch, not per-implementer…
+    expect(leader).toContain('combined')
+    expect(leader).toMatch(/not a reviewer per implementer/i)
+    // …but the review is the specialists the change raises, not one generic reviewer.
+    expect(leader).toMatch(/compose the specialists/i)
+    expect(leader).toContain('architecture') // floor lens
+    expect(leader).toContain('security')
   })
 })

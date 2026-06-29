@@ -17,6 +17,7 @@ import {
   renderModelDirectiveForProvider,
 } from '../schemas/model'
 import type { AIProviderName } from '../types/provider'
+import { FLOOR_LENS, reviewLensMenu } from './review-lenses'
 
 export interface DispatchMechanism {
   provider: AIProviderName
@@ -65,27 +66,32 @@ export async function resolveDispatchMechanism(
 }
 
 /**
- * The crew (leader/implementer/reviewer) EMULATED for a rig with no native
- * subagent tool: one agent plays the three roles in sequence, each a fresh
- * isolated pass, with the per-role model from the policy. The native Claude
- * crew (separate `.claude/agents/` files dispatched via the Agent tool) has no
- * equivalent on Gemini/Codex/etc., so `prjct crew install` writes this protocol
- * instead — the multi-agent architecture still runs, just on one brain.
+ * The crew EMULATED for a rig with no native subagent tool: one agent plays the
+ * roles the work needs IN SEQUENCE, each a fresh isolated pass, with the
+ * per-role model from the policy. The roster is COMPOSED per task — NOT a fixed
+ * leader/implementer/reviewer trio: the leader decides how many implementers
+ * (by disjoint scope) and which review specialists the change actually raises,
+ * drawing from the same lens catalog `prjct spec audit` uses. The native Claude
+ * crew (separate `.claude/agents/` files via the Agent tool) has no equivalent
+ * on Gemini/Codex/etc., so `prjct crew install` writes this protocol instead.
  */
 export function buildEmulatedCrewProtocol(m: DispatchMechanism, checkpoints: string): string {
   const cp = checkpoints.trim()
   return `${[
     `# prjct crew — emulated on ${m.provider}`,
     '',
-    `This rig has no native subagent tool, so the crew runs as ONE agent playing three roles IN SEQUENCE — each a fresh, isolated pass. Reset your working assumptions between roles; a later role must never inherit an earlier role's framing.`,
+    `This rig has no native subagent tool, so the crew runs as ONE agent playing roles IN SEQUENCE — each a fresh, isolated pass. Reset your working assumptions between roles; a later role must never inherit an earlier one's framing.`,
+    '',
+    `The roster is **composed per task, not a fixed trio**: the leader decides how many implementers and which review specialists the change actually needs.`,
     '',
     '## Roles (run in order)',
     '',
-    `1. **Leader (orchestrate, do not write code).** Run \`prjct work --md\` to load the cycle + related context, decompose the request into ONE slice, and name its file scope. ${m.modelDirective('orchestrator')}`,
-    `2. **Implementer (build).** Implement exactly that slice + its tests; self-verify before handing off (run the project's test command). ${m.modelDirective('implementer')}`,
-    `3. **Reviewer (judge, do not edit).** Review the diff against the checkpoints below; reply \`VERDICT: APPROVED\` or \`VERDICT: CHANGES_REQUESTED\` with notes. ${m.modelDirective('reviewer')}`,
+    `1. **Leader — orchestrate, do not write code.** Run \`prjct work --md\` for the cycle + related context. Decompose into slices with DISJOINT file scope, and decide the roster: how many implementers, which review specialists the change raises, and whether investigation is needed first. ${m.modelDirective('orchestrator')}`,
+    `2. **Explore — only if investigation is needed.** One fresh, read-only pass per narrow question; persist findings with \`prjct remember learning\`. ${m.modelDirective('orchestrator')}`,
+    `3. **Implementer(s) — one per disjoint slice.** Implement the slice + its tests and self-verify (run the project's test command) before handing off. Fan out only over non-overlapping file scopes. ${m.modelDirective('implementer')}`,
+    `4. **Review specialists — compose, do NOT default to one generic reviewer.** Always include \`${FLOOR_LENS}\`; add the specialists the diff raises — ${reviewLensMenu()} — and invent one the change demands (open vocabulary). Run ONE fresh pass per specialist over the combined diff; each replies \`VERDICT: APPROVED\` or \`VERDICT: CHANGES_REQUESTED\` with notes. (Same catalog \`prjct spec audit\` selects from.) ${m.modelDirective('reviewer')}`,
     '',
-    '## Checkpoints the reviewer applies',
+    '## Checkpoints every review specialist applies',
     '',
     cp.length > 0
       ? cp
@@ -93,7 +99,7 @@ export function buildEmulatedCrewProtocol(m: DispatchMechanism, checkpoints: str
     '',
     '## Rules',
     "- Point, don't carry: the plan/work/memory live in prjct — read them in each role (`prjct work --md`, `prjct spec show <id> --md`, `prjct context memory <topic>`), never paste them between roles.",
-    '- On APPROVED: run `prjct crew record-run …` (one durable row), THEN close the work cycle. On CHANGES_REQUESTED: loop back to the implementer role with the notes.',
+    '- Advance only when EVERY selected specialist returns APPROVED: run `prjct crew record-run …` (one durable row), THEN close the work cycle. If any returns CHANGES_REQUESTED, loop back to the implementer with the notes.',
     '- Persist ONLY through prjct verbs — SQLite + the regenerated vault are the only allowed surfaces. Never write reports/audits to disk.',
   ].join('\n')}\n`
 }
