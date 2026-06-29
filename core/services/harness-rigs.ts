@@ -43,9 +43,9 @@ export function buildInductionDispatch(ctx: InductionContext): string {
     '',
     'Then SYNTHESIZE the repeatable organs of the harness and PERSIST each through prjct (prjct owns the Body; you build + persist, it stores):',
     '',
-    '1. **Command / workflow** — the repeatable procedure. Register the runnable flow so it can be re-invoked: `prjct workflow "<name>: <when→do>"` (steps as `status:`/`script:<path>`/`verify:<cmd>`/`git:` actions).',
+    '1. **Command / workflow** — the repeatable procedure. Register it: `prjct workflow create <name> "<what it does>"`, then add each step with `prjct workflow add "<status:<value>|script:<path>|git:commit>" before <task|ship|sync>`.',
     '2. **Skill recipe** — the judgment/how-to that is NOT a fixed script. Capture it as durable knowledge: `prjct remember learning "<the recipe/heuristic>"` (and `prjct remember decision "<choice + why>"` for any fork resolved).',
-    '3. **Gates (Stop-Slop)** — what must be true before "done": add a `verify:<cmd>` (or `verify:auto`) gate to the flow so the check runs every time.',
+    '3. **Gates (Stop-Slop)** — what must be true before "done": add a blocking check with `prjct workflow gate ship "verify:auto"` (or `prjct workflow gate ship "<your test command>"`) so it runs every time.',
     '4. **Roster** — if the flow needed specialists, note which review lenses it raised (architecture + security/data/perf/design/strategic) so future runs compose them.',
     '',
     'Keep each organ MODEL-AGNOSTIC: name verbs and capabilities, never a specific model. Persist ONLY through prjct verbs — SQLite + the regenerated vault are the only surfaces.',
@@ -84,7 +84,7 @@ export const RIGS: readonly RigTemplate[] = [
       {
         organ: 'stop-slop',
         install:
-          'prjct crew checkpoints set --content "<acceptance bar>" and a `verify:auto` ship gate.',
+          'prjct crew checkpoints set --content "<acceptance bar>" + `prjct workflow gate ship "verify:auto"`.',
       },
       {
         organ: 'knowledge-base',
@@ -107,7 +107,7 @@ export const RIGS: readonly RigTemplate[] = [
         organ: 'knowledge-base',
         install: 'prjct remember identity/voice/glossary "<who you are + terms>".',
       },
-      { organ: 'stop-slop', install: 'add a `verify:auto` gate to ship.' },
+      { organ: 'stop-slop', install: 'prjct workflow gate ship "verify:auto".' },
     ],
   },
 ]
