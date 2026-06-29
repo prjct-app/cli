@@ -76,6 +76,14 @@ function stripShebangPlugin() {
 async function buildJs() {
   const esbuild = require('esbuild')
 
+  // Bake the package version into every bundle. getVersion() (core/utils/
+  // version.ts) reads process.env.PRJCT_VERSION FIRST, so this static
+  // replacement makes the built CLI always report its own version — no
+  // walking up __dirname into a stale duplicate install's package.json.
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'))
+  const versionDefine = { 'process.env.PRJCT_VERSION': JSON.stringify(pkg.version) }
+  console.log(`  → baking version ${pkg.version}`)
+
   // 1a. CLI core bundle (heavy, only loaded when daemon unavailable)
   console.log('  → dist/bin/prjct-core.mjs')
   const mainResult = await esbuild.build({
@@ -89,6 +97,7 @@ async function buildJs() {
     keepNames: true,
     packages: 'external',
     metafile: true,
+    define: versionDefine,
     banner: {
       js: `import { createRequire as __createRequire } from 'module';
 import { fileURLToPath as __fileURLToPath } from 'url';
@@ -115,6 +124,7 @@ var __dirname = __pathDirname(__filename);`,
     minify: true,
     keepNames: true,
     packages: 'external',
+    define: versionDefine,
     plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node
@@ -145,6 +155,7 @@ var __dirname = __pathDirname(__filename);`,
     minify: true,
     keepNames: true,
     packages: 'external',
+    define: versionDefine,
     plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node
@@ -170,6 +181,7 @@ var __dirname = __pathDirname(__filename);`,
     minify: true,
     keepNames: true,
     packages: 'external',
+    define: versionDefine,
     plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node

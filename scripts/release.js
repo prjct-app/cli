@@ -213,16 +213,10 @@ function bumpVersion(type) {
   pkg.version = newVersion
   fs.writeFileSync(PACKAGE_JSON, `${JSON.stringify(pkg, null, 2)}\n`)
 
-  // Also update version.ts
-  const versionTsPath = path.join(ROOT, 'core/utils/version.ts')
-  if (fs.existsSync(versionTsPath)) {
-    let versionTs = fs.readFileSync(versionTsPath, 'utf8')
-    versionTs = versionTs.replace(
-      /export const VERSION = ['"][^'"]+['"]/,
-      `export const VERSION = '${newVersion}'`
-    )
-    fs.writeFileSync(versionTsPath, versionTs)
-  }
+  // version.ts resolves the version at runtime (PRJCT_VERSION → package.json);
+  // the build bakes pkg.version in via esbuild `define`. Nothing to rewrite
+  // here — bumping package.json before build() is what makes the binary carry
+  // the right version.
 
   info(`${currentVersion} → ${newVersion}`)
   success(`Version bumped to ${newVersion}`)
@@ -301,11 +295,13 @@ async function main() {
   log(`  prjct-cli Release (${type})`)
   log(`${'='.repeat(50)}`)
 
-  // Run all steps
+  // Run all steps. Order matters: bump the version BEFORE build so esbuild
+  // bakes the NEW version into the bundles (previously build ran first and the
+  // published binary reported the OLD version).
   const { branch } = validate()
-  await build()
   test()
   const { newVersion } = bumpVersion(type)
+  await build()
   commitAndTag(newVersion)
   publish()
   push(branch)

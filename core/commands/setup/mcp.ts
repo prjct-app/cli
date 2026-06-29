@@ -10,7 +10,7 @@
 import { detectCodex, detectKimi } from '../../infrastructure/ai-provider'
 import context7Service from '../../services/context7-service'
 import { getErrorMessage } from '../../types/fs'
-import { ensureCodexMcpServer } from '../../utils/codex-mcp'
+import { ensureCodexContext7Server, ensureCodexMcpServer } from '../../utils/codex-mcp'
 import { ensureKimiMcpServer } from '../../utils/kimi-mcp'
 import {
   getClaudeMcpConfigPath,
@@ -77,10 +77,12 @@ export async function setupMcpServers(
     const codex = await detectCodex()
     if (codex.installed) {
       const result = await ensureCodexMcpServer()
+      // Give Codex the same Context7 capability Claude gets via mcp.json.
+      const context7 = await ensureCodexContext7Server()
       if (!options.silent) {
         if (result.skipped === 'user-managed') {
           console.log('✅ prjct Codex config ready (MCP user-managed)')
-        } else if (result.changed) {
+        } else if (result.changed || context7.changed) {
           console.log('✅ prjct Codex config updated in ~/.codex/config.toml')
         } else {
           console.log('✅ prjct Codex config already ready')

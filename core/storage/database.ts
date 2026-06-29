@@ -7,6 +7,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { describeFsWriteError } from '../types/fs'
 import type { MigrationRecord } from '../types/storage/extended'
 import { migrations } from './database/migrations'
 import {
@@ -86,15 +87,24 @@ class PrjctDatabase {
 
     const dbPath = this.getDbPath(projectId)
     const dbDir = path.dirname(dbPath)
-    if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
-    // openDatabase bakes in WAL + busy_timeout=5000 — daemon-safety pragmas
-    // every connection needs. Performance tuning stays here.
-    const db = openDatabase(dbPath)
+    let db: SqliteDatabase
+    try {
+      if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
+      // openDatabase bakes in WAL + busy_timeout=5000 — daemon-safety pragmas
+      // every connection needs. Performance tuning stays here.
+      db = openDatabase(dbPath)
 
-    db.run('PRAGMA synchronous = NORMAL')
-    db.run('PRAGMA cache_size = -2000') // 2MB cache
-    db.run('PRAGMA temp_store = MEMORY')
-    db.run('PRAGMA mmap_size = 33554432') // 32MB mmap
+      db.run('PRAGMA synchronous = NORMAL')
+      db.run('PRAGMA cache_size = -2000') // 2MB cache
+      db.run('PRAGMA temp_store = MEMORY')
+      db.run('PRAGMA mmap_size = 33554432') // 32MB mmap
+    } catch (error) {
+      // A sandboxed/offline harness (e.g. Codex running with a read-only home)
+      // surfaces this as a cryptic "attempt to write a readonly database" or
+      // EPERM/EACCES on the mkdir/open. Translate it into one actionable line
+      // instead of a raw driver stack trace.
+      throw new Error(describeFsWriteError(error, dbPath, 'database'))
+    }
 
     this.runMigrations(db, dbPath)
 

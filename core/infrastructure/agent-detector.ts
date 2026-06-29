@@ -106,9 +106,24 @@ function getTerminalAgent(): DetectedAgent {
   return { ...TERMINAL_AGENT }
 }
 
+/**
+ * Whether prjct is running inside a restricted sandbox (e.g. OpenAI Codex
+ * executes shell commands in one). `CODEX_SANDBOX` is the documented signal;
+ * `PRJCT_SANDBOX=1` lets any harness or test opt in. Used to tune error
+ * messaging — a write failure in a sandbox needs an "approve access" hint, not
+ * a "your disk is broken" one.
+ */
+export function isSandboxed(): boolean {
+  return Boolean(process.env.CODEX_SANDBOX || process.env.PRJCT_SANDBOX === '1')
+}
+
 export async function detect(): Promise<DetectedAgent> {
   if (cachedAgent) return cachedAgent
 
-  cachedAgent = (await isClaudeEnvironment()) ? getClaudeAgent() : getTerminalAgent()
+  const agent = (await isClaudeEnvironment()) ? getClaudeAgent() : getTerminalAgent()
+  // The `sandboxed` flag was historically hardcoded false; derive it at runtime
+  // so downstream consumers can branch on it.
+  agent.environment = { ...agent.environment, sandboxed: isSandboxed() }
+  cachedAgent = agent
   return cachedAgent
 }

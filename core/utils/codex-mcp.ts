@@ -18,6 +18,12 @@ import { MCP_SERVER_PRESETS } from './mcp-config'
 
 const START_MARKER = '# prjct:mcp:start - managed by prjct, do not edit between markers'
 const END_MARKER = '# prjct:mcp:end'
+// Context7 gets its own marker pair so it co-exists with the prjct block and
+// either can be re-managed independently. Keeping the prjct markers unnamed
+// preserves backward compatibility with configs written by older versions.
+const CONTEXT7_START_MARKER =
+  '# prjct:mcp:context7:start - managed by prjct, do not edit between markers'
+const CONTEXT7_END_MARKER = '# prjct:mcp:context7:end'
 const CODEX_STATUS_LINE_ITEMS = [
   'model-with-reasoning',
   'current-dir',
@@ -39,16 +45,61 @@ function tomlString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
 
-export function buildPrjctMcpTomlBlock(server: MCPServerConfig = MCP_SERVER_PRESETS.prjct): string {
+function buildMcpTomlBlock(
+  name: string,
+  server: MCPServerConfig,
+  startMarker: string,
+  endMarker: string
+): string {
   const args = (server.args ?? []).map(tomlString).join(', ')
   return [
-    START_MARKER,
-    '[mcp_servers.prjct]',
+    startMarker,
+    `[mcp_servers.${name}]`,
     `command = ${tomlString(server.command)}`,
     `args = [${args}]`,
-    END_MARKER,
+    endMarker,
     '',
   ].join('\n')
+}
+
+export function buildPrjctMcpTomlBlock(server: MCPServerConfig = MCP_SERVER_PRESETS.prjct): string {
+  return buildMcpTomlBlock('prjct', server, START_MARKER, END_MARKER)
+}
+
+export function buildContext7McpTomlBlock(
+  server: MCPServerConfig = MCP_SERVER_PRESETS.context7
+): string {
+  return buildMcpTomlBlock('context7', server, CONTEXT7_START_MARKER, CONTEXT7_END_MARKER)
+}
+
+/**
+ * Upsert a marker-delimited block into `existing`. Returns the new text plus
+ * whether a user-managed (marker-less) table of the same name was found — in
+ * which case we leave their config untouched.
+ */
+function upsertMarkedBlock(
+  existing: string,
+  block: string,
+  startMarker: string,
+  endMarker: string,
+  tableName: string
+): { next: string; skipped?: 'user-managed' } {
+  const startIdx = existing.indexOf(startMarker)
+  const endIdx = existing.indexOf(endMarker)
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const before = existing.slice(0, startIdx)
+    let after = existing.slice(endIdx + endMarker.length)
+    if (after.startsWith('\n')) after = after.slice(1)
+    return { next: before + block + after }
+  }
+  if (new RegExp(`^\\s*\\[mcp_servers\\.${tableName}\\]`, 'm').test(existing)) {
+    return { next: existing, skipped: 'user-managed' }
+  }
+  if (existing.trim().length > 0) {
+    return { next: `${existing.trimEnd()}\n\n${block}` }
+  }
+  return { next: block }
 }
 
 export function buildCodexStatusLineToml(): string {
@@ -107,29 +158,11 @@ export async function ensureCodexMcpServer(configPath = getCodexConfigTomlPath()
   }
 
   const block = buildPrjctMcpTomlBlock()
+  const upserted = upsertMarkedBlock(existing, block, START_MARKER, END_MARKER, 'prjct')
+  const skipped = upserted.skipped
 
-  let next: string
-  const startIdx = existing.indexOf(START_MARKER)
-  const endIdx = existing.indexOf(END_MARKER)
-
-  let skipped: 'user-managed' | undefined
-
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const before = existing.slice(0, startIdx)
-    let after = existing.slice(endIdx + END_MARKER.length)
-    if (after.startsWith('\n')) after = after.slice(1)
-    next = before + block + after
-  } else if (/^\s*\[mcp_servers\.prjct\]/m.test(existing)) {
-    next = existing
-    skipped = 'user-managed'
-  } else if (existing.trim().length > 0) {
-    next = `${existing.trimEnd()}\n\n${block}`
-  } else {
-    next = block
-  }
-
-  const withStatusLine = ensureCodexStatusLineToml(next)
-  next = withStatusLine.toml
+  const withStatusLine = ensureCodexStatusLineToml(upserted.next)
+  const next = withStatusLine.toml
 
   if (next === existing) {
     return { path: configPath, changed: false, skipped }
@@ -142,5 +175,53 @@ export async function ensureCodexMcpServer(configPath = getCodexConfigTomlPath()
     changed: true,
     skipped,
     statusLineChanged: withStatusLine.changed,
+  }
+}
+
+/**
+ * Idempotently register the Context7 MCP server in Codex's config.toml so
+ * Codex gets the same deterministic-docs capability Claude has via
+ * `~/.claude/mcp.json`. Managed between its own marker pair; a user-defined
+ * `[mcp_servers.context7]` (no markers) is preserved.
+ */
+export async function ensureCodexContext7Server(configPath = getCodexConfigTomlPath()): Promise<{
+  path: string
+  changed: boolean
+  skipped?: 'user-managed'
+}> {
+  let existing = ''
+  try {
+    existing = await fs.readFile(configPath, 'utf-8')
+  } catch {
+    // Missing file — we'll create it.
+  }
+
+  const block = buildContext7McpTomlBlock()
+  const { next, skipped } = upsertMarkedBlock(
+    existing,
+    block,
+    CONTEXT7_START_MARKER,
+    CONTEXT7_END_MARKER,
+    'context7'
+  )
+
+  if (next === existing) {
+    return { path: configPath, changed: false, skipped }
+  }
+
+  await fs.mkdir(path.dirname(configPath), { recursive: true })
+  await fs.writeFile(configPath, next, 'utf-8')
+  return { path: configPath, changed: true, skipped }
+}
+
+/** True iff config.toml carries a `[mcp_servers.context7]` table (managed or user). */
+export async function codexHasContext7Server(
+  configPath = getCodexConfigTomlPath()
+): Promise<boolean> {
+  try {
+    const existing = await fs.readFile(configPath, 'utf-8')
+    return /^\s*\[mcp_servers\.context7\]/m.test(existing)
+  } catch {
+    return false
   }
 }

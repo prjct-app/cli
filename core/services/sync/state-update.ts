@@ -9,7 +9,7 @@ import path from 'node:path'
 import type { StateJson } from '../../schemas/state'
 import { prjctDb } from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
-import { getErrorMessage } from '../../types/fs'
+import { describeFsWriteError, getErrorMessage } from '../../types/fs'
 import type { GitData, ProjectStats } from '../../types/project-sync'
 import type { StackDetection } from '../../types/stack'
 import * as dateHelper from '../../utils/date-helper'
@@ -23,9 +23,13 @@ const PROJECT_DIRS = ['storage', 'context', 'memory', 'analysis', 'config', 'syn
  * `globalPath` exists before any writer touches it.
  */
 export async function ensureProjectDirectories(globalPath: string): Promise<void> {
-  await Promise.all(
-    PROJECT_DIRS.map((dir) => fs.mkdir(path.join(globalPath, dir), { recursive: true }))
-  )
+  try {
+    await Promise.all(
+      PROJECT_DIRS.map((dir) => fs.mkdir(path.join(globalPath, dir), { recursive: true }))
+    )
+  } catch (error) {
+    throw new Error(describeFsWriteError(error, globalPath, 'project directories'))
+  }
 }
 
 export async function updateProjectDoc(args: {
