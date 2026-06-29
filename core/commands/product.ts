@@ -9,7 +9,11 @@ import type { MemoryEntry, MemoryType } from '../memory/entries'
 import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { resolveActiveTask } from '../services/task-service'
-import { buildWorkCostSnapshot, type WorkCostSnapshot } from '../services/work-cost-service'
+import {
+  buildWorkCostSnapshot,
+  type WorkCostSnapshot,
+  type WorkCostTask,
+} from '../services/work-cost-service'
 import prjctDb from '../storage/database'
 import type { SqliteBindings } from '../storage/database/sqlite-compat'
 import type { MdOption } from '../types/cli'
@@ -115,6 +119,23 @@ interface PerformanceCycle {
   outcome: string
 }
 
+interface ReliabilitySnapshot {
+  score: number
+  windowDays: number
+  valueScore: number
+  memoryScore: number
+  workCycleCoveragePercent: number
+  tokenCoveragePercent: number
+  sessionCoveragePercent: number
+  contextReusePercent: number
+  commandTelemetry: {
+    samples: number
+    avgStartupMs: number | null
+  }
+  gaps: string[]
+  nextActions: string[]
+}
+
 const PREVENTIVE_TYPES = ['gotcha', 'anti-pattern', 'learning']
 const NOISE_RE = /^(current work|wip|todo|misc|n\/a|none|latest|unreleased|changelog)$/i
 
@@ -133,7 +154,11 @@ export class ProductCommands extends PrjctCommandsBase {
       case 'quality':
       case 'memory':
       case 'memory-doctor':
-        return this.memoryDoctor(null, projectPath, options)
+        return this.memoryDoctor(forwarded, projectPath, options)
+      case 'reliability':
+      case 'trust':
+      case 'proof':
+        return this.reliability(forwarded, projectPath, options)
       case 'report':
       case 'retro':
         return this.report(forwarded, projectPath, options)
@@ -151,7 +176,7 @@ export class ProductCommands extends PrjctCommandsBase {
         return this.cost(forwarded, projectPath, options)
       default:
         return failHard(
-          `Unknown insights view '${sub}'. Use value, quality, cost, report, continue, or guardrails.`,
+          `Unknown insights view '${sub}'. Use value, quality, reliability, cost, report, continue, or guardrails.`,
           options
         )
     }
@@ -184,7 +209,12 @@ export class ProductCommands extends PrjctCommandsBase {
       if (!guard.ok) return guard.result
 
       const report = buildMemoryDoctor(guard.value)
-      console.log(options.md ? formatMemoryDoctorMd(report) : formatMemoryDoctorText(report))
+      const includeFixPlan = wantsFixPlan(_input)
+      console.log(
+        options.md
+          ? formatMemoryDoctorMd(report, includeFixPlan)
+          : formatMemoryDoctorText(report, includeFixPlan)
+      )
       return { success: true, score: report.score, issues: report.issues.length }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
@@ -276,6 +306,24 @@ export class ProductCommands extends PrjctCommandsBase {
       const days = pickDays(input, options.days, 30)
       const snapshot = buildWorkCostSnapshot(guard.value, days)
       console.log(options.md ? formatCostMd(snapshot) : formatCostText(snapshot))
+      return { success: true, ...snapshot }
+    } catch (error) {
+      return failHard(getErrorMessage(error), options)
+    }
+  }
+
+  async reliability(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: ProductOptions = {}
+  ): Promise<CommandResult> {
+    try {
+      const guard = await requireProject(projectPath, options)
+      if (!guard.ok) return guard.result
+
+      const days = pickDays(input, options.days, 30)
+      const snapshot = await buildReliabilitySnapshot(guard.value, projectPath, days)
+      console.log(options.md ? formatReliabilityMd(snapshot) : formatReliabilityText(snapshot))
       return { success: true, ...snapshot }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
@@ -420,6 +468,94 @@ function buildMemoryDoctor(projectId: string): {
   }
 }
 
+async function buildReliabilitySnapshot(
+  projectId: string,
+  projectPath: string,
+  days: number
+): Promise<ReliabilitySnapshot> {
+  const cost = buildWorkCostSnapshot(projectId, days)
+  const value = await buildValueSnapshot(projectId, projectPath)
+  const memory = buildMemoryDoctor(projectId)
+
+  const workCycleCoveragePercent =
+    cost.workCycles === 0
+      ? 0
+      : Math.round((cost.historicalRescue.taskTableCycles / cost.workCycles) * 100)
+  const sessionCoveragePercent =
+    cost.workCycles === 0 ? 0 : Math.round((cost.measuredSessions / cost.workCycles) * 100)
+  const contextReusePercent =
+    cost.surfacedContext === 0 ? 0 : Math.round((cost.usefulContext / cost.surfacedContext) * 100)
+
+  const gaps = [...cost.gaps]
+  if (workCycleCoveragePercent < 80) {
+    gaps.push('Work-cycle normalization is below 80%; performance reports depend on event rescue.')
+  }
+  if (memory.score < 80) {
+    gaps.push(
+      'Memory quality is below 80%; run the quality fix-plan before trusting recall metrics.'
+    )
+  }
+  if (cost.commandSamples === 0) {
+    gaps.push('No command timing samples were recorded in this window.')
+  }
+
+  const nextActions: string[] = []
+  if (workCycleCoveragePercent < 80) {
+    nextActions.push(
+      'Normalize active work cycles into task rows at work start/status transitions.'
+    )
+  }
+  if (cost.tokenCoveragePercent < 80) {
+    nextActions.push('Record exact or explicitly estimated token totals when a work cycle closes.')
+  }
+  if (sessionCoveragePercent < 80) {
+    nextActions.push('Capture agent session start/stop rows with runtime, task id, and summary.')
+  }
+  if (memory.score < 80) {
+    nextActions.push(
+      'Run `prjct insights quality fix-plan --md` and promote/forget low-signal memory.'
+    )
+  }
+  if (contextReusePercent < 30 && cost.surfacedContext > 0) {
+    nextActions.push('Mark useful surfaced memories so reuse can be proven, not just assumed.')
+  }
+  if (nextActions.length === 0) {
+    nextActions.push('Keep measuring; current reliability signals are healthy enough for planning.')
+  }
+
+  const score = Math.round(
+    Math.min(
+      100,
+      Math.max(
+        0,
+        cost.tokenCoveragePercent * 0.25 +
+          workCycleCoveragePercent * 0.2 +
+          sessionCoveragePercent * 0.2 +
+          Math.min(100, contextReusePercent) * 0.15 +
+          memory.score * 0.1 +
+          value.score * 0.1
+      )
+    )
+  )
+
+  return {
+    score,
+    windowDays: days,
+    valueScore: value.score,
+    memoryScore: memory.score,
+    workCycleCoveragePercent,
+    tokenCoveragePercent: cost.tokenCoveragePercent,
+    sessionCoveragePercent,
+    contextReusePercent,
+    commandTelemetry: {
+      samples: cost.commandSamples,
+      avgStartupMs: cost.avgStartupMs,
+    },
+    gaps: unique(gaps),
+    nextActions,
+  }
+}
+
 function buildPerformanceCycles(projectId: string, days: number): PerformanceCycle[] {
   const since = sinceIso(days)
   const rows = query<PerformanceRow>(
@@ -433,7 +569,7 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
     since
   )
 
-  return rows.map((row) => {
+  const cycles = rows.map((row) => {
     const tokensIn = nullableNumber(row.tokens_in)
     const tokensOut = nullableNumber(row.tokens_out)
     return {
@@ -451,6 +587,28 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
       outcome: row.shipped_at ? 'shipped' : row.completed_at ? 'completed' : row.status,
     }
   })
+
+  const seen = new Set(cycles.map((cycle) => cycle.id))
+  const measuredEventCycles = buildWorkCostSnapshot(projectId, days)
+    .mostExpensive.filter((task) => !seen.has(task.id))
+    .map(costTaskToPerformanceCycle)
+  return [...cycles, ...measuredEventCycles].slice(0, 20)
+}
+
+function costTaskToPerformanceCycle(task: WorkCostTask): PerformanceCycle {
+  return {
+    id: task.id,
+    description: task.description,
+    status: task.status,
+    minutes: task.minutes,
+    tokensIn: task.tokensIn,
+    tokensOut: task.tokensOut,
+    tokensTotal: task.tokensTotal,
+    model: 'unknown',
+    runtime: 'unknown',
+    promptSynthesis: synthesizePrompt(task.description),
+    outcome: task.status,
+  }
 }
 
 async function buildHumanReport(projectId: string, projectPath: string, days: number) {
@@ -585,6 +743,14 @@ function pickDays(input: string | null, optionDays: number | undefined, fallback
   return Math.max(1, Math.min(90, Number.parseInt(match[1]!, 10)))
 }
 
+function wantsFixPlan(input: string | null): boolean {
+  return /\b(fix-?plan|plan|actions?)\b/i.test(input ?? '')
+}
+
+function unique(items: string[]): string[] {
+  return [...new Set(items)]
+}
+
 function sinceIso(days: number): string {
   const date = new Date()
   date.setDate(date.getDate() - days)
@@ -650,7 +816,10 @@ function formatValueText(snapshot: ValueSnapshot): string {
   ].join('\n')
 }
 
-function formatMemoryDoctorMd(report: ReturnType<typeof buildMemoryDoctor>): string {
+function formatMemoryDoctorMd(
+  report: ReturnType<typeof buildMemoryDoctor>,
+  includeFixPlan = false
+): string {
   const lines = ['# Memory Doctor', '', `**Quality score:** ${report.score}/100`, '']
   lines.push('## Distribution', '', '| Type | Entries |', '|---|---:|')
   for (const row of report.byType) lines.push(`| ${row.type ?? 'unknown'} | ${row.value} |`)
@@ -664,14 +833,59 @@ function formatMemoryDoctorMd(report: ReturnType<typeof buildMemoryDoctor>): str
     '',
     'Recommended actions: promote old inbox entries into `decision`, `learning`, `gotcha`, or `todo`; forget noise by id; keep useful memories explicit and file-linked when possible.'
   )
+  if (includeFixPlan) appendMemoryFixPlan(lines, report)
   return lines.join('\n')
 }
 
-function formatMemoryDoctorText(report: ReturnType<typeof buildMemoryDoctor>): string {
+function formatMemoryDoctorText(
+  report: ReturnType<typeof buildMemoryDoctor>,
+  includeFixPlan = false
+): string {
   const lines = [`Memory doctor: ${report.score}/100`]
   if (report.issues.length === 0) lines.push('No obvious memory quality issues found.')
   else lines.push(...report.issues.map((issue) => `- ${issue}`))
+  if (includeFixPlan) lines.push(`Fix-plan actions: ${memoryFixPlan(report).length}`)
   return lines.join('\n')
+}
+
+function memoryFixPlan(report: ReturnType<typeof buildMemoryDoctor>): string[] {
+  const actions: string[] = []
+  for (const row of report.staleInbox) {
+    actions.push(
+      `Review ${row.id}: promote old inbox to decision/learning/gotcha/todo, or forget it if obsolete.`
+    )
+  }
+  for (const row of report.noise) {
+    actions.push(`Forget or rewrite ${row.id}: low-signal content "${summarizeMemory(row)}".`)
+  }
+  if (report.duplicateGroups > 0) {
+    actions.push(
+      `Review ${report.duplicateGroups} duplicate memory group(s) and keep the clearest entry.`
+    )
+  }
+  if (report.missingType > 0) {
+    actions.push(`Backfill ${report.missingType} memory row(s) with explicit memory types.`)
+  }
+  if (report.provenUseful === 0) {
+    actions.push(
+      'Use `prjct guard` / `prjct context memory` during real work so useful memory earns credit.'
+    )
+  }
+  return actions
+}
+
+function appendMemoryFixPlan(lines: string[], report: ReturnType<typeof buildMemoryDoctor>): void {
+  const actions = memoryFixPlan(report)
+  lines.push('', '## Fix Plan')
+  if (actions.length === 0) {
+    lines.push('- No cleanup actions needed.')
+    return
+  }
+  for (const action of actions) lines.push(`- ${action}`)
+  lines.push(
+    '',
+    'This is a plan, not an auto-fix: review each item before deleting or rewriting project memory.'
+  )
 }
 
 function formatReportMd(report: Awaited<ReturnType<typeof buildHumanReport>>): string {
@@ -915,6 +1129,45 @@ function formatCostText(snapshot: WorkCostSnapshot): string {
   ].join('\n')
 }
 
+function formatReliabilityMd(snapshot: ReliabilitySnapshot): string {
+  const lines = ['# prjct Reliability', '', `Window: last ${snapshot.windowDays} day(s)`, '']
+  lines.push(`**Reliability score:** ${snapshot.score}/100`, '')
+  lines.push('| Signal | Coverage |', '|---|---:|')
+  lines.push(`| Work-cycle normalization | ${snapshot.workCycleCoveragePercent}% |`)
+  lines.push(`| Token attribution | ${snapshot.tokenCoveragePercent}% |`)
+  lines.push(`| Agent session attribution | ${snapshot.sessionCoveragePercent}% |`)
+  lines.push(`| Context reuse proof | ${snapshot.contextReusePercent}% |`)
+  lines.push(`| Memory quality | ${snapshot.memoryScore}/100 |`)
+  lines.push(`| Value score | ${snapshot.valueScore}/100 |`)
+  lines.push(`| Command telemetry samples | ${snapshot.commandTelemetry.samples} |`)
+  lines.push(
+    `| Average startup | ${
+      snapshot.commandTelemetry.avgStartupMs === null
+        ? 'unknown'
+        : formatMs(snapshot.commandTelemetry.avgStartupMs)
+    } |`
+  )
+  lines.push('', '## Gaps')
+  if (snapshot.gaps.length === 0) lines.push('- No reliability gaps detected in this window.')
+  else for (const gap of snapshot.gaps) lines.push(`- ${gap}`)
+  lines.push('', '## Next Actions')
+  for (const action of snapshot.nextActions) lines.push(`- ${action}`)
+  lines.push(
+    '',
+    'Reliability is a measurement-readiness score: it says whether value/cost/performance numbers are safe to use for decisions.'
+  )
+  return lines.join('\n')
+}
+
+function formatReliabilityText(snapshot: ReliabilitySnapshot): string {
+  return [
+    `prjct reliability: ${snapshot.score}/100`,
+    `coverage: work ${snapshot.workCycleCoveragePercent}%, tokens ${snapshot.tokenCoveragePercent}%, sessions ${snapshot.sessionCoveragePercent}%`,
+    `memory: ${snapshot.memoryScore}/100, value: ${snapshot.valueScore}/100`,
+    `next: ${snapshot.nextActions[0] ?? 'keep measuring'}`,
+  ].join('\n')
+}
+
 function formatMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
@@ -947,4 +1200,10 @@ function appendMemoryRows(lines: string[], title: string, rows: MemoryRow[]): vo
       `- **${row.type ?? 'unknown'}** ${row.title ?? row.content.slice(0, 80)}  \`${row.id}\``
     )
   }
+}
+
+function summarizeMemory(row: MemoryRow): string {
+  const raw = row.title || row.content
+  const normalized = raw.replace(/\s+/g, ' ').trim()
+  return normalized.length <= 60 ? normalized : `${normalized.slice(0, 57)}...`
 }

@@ -35,6 +35,7 @@ import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { recordAgentSessionStart } from '../services/agent-session-recorder'
 import { createStalenessChecker } from '../services/staleness-checker'
 import { usefulnessService } from '../services/usefulness'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
@@ -45,6 +46,7 @@ import { safeTruncate } from './_shared'
 
 interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact'
+  session_id?: string
 }
 
 interface SessionContextOptions {
@@ -347,6 +349,15 @@ export function runSessionStartHook(
         return buildSessionContext(p, cachedConfig, { digest })
       },
       afterEmit: async (_input, p) => {
+        if (cachedConfig?.projectId) {
+          recordAgentSessionStart({
+            projectId: cachedConfig.projectId,
+            sessionId: _input.session_id,
+            directory: p,
+            goal: _input.source ?? null,
+          })
+        }
+
         // Refresh the Obsidian vault from DB so the files Claude may Read
         // reflect current project state. Best-effort; errors are swallowed.
         if (cachedConfig?.projectId) {

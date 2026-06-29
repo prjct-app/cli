@@ -621,12 +621,12 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'product', method: 'insights' },
     optionSchema: { numbers: ['days'] },
     description:
-      'AI Agile intelligence: value, quality, token cost, reports, continuation, and guardrails',
+      'AI Agile intelligence: value, quality, reliability, token cost, reports, continuation, and guardrails',
     usage: {
-      claude: 'p. insights [value|quality|cost|report|continue|guardrails]',
-      terminal: 'prjct insights [value|quality|cost|report|continue|guardrails] [--md]',
+      claude: 'p. insights [value|quality|reliability|cost|report|continue|guardrails]',
+      terminal: 'prjct insights [value|quality|reliability|cost|report|continue|guardrails] [--md]',
     },
-    params: '[value|quality|cost|report|continue|guardrails] [agent|days]',
+    params: '[value|quality|reliability|cost|report|continue|guardrails] [agent|days]',
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
@@ -634,6 +634,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'v3 surface for project intelligence formerly spread across value/report/handoff/memory-doctor/guardrails',
       'Default view summarizes whether the project is compounding',
+      'reliability/trust shows whether value, cost, and performance metrics are decision-ready',
       'cost/spend/tokens shows subscription burn, token coverage, context reuse, and capture gaps',
       'Subcommands remain read-only except where underlying compatibility commands already mutate nothing',
     ],
