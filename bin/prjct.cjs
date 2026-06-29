@@ -225,7 +225,6 @@ function ensureSetup() {
     path.join(ROOT_DIR, 'templates', 'skills', 'prjct', 'SKILL.md'),
     path.join(HOME, '.claude', 'skills', 'prjct', 'SKILL.md')
   )
-
 }
 
 function runMcpServer(args) {
