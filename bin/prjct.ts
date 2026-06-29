@@ -384,7 +384,6 @@ if (_fastCommand && !_selfHealSkip.has(_fastCommand) && process.env.PRJCT_NO_SEL
 // Heavy imports loaded dynamically, only when the daemon is not available.
 
 async function main(): Promise<void> {
-  const os = await import('node:os')
   const path = await import('node:path')
   const chalk = (await import('chalk')).default
   const { detectAllProviders } = await import('../core/infrastructure/ai-provider')
@@ -395,32 +394,35 @@ async function main(): Promise<void> {
   const { VERSION } = await import('../core/utils/version')
 
   async function checkRoutersInstalled(): Promise<boolean> {
-    const home = os.homedir()
+    // Resolve HOME per call (not os.homedir(), which under Bun freezes to the
+    // launch env and ignores a relocated/isolated HOME — the same footgun the
+    // configPath check above already routes around). Setup writes ~/.claude and
+    // ~/.gemini via resolveUserPath, so the check must read from the same place.
+    const { resolveUserHome } = await import('../core/infrastructure/user-home')
+    const home = resolveUserHome()
     const detection = await detectAllProviders()
+    const { readFile } = await import('node:fs/promises')
 
-    // Check that global config has prjct section (routers deprecated — skills are native)
-    if (detection.claude.installed) {
-      const claudeMd = path.join(home, '.claude', 'CLAUDE.md')
+    const hasPrjctSection = async (...rel: string[]): Promise<boolean> => {
       try {
-        const content = await import('node:fs/promises').then((f) => f.readFile(claudeMd, 'utf-8'))
-        if (!content.includes('prjct:start')) return false
+        return (await readFile(path.join(home, ...rel), 'utf-8')).includes('prjct:start')
       } catch {
         return false
       }
     }
 
-    if (detection.gemini.installed) {
-      const geminiMd = path.join(home, '.gemini', 'GEMINI.md')
-      try {
-        const content = await import('node:fs/promises').then((f) => f.readFile(geminiMd, 'utf-8'))
-        if (!content.includes('prjct:start')) return false
-      } catch {
-        return false
-      }
-    }
+    // Which detected providers have their prjct section installed. A dev may
+    // have several CLIs on PATH but only wire prjct into the one(s) they use —
+    // requiring EVERY detected provider to be configured wrongly reports a
+    // configured rig as "not configured" (e.g. claude set up, gemini not).
+    const configured: boolean[] = []
+    if (detection.claude.installed) configured.push(await hasPrjctSection('.claude', 'CLAUDE.md'))
+    if (detection.gemini.installed) configured.push(await hasPrjctSection('.gemini', 'GEMINI.md'))
 
-    if (!detection.claude.installed && !detection.gemini.installed) return true
-    return true
+    // No supported provider on PATH → nothing to configure, treat as ready.
+    if (configured.length === 0) return true
+    // Configured iff AT LEAST ONE detected provider carries the prjct section.
+    return configured.some(Boolean)
   }
 
   const args = process.argv.slice(2)
