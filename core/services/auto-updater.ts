@@ -16,6 +16,7 @@ import { promisify } from 'node:util'
 import { resolveCliHome } from '../infrastructure/cli-home'
 import { compareSemver } from '../schemas/model'
 import { getConfig, setConfig } from './global-config'
+import { fetchLatestVersion } from './update-checker'
 
 const execFileP = promisify(execFile)
 
@@ -23,7 +24,6 @@ const execFileP = promisify(execFile)
 const stateDir = (): string => path.join(resolveCliHome(), 'state')
 const logPath = (): string => path.join(stateDir(), 'auto-update.log')
 const THROTTLE_MS = 60 * 60 * 1000 // 1 hour
-const NPM_REGISTRY = 'https://registry.npmjs.org/prjct-cli/latest'
 
 type InstallSource = 'binary' | 'npm' | 'bun' | 'unknown'
 
@@ -76,21 +76,6 @@ export async function runBackgroundCheck(currentVersion: string): Promise<void> 
 }
 
 // Internals
-
-async function fetchLatestVersion(): Promise<string | null> {
-  try {
-    // 6s timeout — npm registry should answer fast or not at all
-    const ac = new AbortController()
-    const timer = setTimeout(() => ac.abort(), 6000)
-    const res = await fetch(NPM_REGISTRY, { signal: ac.signal })
-    clearTimeout(timer)
-    if (!res.ok) return null
-    const json = (await res.json()) as { version?: string }
-    return typeof json.version === 'string' ? json.version : null
-  } catch {
-    return null
-  }
-}
 
 function detectInstallSource(): InstallSource {
   // 1. Binary install lives at ~/.prjct-cli/bin/prjct

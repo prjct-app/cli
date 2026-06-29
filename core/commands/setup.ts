@@ -731,20 +731,12 @@ if [[ -f "$CONFIG" ]]; then
   PROJECT_ID=$(grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" | sed 's/.*"projectId"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
 
   if [[ -n "$PROJECT_ID" ]]; then
-    PROJECT_JSON="$HOME/.prjct-cli/projects/$PROJECT_ID/project.json"
-
-    # Check version mismatch
-    if [[ -f "$PROJECT_JSON" ]]; then
-      PROJECT_VERSION=$(grep -o '"cliVersion"[[:space:]]*:[[:space:]]*"[^"]*"' "$PROJECT_JSON" | sed 's/.*"cliVersion"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
-
-      # If no cliVersion or different version, show update notice
-      if [[ -z "$PROJECT_VERSION" ]] || [[ "$PROJECT_VERSION" != "$CLI_VERSION" ]]; then
-        echo "⚠️ prjct v$CLI_VERSION available! Run p. upgrade"
-        exit 0
-      fi
-    else
-      # No project.json means project needs sync
-      echo "⚠️ prjct v$CLI_VERSION available! Run p. upgrade"
+    # Upgrade notice — the daemon checks npm and writes this GLOBAL flag.
+    # The statusline only READS it; it does no version comparison itself.
+    UPDATE_STATUS="$HOME/.prjct-cli/state/update-status.json"
+    if [[ -f "$UPDATE_STATUS" ]] && grep -q '"updateAvailable"[[:space:]]*:[[:space:]]*true' "$UPDATE_STATUS"; then
+      LATEST=$(grep -o '"latest"[[:space:]]*:[[:space:]]*"[^"]*"' "$UPDATE_STATUS" | sed 's/.*"latest"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
+      echo "⚠️ prjct v$LATEST available! Run p. upgrade"
       exit 0
     fi
 

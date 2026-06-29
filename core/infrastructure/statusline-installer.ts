@@ -151,15 +151,12 @@ CONFIG="$CWD/.prjct/prjct.config.json"
 if [ -f "$CONFIG" ]; then
   PROJECT_ID=$(jq -r '.projectId // ""' "$CONFIG" 2>/dev/null)
   if [ -n "$PROJECT_ID" ]; then
-    PROJECT_JSON="$HOME/.prjct-cli/projects/$PROJECT_ID/project.json"
-    if [ -f "$PROJECT_JSON" ]; then
-      PROJECT_VERSION=$(jq -r '.cliVersion // ""' "$PROJECT_JSON" 2>/dev/null)
-      if [ -z "$PROJECT_VERSION" ] || [ "$PROJECT_VERSION" != "$CLI_VERSION" ]; then
-        echo "prjct v$CLI_VERSION - run p. upgrade"
-        exit 0
-      fi
-    else
-      echo "prjct v$CLI_VERSION - run p. upgrade"
+    # Upgrade notice — the daemon checks npm and writes this GLOBAL flag.
+    # The statusline only READS it; it does no version comparison itself.
+    UPDATE_STATUS="$HOME/.prjct-cli/state/update-status.json"
+    if [ -f "$UPDATE_STATUS" ] && [ "$(jq -r '.updateAvailable // false' "$UPDATE_STATUS" 2>/dev/null)" = "true" ]; then
+      LATEST=$(jq -r '.latest // ""' "$UPDATE_STATUS" 2>/dev/null)
+      echo "prjct v$LATEST - run p. upgrade"
       exit 0
     fi
     STATE="$HOME/.prjct-cli/projects/$PROJECT_ID/storage/state.json"
