@@ -24,8 +24,22 @@
 
 import type { AIProviderName } from '../types/provider'
 import type { SpecContent } from '../types/spec'
+import type { DomainDefinition } from '../types/storage/extended'
 import { resolveDispatchMechanism } from './agent-dispatch'
-import { GENERIC_RUBRIC, LENS_CATALOG } from './review-lenses'
+import { domainLensRubric, GENERIC_RUBRIC, LENS_CATALOG } from './review-lenses'
+
+/**
+ * Does this spec touch a domain? A keyword present in the combined text, or a
+ * filePattern literal segment present in a scope path. Cheap + deterministic.
+ */
+function domainMatchesSpec(d: DomainDefinition, hay: string, scopePaths: string[]): boolean {
+  if (d.keywords.some((k) => k && hay.includes(k.toLowerCase()))) return true
+  for (const pat of d.filePatterns) {
+    const literals = pat.split('/').filter((s) => s && !s.includes('*'))
+    if (literals.some((lit) => scopePaths.some((p) => p.includes(lit)))) return true
+  }
+  return false
+}
 
 /**
  * Deterministic BASELINE lens set for a spec. `architecture` is always
@@ -33,7 +47,7 @@ import { GENERIC_RUBRIC, LENS_CATALOG } from './review-lenses'
  * text signals their concern. This is the floor, not the final word — the
  * agent can adjust via `--lenses`.
  */
-export function selectReviewers(content: SpecContent): string[] {
+export function selectReviewers(content: SpecContent, domains: DomainDefinition[] = []): string[] {
   const lenses = new Set<string>(['architecture'])
 
   const hay = [
@@ -61,6 +75,17 @@ export function selectReviewers(content: SpecContent): string[] {
     lenses.add('data')
   if (/\b(perf|latency|throughput|hot path|scale|cache|cold start)\b/.test(hay))
     lenses.add('performance')
+
+  // DOMAIN specialists: add an expert for each project domain this spec touches.
+  // A function lens of the same name wins (no shadowing); the architecture floor
+  // is untouched. Empty `domains` ⇒ byte-identical to the function-only baseline.
+  if (domains.length > 0) {
+    const scopePaths = extractScopePaths(content.scope)
+    for (const d of domains) {
+      if (LENS_CATALOG[d.name]) continue
+      if (domainMatchesSpec(d, hay, scopePaths)) lenses.add(d.name)
+    }
+  }
 
   return [...lenses]
 }
@@ -112,10 +137,12 @@ export async function renderAuditDispatch(
   title: string,
   content: SpecContent,
   lenses?: string[],
-  projectProvider?: AIProviderName
+  projectProvider?: AIProviderName,
+  domains: DomainDefinition[] = []
 ): Promise<string> {
   const dispatch = await resolveDispatchMechanism(projectProvider)
-  const chosen = lenses && lenses.length > 0 ? lenses : selectReviewers(content)
+  const chosen = lenses && lenses.length > 0 ? lenses : selectReviewers(content, domains)
+  const domainMap = new Map(domains.map((d) => [d.name, d]))
   const scopePaths = extractScopePaths(content.scope)
   const scopeBlock =
     scopePaths.length > 0
@@ -125,8 +152,11 @@ export async function renderAuditDispatch(
   const reviewerSections: string[] = []
   chosen.forEach((lens, i) => {
     const spec = LENS_CATALOG[lens]
-    const label = spec ? spec.label : 'custom lens'
-    const rubric = spec ? spec.rubric : GENERIC_RUBRIC
+    const domain = domainMap.get(lens)
+    // Rubric resolution: function lens → its rubric; else a project domain →
+    // the domain-expert rubric; else the generic fallback (open vocabulary).
+    const label = spec ? spec.label : domain ? 'domain expert' : 'custom lens'
+    const rubric = spec ? spec.rubric : domain ? domainLensRubric(domain) : GENERIC_RUBRIC
     const letter = String.fromCharCode(65 + (i % 26))
     // A narrow lens can opt down to a cheaper model class — name it inline so
     // THIS reviewer runs on the small/cheap model. Lenses without an override

@@ -17,6 +17,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { renderAuditDispatch, selectReviewers } from '../../services/spec-audit-dispatch'
 import { specService } from '../../services/spec-service'
+import { indexStorage } from '../../storage/index-storage'
 import { specStorage } from '../../storage/spec-storage'
 import {
   SPEC_STATUSES,
@@ -233,7 +234,7 @@ export function registerSpecTools(server: McpServer) {
 
   s.tool(
     'prjct_spec_audit',
-    'Call before implementing a spec. Returns a dispatch prompt for THREE review subagents (strategic / architecture / design) — run ALL THREE IN PARALLEL (one Agent block per reviewer, same message). Persist each verdict via `prjct_spec_record_review`; all three pass → spec auto-promotes draft → reviewed.',
+    'Call before implementing a spec. Returns a dispatch prompt for the review specialists the spec raises — a DYNAMIC set (architecture is the floor; security/data/performance/design/strategic + any project DOMAIN experts join when the spec signals them). Run them IN PARALLEL (one Agent block per reviewer, same message). Persist each verdict via `prjct_spec_record_review`; all pass → spec auto-promotes draft → reviewed.',
     {
       projectPath: z.string().describe('Project directory path'),
       id: z.string().describe('Spec id to audit'),
@@ -243,15 +244,27 @@ export function registerSpecTools(server: McpServer) {
       if (!spec) {
         return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
       }
-      // Dynamic lenses: deterministic baseline from the spec, persisted so
-      // the auto-promote gate knows the expected set.
-      const lenses = selectReviewers(spec.content)
+      // Dynamic lenses + DOMAIN experts: deterministic baseline from the spec +
+      // the project's discovered domains, persisted so the auto-promote gate
+      // knows the expected set.
+      const auditProjectId = await resolveProjectId(args.projectPath).catch(() => null)
+      const domains = auditProjectId
+        ? (indexStorage.readDomainsSync(auditProjectId)?.domains ?? [])
+        : []
+      const lenses = selectReviewers(spec.content, domains)
       await specService.setSelectedReviewers(args.projectPath, args.id, lenses)
       return {
         content: [
           {
             type: 'text',
-            text: await renderAuditDispatch(spec.id, spec.title, spec.content, lenses),
+            text: await renderAuditDispatch(
+              spec.id,
+              spec.title,
+              spec.content,
+              lenses,
+              undefined,
+              domains
+            ),
           },
         ],
       }

@@ -15,6 +15,7 @@ import {
   selectReviewers,
 } from '../../services/spec-audit-dispatch'
 import { emptySpecContent, type SpecContent, type SpecReview } from '../../types/spec'
+import type { DomainDefinition } from '../../types/storage/extended'
 
 const pass: SpecReview = { verdict: 'pass', notes: 'ok', ts: '2026-06-19T00:00:00.000Z' }
 const fail: SpecReview = { verdict: 'fail', notes: 'no', ts: '2026-06-19T00:00:00.000Z' }
@@ -131,5 +132,65 @@ describe('renderAuditDispatch — per-lens model routing (GAP 2)', () => {
       'claude'
     )
     expect(out).not.toContain('model: "haiku"')
+  })
+})
+
+describe('selectReviewers — DOMAIN experts (GAP 1)', () => {
+  const authDomain: DomainDefinition = {
+    name: 'auth',
+    description: 'Authentication + sessions',
+    keywords: ['login', 'session'],
+    filePatterns: ['**/auth/**'],
+    fileCount: 5,
+  }
+
+  it('adds the domain expert when a scope path matches its filePatterns', () => {
+    const c = emptySpecContent('Add a thing')
+    c.scope = ['core/auth/login.ts']
+    const lenses = selectReviewers(c, [authDomain])
+    expect(lenses).toContain('auth')
+    expect(lenses).toContain('architecture')
+  })
+
+  it('adds the domain expert when its keywords hit the spec text', () => {
+    expect(selectReviewers(emptySpecContent('Refactor the login flow'), [authDomain])).toContain(
+      'auth'
+    )
+  })
+
+  it('does NOT shadow a function lens with a same-named domain', () => {
+    const dataDomain: DomainDefinition = {
+      name: 'data',
+      description: 'x',
+      keywords: ['table'],
+      filePatterns: [],
+      fileCount: 1,
+    }
+    // 'table' triggers the built-in `data` function lens; the domain must not duplicate it.
+    const lenses = selectReviewers(emptySpecContent('add a table migration'), [dataDomain])
+    expect(lenses.filter((l) => l === 'data').length).toBe(1)
+  })
+
+  it('no domains ⇒ byte-identical to the function-only baseline', () => {
+    const c = emptySpecContent('Add token auth and a DB schema migration')
+    expect(selectReviewers(c, [])).toEqual(selectReviewers(c))
+  })
+})
+
+describe('renderAuditDispatch — domain reviewer section (GAP 1)', () => {
+  it('emits the domain-expert rubric for a matched domain', async () => {
+    const authDomain: DomainDefinition = {
+      name: 'auth',
+      description: 'Authentication + sessions',
+      keywords: ['login'],
+      filePatterns: ['**/auth/**'],
+      fileCount: 5,
+    }
+    const c = emptySpecContent('Refactor the login flow')
+    c.scope = ['core/auth/login.ts']
+    const out = await renderAuditDispatch('spec_d', 'T', c, undefined, 'claude', [authDomain])
+    expect(out).toContain('auth (domain expert)')
+    expect(out).toContain('domain specialist')
+    expect(out).toContain('prjct context memory auth')
   })
 })

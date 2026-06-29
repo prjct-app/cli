@@ -1,4 +1,5 @@
 import type { AgentCapabilityClass } from '../schemas/model'
+import type { DomainDefinition } from '../types/storage/extended'
 
 /**
  * Review lenses — the SHARED specialist roster.
@@ -65,6 +66,16 @@ export const LENS_CATALOG: Record<string, LensSpec> = {
 
 export const GENERIC_RUBRIC =
   'Review the spec through this lens. Identify the most important risk or gap it implies and whether the acceptance criteria address it.'
+
+/**
+ * Rubric for a DOMAIN specialist — a reviewer that is an expert in one of the
+ * project's business domains (auth, billing, …), not a function lens. The
+ * domain comes from the project's own deterministic domain index (the Body), so
+ * the specialist is grounded in how THIS project's module actually works.
+ */
+export function domainLensRubric(d: DomainDefinition): string {
+  return `You are the \`${d.name}\` domain specialist (${d.description}). Judge whether this change respects the existing patterns, contracts, and invariants of the \`${d.name}\` domain. Pull \`prjct context memory ${d.name}\` to ground the verdict in what the project already knows. Pass only if the change is consistent with how \`${d.name}\` already works.`
+}
 
 /** The floor lens — always reviewed regardless of what the change signals. */
 export const FLOOR_LENS = 'architecture'
