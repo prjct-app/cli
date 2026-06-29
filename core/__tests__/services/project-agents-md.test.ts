@@ -85,14 +85,17 @@ describe('writeProjectAgentsMd', () => {
     expect(body).not.toContain('Claude Code')
   })
 
-  it('is a minimal pointer — names the pull entrypoint, carries no ruleset', async () => {
+  it('is a MAP of the harness organs (pull commands), carrying no ruleset', async () => {
     await writeProjectAgentsMd(dir)
     const body = await readAgentsMd()
-    expect(body).toContain('prjct work --md')
     expect(body).toContain('This file holds no rules')
-    // None of the old inlined rules survive in the repo surface.
+    // Names each organ + the one command to pull it — the map, not the rules.
+    expect(body).toContain('prjct work --md') // entrypoint
+    expect(body).toContain('prjct context memory') // memory + KB
+    expect(body).toContain('prjct guard') // guardrails
+    expect(body).toContain('prjct remember') // persistence
+    // But the rules/protocol themselves are NOT inlined here — they live in prjct.
     expect(body).not.toContain('intent brief')
-    expect(body).not.toContain('prjct guard')
-    expect(body).not.toContain('prjct remember')
+    expect(body).not.toContain('RAG-backed project memory harness')
   })
 })
