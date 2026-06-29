@@ -85,5 +85,17 @@ export async function runSelfHeal(currentVersion: string): Promise<void> {
     // best-effort
   }
 
+  // Regenerate the Claude statusline so an upgrade actually delivers body
+  // changes (e.g. the version-check rewrite). Without this, an old statusline
+  // body persisted across upgrades — the source of the permanent false
+  // "upgrade available" banner. installStatusLine is guarded to never clobber
+  // a modern modular ("v2") statusline.
+  try {
+    const { SetupCommands } = await import('../commands/setup')
+    await new SetupCommands().installStatusLine()
+  } catch {
+    // best-effort
+  }
+
   writeStamp(currentVersion)
 }
