@@ -26,6 +26,7 @@ import configManager from '../infrastructure/config-manager'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { buildIndexedFileCue } from '../services/file-cue'
+import { loopGuardVerdict } from '../services/loop-guard'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { queueStorage } from '../storage/queue-storage'
@@ -83,12 +84,22 @@ export async function buildProjectState(
       // resets when a new cycle starts) so the harness can tell a grind from
       // honest iteration.
       let turns = 0
+      let guardMessage = ''
       try {
         turns = await stateStorage.bumpTurnCount(config.projectId)
+        const task = await stateStorage.getCurrentTask(config.projectId)
+        // Hard guard (config.maxTurnsPerCycle) reads the SAME verdict the
+        // edit-deny uses, so the message and the block never disagree.
+        guardMessage = loopGuardVerdict(config, task).message
       } catch {
         /* best-effort — never block the state block on the counter */
       }
-      if (turns >= STUCK_TURN_THRESHOLD) {
+      if (guardMessage) {
+        // HARD tier — the cycle exceeded the configured turn budget. The
+        // pre-edit hook denies further edits on hosts that honor it; here we
+        // say it forcefully for every rig.
+        lines.push(`  ${guardMessage}`)
+      } else if (turns >= STUCK_TURN_THRESHOLD) {
         // Escalation: a frontier model would have re-planned by now; say it
         // explicitly so a weaker rig breaks the loop instead of grinding.
         lines.push(

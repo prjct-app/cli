@@ -103,6 +103,21 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Hard loop guard consent: stamp the active cycle as acknowledged so the
+   * maxTurnsPerCycle block stops firing for THIS cycle (`prjct work --extend`).
+   * Returns false when there is no active cycle. A new cycle clears it naturally.
+   */
+  async acknowledgeTurnLimit(projectId: string, at: string): Promise<boolean> {
+    const resultRef: { ok: boolean } = { ok: false }
+    await this.update(projectId, (state) => {
+      if (!state.currentTask) return state
+      resultRef.ok = true
+      return { ...state, currentTask: { ...state.currentTask, turnLimitAcknowledgedAt: at } }
+    })
+    return resultRef.ok
+  }
+
+  /**
    * Get paused tasks (most-recent first). Returns empty array if none.
    */
   async getPausedTasks(projectId: string): Promise<PreviousTask[]> {

@@ -27,13 +27,18 @@
  *     serialized request chain. Same build + same fail-soft contract.
  */
 
-import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
+import { buildDenyOutput, buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
 export interface RunHookOptions<I> {
   /** Claude Code event name (SessionStart, UserPromptSubmit, etc.). */
   event: string
   /** Project path; defaults to process.cwd(). */
   projectPath?: string
+  /** Optional HARD decision, evaluated BEFORE `build`. Return `{deny}` to emit
+   *  a PreToolUse deny decision (blocks the tool call on hosts that honor it)
+   *  and skip the context build; return null to fall through to `build`. Used
+   *  by the loop guard. Fail-soft like everything else (a throw ⇒ `{}`). */
+  decide?: (input: I, projectPath: string) => Promise<{ deny: string } | null>
   /** Build the additionalContext / systemMessage body. Return null to
    *  inject nothing (the runner emits `{}` instead). Omit for hooks
    *  that are purely side-effect driven. */
@@ -72,6 +77,11 @@ export async function runHook<I = Record<string, unknown>>(
     // disturb the host session.
     try {
       const input = io.input as I
+      const decision = opts.decide ? await opts.decide(input, projectPath) : null
+      if (decision) {
+        io.sink(`${JSON.stringify(buildDenyOutput(opts.event, decision.deny))}\n`)
+        return
+      }
       const context = opts.build ? await opts.build(input, projectPath) : null
       io.sink(`${JSON.stringify(buildHookOutput(opts.event, context))}\n`)
       if (opts.afterEmit) io.detachAfterEmit(() => opts.afterEmit!(input, projectPath))
@@ -84,6 +94,11 @@ export async function runHook<I = Record<string, unknown>>(
   // Process (cold) path — unchanged.
   await safeRun(async () => {
     const input = await readStdinSafe<I>()
+    const decision = opts.decide ? await opts.decide(input, projectPath) : null
+    if (decision) {
+      emit(buildDenyOutput(opts.event, decision.deny))
+      return
+    }
     const context = opts.build ? await opts.build(input, projectPath) : null
     emit(buildHookOutput(opts.event, context))
     if (opts.afterEmit) await opts.afterEmit(input, projectPath)
