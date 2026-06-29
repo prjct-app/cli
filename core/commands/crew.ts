@@ -14,7 +14,11 @@ import { getTemplateContent } from '../agentic/template-loader'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { type AgentRole, getAgentModelPolicy } from '../schemas/model'
-import { buildEmulatedCrewProtocol, resolveDispatchMechanism } from '../services/agent-dispatch'
+import {
+  buildEmulatedCrewProtocol,
+  CREW_ROLES,
+  resolveDispatchMechanism,
+} from '../services/agent-dispatch'
 import { checkpointsStorage } from '../storage/checkpoints-storage'
 import crewRunStorage from '../storage/crew-run-storage'
 import type { MdOption } from '../types/cli'
@@ -65,18 +69,17 @@ interface CrewFile {
   destRelative: string
 }
 
-const AGENT_FILES: CrewFile[] = [
-  { templateKey: 'crew/agents/leader.md', destRelative: '.claude/agents/leader.md' },
-  { templateKey: 'crew/agents/implementer.md', destRelative: '.claude/agents/implementer.md' },
-  { templateKey: 'crew/agents/reviewer.md', destRelative: '.claude/agents/reviewer.md' },
-]
+// Native `.claude/agents/` files + their model-policy role — both DERIVED from
+// the single crew roster (CREW_ROLES), so the native crew, the emulated
+// protocol, and the model policy can never drift apart.
+const AGENT_FILES: CrewFile[] = CREW_ROLES.map((r) => ({
+  templateKey: `crew/agents/${r.name}.md`,
+  destRelative: `.claude/agents/${r.name}.md`,
+}))
 
-/** Crew agent → AgentRole, so the model is one source of truth. */
-const CREW_AGENT_ROLES: Record<string, AgentRole> = {
-  '.claude/agents/leader.md': 'orchestrator',
-  '.claude/agents/implementer.md': 'implementer',
-  '.claude/agents/reviewer.md': 'reviewer',
-}
+const CREW_AGENT_ROLES: Record<string, AgentRole> = Object.fromEntries(
+  CREW_ROLES.map((r) => [`.claude/agents/${r.name}.md`, r.role])
+)
 
 /**
  * Stamp each crew agent's `model:` frontmatter from AGENT_MODEL_POLICY at

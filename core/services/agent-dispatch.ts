@@ -29,6 +29,29 @@ export interface DispatchMechanism {
   modelDirective(role: AgentRole): string
 }
 
+/** A stage of the multi-agent flow — what the role does in the dispatch. */
+export type RoleKind = 'orchestrate' | 'implement' | 'review' | 'explore'
+
+export interface CrewRole {
+  /** Agent file/display name (leader/implementer/reviewer). */
+  name: string
+  /** The model-policy role this maps to (drives the per-role model). */
+  role: AgentRole
+  kind: RoleKind
+}
+
+/**
+ * The crew roster — ONE source. crew install derives its `.claude/agents/`
+ * files + their model policy from this; the emulated protocol plays these same
+ * roles. (Review specialists are composed per task from the lens catalog, not
+ * fixed here — see review-lenses.ts.)
+ */
+export const CREW_ROLES: readonly CrewRole[] = [
+  { name: 'leader', role: 'orchestrator', kind: 'orchestrate' },
+  { name: 'implementer', role: 'implementer', kind: 'implement' },
+  { name: 'reviewer', role: 'reviewer', kind: 'review' },
+]
+
 function claudeMechanism(): Omit<DispatchMechanism, 'provider'> {
   return {
     native: true,
