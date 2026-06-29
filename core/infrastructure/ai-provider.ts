@@ -59,7 +59,6 @@ export const ClaudeProvider: AIProviderConfig = {
   defaultModel: 'sonnet',
   supportedModels: ['opus', 'sonnet', 'haiku'],
   minCliVersion: '1.0.0',
-  capabilityTier: 'full',
 }
 
 /**
@@ -86,7 +85,6 @@ export const GeminiProvider: AIProviderConfig = {
   defaultModel: '2.5-flash',
   supportedModels: ['2.5-pro', '2.5-flash', '2.0-flash'],
   minCliVersion: '1.0.0',
-  capabilityTier: 'standard',
 }
 
 /**
@@ -117,7 +115,6 @@ const AntigravityProvider: AIProviderConfig = {
   defaultModel: null, // Platform-managed
   supportedModels: [],
   minCliVersion: null,
-  capabilityTier: 'basic',
 }
 
 /**
@@ -150,7 +147,6 @@ export const CursorProvider: AIProviderConfig = {
   defaultModel: null, // Multi-model IDE, user selects
   supportedModels: [],
   minCliVersion: null,
-  capabilityTier: 'basic',
 }
 
 /**
@@ -184,7 +180,6 @@ const WindsurfProvider: AIProviderConfig = {
   defaultModel: null, // Multi-model IDE, user selects
   supportedModels: [],
   minCliVersion: null,
-  capabilityTier: 'basic',
 }
 
 /**
@@ -216,7 +211,6 @@ const CodexProvider: AIProviderConfig = {
   defaultModel: null,
   supportedModels: [],
   minCliVersion: null,
-  capabilityTier: 'basic',
 }
 
 /**

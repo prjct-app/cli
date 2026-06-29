@@ -3,7 +3,6 @@
  * Types for the agentic system.
  */
 
-import type { Plan } from './agentic/plan-execution'
 import type { CommandParams, ContextPaths } from './core'
 
 // Input Source Types (PRJ-102)
@@ -186,13 +185,6 @@ export interface ThinkBlock {
   plan?: string[]
   conclusions?: string[]
   confidence?: number
-}
-
-export interface PlanInfo {
-  isPlanning?: boolean
-  requiresApproval?: boolean
-  allowedTools?: string[]
-  active?: Plan | null
 }
 
 // Ground Truth Types
