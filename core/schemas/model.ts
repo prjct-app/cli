@@ -1,188 +1,32 @@
 /**
- * Model Schema
+ * Model Schema — the Rig layer.
  *
- * Defines model specification types for AI providers.
- * Records which model was used for each analysis and task,
- * enabling consistency tracking and mismatch warnings.
+ * ONE source of truth for "which models a rig has": PROVIDER_CAPABILITY_MODELS.
+ * Roles map to vendor-agnostic capability classes; each rig maps classes to its
+ * concrete models. Everything else (the Claude tier policy, the per-provider
+ * model lists, the degradation fallback) is DERIVED from that map — so the
+ * Brain is intercambiable and there is no second model system to drift from.
  *
  * @see PRJ-265
  */
 
 import { z } from 'zod'
 
-// Provider-Specific Model Identifiers
-
-// Supported Models Per Provider
-
-const SUPPORTED_MODELS: Record<string, readonly string[]> = {
-  claude: ['opus', 'sonnet', 'haiku'],
-  gemini: ['2.5-pro', '2.5-flash', '2.0-flash'],
-  cursor: [], // Multi-model IDE, user selects model
-  windsurf: [], // Multi-model IDE, user selects model
-  antigravity: [], // Platform-managed
-} as const
-
-const DEFAULT_MODELS: Record<string, string> = {
-  claude: 'sonnet',
-  gemini: '2.5-flash',
-} as const
-
-// Minimum CLI Versions
-
-const MIN_CLI_VERSIONS: Record<string, string> = {
-  claude: '1.0.0',
-  gemini: '1.0.0',
-} as const
-
-// Agent Model Policy — per-role model + effort for subagent dispatch
+// ── The single source of truth ───────────────────────────────────────────────
 
 /**
- * Which Claude model + how much reasoning effort each subagent ROLE gets.
- *
- * Perf rationale: every subagent used to inherit the parent session's max
- * model + max effort. Orchestrators and reviewers don't implement — they
- * route and judge — so running them on Opus-max made every task's agent
- * fan-out crawl. Only the implementer needs full max.
- *
- *  - implementer   → opus  / max    (writes code, needs the best model)
- *  - orchestrator  → haiku / decent (crew leader: decomposes & routes only)
- *  - reviewer tier → sonnet / decent (audit-spec's 3 reviewers + audit/
- *                                     review/security/investigate + crew
- *                                     reviewer: judgment, strong reasoning
- *                                     but not Opus-max)
- *
- * `effort` is GUIDANCE inlined into the dispatch prompt (the Agent tool has
- * no per-call effort param) — "decent, not exhaustive: you orchestrate/
- * review, return the verdict, don't over-deliberate". `model` is the
- * concrete lever the orchestrator passes to the Agent tool.
- */
-export type AgentRole =
-  | 'implementer'
-  | 'orchestrator'
-  | 'strategic-review'
-  | 'architecture-review'
-  | 'design-review'
-  | 'spec-review'
-  | 'review'
-  | 'security'
-  | 'investigate'
-  | 'reviewer'
-
-export type AgentModelTier = 'opus' | 'sonnet' | 'haiku'
-export type AgentEffort = 'max' | 'decent'
-
-export interface AgentModelPolicy {
-  model: AgentModelTier
-  effort: AgentEffort
-}
-
-const IMPLEMENTER_POLICY: AgentModelPolicy = { model: 'opus', effort: 'max' }
-const ORCHESTRATOR_POLICY: AgentModelPolicy = { model: 'haiku', effort: 'decent' }
-const REVIEWER_POLICY: AgentModelPolicy = { model: 'sonnet', effort: 'decent' }
-
-export const AGENT_MODEL_POLICY: Record<AgentRole, AgentModelPolicy> = {
-  implementer: IMPLEMENTER_POLICY,
-  orchestrator: ORCHESTRATOR_POLICY,
-  'strategic-review': REVIEWER_POLICY,
-  'architecture-review': REVIEWER_POLICY,
-  'design-review': REVIEWER_POLICY,
-  'spec-review': REVIEWER_POLICY,
-  review: REVIEWER_POLICY,
-  security: REVIEWER_POLICY,
-  investigate: REVIEWER_POLICY,
-  reviewer: REVIEWER_POLICY,
-}
-
-/**
- * Policy for a role. Unknown roles default to the reviewer tier — never
- * silently fall back to implementer/max (that is the regression we are
- * fixing).
- */
-export function getAgentModelPolicy(role: AgentRole): AgentModelPolicy {
-  return AGENT_MODEL_POLICY[role] ?? REVIEWER_POLICY
-}
-
-/**
- * Rig sovereignty: graceful degradation when the preferred tier is throttled
- * or unavailable. For each tier, the ordered list of tiers to try — the
- * preferred one first, then the nearest still-capable option. The brain is
- * rented and can be pulled; the harness keeps working on whatever tier is
- * available rather than failing. Reviewer/orchestrator prefer to degrade
- * CHEAPER first (cost discipline); the implementer degrades by capability.
- */
-export const MODEL_TIER_FALLBACK: Record<AgentModelTier, readonly AgentModelTier[]> = {
-  opus: ['opus', 'sonnet', 'haiku'],
-  sonnet: ['sonnet', 'haiku', 'opus'],
-  haiku: ['haiku', 'sonnet', 'opus'],
-}
-
-export interface ResolvedAgentModel extends AgentModelPolicy {
-  /** The tier the role would use with no constraints. */
-  preferred: AgentModelTier
-  /** True when the preferred tier was unavailable and we degraded. */
-  degraded: boolean
-}
-
-/**
- * Resolve the tier a role should actually dispatch with, given the set of
- * currently-available tiers (e.g. derived from the active provider). Walks the
- * role's fallback chain and returns the first available tier. When `available`
- * is empty/unknown we assume the preferred tier is usable (no info → don't
- * degrade). Effort is unchanged by degradation — a weaker tier needs its full
- * effort budget more, not less.
- */
-export function resolveAgentModel(
-  role: AgentRole,
-  available?: ReadonlySet<AgentModelTier>
-): ResolvedAgentModel {
-  const policy = getAgentModelPolicy(role)
-  if (!available || available.size === 0) {
-    return { ...policy, preferred: policy.model, degraded: false }
-  }
-  for (const tier of MODEL_TIER_FALLBACK[policy.model]) {
-    if (available.has(tier)) {
-      return { ...policy, model: tier, preferred: policy.model, degraded: tier !== policy.model }
-    }
-  }
-  // No tier in the chain is available — keep the preferred as a last resort.
-  return { ...policy, preferred: policy.model, degraded: false }
-}
-
-// Provider-agnostic capability layer — the rig (model) is intercambiable.
-
-/**
- * What a ROLE needs, independent of vendor. The Claude tiers above are one
- * provider's expression of these classes; mapping roles to classes (not to
- * Claude models) is what lets the same harness run on Gemini, Codex, or an
- * open model without rewriting the per-role policy.
+ * What a ROLE needs, independent of vendor:
  *   frontier → the best model (implementer writes code)
  *   balanced → strong judgment, cheaper (reviewers)
  *   fast     → routing/decomposition only (orchestrator)
  */
 export type AgentCapabilityClass = 'frontier' | 'balanced' | 'fast'
 
-const ROLE_CAPABILITY_CLASS: Record<AgentRole, AgentCapabilityClass> = {
-  implementer: 'frontier',
-  orchestrator: 'fast',
-  'strategic-review': 'balanced',
-  'architecture-review': 'balanced',
-  'design-review': 'balanced',
-  'spec-review': 'balanced',
-  review: 'balanced',
-  security: 'balanced',
-  investigate: 'balanced',
-  reviewer: 'balanced',
-}
-
-export function capabilityClassForRole(role: AgentRole): AgentCapabilityClass {
-  return ROLE_CAPABILITY_CLASS[role] ?? 'balanced'
-}
-
 /**
  * Per-provider model for each capability class, ordered best→fallback for
- * graceful degradation WITHIN the provider. Multi-model IDEs (cursor/windsurf/
- * antigravity) pick the model in-app, so they have no fixed map (model = null).
- * Keep `claude` in lockstep with AGENT_MODEL_POLICY — a test asserts it.
+ * in-provider graceful degradation. THE single source for which models a rig
+ * has. Multi-model IDEs (cursor/windsurf/antigravity) pick the model in-app, so
+ * they have no fixed map (resolves to model = null / supported = []).
  */
 export const PROVIDER_CAPABILITY_MODELS: Record<
   string,
@@ -200,6 +44,121 @@ export const PROVIDER_CAPABILITY_MODELS: Record<
   },
 }
 
+const MIN_CLI_VERSIONS: Record<string, string> = {
+  claude: '1.0.0',
+  gemini: '1.0.0',
+} as const
+
+// ── Roles → capability classes ───────────────────────────────────────────────
+
+export type AgentRole =
+  | 'implementer'
+  | 'orchestrator'
+  | 'strategic-review'
+  | 'architecture-review'
+  | 'design-review'
+  | 'spec-review'
+  | 'review'
+  | 'security'
+  | 'investigate'
+  | 'reviewer'
+
+const ROLE_CAPABILITY_CLASS: Record<AgentRole, AgentCapabilityClass> = {
+  implementer: 'frontier',
+  orchestrator: 'fast',
+  'strategic-review': 'balanced',
+  'architecture-review': 'balanced',
+  'design-review': 'balanced',
+  'spec-review': 'balanced',
+  review: 'balanced',
+  security: 'balanced',
+  investigate: 'balanced',
+  reviewer: 'balanced',
+}
+
+/** Unknown roles default to the balanced (reviewer) class — never frontier. */
+export function capabilityClassForRole(role: AgentRole): AgentCapabilityClass {
+  return ROLE_CAPABILITY_CLASS[role] ?? 'balanced'
+}
+
+// ── Claude tier policy — DERIVED from the map ────────────────────────────────
+// Claude is one rig; its top model per class + the class effort express the
+// legacy per-role tier policy. Kept as derived views so existing callers/tests
+// (getAgentModelPolicy, AGENT_MODEL_POLICY, renderModelDirective) are unchanged.
+
+export type AgentModelTier = 'opus' | 'sonnet' | 'haiku'
+export type AgentEffort = 'max' | 'decent'
+
+export interface AgentModelPolicy {
+  model: AgentModelTier
+  effort: AgentEffort
+}
+
+const CLAUDE_MODELS = PROVIDER_CAPABILITY_MODELS.claude
+
+/** Effort is a pure function of the class: only the frontier role gets max. */
+function effortForClass(c: AgentCapabilityClass): AgentEffort {
+  return c === 'frontier' ? 'max' : 'decent'
+}
+
+function policyForClass(c: AgentCapabilityClass): AgentModelPolicy {
+  return { model: CLAUDE_MODELS[c][0] as AgentModelTier, effort: effortForClass(c) }
+}
+
+/**
+ * Policy for a role on a Claude rig. Unknown roles → the balanced/reviewer
+ * tier (never implementer/max). Derived from the capability map.
+ */
+export function getAgentModelPolicy(role: AgentRole): AgentModelPolicy {
+  return policyForClass(capabilityClassForRole(role))
+}
+
+/** Derived view over every known role — kept for the export + direct tests. */
+export const AGENT_MODEL_POLICY: Record<AgentRole, AgentModelPolicy> = Object.fromEntries(
+  (Object.keys(ROLE_CAPABILITY_CLASS) as AgentRole[]).map((r) => [r, getAgentModelPolicy(r)])
+) as Record<AgentRole, AgentModelPolicy>
+
+/**
+ * Rig sovereignty: graceful degradation when the preferred tier is throttled.
+ * Derived from the Claude class chains (opus=frontier, sonnet=balanced,
+ * haiku=fast), so there is no second fallback table to drift from.
+ */
+export const MODEL_TIER_FALLBACK: Record<AgentModelTier, readonly AgentModelTier[]> = {
+  opus: CLAUDE_MODELS.frontier as readonly AgentModelTier[],
+  sonnet: CLAUDE_MODELS.balanced as readonly AgentModelTier[],
+  haiku: CLAUDE_MODELS.fast as readonly AgentModelTier[],
+}
+
+export interface ResolvedAgentModel extends AgentModelPolicy {
+  /** The tier the role would use with no constraints. */
+  preferred: AgentModelTier
+  /** True when the preferred tier was unavailable and we degraded. */
+  degraded: boolean
+}
+
+/**
+ * Resolve the Claude tier a role should dispatch with, given the available
+ * tiers. Walks the fallback chain; empty/unknown availability → preferred
+ * (no degrade). Effort is never lowered by degradation.
+ */
+export function resolveAgentModel(
+  role: AgentRole,
+  available?: ReadonlySet<AgentModelTier>
+): ResolvedAgentModel {
+  const policy = getAgentModelPolicy(role)
+  if (!available || available.size === 0) {
+    return { ...policy, preferred: policy.model, degraded: false }
+  }
+  for (const tier of MODEL_TIER_FALLBACK[policy.model]) {
+    if (available.has(tier)) {
+      return { ...policy, model: tier, preferred: policy.model, degraded: tier !== policy.model }
+    }
+  }
+  return { ...policy, preferred: policy.model, degraded: false }
+}
+
+// ── Provider-aware resolution (any rig) ──────────────────────────────────────
+
 export interface ResolvedProviderModel {
   provider: string
   /** Concrete model id; null for multi-model rigs that select in-app. */
@@ -210,8 +169,8 @@ export interface ResolvedProviderModel {
 
 /**
  * Resolve the concrete model a role should dispatch with on a given provider,
- * degrading within that provider when the preferred model is unavailable. This
- * is the sovereignty primitive: rent any brain, keep the same role policy.
+ * degrading within that provider when the preferred model is unavailable. The
+ * sovereignty primitive: rent any brain, keep the same role policy.
  */
 export function resolveProviderModel(
   role: AgentRole,
@@ -221,7 +180,6 @@ export function resolveProviderModel(
   const capability = capabilityClassForRole(role)
   const chain = PROVIDER_CAPABILITY_MODELS[provider]?.[capability]
   if (!chain || chain.length === 0) {
-    // Multi-model IDE or unknown provider — the rig selects the model itself.
     return { provider, model: null, capability, degraded: false }
   }
   const preferred = chain[0]
@@ -261,15 +219,9 @@ export function renderModelDirectiveForProvider(
 }
 
 /**
- * One-line directive to inline into a subagent dispatch prompt so the
- * orchestrator passes the right `model:` to the Agent tool and the subagent
- * calibrates its effort. Implementer keeps max; every other role is told,
- * explicitly, to go smaller + decent.
- *
- * Pass `available` (the tiers the active rig can currently dispatch) to make
- * the directive degrade gracefully when the preferred tier is throttled —
- * the multi-agent fan-out keeps running on the best available brain instead
- * of failing. Omit it and the directive is byte-identical to the original.
+ * One-line directive for a Claude-rig dispatch. Implementer keeps max; every
+ * other role is told to go smaller + decent. Pass `available` to degrade
+ * gracefully when a tier is throttled.
  */
 export function renderModelDirective(
   role: AgentRole,
@@ -289,7 +241,7 @@ export function renderModelDirective(
     : base
 }
 
-// Model Metadata - Recorded Per Operation
+// ── Model metadata + validation helpers ──────────────────────────────────────
 
 /** Model metadata recorded with each analysis or task */
 export const ModelMetadataSchema = z.object({
@@ -303,29 +255,25 @@ export const ModelMetadataSchema = z.object({
   recordedAt: z.string(),
 })
 
-// Model Configuration - Per Project
-
-// Inferred Types
-
 export type ModelMetadata = z.infer<typeof ModelMetadataSchema>
 
-// Validation Helpers
+/** Supported models for a provider — derived from the capability map. */
+export function getSupportedModels(provider: string): readonly string[] {
+  const map = PROVIDER_CAPABILITY_MODELS[provider]
+  if (!map) return []
+  return [...new Set([...map.frontier, ...map.balanced, ...map.fast])]
+}
+
+/** Default model for a provider — the balanced tier's top model. */
+export function getDefaultModel(provider: string): string | null {
+  return PROVIDER_CAPABILITY_MODELS[provider]?.balanced[0] ?? null
+}
 
 /** Check if a model is valid for a given provider */
 export function isValidModelForProvider(provider: string, model: string): boolean {
-  const supported = SUPPORTED_MODELS[provider]
-  if (!supported || supported.length === 0) return true // No restriction for multi-model IDEs
+  const supported = getSupportedModels(provider)
+  if (supported.length === 0) return true // No restriction for multi-model IDEs
   return supported.includes(model)
-}
-
-/** Get the default model for a provider */
-export function getDefaultModel(provider: string): string | null {
-  return DEFAULT_MODELS[provider] ?? null
-}
-
-/** Get supported models for a provider */
-export function getSupportedModels(provider: string): readonly string[] {
-  return SUPPORTED_MODELS[provider] ?? []
 }
 
 /**
