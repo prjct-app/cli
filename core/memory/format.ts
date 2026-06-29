@@ -97,6 +97,17 @@ export const MACHINE_TAG_KEYS: ReadonlySet<string> = new Set([
   'kind',
   'spec-id',
   'spec_id',
+  // Opaque bookkeeping dimensions — they spawn vault tag pages nobody browses
+  // (mem_3694). Keep them in SQLite; never as a `tags/<key>.md` page.
+  'from',
+  'origin',
+  'event',
+  'task-count',
+  'task_count',
+  'context-schema',
+  'context_schema',
+  'synthesis',
+  'commit',
 ])
 
 const TITLE_MAX = 72
