@@ -19,6 +19,7 @@
 
 import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
+import { recordAgentSessionEnd } from '../services/agent-session-recorder'
 import { embeddingService } from '../services/embeddings'
 import { detectFriction } from '../services/friction-detector'
 import { detectAndPersistLeanDebt } from '../services/lean-detector'
@@ -29,6 +30,7 @@ import {
   parseTranscriptJsonl,
   sumTranscriptUsage,
   type TranscriptJsonlLine,
+  type TranscriptUsage,
 } from '../services/transcript-jsonl'
 import { ingestTranscript } from '../services/transcript-learner'
 import { usefulnessService } from '../services/usefulness'
@@ -55,6 +57,9 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // (transcript-learner, friction-detector, skill-miss-detector) each
         // used to re-read and re-tokenize the same multi-hundred-KB JSONL.
         let transcriptLines: TranscriptJsonlLine[] | undefined
+        let transcriptUsage: TranscriptUsage | undefined
+        let activeTaskId: string | undefined
+        let activeTaskDescription: string | undefined
         if (input.transcript_path) {
           const raw = await fs.readFile(input.transcript_path, 'utf-8').catch(() => null)
           if (raw !== null) transcriptLines = parseTranscriptJsonl(raw)
@@ -65,22 +70,40 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // `prjct performance` can prove prjct's net token savings. Best-effort.
         if (transcriptLines && transcriptLines.length > 0) {
           try {
-            const usage = sumTranscriptUsage(transcriptLines)
-            if (usage.tokensIn + usage.tokensOut > 0) {
+            transcriptUsage = sumTranscriptUsage(transcriptLines)
+            if (transcriptUsage.tokensIn + transcriptUsage.tokensOut > 0) {
               const { collectActiveTasks } = await import('../services/task-overview')
               const overview = await collectActiveTasks(config.projectId, p)
-              const taskId = overview.current?.id
-              if (taskId) {
-                recordTaskTokenUsage(config.projectId, taskId, usage.tokensIn, usage.tokensOut, {
-                  description: overview.current?.description,
-                  agent: 'claude',
-                })
+              activeTaskId = overview.current?.id
+              activeTaskDescription = overview.current?.description
+              if (activeTaskId) {
+                recordTaskTokenUsage(
+                  config.projectId,
+                  activeTaskId,
+                  transcriptUsage.tokensIn,
+                  transcriptUsage.tokensOut,
+                  {
+                    description: activeTaskDescription,
+                    agent: 'claude',
+                  }
+                )
               }
             }
           } catch {
             /* measurement must never block session end */
           }
         }
+
+        recordAgentSessionEnd({
+          projectId: config.projectId,
+          sessionId: input.session_id,
+          directory: p,
+          taskId: activeTaskId,
+          goal: activeTaskDescription,
+          tokensIn: transcriptUsage?.tokensIn,
+          tokensOut: transcriptUsage?.tokensOut,
+          agent: 'claude',
+        })
 
         // Captured notes → memory entries (existing behavior).
         try {

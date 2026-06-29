@@ -5,7 +5,11 @@ import path from 'node:path'
 import { ProductCommands } from '../../commands/product'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
-import { publishWorkCostSnapshots, type WorkCostSnapshot } from '../../services/work-cost-service'
+import {
+  publishWorkCostSnapshots,
+  recordTaskTokenUsage,
+  type WorkCostSnapshot,
+} from '../../services/work-cost-service'
 import { prjctDb } from '../../storage/database'
 import { syncPendingStorage } from '../../storage/sync-pending-storage'
 
@@ -149,5 +153,86 @@ describe('insights cost', () => {
     expect(pending[0]?.event.entityType).toBe('work_cost_snapshots')
     expect(pending[0]?.event.entityId).toBe('work-cost-30d')
     expect(pending[0]?.event.eventType).toBe('upsert')
+  })
+
+  it('reports measurement reliability gaps and next actions', async () => {
+    const log = spyOn(console, 'log').mockImplementation(() => {})
+    const now = new Date().toISOString()
+    try {
+      prjctDb.appendEvent(projectId, 'memory.task_started', {
+        task: 'Improve measurement proof',
+        taskId: 'task-reliability',
+      })
+      prjctDb.run(
+        projectId,
+        'UPDATE events SET timestamp = ? WHERE type = ?',
+        now,
+        'memory.task_started'
+      )
+
+      const result = await new ProductCommands().insights('reliability 30', projectPath, {
+        md: true,
+      })
+
+      expect(result.success).toBe(true)
+      expect(result).toMatchObject({
+        tokenCoveragePercent: 0,
+        sessionCoveragePercent: 0,
+      })
+      expect(log.mock.calls[0]?.[0]).toContain('# prjct Reliability')
+      expect(log.mock.calls[0]?.[0]).toContain('Work-cycle normalization')
+      expect(log.mock.calls[0]?.[0]).toContain('Next Actions')
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('prints a memory doctor fix-plan for cleanup actions', async () => {
+    const log = spyOn(console, 'log').mockImplementation(() => {})
+    const old = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
+    try {
+      prjctDb.run(
+        projectId,
+        `INSERT INTO memories (id, project_id, type, title, content, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        'mem_low_signal',
+        projectId,
+        'inbox',
+        'list',
+        'list',
+        old,
+        old
+      )
+
+      const result = await new ProductCommands().insights('quality fix-plan', projectPath, {
+        md: true,
+      })
+
+      expect(result.success).toBe(true)
+      expect(log.mock.calls[0]?.[0]).toContain('## Fix Plan')
+      expect(log.mock.calls[0]?.[0]).toContain('mem_low_signal')
+      expect(log.mock.calls[0]?.[0]).toContain('not an auto-fix')
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('shows event-measured token cycles in performance output', async () => {
+    const log = spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      recordTaskTokenUsage(projectId, 'task-event-only', 900, 100, {
+        description: 'Event-only measured work',
+        agent: 'codex',
+      })
+
+      const result = await new ProductCommands().performance('30', projectPath, { md: true })
+
+      expect(result.success).toBe(true)
+      expect(result.cycles).toBe(1)
+      expect(log.mock.calls[0]?.[0]).toContain('Event-only measured work')
+      expect(log.mock.calls[0]?.[0]).toContain('1000')
+    } finally {
+      log.mockRestore()
+    }
   })
 })

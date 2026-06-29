@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-06-29
+
+### Added
+- world class efficiency
+
 ## [3.11.0] - 2026-06-29
 
 ### Added

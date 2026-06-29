@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { runSyncPhase, withPhaseTimeout } from '../../services/sync/phase-runner'
+import {
+  runSyncPhase,
+  SyncPhaseTimeoutError,
+  withPhaseTimeout,
+} from '../../services/sync/phase-runner'
 
 const originalTimeout = process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS
 
@@ -27,5 +31,21 @@ describe('sync phase runner', () => {
     await expect(withPhaseTimeout(new Promise(() => undefined), 'slow-phase')).rejects.toThrow(
       "sync phase 'slow-phase' timed out"
     )
+    await expect(withPhaseTimeout(new Promise(() => undefined), 'slow-phase')).rejects.toThrow(
+      'PRJCT_SYNC_PHASE_TIMEOUT_MS'
+    )
+  })
+
+  test('withPhaseTimeout exposes typed timeout metadata', async () => {
+    process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS = '5'
+
+    try {
+      await withPhaseTimeout(new Promise(() => undefined), 'slow-phase')
+      throw new Error('expected timeout')
+    } catch (error) {
+      expect(error).toBeInstanceOf(SyncPhaseTimeoutError)
+      expect((error as SyncPhaseTimeoutError).phase).toBe('slow-phase')
+      expect((error as SyncPhaseTimeoutError).timeoutMs).toBe(5)
+    }
   })
 })

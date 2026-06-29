@@ -3,6 +3,21 @@ import log from '../../utils/logger'
 
 export const DEFAULT_SYNC_PHASE_TIMEOUT_MS = 60_000
 
+export class SyncPhaseTimeoutError extends Error {
+  readonly phase: string
+  readonly timeoutMs: number
+
+  constructor(phase: string, timeoutMs: number) {
+    super(
+      `sync phase '${phase}' timed out after ${timeoutMs}ms. ` +
+        'Set PRJCT_SYNC_PHASE_TIMEOUT_MS to tune this guard, or run `prjct sync --full --md` if incremental state looks stale.'
+    )
+    this.name = 'SyncPhaseTimeoutError'
+    this.phase = phase
+    this.timeoutMs = timeoutMs
+  }
+}
+
 export function syncPhaseTimeoutMs(): number {
   return Number(process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS) || DEFAULT_SYNC_PHASE_TIMEOUT_MS
 }
@@ -15,11 +30,9 @@ export function syncPhaseTimeoutMs(): number {
  */
 export function withPhaseTimeout<T>(promise: Promise<T>, phase: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
+  const timeoutMs = syncPhaseTimeoutMs()
   const timeout = new Promise<T>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`sync phase '${phase}' timed out after ${syncPhaseTimeoutMs()}ms`)),
-      syncPhaseTimeoutMs()
-    )
+    timer = setTimeout(() => reject(new SyncPhaseTimeoutError(phase, timeoutMs)), timeoutMs)
   })
   return Promise.race([promise, timeout]).finally(() => {
     if (timer) clearTimeout(timer)

@@ -55,6 +55,26 @@ describe('multi-editor surfaces generated from one contract', () => {
   it('every surface composes the shared CONTRACT (single source of truth)', () => {
     for (const surface of all) expect(surface).toContain(CONTRACT.rag)
   })
+
+  it('keeps compact skills pull-only and storage-safe', () => {
+    for (const skill of [codex, antigravitySkill]) {
+      expect(skill).toContain('do not preload project history')
+      expect(skill).toContain('vault `_generated/` is a fallback snapshot')
+      expect(skill).toContain('Save synthesized memory in English')
+      expect(skill).not.toContain('~/.prjct-cli/projects/{projectId}/prjct.db')
+      expect(skill).not.toContain('workflow stations')
+    }
+  })
+
+  it('global configs keep the world-class proof verbs visible without heavy methodology', () => {
+    for (const cfg of [gemini, antigravityConfig]) {
+      expect(cfg).toContain('insights')
+      expect(cfg).toContain('performance')
+      expect(cfg).toContain('prjct work')
+      expect(cfg).not.toContain('## Builder ethos')
+      expect(cfg).not.toContain('### Subagent dispatch')
+    }
+  })
 })
 
 describe('IDE rule pointers — same minimal pointer, per-rig frontmatter', () => {

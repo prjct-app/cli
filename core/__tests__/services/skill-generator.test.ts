@@ -491,6 +491,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(verbMap).toContain('`prjct remember gotcha')
       expect(verbMap).toContain('`prjct ship`')
       expect(verbMap).toContain('`prjct insights value --md`')
+      expect(verbMap).toContain('`prjct insights reliability --md`')
       expect(verbMap).toContain('`prjct insights report 7 --md`')
       expect(verbMap).toContain('`prjct performance 7 --md`')
       expect(verbMap).toContain('`prjct context-save`')
