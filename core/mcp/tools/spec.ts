@@ -249,7 +249,10 @@ export function registerSpecTools(server: McpServer) {
       await specService.setSelectedReviewers(args.projectPath, args.id, lenses)
       return {
         content: [
-          { type: 'text', text: renderAuditDispatch(spec.id, spec.title, spec.content, lenses) },
+          {
+            type: 'text',
+            text: await renderAuditDispatch(spec.id, spec.title, spec.content, lenses),
+          },
         ],
       }
     })

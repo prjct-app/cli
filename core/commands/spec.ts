@@ -400,7 +400,7 @@ export class SpecCommands extends PrjctCommandsBase {
           : selectReviewers(spec.content)
       await specService.setSelectedReviewers(projectPath, id, lenses)
 
-      const dispatch = renderAuditDispatch(spec.id, spec.title, spec.content, lenses)
+      const dispatch = await renderAuditDispatch(spec.id, spec.title, spec.content, lenses)
       console.log(dispatch)
       return { success: true, specId: id, dispatch: 'emitted' }
     } catch (error) {

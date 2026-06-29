@@ -22,8 +22,9 @@
  * rubric and resolve to the sonnet reviewer tier via the model policy fallback.
  */
 
-import { renderModelDirective } from '../schemas/model'
+import type { AIProviderName } from '../types/provider'
 import type { SpecContent } from '../types/spec'
+import { resolveDispatchMechanism } from './agent-dispatch'
 
 export interface LensSpec {
   /** Short parenthetical shown after the lens name in the dispatch. */
@@ -151,12 +152,14 @@ function extractScopePaths(scope: string[]): string[] {
  * The spec body is NEVER embedded — each reviewer runs `prjct spec show <id>
  * --md` itself in its own fresh context.
  */
-export function renderAuditDispatch(
+export async function renderAuditDispatch(
   id: string,
   title: string,
   content: SpecContent,
-  lenses?: string[]
-): string {
+  lenses?: string[],
+  projectProvider?: AIProviderName
+): Promise<string> {
+  const dispatch = await resolveDispatchMechanism(projectProvider)
   const chosen = lenses && lenses.length > 0 ? lenses : selectReviewers(content)
   const scopePaths = extractScopePaths(content.scope)
   const scopeBlock =
@@ -172,15 +175,12 @@ export function renderAuditDispatch(
     const letter = String.fromCharCode(65 + (i % 26))
     reviewerSections.push(
       `## Reviewer ${letter} — ${lens} (${label})`,
-      `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. ${rubric} Return verdict (pass|fail) and 2-4 sentence notes."`,
+      `Reviewer prompt: "First run \`prjct spec show ${id} --md\` to read the spec. ${rubric} Return verdict (pass|fail) and 2-4 sentence notes."`,
       ''
     )
   })
 
-  const runLine =
-    chosen.length === 1
-      ? 'Run this review subagent via the Agent tool. It reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.'
-      : `Run these ${chosen.length} review subagents IN PARALLEL via the Agent tool — one tool-use block per lens, all in the SAME message so they run concurrently. Each subagent reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.`
+  const runLine = dispatch.runLine(chosen.length)
 
   return [
     `# audit-spec dispatch — ${title}`,
@@ -192,10 +192,10 @@ export function renderAuditDispatch(
     runLine,
     '',
     '## Where the spec lives — read it from prjct, it is NOT in this prompt',
-    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer subagent runs \`prjct spec show ${id} --md\` itself, in its own fresh context window, to read the full spec. Do NOT paste the spec body into the subagent prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the subagent, not pre-pasted by you.)`,
+    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer runs \`prjct spec show ${id} --md\` itself, fresh, to read the full spec. Do NOT paste the spec body into the prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the reviewer, not pre-pasted by you.)`,
     '',
     '## Model policy (perf — read before dispatching)',
-    `${renderModelDirective('spec-review')} The SAME applies to every lens — they judge a spec, they do not implement, so they must NOT run on the parent's max model. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,
+    `${dispatch.modelDirective('spec-review')} The same applies to every lens — they judge a spec, they do not implement, so they run on a review-tier model, not the heaviest one. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,
     scopeBlock,
     '',
     ...reviewerSections,
