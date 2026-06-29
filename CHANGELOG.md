@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.11.1] - 2026-06-29
+
+### Bug Fixes
+
+- make prjct harness-agnostic across LLMs (Codex/Gemini) + sandbox-safe (#493)
+
+
 ## [3.11.0] - 2026-06-29
 
 ### Added
