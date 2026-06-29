@@ -101,6 +101,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const relatedLines = related.map(formatRelatedContextForAgent)
       const likelyFiles = outcome.likelyFiles ?? []
       const likelyFileLines = likelyFiles.map(formatLikelyFileForAgent)
+      // Predictive risk — the preventive memory for the area this cycle touches,
+      // surfaced BEFORE the edit. Higher priority than the file map, so it leads.
+      const risks = outcome.risks ?? []
+      const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
 
       if (options.md) {
         const md = mdOutput(
@@ -137,6 +141,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
           beforeInstructions.length > 0
             ? mdSection('Agent Instructions', mdList(beforeInstructions))
             : null,
+          riskLines.length > 0
+            ? mdSection(
+                '⚠ Risk — what bit us in this area before (read before you edit)',
+                mdList(riskLines)
+              )
+            : null,
           relatedLines.length > 0
             ? mdSection('Related context — has this come up before?', mdList(relatedLines))
             : null,
@@ -165,6 +175,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
           if (harness.expectedEvidence.length > 0) {
             out.info(`Evidence: ${harness.expectedEvidence.join(', ')}`)
           }
+        }
+        if (riskLines.length > 0) {
+          out.info('⚠ Risk — what bit us in this area before (read before you edit)')
+          for (const line of riskLines) out.info(`  ${line}`)
         }
         if (relatedLines.length > 0) {
           out.info('Related context — has this come up before?')

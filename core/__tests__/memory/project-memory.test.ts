@@ -655,3 +655,43 @@ describe('projectMemory.recallForFile — anticipation (pre-edit)', () => {
     expect(trapsOnly).toEqual([])
   })
 })
+
+describe('predictive risk briefing — recallRisksForFiles (planning-time)', () => {
+  it('concentrates preventive memory for the likely files, dedups, and excludes history', async () => {
+    await writeMemoryEntry({
+      type: 'gotcha',
+      content: 'auth: the 2FA plugin must init before the session middleware',
+      tags: { file: 'core/auth.ts' },
+    })
+    await writeMemoryEntry({
+      type: 'anti-pattern',
+      content: 'auth: do not read the token from the cookie directly',
+      tags: { file: 'core/auth.ts' },
+    })
+    // History (context) is NOT risk — must be excluded from the briefing.
+    await writeMemoryEntry({
+      type: 'context',
+      content: 'auth refactored last sprint',
+      tags: { file: 'core/auth.ts' },
+    })
+    const { recallRisksForFiles } = await import('../../services/task-service')
+    const risks = recallRisksForFiles(projectId, [
+      { path: 'core/auth.ts', signals: [], reason: '' },
+      { path: 'core/auth.ts', signals: [], reason: '' }, // duplicate file → no dup hits
+    ])
+    expect(risks.length).toBe(2) // the gotcha + the anti-pattern, deduped
+    expect(risks.every((r) => r.file === 'core/auth.ts')).toBe(true)
+    expect(risks.some((r) => r.title.length > 0)).toBe(true)
+    // No history leaked in.
+    expect(risks.some((r) => r.title.includes('refactored last sprint'))).toBe(false)
+  })
+
+  it('returns empty when the likely files have no preventive memory', () => {
+    // recallRisksForFiles is imported lazily above; here just assert the clean
+    // path: no traps recorded against an unrelated file → empty briefing.
+    const { recallRisksForFiles } = require('../../services/task-service')
+    expect(
+      recallRisksForFiles(projectId, [{ path: 'core/untouched.ts', signals: [], reason: '' }])
+    ).toEqual([])
+  })
+})

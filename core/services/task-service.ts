@@ -18,7 +18,8 @@
 
 import configManager from '../infrastructure/config-manager'
 import { STATUS_CHANGE_ACTION } from '../memory/events'
-import { flatDetail } from '../memory/format'
+import { deriveTitle as deriveMemTitle, flatDetail, preventiveLabel } from '../memory/format'
+import { projectMemory } from '../memory/project-memory'
 import { generateUUID } from '../schemas/schemas'
 import type { CurrentTask, TaskFeedback, TaskHarness } from '../schemas/state'
 import { getGitBranch } from '../session/git-helpers'
@@ -74,6 +75,21 @@ export interface StartTaskOutcome {
    * spending the first minutes rediscovering where existing code lives.
    */
   likelyFiles?: LikelyFileHit[]
+  /**
+   * PREDICTIVE risk for THIS cycle: preventive memory (gotchas, anti-patterns,
+   * recurring-bugs) recorded against the likely files, surfaced at planning so
+   * the trap is seen BEFORE the edit instead of stepped in. Reactive guard made
+   * proactive — scoped to the area the work will actually touch.
+   */
+  risks?: RiskHit[]
+}
+
+/** One predictive-risk hit — a preventive memory tied to a likely file. */
+export interface RiskHit {
+  id: string
+  label: string
+  title: string
+  file: string
 }
 
 export interface RelatedContextHit {
@@ -262,6 +278,9 @@ export async function startTask(
   // the user's EXISTING memory from day one. Best-effort; never blocks a start.
   const relatedContext = await recallRelatedContext(projectPath, projectId, description)
   const likelyFiles = recallLikelyFiles(projectId, description)
+  // Predictive risk: concentrate the preventive memory for the area this cycle
+  // will touch, so the trap is surfaced at planning, not after it bites.
+  const risks = recallRisksForFiles(projectId, likelyFiles)
 
   return {
     ok: true,
@@ -281,7 +300,33 @@ export async function startTask(
     instructions: beforeResult.instructions,
     relatedContext,
     likelyFiles,
+    risks,
   }
+}
+
+/**
+ * Predictive risk briefing: for the cycle's likely files, recall ONLY preventive
+ * memory (gotchas, anti-patterns, recurring-bugs) and dedup to a tight set. This
+ * is `prjct guard` run automatically over the area the work will touch — risk
+ * seen before the edit, not after. Best-effort; never blocks a start.
+ */
+export function recallRisksForFiles(projectId: string, files: LikelyFileHit[]): RiskHit[] {
+  const seen = new Set<string>()
+  const risks: RiskHit[] = []
+  try {
+    for (const f of files.slice(0, 5)) {
+      const hits = projectMemory.recallForFile(projectId, f.path, 2, { preventiveOnly: true })
+      for (const h of hits) {
+        if (seen.has(h.id)) continue
+        seen.add(h.id)
+        risks.push({ id: h.id, label: preventiveLabel(h), title: deriveMemTitle(h), file: f.path })
+        if (risks.length >= 4) return risks
+      }
+    }
+  } catch {
+    /* best-effort — risk briefing never blocks a start */
+  }
+  return risks
 }
 
 /** Pull likely file targets from prebuilt indexes (best-effort, no live scan). */
