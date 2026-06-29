@@ -14,6 +14,7 @@ import { getTemplateContent } from '../agentic/template-loader'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { type AgentRole, getAgentModelPolicy } from '../schemas/model'
+import { buildEmulatedCrewProtocol, resolveDispatchMechanism } from '../services/agent-dispatch'
 import { checkpointsStorage } from '../storage/checkpoints-storage'
 import crewRunStorage from '../storage/crew-run-storage'
 import type { MdOption } from '../types/cli'
@@ -232,6 +233,35 @@ export class CrewCommands extends PrjctCommandsBase {
       }
 
       const checkpointsRow = checkpointsStorage.get(projectId)
+
+      // Provider-aware crew. Claude has a native subagent tool, so the crew is
+      // real `.claude/agents/` files dispatched via the Agent tool. Every other
+      // rig has no subagent tool — install the EMULATED crew protocol instead
+      // (one agent plays the roles in fresh passes with the per-role model), so
+      // the multi-agent architecture runs there too rather than dropping dead
+      // Claude-only files into the repo.
+      const mechanism = await resolveDispatchMechanism()
+      if (!mechanism.native) {
+        const dest = path.join(projectPath, 'CREW.md')
+        const existed = await fileExists(dest)
+        await writeFileEnsureDir(dest, buildEmulatedCrewProtocol(mechanism, checkpointsRow.content))
+        ;(existed ? skipped : written).push('CREW.md (emulated crew protocol)')
+        const note = `crew installed for ${mechanism.provider} (emulated — no native subagent tool). One agent plays the roles per CREW.md.`
+        if (options.md) {
+          console.log(
+            [
+              '# prjct crew installed (emulated)',
+              '',
+              note,
+              '',
+              `Wrote \`CREW.md\` to \`${projectPath}\`.`,
+            ].join('\n')
+          )
+        } else {
+          out.done(note)
+        }
+        return { success: true, written, skipped }
+      }
 
       // 1. Agents — write each. For reviewer.md, splice the current
       // checkpoints content into the marker region.

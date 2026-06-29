@@ -63,3 +63,37 @@ export async function resolveDispatchMechanism(
   const base = provider === 'claude' ? claudeMechanism() : emulatedMechanism(provider)
   return { provider, ...base }
 }
+
+/**
+ * The crew (leader/implementer/reviewer) EMULATED for a rig with no native
+ * subagent tool: one agent plays the three roles in sequence, each a fresh
+ * isolated pass, with the per-role model from the policy. The native Claude
+ * crew (separate `.claude/agents/` files dispatched via the Agent tool) has no
+ * equivalent on Gemini/Codex/etc., so `prjct crew install` writes this protocol
+ * instead — the multi-agent architecture still runs, just on one brain.
+ */
+export function buildEmulatedCrewProtocol(m: DispatchMechanism, checkpoints: string): string {
+  const cp = checkpoints.trim()
+  return `${[
+    `# prjct crew — emulated on ${m.provider}`,
+    '',
+    `This rig has no native subagent tool, so the crew runs as ONE agent playing three roles IN SEQUENCE — each a fresh, isolated pass. Reset your working assumptions between roles; a later role must never inherit an earlier role's framing.`,
+    '',
+    '## Roles (run in order)',
+    '',
+    `1. **Leader (orchestrate, do not write code).** Run \`prjct work --md\` to load the cycle + related context, decompose the request into ONE slice, and name its file scope. ${m.modelDirective('orchestrator')}`,
+    `2. **Implementer (build).** Implement exactly that slice + its tests; self-verify before handing off (run the project's test command). ${m.modelDirective('implementer')}`,
+    `3. **Reviewer (judge, do not edit).** Review the diff against the checkpoints below; reply \`VERDICT: APPROVED\` or \`VERDICT: CHANGES_REQUESTED\` with notes. ${m.modelDirective('reviewer')}`,
+    '',
+    '## Checkpoints the reviewer applies',
+    '',
+    cp.length > 0
+      ? cp
+      : '_No project checkpoints set — review against the project conventions. Set them with `prjct crew checkpoints set`._',
+    '',
+    '## Rules',
+    "- Point, don't carry: the plan/work/memory live in prjct — read them in each role (`prjct work --md`, `prjct spec show <id> --md`, `prjct context memory <topic>`), never paste them between roles.",
+    '- On APPROVED: run `prjct crew record-run …` (one durable row), THEN close the work cycle. On CHANGES_REQUESTED: loop back to the implementer role with the notes.',
+    '- Persist ONLY through prjct verbs — SQLite + the regenerated vault are the only allowed surfaces. Never write reports/audits to disk.',
+  ].join('\n')}\n`
+}
