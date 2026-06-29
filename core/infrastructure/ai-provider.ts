@@ -19,7 +19,7 @@
 
 import path from 'node:path'
 import { PROVIDER_SPAWN_TIMEOUT_MS } from '../constants/timings'
-import { compareSemver } from '../schemas/model'
+import { compareSemver, getDefaultModel, getSupportedModels } from '../schemas/model'
 import type {
   AIProviderConfig,
   AIProviderName,
@@ -56,8 +56,12 @@ export const ClaudeProvider: AIProviderConfig = {
   ignoreFile: '.claudeignore',
   websiteUrl: 'https://www.anthropic.com/claude',
   docsUrl: 'https://docs.anthropic.com/claude-code',
-  defaultModel: 'sonnet',
-  supportedModels: ['opus', 'sonnet', 'haiku'],
+  get defaultModel() {
+    return getDefaultModel(this.name)
+  },
+  get supportedModels() {
+    return getSupportedModels(this.name)
+  },
   minCliVersion: '1.0.0',
 }
 
@@ -82,8 +86,12 @@ export const GeminiProvider: AIProviderConfig = {
   ignoreFile: '.geminiignore',
   websiteUrl: 'https://geminicli.com',
   docsUrl: 'https://geminicli.com/docs',
-  defaultModel: '2.5-flash',
-  supportedModels: ['2.5-pro', '2.5-flash', '2.0-flash'],
+  get defaultModel() {
+    return getDefaultModel(this.name)
+  },
+  get supportedModels() {
+    return getSupportedModels(this.name)
+  },
   minCliVersion: '1.0.0',
 }
 
@@ -112,8 +120,12 @@ const AntigravityProvider: AIProviderConfig = {
   ignoreFile: '.agentignore', // Assumed
   websiteUrl: 'https://gemini.google.com/app/antigravity',
   docsUrl: 'https://gemini.google.com/app/antigravity',
-  defaultModel: null, // Platform-managed
-  supportedModels: [],
+  get defaultModel() {
+    return getDefaultModel(this.name)
+  },
+  get supportedModels() {
+    return getSupportedModels(this.name)
+  },
   minCliVersion: null,
 }
 
@@ -144,8 +156,12 @@ export const CursorProvider: AIProviderConfig = {
   isProjectLevel: true, // Config is project-level only
   websiteUrl: 'https://cursor.com',
   docsUrl: 'https://cursor.com/docs',
-  defaultModel: null, // Multi-model IDE, user selects
-  supportedModels: [],
+  get defaultModel() {
+    return getDefaultModel(this.name)
+  },
+  get supportedModels() {
+    return getSupportedModels(this.name)
+  },
   minCliVersion: null,
 }
 
@@ -177,8 +193,12 @@ const WindsurfProvider: AIProviderConfig = {
   isProjectLevel: true, // Config is project-level only
   websiteUrl: 'https://windsurf.com',
   docsUrl: 'https://docs.windsurf.com',
-  defaultModel: null, // Multi-model IDE, user selects
-  supportedModels: [],
+  get defaultModel() {
+    return getDefaultModel(this.name)
+  },
+  get supportedModels() {
+    return getSupportedModels(this.name)
+  },
   minCliVersion: null,
 }
 
@@ -208,8 +228,12 @@ const CodexProvider: AIProviderConfig = {
   ignoreFile: '.codexignore',
   websiteUrl: 'https://openai.com/codex',
   docsUrl: 'https://github.com/openai/codex',
-  defaultModel: null,
-  supportedModels: [],
+  get defaultModel() {
+    return getDefaultModel(this.name)
+  },
+  get supportedModels() {
+    return getSupportedModels(this.name)
+  },
   minCliVersion: null,
 }
 
