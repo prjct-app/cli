@@ -50,9 +50,9 @@ function writeAnalysisChildren(db: SqliteDatabase, analysisId: string, a: LLMAna
   const conv = db.prepare(
     'INSERT INTO analysis_convention (id, analysis_id, rule, sort_order) VALUES (?, ?, ?, ?)'
   )
-  ;(a.conventions ?? []).forEach((c, idx) =>
+  ;(a.conventions ?? []).forEach((c, idx) => {
     conv.run(`${analysisId}-c${idx}`, analysisId, c.rule, idx)
-  )
+  })
 
   const stack = db.prepare(
     'INSERT INTO analysis_stack_item (id, analysis_id, kind, name) VALUES (?, ?, ?, ?)'
@@ -74,9 +74,9 @@ function writeAnalysisChildren(db: SqliteDatabase, analysisId: string, a: LLMAna
   const dom = db.prepare(
     'INSERT INTO analysis_domain (id, analysis_id, name, paths) VALUES (?, ?, ?, ?)'
   )
-  ;(a.architecture?.domains ?? []).forEach((d, idx) =>
+  ;(a.architecture?.domains ?? []).forEach((d, idx) => {
     dom.run(`${analysisId}-d${idx}`, analysisId, d, null)
-  )
+  })
 }
 
 class LLMAnalysisStorage {
