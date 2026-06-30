@@ -25,7 +25,7 @@ import {
 } from '../types/spec'
 import { getTimestamp } from '../utils/date-helper'
 import { execFileAsync } from '../utils/exec'
-import { reviewsGatePassed } from './spec-audit-dispatch'
+import { reviewsGatePassedRelational } from './spec-audit-dispatch'
 
 /**
  * Read git HEAD sha at `projectPath`. Returns null when not a git repo
@@ -193,7 +193,7 @@ class SpecService {
       )
     }
 
-    if (updated && reviewsGatePassed(updated.content)) {
+    if (updated && reviewsGatePassedRelational(projectId, id)) {
       // All SELECTED lenses pass → auto-promote draft to reviewed.
       if (updated.status === 'draft') {
         const promoted = specStorage.setStatus(projectId, id, 'reviewed')

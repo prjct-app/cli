@@ -22,6 +22,7 @@
  * rubric and resolve to the sonnet reviewer tier via the model policy fallback.
  */
 
+import prjctDb from '../storage/database'
 import type { AIProviderName } from '../types/provider'
 import type { SpecContent } from '../types/spec'
 import type { DomainDefinition } from '../types/storage/extended'
@@ -107,6 +108,33 @@ export function reviewsGatePassed(content: SpecContent): boolean {
     r.architecture?.verdict === 'pass' &&
     r.design?.verdict === 'pass'
   )
+}
+
+/**
+ * Schema v2 (C6): the gate as a RELATIONAL query over the projected child
+ * tables (spec_selected_reviewer + spec_review) — no content-blob parse. Every
+ * selected lens must have a `pass` verdict; legacy specs (no selected set) fall
+ * back to the three baseline lenses.
+ */
+export function reviewsGatePassedRelational(projectId: string, specId: string): boolean {
+  const selected = prjctDb
+    .query<{ lens: string }>(
+      projectId,
+      'SELECT lens FROM spec_selected_reviewer WHERE spec_id = ?',
+      specId
+    )
+    .map((r) => r.lens)
+  const passed = new Set(
+    prjctDb
+      .query<{ lens: string }>(
+        projectId,
+        "SELECT lens FROM spec_review WHERE spec_id = ? AND verdict = 'pass'",
+        specId
+      )
+      .map((r) => r.lens)
+  )
+  if (selected.length > 0) return selected.every((lens) => passed.has(lens))
+  return passed.has('strategic') && passed.has('architecture') && passed.has('design')
 }
 
 /**
