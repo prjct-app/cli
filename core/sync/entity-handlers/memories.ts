@@ -17,6 +17,7 @@
 
 import { memoryFingerprint } from '../../memory/content-fingerprint'
 import { REMEMBER_ACTION_PREFIX } from '../../memory/events'
+import { upsertMemoryEntryV2 } from '../../memory/memory-entries-store'
 import prjctDb from '../../storage/database'
 import type { ApplyData, EntityHandler } from './types'
 
@@ -96,6 +97,19 @@ export const memoriesHandler: EntityHandler = {
         authored,
         now
       )
+      // Schema v2 dual-write (C1): keep memory_entries complete for synced
+      // memories too, so the future recall read-flip never drops cross-device
+      // entries. Best-effort.
+      upsertMemoryEntryV2({
+        id: memId,
+        projectId,
+        type,
+        content,
+        tags,
+        provenance,
+        contentHash,
+        createdAt: Date.parse(authored) || Date.parse(now),
+      })
     } catch {
       // Non-critical — the events row is authoritative.
     }

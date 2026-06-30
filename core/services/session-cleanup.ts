@@ -19,6 +19,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { memoryFingerprint } from '../memory/content-fingerprint'
+import { upsertMemoryEntryV2 } from '../memory/memory-entries-store'
 import { projectMemory } from '../memory/project-memory'
 import { archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
@@ -222,9 +224,25 @@ export async function recordCleanupReport(projectId: string, report: CleanupRepo
     .filter((s): s is string => Boolean(s))
     .join(', ')
 
-  prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
-    content: `Session cleanup: ${summary}`,
-    tags: { source: 'session-cleanup', key: 'last-cleanup' },
+  const cleanupContent = `Session cleanup: ${summary}`
+  const cleanupTags = { source: 'session-cleanup', key: 'last-cleanup' }
+  const eventId = prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
+    content: cleanupContent,
+    tags: cleanupTags,
     provenance: 'extracted',
   })
+  // Schema v2 dual-write (C1): keep memory_entries complete for this direct
+  // remember-event writer too. Best-effort.
+  if (eventId != null) {
+    upsertMemoryEntryV2({
+      id: `mem_${eventId}`,
+      projectId,
+      type: 'system-event',
+      content: cleanupContent,
+      tags: cleanupTags,
+      provenance: 'extracted',
+      contentHash: memoryFingerprint(cleanupContent),
+      createdAt: Date.now(),
+    })
+  }
 }
