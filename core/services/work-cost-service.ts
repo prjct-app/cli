@@ -163,13 +163,14 @@ export function recordTaskTokenUsage(
     prjctDb.run(
       projectId,
       `INSERT INTO token_usage
-         (id, work_cycle_id, event_key, source, is_estimated, input_tokens, output_tokens, model_id, measured_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, work_cycle_id, event_key, source, is_estimated, input_tokens, output_tokens, model_id, description, measured_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(event_key) DO UPDATE SET
          input_tokens = excluded.input_tokens,
          output_tokens = excluded.output_tokens,
          is_estimated = excluded.is_estimated,
          model_id = excluded.model_id,
+         description = COALESCE(excluded.description, token_usage.description),
          measured_at = excluded.measured_at`,
       eventKey,
       taskId,
@@ -179,6 +180,7 @@ export function recordTaskTokenUsage(
       ti,
       to,
       meta?.model ?? null,
+      meta?.description ?? null,
       now,
       now
     )
@@ -187,58 +189,15 @@ export function recordTaskTokenUsage(
   }
 }
 
-interface TokenEventRow {
-  task_id: string | null
-  data: string
-}
-
-/**
- * Aggregate measured token usage from `memory.task_tokens` events in the
- * window, one cycle per task (latest event wins — SET semantics). This is what
- * makes measurement work for the live flow, where work cycles never land in the
- * `tasks` table.
- */
-function measuredCyclesFromEvents(projectId: string, since: string): Map<string, WorkCostTask> {
-  const rows = query<TokenEventRow>(
-    projectId,
-    `SELECT task_id, data
-     FROM events
-     WHERE type = ? AND timestamp >= ? AND json_valid(data)
-     ORDER BY id DESC`,
-    TASK_TOKENS_EVENT,
-    since
-  )
-  const byTask = new Map<string, WorkCostTask>()
-  for (const row of rows) {
-    let parsed: { taskId?: string; tokensIn?: number; tokensOut?: number; description?: string }
-    try {
-      parsed = JSON.parse(row.data)
-    } catch {
-      continue
-    }
-    const id = row.task_id ?? parsed.taskId
-    if (!id || byTask.has(id)) continue // first seen = latest (DESC) = authoritative
-    const tokensIn = nullableNumber(parsed.tokensIn ?? null) ?? 0
-    const tokensOut = nullableNumber(parsed.tokensOut ?? null) ?? 0
-    if (tokensIn + tokensOut <= 0) continue
-    byTask.set(id, {
-      id,
-      description: parsed.description ?? id,
-      status: 'measured',
-      tokensIn,
-      tokensOut,
-      tokensTotal: tokensIn + tokensOut,
-      minutes: null,
-    })
-  }
-  return byTask
-}
+// (measuredCyclesFromEvents removed — token_usage is the single read source for
+// cost; the memory.task_tokens events remain only as the append-only audit log.)
 
 interface TokenUsageRow {
   work_cycle_id: string | null
   input_tokens: number
   output_tokens: number
   is_estimated: number
+  description: string | null
 }
 
 /**
@@ -250,7 +209,7 @@ function measuredCyclesFromTokenUsage(projectId: string, since: string): Map<str
   const sinceMs = Date.parse(since)
   const rows = query<TokenUsageRow>(
     projectId,
-    `SELECT work_cycle_id, input_tokens, output_tokens, is_estimated
+    `SELECT work_cycle_id, input_tokens, output_tokens, is_estimated, description
      FROM token_usage
      WHERE measured_at >= ?
      ORDER BY measured_at DESC`,
@@ -265,7 +224,7 @@ function measuredCyclesFromTokenUsage(projectId: string, since: string): Map<str
     if (tokensIn + tokensOut <= 0) continue
     byCycle.set(id, {
       id,
-      description: id,
+      description: row.description ?? id,
       status: row.is_estimated ? 'estimated' : 'measured',
       tokensIn,
       tokensOut,
@@ -287,21 +246,16 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
      ORDER BY COALESCE(completed_at, shipped_at, started_at) DESC`,
     since
   )
-  // Merge two measurement sources, event wins (it's the authoritative latest
-  // SET and the only one the live flow actually populates): the legacy `tasks`
-  // table (migrated installs) and `memory.task_tokens` events (every agent).
+  // C2 single-source read: token_usage is the authoritative structured token
+  // store (exact/estimated split, CHECK-bounded, backfilled from events by
+  // migration 39 + dual-written live). It is the ONLY source of TOKEN counts;
+  // the legacy `tasks` table supplies only metadata (description/minutes) for
+  // migrated installs. The `memory.task_tokens` events are no longer read for
+  // cost — they remain as the append-only audit log.
   const merged = new Map<string, WorkCostTask>()
   for (const task of taskRows.map(toCostTask)) {
     if (task) merged.set(task.id, task)
   }
-  // Events fill any cycle not yet in the typed table (raw events, pre-backfill).
-  for (const [id, cycle] of measuredCyclesFromEvents(projectId, since)) {
-    merged.set(id, cycle)
-  }
-  // C2 read flip: the typed token_usage table is the authoritative structured
-  // source (exact/estimated split, CHECK-bounded) — overlay it LAST so its token
-  // counts + status win, but keep the richer description/minutes from the
-  // events/tasks sources (token_usage doesn't carry them).
   for (const [id, cycle] of measuredCyclesFromTokenUsage(projectId, since)) {
     const prev = merged.get(id)
     merged.set(id, {

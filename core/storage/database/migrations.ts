@@ -1726,6 +1726,19 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 43,
+    name: 'schema-v2-token-usage-description',
+    up: (db: SqliteDatabase) => {
+      // C2 single-source: token_usage carries the work-cycle description so the
+      // cost report no longer needs to read the memory.task_tokens events for it.
+      try {
+        db.run('ALTER TABLE token_usage ADD COLUMN description TEXT')
+      } catch {
+        // Column already exists (re-run safety).
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
