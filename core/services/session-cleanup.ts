@@ -19,6 +19,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { memoryFingerprint } from '../memory/content-fingerprint'
 import { projectMemory } from '../memory/project-memory'
 import { archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
@@ -230,11 +231,14 @@ export async function recordCleanupReport(projectId: string, report: CleanupRepo
     .join(', ')
 
   // memory_entries (Schema v2) is kept in sync by the memory_entries_from_events
-  // trigger (migration 40) — this direct remember-event write is mirrored there
-  // automatically, like every other writer.
+  // trigger — this direct remember-event write is mirrored there automatically.
+  // Carry content_hash + project_id so the trigger writes correct dedup keys.
+  const cleanupContent = `Session cleanup: ${summary}`
   prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
-    content: `Session cleanup: ${summary}`,
+    content: cleanupContent,
     tags: { source: 'session-cleanup', key: 'last-cleanup' },
     provenance: 'extracted',
+    content_hash: memoryFingerprint(cleanupContent),
+    project_id: projectId,
   })
 }

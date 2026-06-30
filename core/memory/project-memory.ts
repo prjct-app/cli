@@ -123,10 +123,12 @@ function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[
     created_at: number
   }>(
     projectId,
+    // rowid is the monotonic insert order — a correct numeric newest-first
+    // tiebreak (the TEXT `mem_N` id would sort lexicographically: mem_99 > mem_100).
     `SELECT id, type, content, provenance, created_at
      FROM memory_entries
      WHERE deleted_at IS NULL
-     ORDER BY created_at DESC, id DESC
+     ORDER BY created_at DESC, rowid DESC
      LIMIT ?`,
     overfetch
   )
@@ -221,6 +223,10 @@ export const projectMemory = {
         tags,
         source: args.source,
         provenance,
+        // Carried so the memory_entries_from_events trigger writes the REAL
+        // content fingerprint (for dedup) + project_id — not a synthetic value.
+        content_hash: contentHash,
+        ...(projectId ? { project_id: projectId } : {}),
       }
     )
     if (logResult?.projectId && !projectId) projectId = logResult.projectId

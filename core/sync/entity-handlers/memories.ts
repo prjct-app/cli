@@ -59,22 +59,29 @@ export const memoriesHandler: EntityHandler = {
     )
     if (dup) return
 
-    // Source of truth: the events row. NO publishCRUD here (no echo).
-    const eventId = prjctDb.appendEvent(projectId, `memory.${REMEMBER_ACTION_PREFIX}${type}`, {
-      content,
-      tags,
-      source,
-      provenance,
-    })
-    if (eventId == null) return
-
-    // FTS mirror — same INSERT shape as project-memory.remember().
-    const memId = `mem_${eventId}`
     // Preserve the authored time from the remote event so chronology survives
     // the round trip (machine A's 10:00 memory shows as 10:00 on machine B,
     // not "now"). Falls back to now only when the event omits it.
     const authored =
       (data.created_at as string) || (data.createdAt as string) || new Date().toISOString()
+
+    // Source of truth: the events row. NO publishCRUD here (no echo). Carry the
+    // real content_hash, project_id, and the AUTHORED created_at so the
+    // memory_entries trigger writes correct dedup + cross-device chronology
+    // (appendEvent stamps events.timestamp = local apply time).
+    const eventId = prjctDb.appendEvent(projectId, `memory.${REMEMBER_ACTION_PREFIX}${type}`, {
+      content,
+      tags,
+      source,
+      provenance,
+      content_hash: contentHash,
+      project_id: projectId,
+      created_at: authored,
+    })
+    if (eventId == null) return
+
+    // FTS mirror — same INSERT shape as project-memory.remember().
+    const memId = `mem_${eventId}`
     const now = new Date().toISOString()
     const title = (content.split('\n')[0] ?? content).slice(0, 80)
     try {

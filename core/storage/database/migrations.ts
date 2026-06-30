@@ -1509,6 +1509,186 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 41,
+    name: 'schema-v2-memory-entries-correctness',
+    up: (db: SqliteDatabase) => {
+      // Correctness fix for the v2 memory projection (audit F1–F5): the three
+      // population mechanisms (mig 38/39/40) disagreed on hashing, project_id,
+      // timestamp precision/source, and the dedup index was type-blind. This
+      // rebuilds memory_entries from the AUTHORITATIVE events log in JS — real
+      // content fingerprint, real project_id, ms-precision created_at preferring
+      // the authored time, full tags — ungated (fixes events-only installs),
+      // then installs a corrected trigger for future writes.
+      const MACHINE_KEYS = new Set([
+        'source',
+        'session',
+        'window_days',
+        'window-days',
+        'touches',
+        'occurrences',
+        'phrase',
+        'slug',
+        'hash',
+        'content-hash',
+        'content_hash',
+        'key',
+        'kind',
+        'spec-id',
+        'spec_id',
+        'from',
+        'origin',
+        'event',
+        'task-count',
+        'task_count',
+        'context-schema',
+        'context_schema',
+        'synthesis',
+        'commit',
+      ])
+
+      // 1. Tear down the old projection + trigger + type-blind unique index.
+      try {
+        db.run('DROP TRIGGER IF EXISTS memory_entries_from_events')
+      } catch {}
+      try {
+        db.run('DELETE FROM memory_entry_tags')
+      } catch {}
+      try {
+        db.run('DELETE FROM memory_entries')
+      } catch {}
+      try {
+        db.run('DROP INDEX IF EXISTS ux_mem_hash')
+      } catch {}
+      try {
+        db.run(
+          'CREATE UNIQUE INDEX IF NOT EXISTS ux_mem_hash ON memory_entries(project_id, content_hash, type)'
+        )
+      } catch {}
+
+      // 2. Rebuild from events (data.tags is always an object for remember rows).
+      let fallbackPid = 'local'
+      try {
+        const r = db
+          .prepare('SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1')
+          .get() as { project_id?: string } | undefined
+        if (r?.project_id) fallbackPid = r.project_id
+      } catch {}
+
+      let rows: Array<{ id: number; type: string; data: string; timestamp: string }> = []
+      try {
+        rows = db
+          .prepare(
+            "SELECT id, type, data, timestamp FROM events WHERE type >= 'memory.remember.' AND type < 'memory.remember/' ORDER BY id ASC"
+          )
+          .all() as typeof rows
+      } catch {}
+
+      const insEntry = db.prepare(
+        `INSERT OR IGNORE INTO memory_entries
+           (id, project_id, type, title, content, file, subject, provenance,
+            content_hash, user_triggered, revision_count, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+      )
+      const insTag = db.prepare(
+        'INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine) VALUES (?, ?, ?, ?)'
+      )
+
+      for (const row of rows) {
+        let data: {
+          content?: unknown
+          tags?: unknown
+          provenance?: unknown
+          content_hash?: unknown
+          project_id?: unknown
+          created_at?: unknown
+        }
+        try {
+          data = JSON.parse(row.data)
+        } catch {
+          continue
+        }
+        const content = data.content
+        if (typeof content !== 'string' || !content) continue
+        const id = `mem_${row.id}`
+        const type = String(row.type).slice('memory.remember.'.length)
+        const tags =
+          data.tags && typeof data.tags === 'object' && !Array.isArray(data.tags)
+            ? (data.tags as Record<string, unknown>)
+            : {}
+        const hash =
+          typeof data.content_hash === 'string' ? data.content_hash : memoryFingerprint(content)
+        const pid = typeof data.project_id === 'string' ? data.project_id : fallbackPid
+        const createdAt =
+          (typeof data.created_at === 'string' ? Date.parse(data.created_at) : NaN) ||
+          Date.parse(row.timestamp) ||
+          0
+        try {
+          insEntry.run(
+            id,
+            pid,
+            type,
+            content.split('\n')[0].slice(0, 80),
+            content,
+            typeof tags.file === 'string' ? tags.file : null,
+            typeof tags.subject === 'string' ? tags.subject : null,
+            typeof data.provenance === 'string' ? data.provenance : 'declared',
+            hash,
+            createdAt,
+            createdAt
+          )
+          for (const [k, v] of Object.entries(tags)) {
+            if (v == null) continue
+            insTag.run(id, k, String(v), MACHINE_KEYS.has(k) ? 1 : 0)
+          }
+        } catch {
+          // skip a malformed row, keep rebuilding
+        }
+      }
+
+      // 3. Corrected trigger for future writes: real content_hash/project_id
+      // from the event payload, ms-precision created_at preferring the authored
+      // time (julianday so sub-second survives), graceful fallbacks.
+      db.run(`
+        CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+        AFTER INSERT ON events
+        WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+          AND json_valid(NEW.data)
+          AND json_extract(NEW.data, '$.content') IS NOT NULL
+        BEGIN
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          VALUES (
+            'mem_' || NEW.id,
+            COALESCE(json_extract(NEW.data, '$.project_id'),
+                     (SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1),
+                     'local'),
+            substr(NEW.type, length('memory.remember.') + 1),
+            substr(json_extract(NEW.data, '$.content'), 1, 80),
+            json_extract(NEW.data, '$.content'),
+            json_extract(NEW.data, '$.tags.file'),
+            json_extract(NEW.data, '$.tags.subject'),
+            COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+            COALESCE(json_extract(NEW.data, '$.content_hash'), 'evt_' || NEW.id),
+            0, 0,
+            CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+            CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER)
+          );
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+          SELECT 'mem_' || NEW.id, je.key, je.value,
+            CASE WHEN je.key IN (
+              'source','session','window_days','window-days','touches','occurrences',
+              'phrase','slug','hash','content-hash','content_hash','key','kind',
+              'spec-id','spec_id','from','origin','event','task-count','task_count',
+              'context-schema','context_schema','synthesis','commit'
+            ) THEN 1 ELSE 0 END
+          FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+          WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+        END;
+      `)
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
