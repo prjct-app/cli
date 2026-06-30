@@ -151,6 +151,40 @@ export function recordTaskTokenUsage(
   } catch {
     /* best-effort mirror — the event is the source of truth */
   }
+  // Schema v2 dual-write (C2): mirror into the typed token_usage table with an
+  // explicit is_estimated flag and model/runtime, so cost aggregation can later
+  // read structured rows (and exact/estimated never get mixed). Keyed by
+  // (work_cycle_id, source) with upsert = current SET semantics (latest total
+  // wins). The CHECK bound silently rejects corrupted values. Best-effort.
+  try {
+    const source = meta?.source ?? 'cli'
+    const eventKey = `${taskId}:${source}`
+    const now = Date.now()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO token_usage
+         (id, work_cycle_id, event_key, source, is_estimated, input_tokens, output_tokens, model_id, measured_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(event_key) DO UPDATE SET
+         input_tokens = excluded.input_tokens,
+         output_tokens = excluded.output_tokens,
+         is_estimated = excluded.is_estimated,
+         model_id = excluded.model_id,
+         measured_at = excluded.measured_at`,
+      eventKey,
+      taskId,
+      eventKey,
+      source,
+      meta?.isEstimated ? 1 : 0,
+      ti,
+      to,
+      meta?.model ?? null,
+      now,
+      now
+    )
+  } catch {
+    /* best-effort typed mirror — the event row stays the source of truth */
+  }
 }
 
 interface TokenEventRow {

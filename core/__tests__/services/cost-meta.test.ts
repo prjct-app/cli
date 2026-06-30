@@ -70,4 +70,43 @@ describe('recordTaskTokenUsage meta', () => {
     expect(data.isEstimated).toBe(true)
     expect(data.source).toBe('cli')
   })
+
+  it('C2: dual-writes a typed token_usage row with is_estimated + model, upserting latest', () => {
+    recordTaskTokenUsage(projectId, 'task-tu', 1000, 200, {
+      model: 'claude-opus-4-8',
+      runtime: 'claude',
+      isEstimated: false,
+      source: 'mcp',
+    })
+    // A later (cumulative) report for the same cycle+source upserts, not duplicates.
+    recordTaskTokenUsage(projectId, 'task-tu', 1500, 300, { isEstimated: false, source: 'mcp' })
+
+    const rows = prjctDb.query<{
+      input_tokens: number
+      output_tokens: number
+      is_estimated: number
+      model_id: string | null
+      source: string
+    }>(
+      projectId,
+      'SELECT input_tokens, output_tokens, is_estimated, model_id, source FROM token_usage WHERE work_cycle_id = ?',
+      'task-tu'
+    )
+    expect(rows.length).toBe(1) // upserted, not duplicated
+    expect(rows[0].input_tokens).toBe(1500)
+    expect(rows[0].output_tokens).toBe(300)
+    expect(rows[0].is_estimated).toBe(0)
+    expect(rows[0].source).toBe('mcp')
+  })
+
+  it('C2: silently rejects corrupted out-of-range token counts (CHECK bound)', () => {
+    // Event still records, but the typed token_usage row is rejected by CHECK.
+    recordTaskTokenUsage(projectId, 'task-huge', 999_999_999, 1, { source: 'cli' })
+    const rows = prjctDb.query(
+      projectId,
+      'SELECT id FROM token_usage WHERE work_cycle_id = ?',
+      'task-huge'
+    )
+    expect(rows.length).toBe(0)
+  })
 })
