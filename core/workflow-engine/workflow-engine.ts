@@ -42,6 +42,12 @@ import type { WorkflowRule } from '../types/storage/extended'
 import type { WorkflowExecutionResult, WorkflowRunContext } from '../types/workflow.js'
 import { execAsync, execFileAsync } from '../utils/exec'
 import { detectProjectCommands } from '../utils/project-commands'
+import {
+  finishWorkflowRun,
+  recordGateEvaluation,
+  recordRunStep,
+  startWorkflowRun,
+} from './run-recorder'
 import { evaluateWhen, type WhenContext } from './when-evaluator'
 
 const STATUS_ACTION_PREFIX = 'status:'
@@ -502,6 +508,10 @@ export async function executeWorkflowRules(
 
   const rules = phased.filter((r) => evaluateWhen(r.whenExpr, whenCtx))
 
+  // C8: persist this execution (best-effort, never affects control flow). Only
+  // when there are rules to run, so empty before/after calls don't create noise.
+  const runId = rules.length > 0 ? startWorkflowRun(projectId, `${phase}:${command}`) : null
+
   // 1. Gates — blocking. No caching: if the user wants to skip a gate
   // when nothing relevant changed, the gate script itself can short-
   // circuit (e.g. `git diff --quiet src/ || bun test`). Caching was
@@ -518,11 +528,14 @@ export async function executeWorkflowRules(
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`gate passed (${timeStr})`)}`)
+      recordGateEvaluation(projectId, runId, gate.id, true)
     } catch (error) {
       console.log(`${chalk.red('✗')} gate failed: ${label}`)
       result.gatesFailed.push(label)
       result.success = false
       result.output += `Gate failed: ${label}\n${getErrorMessage(error)}\n`
+      recordGateEvaluation(projectId, runId, gate.id, false, getErrorMessage(error))
+      finishWorkflowRun(projectId, runId, 'blocked')
       return result
     }
   }
@@ -567,6 +580,7 @@ export async function executeWorkflowRules(
   // 4. Steps — blocking, sequential. `status:<value>` steps drive the
   //    state machine instead of shelling out.
   const steps = rules.filter((r) => r.type === 'step')
+  let stepSeq = 0
   for (const step of steps) {
     console.log(`\n${chalk.dim(`[step] ${command}: ${step.action}`)}`)
     try {
@@ -576,14 +590,18 @@ export async function executeWorkflowRules(
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`step passed (${timeStr})`)}`)
       result.stepsRun.push(step.description || step.action)
+      recordRunStep(projectId, runId, step.id, stepSeq++, 'ok')
     } catch (error) {
       console.log(`${chalk.red('✗')} step failed: ${step.action}`)
       result.gatesFailed.push(step.description || step.action)
       result.success = false
       result.output += `Step failed: ${step.action}\n${getErrorMessage(error)}\n`
+      recordRunStep(projectId, runId, step.id, stepSeq++, 'failed', getErrorMessage(error))
+      finishWorkflowRun(projectId, runId, 'failed')
       return result
     }
   }
 
+  finishWorkflowRun(projectId, runId, 'passed')
   return result
 }
