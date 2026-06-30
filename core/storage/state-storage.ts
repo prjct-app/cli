@@ -22,6 +22,7 @@ import { StateJsonSchema } from '../schemas/state'
 import type { WorkflowCommand } from '../types/workflow'
 import { getTimestamp } from '../utils/date-helper'
 import { workflowStateMachine } from '../workflow-engine/state-machine'
+import prjctDb from './database'
 import type { LifecycleBackend } from './state-storage/lifecycle'
 import * as lifecycle from './state-storage/lifecycle'
 import type { QueryBackend } from './state-storage/queries'
@@ -146,6 +147,12 @@ class StateStorage extends StorageManager<StateJson> {
     if (!resultRef.currentTask) throw new Error('Failed to start task')
     const currentTask = resultRef.currentTask
 
+    // Schema v2 (C4): mirror the live cycle into the typed `tasks` table so it's
+    // queryable (cost coverage, dashboard, cloud) without parsing the kv_store
+    // state doc. The kv_store state remains the live source for the work loop;
+    // this is the dual-write phase. Best-effort.
+    this.mirrorTaskRow(projectId, currentTask, 'in_progress')
+
     // Publish incremental event
     await this.publishEvent(projectId, 'task.started', {
       taskId: currentTask.id,
@@ -155,6 +162,44 @@ class StateStorage extends StorageManager<StateJson> {
     })
 
     return currentTask
+  }
+
+  /**
+   * Schema v2 (C4) dual-write: upsert the active cycle into the typed `tasks`
+   * table. Additive mirror — never the live read path for the work loop, never
+   * throws. One DB per project, so no project_id column on `tasks`.
+   */
+  private mirrorTaskRow(
+    projectId: string,
+    task: CurrentTask,
+    status: string,
+    extra: { completedAt?: string } = {}
+  ): void {
+    try {
+      prjctDb.run(
+        projectId,
+        `INSERT INTO tasks (id, description, type, status, branch, linked_spec_id, session_id, feature_id, started_at, completed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           description = excluded.description,
+           status = excluded.status,
+           branch = COALESCE(excluded.branch, tasks.branch),
+           linked_spec_id = COALESCE(excluded.linked_spec_id, tasks.linked_spec_id),
+           completed_at = COALESCE(excluded.completed_at, tasks.completed_at)`,
+        task.id,
+        task.description,
+        task.type ?? null,
+        status,
+        task.branch ?? null,
+        task.linkedSpecId ?? null,
+        task.sessionId ?? null,
+        task.featureId ?? null,
+        task.startedAt ?? null,
+        extra.completedAt ?? null
+      )
+    } catch {
+      /* best-effort mirror — kv_store state is the live source of truth */
+    }
   }
 
   /**
@@ -210,6 +255,9 @@ class StateStorage extends StorageManager<StateJson> {
 
     if (!resultRef.completedTask) return null
     const completedTask = resultRef.completedTask
+
+    // Schema v2 (C4): mark the typed mirror completed.
+    this.mirrorTaskRow(projectId, completedTask, 'completed', { completedAt })
 
     // Publish incremental event
     await this.publishEvent(projectId, 'task.completed', {
