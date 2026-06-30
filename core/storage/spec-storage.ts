@@ -33,6 +33,129 @@ interface SpecRow {
   archived_at: string | null
 }
 
+/**
+ * Schema v2 (C6): project a spec's list fields into the normalized child tables
+ * so the spec — and its gate (selected reviewers + verdicts) — is queryable as
+ * relational records, not only a JSON blob. Clears + reinserts (content fully
+ * replaces on each write). The `specs.content` blob is retained for the typed
+ * full-object readers until they cut over.
+ */
+function projectSpecRelational(
+  projectId: string,
+  id: string,
+  content: SpecContent,
+  tags?: Record<string, string>
+): void {
+  try {
+    for (const t of [
+      'spec_acceptance_criterion',
+      'spec_scope',
+      'spec_risk',
+      'spec_test_step',
+      'spec_review',
+      'spec_selected_reviewer',
+      'spec_linked_task',
+    ]) {
+      prjctDb.run(projectId, `DELETE FROM ${t} WHERE spec_id = ?`, id)
+    }
+    content.acceptance_criteria.forEach((text, i) =>
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_acceptance_criterion (id, spec_id, text, met, sort_order) VALUES (?, ?, ?, 0, ?)',
+        `${id}-ac${i}`,
+        id,
+        text,
+        i
+      )
+    )
+    content.scope.forEach((item, i) =>
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_scope (id, spec_id, kind, item, sort_order) VALUES (?, ?, ?, ?, ?)',
+        `${id}-si${i}`,
+        id,
+        'in',
+        item,
+        i
+      )
+    )
+    content.out_of_scope.forEach((item, i) =>
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_scope (id, spec_id, kind, item, sort_order) VALUES (?, ?, ?, ?, ?)',
+        `${id}-so${i}`,
+        id,
+        'out',
+        item,
+        i
+      )
+    )
+    content.risks.forEach((r, i) =>
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_risk (id, spec_id, risk, mitigation, sort_order) VALUES (?, ?, ?, ?, ?)',
+        `${id}-r${i}`,
+        id,
+        r.risk,
+        r.mitigation,
+        i
+      )
+    )
+    content.test_plan.forEach((text, i) =>
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_test_step (id, spec_id, text, sort_order) VALUES (?, ?, ?, ?)',
+        `${id}-t${i}`,
+        id,
+        text,
+        i
+      )
+    )
+    for (const [lens, review] of Object.entries(content.reviews ?? {})) {
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_review (id, spec_id, lens, verdict, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        `${id}-rev-${lens}`,
+        id,
+        lens,
+        review.verdict,
+        review.notes ?? null,
+        Date.now()
+      )
+    }
+    for (const lens of content.selected_reviewers) {
+      prjctDb.run(
+        projectId,
+        'INSERT OR IGNORE INTO spec_selected_reviewer (spec_id, lens) VALUES (?, ?)',
+        id,
+        lens
+      )
+    }
+    for (const taskId of content.linked_tasks) {
+      prjctDb.run(
+        projectId,
+        'INSERT OR IGNORE INTO spec_linked_task (spec_id, task_id) VALUES (?, ?)',
+        id,
+        taskId
+      )
+    }
+    if (tags) {
+      prjctDb.run(projectId, 'DELETE FROM spec_tag WHERE spec_id = ?', id)
+      for (const [key, value] of Object.entries(tags)) {
+        prjctDb.run(
+          projectId,
+          'INSERT OR IGNORE INTO spec_tag (spec_id, key, value) VALUES (?, ?, ?)',
+          id,
+          key,
+          String(value)
+        )
+      }
+    }
+  } catch {
+    // Best-effort projection — the content blob stays the source of truth.
+  }
+}
+
 class SpecStorage {
   /**
    * Strictly-monotonic `updated_at` for a spec row.
@@ -85,6 +208,7 @@ class SpecStorage {
       now,
       now
     )
+    projectSpecRelational(projectId, id, validatedContent, args.tags)
 
     const spec: Spec = {
       id,
@@ -148,6 +272,7 @@ class SpecStorage {
       now,
       id
     )
+    projectSpecRelational(projectId, id, validated)
     const spec = this.get(projectId, id)
     if (spec) this.publishSync(projectId, spec)
     return spec
@@ -181,6 +306,7 @@ class SpecStorage {
     )
     const ok = result.changes === 1
     if (ok) {
+      projectSpecRelational(projectId, id, validated)
       const spec = this.get(projectId, id)
       if (spec) this.publishSync(projectId, spec)
     }
