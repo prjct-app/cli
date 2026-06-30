@@ -13,6 +13,71 @@
 import type { LLMAnalysis } from '../types/llm-analysis'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
+import type { SqliteDatabase } from './database/sqlite-compat'
+
+/**
+ * Schema v2 (C3): explode an LLMAnalysis into the normalized child tables so
+ * the synthesis is queryable as relational records, not a JSON blob. Called
+ * inside save()'s transaction. analysisId is the llm_analysis row id.
+ */
+function writeAnalysisChildren(db: SqliteDatabase, analysisId: string, a: LLMAnalysis): void {
+  const finding = db.prepare(
+    'INSERT INTO analysis_finding (id, analysis_id, kind, title, detail, severity, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  )
+  let i = 0
+  const addFinding = (
+    kind: string,
+    title: string,
+    detail: string | null,
+    severity: string | null
+  ) => {
+    if (!title) return
+    finding.run(`${analysisId}-f${i}`, analysisId, kind, title, detail, severity, i)
+    i++
+  }
+  for (const p of a.patterns ?? []) addFinding('pattern', p.name, p.description, null)
+  for (const ap of a.antiPatterns ?? [])
+    addFinding('anti_pattern', ap.issue, ap.suggestion, ap.severity)
+  for (const d of a.techDebt ?? [])
+    addFinding('tech_debt', d.description, `${d.area}: ${d.impact}`, d.priority)
+  for (const r of a.riskAreas ?? [])
+    addFinding('risk_area', r.path, `${r.reason} — ${r.risk}`, r.severity)
+  for (const rf of a.refactorSuggestions ?? [])
+    addFinding('refactor', rf.description, rf.benefit, null)
+  for (const ins of a.projectInsights ?? []) addFinding('insight', ins, null, null)
+  for (const ins of a.architecture?.insights ?? []) addFinding('insight', ins, null, null)
+
+  const conv = db.prepare(
+    'INSERT INTO analysis_convention (id, analysis_id, rule, sort_order) VALUES (?, ?, ?, ?)'
+  )
+  ;(a.conventions ?? []).forEach((c, idx) =>
+    conv.run(`${analysisId}-c${idx}`, analysisId, c.rule, idx)
+  )
+
+  const stack = db.prepare(
+    'INSERT INTO analysis_stack_item (id, analysis_id, kind, name) VALUES (?, ?, ?, ?)'
+  )
+  let si = 0
+  for (const lang of a.stack?.languages ?? [])
+    stack.run(`${analysisId}-s${si++}`, analysisId, 'language', lang)
+  for (const fw of a.stack?.frameworks ?? [])
+    stack.run(`${analysisId}-s${si++}`, analysisId, 'framework', fw)
+
+  const cmd = db.prepare(
+    'INSERT INTO analysis_command (id, analysis_id, name, command, purpose) VALUES (?, ?, ?, ?, ?)'
+  )
+  let ci = 0
+  for (const [name, command] of Object.entries(a.commands ?? {})) {
+    if (command) cmd.run(`${analysisId}-cmd${ci++}`, analysisId, name, command, null)
+  }
+
+  const dom = db.prepare(
+    'INSERT INTO analysis_domain (id, analysis_id, name, paths) VALUES (?, ?, ?, ?)'
+  )
+  ;(a.architecture?.domains ?? []).forEach((d, idx) =>
+    dom.run(`${analysisId}-d${idx}`, analysisId, d, null)
+  )
+}
 
 class LLMAnalysisStorage {
   /**
@@ -28,10 +93,16 @@ class LLMAnalysisStorage {
         "UPDATE llm_analysis SET status = 'superseded', superseded_at = ? WHERE status = 'active'"
       ).run(now)
 
-      // Insert new active analysis
-      db.prepare(
-        'INSERT INTO llm_analysis (commit_hash, status, analysis, analyzed_at) VALUES (?, ?, ?, ?)'
-      ).run(analysis.commitHash ?? null, 'active', JSON.stringify(analysis), analysis.analyzedAt)
+      // Insert new active analysis (blob kept for the full-object consumers).
+      const result = db
+        .prepare(
+          'INSERT INTO llm_analysis (commit_hash, status, analysis, analyzed_at) VALUES (?, ?, ?, ?)'
+        )
+        .run(analysis.commitHash ?? null, 'active', JSON.stringify(analysis), analysis.analyzedAt)
+
+      // Schema v2 (C3): also store the synthesis as RELATIONAL records so it's
+      // queryable field-by-field (and the archive is a WHERE, not a re-parse).
+      writeAnalysisChildren(db, String(result.lastInsertRowid), analysis)
     })()
   }
 
