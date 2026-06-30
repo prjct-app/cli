@@ -167,7 +167,7 @@ class SpecStorage {
 
   /**
    * Fuzzy-match title or content. Falls back to LIKE — for serious
-   * search the FTS5 `memories_fts` table is the better surface.
+   * search the FTS5 `memory_entries_fts` table is the better surface.
    */
   search(projectId: string, query: string): Spec[] {
     const like = `%${query}%`

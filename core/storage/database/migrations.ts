@@ -816,38 +816,45 @@ export const migrations: Migration[] = [
       // safe to re-run (NULL backfill only, keep-earliest is deterministic).
       const numOf = (id: string): number => Number(String(id).replace(/^mem[_-]/i, '')) || 0
 
-      // 1) Backfill content_hash wherever it's missing.
-      const memAll = db.prepare('SELECT id, content, content_hash FROM memories').all() as Array<{
-        id: string
-        content: string
-        content_hash: string | null
-      }>
-      const setHash = db.prepare('UPDATE memories SET content_hash = ? WHERE id = ?')
-      for (const r of memAll) {
-        if (!r.content_hash) setHash.run(memoryFingerprint(r.content ?? ''), r.id)
-      }
+      // Parts 1+2 operate on the `memories` table, which is retired in a later
+      // migration. Guard so re-running this migration after that drop is a
+      // no-op (the events dedup in part 3 is what matters going forward).
+      try {
+        // 1) Backfill content_hash wherever it's missing.
+        const memAll = db.prepare('SELECT id, content, content_hash FROM memories').all() as Array<{
+          id: string
+          content: string
+          content_hash: string | null
+        }>
+        const setHash = db.prepare('UPDATE memories SET content_hash = ? WHERE id = ?')
+        for (const r of memAll) {
+          if (!r.content_hash) setHash.run(memoryFingerprint(r.content ?? ''), r.id)
+        }
 
-      // 2) Soft-delete duplicate `memories` rows: keep the earliest (smallest
-      //    mem_<id>) per (type, content_hash); mark the rest deleted so
-      //    searchFts — which filters `deleted_at IS NULL` — stops returning
-      //    them. Soft, not hard: the row stays resolvable by id.
-      const memLive = db
-        .prepare('SELECT id, type, content_hash FROM memories WHERE deleted_at IS NULL')
-        .all() as Array<{ id: string; type: string | null; content_hash: string | null }>
-      const canonicalMem = new Map<string, number>() // group key -> min numeric id
-      for (const r of memLive) {
-        if (!r.content_hash) continue
-        const k = `${r.type ?? ''}::${r.content_hash}`
-        const n = numOf(r.id)
-        const cur = canonicalMem.get(k)
-        if (cur === undefined || n < cur) canonicalMem.set(k, n)
-      }
-      const nowIso = new Date().toISOString()
-      const softDelete = db.prepare('UPDATE memories SET deleted_at = ? WHERE id = ?')
-      for (const r of memLive) {
-        if (!r.content_hash) continue
-        const k = `${r.type ?? ''}::${r.content_hash}`
-        if (canonicalMem.get(k) !== numOf(r.id)) softDelete.run(nowIso, r.id)
+        // 2) Soft-delete duplicate `memories` rows: keep the earliest (smallest
+        //    mem_<id>) per (type, content_hash); mark the rest deleted so
+        //    searchFts — which filters `deleted_at IS NULL` — stops returning
+        //    them. Soft, not hard: the row stays resolvable by id.
+        const memLive = db
+          .prepare('SELECT id, type, content_hash FROM memories WHERE deleted_at IS NULL')
+          .all() as Array<{ id: string; type: string | null; content_hash: string | null }>
+        const canonicalMem = new Map<string, number>() // group key -> min numeric id
+        for (const r of memLive) {
+          if (!r.content_hash) continue
+          const k = `${r.type ?? ''}::${r.content_hash}`
+          const n = numOf(r.id)
+          const cur = canonicalMem.get(k)
+          if (cur === undefined || n < cur) canonicalMem.set(k, n)
+        }
+        const nowIso = new Date().toISOString()
+        const softDelete = db.prepare('UPDATE memories SET deleted_at = ? WHERE id = ?')
+        for (const r of memLive) {
+          if (!r.content_hash) continue
+          const k = `${r.type ?? ''}::${r.content_hash}`
+          if (canonicalMem.get(k) !== numOf(r.id)) softDelete.run(nowIso, r.id)
+        }
+      } catch {
+        // `memories` table retired — skip the legacy mirror dedup.
       }
 
       // 3) Hard-delete duplicate remember-events: keep the earliest per
@@ -1125,22 +1132,29 @@ export const migrations: Migration[] = [
         if (cleaned) updateEvent.run(cleaned, row.id)
       }
 
-      const memoryRows = db
-        .prepare(
-          `SELECT id, content FROM memories
-           WHERE type = 'improvement-signal'
-             AND json_extract(tags, '$.source') = 'friction-detector'
-             AND content LIKE '%Evidence:%'`
+      // The `memories` mirror is retired in a later migration; guard so a
+      // re-run after that drop is a no-op (the events scrub above is what feeds
+      // the single-source memory_entries projection).
+      try {
+        const memoryRows = db
+          .prepare(
+            `SELECT id, content FROM memories
+             WHERE type = 'improvement-signal'
+               AND json_extract(tags, '$.source') = 'friction-detector'
+               AND content LIKE '%Evidence:%'`
+          )
+          .all() as Array<{ id: string; content: string }>
+        const updateMemory = db.prepare(
+          'UPDATE memories SET content = ?, content_hash = ?, updated_at = ? WHERE id = ?'
         )
-        .all() as Array<{ id: string; content: string }>
-      const updateMemory = db.prepare(
-        'UPDATE memories SET content = ?, content_hash = ?, updated_at = ? WHERE id = ?'
-      )
-      const now = new Date().toISOString()
-      for (const row of memoryRows) {
-        const cleaned = stripLiteralFrictionEvidence(row.content)
-        if (cleaned !== row.content)
-          updateMemory.run(cleaned, memoryFingerprint(cleaned), now, row.id)
+        const now = new Date().toISOString()
+        for (const row of memoryRows) {
+          const cleaned = stripLiteralFrictionEvidence(row.content)
+          if (cleaned !== row.content)
+            updateMemory.run(cleaned, memoryFingerprint(cleaned), now, row.id)
+        }
+      } catch {
+        // `memories` table retired — events scrub already covers the source.
       }
     },
   },
@@ -1785,6 +1799,71 @@ export const migrations: Migration[] = [
           db.run(stmt)
         } catch {
           // Best-effort — table may not exist on partial chains.
+        }
+      }
+    },
+  },
+  {
+    version: 45,
+    name: 'schema-v2-retire-memories-table',
+    up: (db: SqliteDatabase) => {
+      // Retire the `memories` mirror for good: nothing writes or reads it now
+      // (single source = memory_entries + its FTS). First recreate the
+      // memory_entries trigger WITHOUT the `memories` project_id subquery (else
+      // dropping memories would break every remember-event insert), then drop
+      // memories, its FTS, and its sync triggers.
+      try {
+        db.run('DROP TRIGGER IF EXISTS memory_entries_from_events')
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+          AFTER INSERT ON events
+          WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+            AND json_valid(NEW.data)
+            AND json_extract(NEW.data, '$.content') IS NOT NULL
+          BEGIN
+            INSERT OR IGNORE INTO memory_entries
+              (id, project_id, type, title, content, file, subject, provenance,
+               content_hash, user_triggered, revision_count, created_at, updated_at)
+            VALUES (
+              'mem_' || NEW.id,
+              COALESCE(json_extract(NEW.data, '$.project_id'), 'local'),
+              substr(NEW.type, length('memory.remember.') + 1),
+              substr(json_extract(NEW.data, '$.content'), 1, 80),
+              json_extract(NEW.data, '$.content'),
+              json_extract(NEW.data, '$.tags.file'),
+              json_extract(NEW.data, '$.tags.subject'),
+              COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+              COALESCE(json_extract(NEW.data, '$.content_hash'), 'evt_' || NEW.id),
+              0, 0,
+              CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+              CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER)
+            );
+            INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+            SELECT 'mem_' || NEW.id, je.key, je.value,
+              CASE WHEN je.key IN (
+                'source','session','window_days','window-days','touches','occurrences',
+                'phrase','slug','hash','content-hash','content_hash','key','kind',
+                'spec-id','spec_id','from','origin','event','task-count','task_count',
+                'context-schema','context_schema','synthesis','commit'
+              ) THEN 1 ELSE 0 END
+            FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+            WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+          END;
+        `)
+      } catch {
+        // If recreation fails, keep the existing trigger (don't break inserts).
+      }
+      for (const stmt of [
+        'DROP TRIGGER IF EXISTS memories_ai',
+        'DROP TRIGGER IF EXISTS memories_ad',
+        'DROP TRIGGER IF EXISTS memories_au',
+        'DROP TABLE IF EXISTS memories_fts',
+        'DROP TABLE IF EXISTS memories',
+      ]) {
+        try {
+          db.run(stmt)
+        } catch {
+          // Best-effort teardown.
         }
       }
     },

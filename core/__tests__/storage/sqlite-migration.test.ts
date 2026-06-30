@@ -969,25 +969,12 @@ describe('SQLite Migration', () => {
         tags: { source: 'friction-detector' },
         provenance: 'extracted',
       })
-      prjctDb.run(
-        testProjectId,
-        `INSERT INTO memories
-           (id, project_id, title, content, tags, type, provenance, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        'mem_literal',
-        testProjectId,
-        'literal friction',
-        literal,
-        JSON.stringify({ source: 'friction-detector' }),
-        'improvement-signal',
-        'extracted',
-        '2026-01-01T00:00:00.000Z',
-        '2026-01-01T00:00:00.000Z'
-      )
 
       prjctDb.close(testProjectId)
       prjctDb.getDb(testProjectId)
 
+      // v35 scrubs the friction evidence from the authoritative events log
+      // (memory_entries is rebuilt from events; the `memories` mirror is retired).
       const event = prjctDb.get<{ data: string }>(
         testProjectId,
         `SELECT data FROM events
@@ -995,17 +982,11 @@ describe('SQLite Migration', () => {
          ORDER BY id DESC LIMIT 1`
       )
       const eventContent = JSON.parse(event!.data).content as string
-      const memory = prjctDb.get<{ content: string }>(
-        testProjectId,
-        "SELECT content FROM memories WHERE id = 'mem_literal'"
-      )
 
       expect(eventContent).toContain('Why it mattered:')
       expect(eventContent).toContain('Next action:')
       expect(eventContent).not.toContain('Evidence:')
       expect(eventContent).not.toContain('no literal quotes')
-      expect(memory?.content).not.toContain('Evidence:')
-      expect(memory?.content).not.toContain('I will continue')
     })
 
     it('should support document CRUD operations', async () => {
