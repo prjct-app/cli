@@ -13,6 +13,7 @@ import pathManager from '../../infrastructure/path-manager'
 import prjctDb from '../../storage/database'
 import {
   finishWorkflowRun,
+  getRecentWorkflowRuns,
   recordGateEvaluation,
   recordRunStep,
   startWorkflowRun,
@@ -79,5 +80,21 @@ describe('workflow run recorder (C8)', () => {
     }).not.toThrow()
     const runs = prjctDb.query<{ id: string }>(projectId, 'SELECT id FROM workflow_runs')
     expect(runs.length).toBe(0)
+  })
+
+  it('getRecentWorkflowRuns summarizes runs with step + gate counts', () => {
+    const runId = startWorkflowRun(projectId, 'before:ship', 'task-x')
+    recordGateEvaluation(projectId, runId, 1, true)
+    recordGateEvaluation(projectId, runId, 2, false, 'red')
+    recordRunStep(projectId, runId, 3, 0, 'ok')
+    finishWorkflowRun(projectId, runId, 'blocked')
+
+    const summary = getRecentWorkflowRuns(projectId, 10)
+    expect(summary.length).toBe(1)
+    expect(summary[0].command).toBe('before:ship')
+    expect(summary[0].status).toBe('blocked')
+    expect(summary[0].steps).toBe(1)
+    expect(summary[0].gatesPassed).toBe(1)
+    expect(summary[0].gatesFailed).toBe(1)
   })
 })
