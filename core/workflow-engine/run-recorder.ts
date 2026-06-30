@@ -86,6 +86,66 @@ export function recordRunStep(
   }
 }
 
+export interface WorkflowRunSummary {
+  id: string
+  command: string
+  status: string
+  startedAt: number | null
+  endedAt: number | null
+  steps: number
+  gatesPassed: number
+  gatesFailed: number
+}
+
+/** Recent workflow runs with their step + gate-outcome counts (newest first). */
+export function getRecentWorkflowRuns(projectId: string, limit = 20): WorkflowRunSummary[] {
+  try {
+    const runs = prjctDb.query<{
+      id: string
+      command: string
+      status: string
+      started_at: number | null
+      ended_at: number | null
+    }>(
+      projectId,
+      'SELECT id, command, status, started_at, ended_at FROM workflow_runs ORDER BY started_at DESC LIMIT ?',
+      limit
+    )
+    return runs.map((r) => {
+      const steps =
+        prjctDb.get<{ n: number }>(
+          projectId,
+          'SELECT COUNT(*) AS n FROM workflow_run_step WHERE run_id = ?',
+          r.id
+        )?.n ?? 0
+      const gp =
+        prjctDb.get<{ n: number }>(
+          projectId,
+          'SELECT COUNT(*) AS n FROM gate_evaluation WHERE run_id = ? AND passed = 1',
+          r.id
+        )?.n ?? 0
+      const gf =
+        prjctDb.get<{ n: number }>(
+          projectId,
+          'SELECT COUNT(*) AS n FROM gate_evaluation WHERE run_id = ? AND passed = 0',
+          r.id
+        )?.n ?? 0
+      return {
+        id: r.id,
+        command: r.command,
+        status: r.status,
+        startedAt: r.started_at,
+        endedAt: r.ended_at,
+        steps,
+        gatesPassed: gp,
+        gatesFailed: gf,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 export function finishWorkflowRun(
   projectId: string,
   runId: string | null,

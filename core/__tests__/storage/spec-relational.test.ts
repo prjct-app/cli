@@ -45,20 +45,13 @@ describe('spec relational projection (C6)', () => {
       content: {
         ...emptySpecContent('goal here'),
         acceptance_criteria: ['ac1', 'ac2'],
-        scope: ['in1'],
-        out_of_scope: ['out1'],
-        risks: [{ risk: 'r1', mitigation: 'm1' }],
-        test_plan: ['t1', 't2', 't3'],
         selected_reviewers: ['architecture', 'security'],
       },
       tags: { area: 'auth' },
     })
-    expect(count('spec_acceptance_criterion', spec.id)).toBe(2)
-    expect(count('spec_scope', spec.id)).toBe(2) // in + out
-    expect(count('spec_risk', spec.id)).toBe(1)
-    expect(count('spec_test_step', spec.id)).toBe(3)
+    // Only the gate state is projected relationally; the rest stays in the
+    // specs.content aggregate (the sync root + read source of truth).
     expect(count('spec_selected_reviewer', spec.id)).toBe(2)
-    expect(count('spec_tag', spec.id)).toBe(1)
   })
 
   it('re-projects reviews on update — the relational gate state', () => {

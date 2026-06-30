@@ -1739,6 +1739,56 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 44,
+    name: 'schema-v2-drop-unused-tables',
+    up: (db: SqliteDatabase) => {
+      // Remove the forward-schema tables migration 37 created that have no
+      // writer/reader (dead schema). Keeping only what's actually wired:
+      // memory_entries(+tags,+fts), analysis_* (5 child tables, read by
+      // getActiveRelational), spec_review + spec_selected_reviewer (the gate),
+      // token_usage, and workflow_runs/run_step/gate_evaluation (read by
+      // `prjct workflow runs`). Everything else is dropped rather than shipped
+      // half-built. FK-children are dropped before their parents.
+      const drops = [
+        // spec children superseded by the content aggregate (gate keeps review + selected_reviewer)
+        'DROP TABLE IF EXISTS spec_acceptance_criterion',
+        'DROP TABLE IF EXISTS spec_scope',
+        'DROP TABLE IF EXISTS spec_risk',
+        'DROP TABLE IF EXISTS spec_test_step',
+        'DROP TABLE IF EXISTS spec_linked_task',
+        'DROP TABLE IF EXISTS spec_tag',
+        // telemetry tables with no writer (agent_sessions still serves)
+        'DROP TABLE IF EXISTS agent_artifact',
+        'DROP TABLE IF EXISTS agent_runs',
+        // entity tag/timeline projections never wired
+        'DROP TABLE IF EXISTS subtask_dependency',
+        'DROP TABLE IF EXISTS task_tag',
+        'DROP TABLE IF EXISTS shipped_feature_tag',
+        'DROP TABLE IF EXISTS idea_tag',
+        'DROP TABLE IF EXISTS entity_timeline',
+        'DROP TABLE IF EXISTS context_feedback_keyword',
+        'DROP TABLE IF EXISTS context_feedback_file',
+        // crew/team still live in kv_store
+        'DROP TABLE IF EXISTS crew_run_file',
+        'DROP TABLE IF EXISTS crew_runs',
+        'DROP TABLE IF EXISTS team_enrollment',
+        // workflows superseded by custom_workflows + workflow_rules
+        'DROP TABLE IF EXISTS workflow_config',
+        'DROP TABLE IF EXISTS workflow_rule_condition',
+        'DROP TABLE IF EXISTS workflows',
+        // memory graph never wired
+        'DROP TABLE IF EXISTS memory_links',
+      ]
+      for (const stmt of drops) {
+        try {
+          db.run(stmt)
+        } catch {
+          // Best-effort — table may not exist on partial chains.
+        }
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

@@ -116,6 +116,7 @@ class LLMAnalysisStorage {
     conventions: string[]
     stack: Array<{ kind: string; name: string }>
     domains: string[]
+    commands: Array<{ name: string; command: string }>
   } | null {
     const head = prjctDb.get<{ id: number }>(
       projectId,
@@ -147,9 +148,14 @@ class LLMAnalysisStorage {
         id
       )
       .map((r) => r.name)
+    const commands = prjctDb.query<{ name: string; command: string }>(
+      projectId,
+      'SELECT name, command FROM analysis_command WHERE analysis_id = ?',
+      id
+    )
     // No child rows ⇒ pre-C3 analysis; let the caller fall back to the blob.
     if (findings.length === 0 && conventions.length === 0 && stack.length === 0) return null
-    return { findings, conventions, stack, domains }
+    return { findings, conventions, stack, domains, commands }
   }
 
   /**

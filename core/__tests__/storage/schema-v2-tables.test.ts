@@ -14,25 +14,33 @@ let tmpRoot: string
 let projectId: string
 const original = pathManager.getGlobalProjectPath.bind(pathManager)
 
+// Only the WIRED v2 tables remain (migration 44 dropped the dead forward schema).
 const V2_TABLES = [
   'memory_entries',
   'memory_entry_tags',
-  'memory_links',
   'analysis_finding',
   'analysis_convention',
   'analysis_stack_item',
   'analysis_command',
   'analysis_domain',
+  'spec_review',
+  'spec_selected_reviewer',
+  'token_usage',
+  'workflow_runs',
+  'workflow_run_step',
+  'gate_evaluation',
+]
+
+// Dropped as dead schema (migration 44) — must NOT exist.
+const DROPPED_TABLES = [
+  'memory_links',
   'spec_acceptance_criterion',
   'spec_scope',
   'spec_risk',
   'spec_test_step',
-  'spec_review',
-  'spec_selected_reviewer',
   'spec_linked_task',
   'spec_tag',
   'agent_runs',
-  'token_usage',
   'agent_artifact',
   'subtask_dependency',
   'task_tag',
@@ -47,9 +55,6 @@ const V2_TABLES = [
   'workflows',
   'workflow_config',
   'workflow_rule_condition',
-  'workflow_runs',
-  'workflow_run_step',
-  'gate_evaluation',
 ]
 
 describe('Schema v2 tables (migration 37)', () => {
@@ -74,6 +79,10 @@ describe('Schema v2 tables (migration 37)', () => {
     const names = new Set(rows.map((r) => r.name))
     for (const t of V2_TABLES) {
       expect(names.has(t)).toBe(true)
+    }
+    // Dead forward-schema tables were dropped (migration 44).
+    for (const t of DROPPED_TABLES) {
+      expect(names.has(t)).toBe(false)
     }
   })
 

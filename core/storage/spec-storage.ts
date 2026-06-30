@@ -40,77 +40,15 @@ interface SpecRow {
  * replaces on each write). The `specs.content` blob is retained for the typed
  * full-object readers until they cut over.
  */
-function projectSpecRelational(
-  projectId: string,
-  id: string,
-  content: SpecContent,
-  tags?: Record<string, string>
-): void {
+function projectSpecRelational(projectId: string, id: string, content: SpecContent): void {
   try {
-    for (const t of [
-      'spec_acceptance_criterion',
-      'spec_scope',
-      'spec_risk',
-      'spec_test_step',
-      'spec_review',
-      'spec_selected_reviewer',
-      'spec_linked_task',
-    ]) {
-      prjctDb.run(projectId, `DELETE FROM ${t} WHERE spec_id = ?`, id)
-    }
-    content.acceptance_criteria.forEach((text, i) =>
-      prjctDb.run(
-        projectId,
-        'INSERT INTO spec_acceptance_criterion (id, spec_id, text, met, sort_order) VALUES (?, ?, ?, 0, ?)',
-        `${id}-ac${i}`,
-        id,
-        text,
-        i
-      )
-    )
-    content.scope.forEach((item, i) =>
-      prjctDb.run(
-        projectId,
-        'INSERT INTO spec_scope (id, spec_id, kind, item, sort_order) VALUES (?, ?, ?, ?, ?)',
-        `${id}-si${i}`,
-        id,
-        'in',
-        item,
-        i
-      )
-    )
-    content.out_of_scope.forEach((item, i) =>
-      prjctDb.run(
-        projectId,
-        'INSERT INTO spec_scope (id, spec_id, kind, item, sort_order) VALUES (?, ?, ?, ?, ?)',
-        `${id}-so${i}`,
-        id,
-        'out',
-        item,
-        i
-      )
-    )
-    content.risks.forEach((r, i) =>
-      prjctDb.run(
-        projectId,
-        'INSERT INTO spec_risk (id, spec_id, risk, mitigation, sort_order) VALUES (?, ?, ?, ?, ?)',
-        `${id}-r${i}`,
-        id,
-        r.risk,
-        r.mitigation,
-        i
-      )
-    )
-    content.test_plan.forEach((text, i) =>
-      prjctDb.run(
-        projectId,
-        'INSERT INTO spec_test_step (id, spec_id, text, sort_order) VALUES (?, ?, ?, ?)',
-        `${id}-t${i}`,
-        id,
-        text,
-        i
-      )
-    )
+    // Only the GATE state is projected relationally (spec_review +
+    // spec_selected_reviewer) — that's the one consumer (reviewsGatePassedRelational).
+    // The rest of the spec (criteria/scope/risks/test_plan/links/tags) stays in
+    // the specs.content aggregate blob, which is the sync aggregate root and the
+    // read source of truth. No redundant write-only child tables.
+    prjctDb.run(projectId, 'DELETE FROM spec_review WHERE spec_id = ?', id)
+    prjctDb.run(projectId, 'DELETE FROM spec_selected_reviewer WHERE spec_id = ?', id)
     for (const [lens, review] of Object.entries(content.reviews ?? {})) {
       prjctDb.run(
         projectId,
@@ -130,26 +68,6 @@ function projectSpecRelational(
         id,
         lens
       )
-    }
-    for (const taskId of content.linked_tasks) {
-      prjctDb.run(
-        projectId,
-        'INSERT OR IGNORE INTO spec_linked_task (spec_id, task_id) VALUES (?, ?)',
-        id,
-        taskId
-      )
-    }
-    if (tags) {
-      prjctDb.run(projectId, 'DELETE FROM spec_tag WHERE spec_id = ?', id)
-      for (const [key, value] of Object.entries(tags)) {
-        prjctDb.run(
-          projectId,
-          'INSERT OR IGNORE INTO spec_tag (spec_id, key, value) VALUES (?, ?, ?)',
-          id,
-          key,
-          String(value)
-        )
-      }
     }
   } catch {
     // Best-effort projection — the content blob stays the source of truth.
@@ -208,7 +126,7 @@ class SpecStorage {
       now,
       now
     )
-    projectSpecRelational(projectId, id, validatedContent, args.tags)
+    projectSpecRelational(projectId, id, validatedContent)
 
     const spec: Spec = {
       id,

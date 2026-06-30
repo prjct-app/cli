@@ -294,6 +294,10 @@ export function registerProjectTools(server: McpServer) {
             out.push(`\n### Conventions (${rel.conventions.length})`)
             for (const c of rel.conventions) out.push(`- ${c}`)
           }
+          if (rel.commands.length) {
+            out.push(`\n### Commands (${rel.commands.length})`)
+            for (const c of rel.commands) out.push(`- **${c.name}**: \`${c.command}\``)
+          }
           return { content: [{ type: 'text', text: out.join('\n') }] }
         }
 
