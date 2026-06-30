@@ -96,6 +96,17 @@ describe('llm_analysis relational children (C3)', () => {
     expect(prjctDb.query(projectId, 'SELECT id FROM analysis_domain').length).toBe(2)
   })
 
+  it('getActiveRelational reads findings/conventions/stack from child tables', () => {
+    llmAnalysisStorage.save(projectId, makeAnalysis())
+    const rel = llmAnalysisStorage.getActiveRelational(projectId)
+    expect(rel).not.toBeNull()
+    expect(rel?.findings.some((f) => f.kind === 'pattern')).toBe(true)
+    expect(rel?.findings.some((f) => f.kind === 'tech_debt')).toBe(true)
+    expect(rel?.conventions).toContain('kebab-case files')
+    expect(rel?.stack.some((s) => s.kind === 'language' && s.name === 'TypeScript')).toBe(true)
+    expect(rel?.domains).toContain('memory')
+  })
+
   it('keeps superseded analyses queryable (archive = WHERE status)', () => {
     llmAnalysisStorage.save(projectId, makeAnalysis())
     llmAnalysisStorage.save(projectId, makeAnalysis())

@@ -265,6 +265,38 @@ export function registerProjectTools(server: McpServer) {
           return { content: [{ type: 'text', text: lines.join('\n') }] }
         }
 
+        // C3: read the synthesis as RELATIONAL records (no blob parse) when
+        // available; fall back to the blob only for pre-C3 analyses.
+        const rel = llmAnalysisStorage.getActiveRelational(projectId)
+        if (rel) {
+          const out: string[] = ['## Project Analysis']
+          if (rel.domains.length) out.push(`\n### Architecture\nDomains: ${rel.domains.join(', ')}`)
+          const langs = rel.stack.filter((s) => s.kind === 'language').map((s) => s.name)
+          const fws = rel.stack.filter((s) => s.kind === 'framework').map((s) => s.name)
+          if (langs.length || fws.length) {
+            out.push('\n### Stack')
+            if (langs.length) out.push(`Languages: ${langs.join(', ')}`)
+            if (fws.length) out.push(`Frameworks: ${fws.join(', ')}`)
+          }
+          const byKind = (k: string) => rel.findings.filter((f) => f.kind === k)
+          const section = (label: string, kind: string) => {
+            const items = byKind(kind)
+            if (!items.length) return
+            out.push(`\n### ${label} (${items.length})`)
+            for (const f of items) out.push(`- **${f.title}**${f.detail ? `: ${f.detail}` : ''}`)
+          }
+          section('Patterns', 'pattern')
+          section('Anti-Patterns', 'anti_pattern')
+          section('Tech Debt', 'tech_debt')
+          section('Risk Areas', 'risk_area')
+          section('Insights', 'insight')
+          if (rel.conventions.length) {
+            out.push(`\n### Conventions (${rel.conventions.length})`)
+            for (const c of rel.conventions) out.push(`- ${c}`)
+          }
+          return { content: [{ type: 'text', text: out.join('\n') }] }
+        }
+
         const analysis = llmAnalysisStorage.getActive(projectId)
         if (!analysis) {
           return { content: [{ type: 'text', text: 'No analysis available. Run `prjct sync`.' }] }

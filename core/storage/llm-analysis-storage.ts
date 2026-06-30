@@ -107,6 +107,52 @@ class LLMAnalysisStorage {
   }
 
   /**
+   * Schema v2 (C3): read the active analysis as RELATIONAL records from the
+   * child tables (no JSON blob parse). Returns null when there's no active
+   * analysis OR it predates C3 (no child rows) — callers fall back to getActive.
+   */
+  getActiveRelational(projectId: string): {
+    findings: Array<{ kind: string; title: string; detail: string | null }>
+    conventions: string[]
+    stack: Array<{ kind: string; name: string }>
+    domains: string[]
+  } | null {
+    const head = prjctDb.get<{ id: number }>(
+      projectId,
+      "SELECT id FROM llm_analysis WHERE status = 'active' LIMIT 1"
+    )
+    if (!head) return null
+    const id = String(head.id)
+    const findings = prjctDb.query<{ kind: string; title: string; detail: string | null }>(
+      projectId,
+      'SELECT kind, title, detail FROM analysis_finding WHERE analysis_id = ? ORDER BY kind, sort_order',
+      id
+    )
+    const conventions = prjctDb
+      .query<{ rule: string }>(
+        projectId,
+        'SELECT rule FROM analysis_convention WHERE analysis_id = ? ORDER BY sort_order',
+        id
+      )
+      .map((r) => r.rule)
+    const stack = prjctDb.query<{ kind: string; name: string }>(
+      projectId,
+      'SELECT kind, name FROM analysis_stack_item WHERE analysis_id = ?',
+      id
+    )
+    const domains = prjctDb
+      .query<{ name: string }>(
+        projectId,
+        'SELECT name FROM analysis_domain WHERE analysis_id = ?',
+        id
+      )
+      .map((r) => r.name)
+    // No child rows ⇒ pre-C3 analysis; let the caller fall back to the blob.
+    if (findings.length === 0 && conventions.length === 0 && stack.length === 0) return null
+    return { findings, conventions, stack, domains }
+  }
+
+  /**
    * Get the current active LLM analysis.
    * Returns null if no analysis exists.
    */
