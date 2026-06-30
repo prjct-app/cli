@@ -19,8 +19,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { memoryFingerprint } from '../memory/content-fingerprint'
-import { upsertMemoryEntryV2 } from '../memory/memory-entries-store'
 import { projectMemory } from '../memory/project-memory'
 import { archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
@@ -97,6 +95,13 @@ async function archiveAgedInbox(projectId: string, inboxDays: number): Promise<n
           Number(numericId)
         )
       }
+      // Schema v2: drop it from the normalized table recall now reads.
+      prjctDb.run(
+        projectId,
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',
+        Date.now(),
+        entry.id
+      )
       moved++
     } catch {
       // Per-entry failures are silent — keeping the loop moving is
@@ -224,25 +229,12 @@ export async function recordCleanupReport(projectId: string, report: CleanupRepo
     .filter((s): s is string => Boolean(s))
     .join(', ')
 
-  const cleanupContent = `Session cleanup: ${summary}`
-  const cleanupTags = { source: 'session-cleanup', key: 'last-cleanup' }
-  const eventId = prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
-    content: cleanupContent,
-    tags: cleanupTags,
+  // memory_entries (Schema v2) is kept in sync by the memory_entries_from_events
+  // trigger (migration 40) — this direct remember-event write is mirrored there
+  // automatically, like every other writer.
+  prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
+    content: `Session cleanup: ${summary}`,
+    tags: { source: 'session-cleanup', key: 'last-cleanup' },
     provenance: 'extracted',
   })
-  // Schema v2 dual-write (C1): keep memory_entries complete for this direct
-  // remember-event writer too. Best-effort.
-  if (eventId != null) {
-    upsertMemoryEntryV2({
-      id: `mem_${eventId}`,
-      projectId,
-      type: 'system-event',
-      content: cleanupContent,
-      tags: cleanupTags,
-      provenance: 'extracted',
-      contentHash: memoryFingerprint(cleanupContent),
-      createdAt: Date.now(),
-    })
-  }
 }

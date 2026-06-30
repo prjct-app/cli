@@ -1456,6 +1456,59 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 40,
+    name: 'schema-v2-memory-entries-trigger',
+    up: (db: SqliteDatabase) => {
+      // C1 read-flip prerequisite: a trigger that mirrors EVERY memory.remember.*
+      // event into memory_entries + memory_entry_tags. This makes the v2 tables
+      // the single, always-complete projection of the events log — no matter
+      // which path wrote the event (remember(), sync apply, session-cleanup, or
+      // a raw appendEvent in tests). With this in place recall can read typed
+      // rows with exact parity to the events-based path. INSERT OR IGNORE keeps
+      // it inert for rows already backfilled (same mem_<id> PK) and never aborts
+      // the originating events insert. project_id is informational (one DB ==
+      // one project; recall doesn't filter on it); content_hash is event-unique
+      // ('evt_<id>') so each remember event maps 1:1 (matches current recall,
+      // which is deduped upstream by remember()'s own guard).
+      db.run(`
+        CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+        AFTER INSERT ON events
+        WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+          AND json_valid(NEW.data)
+          AND json_extract(NEW.data, '$.content') IS NOT NULL
+        BEGIN
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          VALUES (
+            'mem_' || NEW.id,
+            COALESCE((SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1), 'local'),
+            substr(NEW.type, length('memory.remember.') + 1),
+            substr(json_extract(NEW.data, '$.content'), 1, 80),
+            json_extract(NEW.data, '$.content'),
+            json_extract(NEW.data, '$.tags.file'),
+            json_extract(NEW.data, '$.tags.subject'),
+            COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+            'evt_' || NEW.id,
+            0, 0,
+            CAST(strftime('%s', NEW.timestamp) AS INTEGER) * 1000,
+            CAST(strftime('%s', NEW.timestamp) AS INTEGER) * 1000
+          );
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+          SELECT 'mem_' || NEW.id, je.key, je.value,
+            CASE WHEN je.key IN (
+              'source','session','window_days','window-days','touches','occurrences',
+              'phrase','slug','hash','content-hash','content_hash','key','kind',
+              'spec-id','spec_id','from','origin','event','task-count','task_count',
+              'context-schema','context_schema','synthesis','commit'
+            ) THEN 1 ELSE 0 END
+          FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+          WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+        END;
+      `)
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

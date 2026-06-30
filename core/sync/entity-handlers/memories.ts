@@ -17,7 +17,6 @@
 
 import { memoryFingerprint } from '../../memory/content-fingerprint'
 import { REMEMBER_ACTION_PREFIX } from '../../memory/events'
-import { upsertMemoryEntryV2 } from '../../memory/memory-entries-store'
 import prjctDb from '../../storage/database'
 import type { ApplyData, EntityHandler } from './types'
 
@@ -97,19 +96,6 @@ export const memoriesHandler: EntityHandler = {
         authored,
         now
       )
-      // Schema v2 dual-write (C1): keep memory_entries complete for synced
-      // memories too, so the future recall read-flip never drops cross-device
-      // entries. Best-effort.
-      upsertMemoryEntryV2({
-        id: memId,
-        projectId,
-        type,
-        content,
-        tags,
-        provenance,
-        contentHash,
-        createdAt: Date.parse(authored) || Date.parse(now),
-      })
     } catch {
       // Non-critical — the events row is authoritative.
     }
@@ -148,6 +134,13 @@ export const memoriesHandler: EntityHandler = {
         projectId,
         'UPDATE memories SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
         new Date().toISOString(),
+        memId
+      )
+      // Schema v2: drop it from the normalized table recall now reads.
+      prjctDb.run(
+        projectId,
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',
+        Date.now(),
         memId
       )
       prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)

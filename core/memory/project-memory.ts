@@ -39,7 +39,6 @@ import {
   shippedRowToEntry,
 } from './entries'
 import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX, REMEMBER_EVENT_RANGE } from './events'
-import { upsertMemoryEntryV2 } from './memory-entries-store'
 
 interface RecallOpts {
   /** Fuzzy-match against content + tag values */
@@ -107,6 +106,54 @@ function collectMirrorSupersededIds(projectId: string): Set<string> {
   } catch {
     return new Set()
   }
+}
+
+/**
+ * Read authored memory from the Schema v2 tables (memory_entries +
+ * memory_entry_tags), mapped to the MemoryEntry shape. One indexed query for
+ * the rows + one batched query for their tags — no JSON.parse per row. The
+ * memory_entries_from_events trigger keeps these complete for every writer.
+ */
+function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[] {
+  const rows = prjctDb.query<{
+    id: string
+    type: string
+    content: string
+    provenance: string | null
+    created_at: number
+  }>(
+    projectId,
+    `SELECT id, type, content, provenance, created_at
+     FROM memory_entries
+     WHERE deleted_at IS NULL
+     ORDER BY created_at DESC, id DESC
+     LIMIT ?`,
+    overfetch
+  )
+  if (rows.length === 0) return []
+  const placeholders = rows.map(() => '?').join(',')
+  const tagRows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
+    projectId,
+    `SELECT entry_id, key, value FROM memory_entry_tags WHERE entry_id IN (${placeholders})`,
+    ...rows.map((r) => r.id)
+  )
+  const tagsById = new Map<string, Record<string, string>>()
+  for (const t of tagRows) {
+    let m = tagsById.get(t.entry_id)
+    if (!m) {
+      m = {}
+      tagsById.set(t.entry_id, m)
+    }
+    m[t.key] = t.value
+  }
+  return rows.map((r) => ({
+    id: r.id,
+    type: r.type as MemoryType,
+    content: r.content,
+    tags: tagsById.get(r.id) ?? {},
+    rememberedAt: new Date(r.created_at).toISOString(),
+    provenance: (r.provenance ?? 'declared') as MemoryProvenance,
+  }))
 }
 
 export const projectMemory = {
@@ -206,19 +253,9 @@ export const projectMemory = {
           now,
           now
         )
-        // Schema v2 dual-write (C1): mirror into the normalized memory_entries +
-        // memory_entry_tags so recall can later read typed rows instead of
-        // JSON.parse-ing events.data / memories.tags. Best-effort.
-        upsertMemoryEntryV2({
-          id: memId,
-          projectId: logResult.projectId,
-          type: args.type,
-          content: args.content,
-          tags,
-          provenance,
-          contentHash,
-          createdAt: Date.parse(now),
-        })
+        // memory_entries (Schema v2) is populated by the memory_entries_from_events
+        // trigger (migration 40) on the events insert above — covers every writer
+        // uniformly, so no per-call dual-write is needed here.
       } catch {
         // Non-critical — events row is the source of truth.
       }
@@ -388,14 +425,11 @@ export const projectMemory = {
     const wantShipped = typesFilter ? typesFilter.has('shipped') : true
     const wantEvents = typesFilter ? [...typesFilter].some((t) => t !== 'shipped') : true
 
-    const rows = wantEvents
-      ? prjctDb.query<EventRow>(
-          projectId,
-          'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT ?',
-          ...REMEMBER_EVENT_RANGE,
-          overfetch
-        )
-      : []
+    // C1 read flip: authored memory comes from the normalized v2 tables
+    // (memory_entries + memory_entry_tags), kept complete for every writer by
+    // the memory_entries_from_events trigger. Typed columns + indexed tags —
+    // no per-row JSON.parse of events.data on this per-prompt path.
+    const v2entries = wantEvents ? recallEntriesFromV2(projectId, overfetch) : []
     const shipped = wantShipped
       ? prjctDb.query<ShippedRow>(
           projectId,
@@ -404,7 +438,7 @@ export const projectMemory = {
         )
       : []
 
-    let entries: MemoryEntry[] = [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+    let entries: MemoryEntry[] = [...v2entries, ...shipped.map(shippedRowToEntry)]
 
     if (typesFilter) {
       entries = entries.filter((e) => typesFilter.has(e.type))
@@ -637,6 +671,18 @@ export const projectMemory = {
     // Drop any stored embedding so it can't resurface via semantic search.
     try {
       prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)
+    } catch {}
+
+    // Schema v2: soft-delete the normalized row so recall (which now reads
+    // memory_entries) stops returning it. The deleted event won't re-create it
+    // (trigger only fires on INSERT).
+    try {
+      prjctDb.run(
+        projectId,
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',
+        Date.now(),
+        memId
+      )
     } catch {}
 
     return removed
