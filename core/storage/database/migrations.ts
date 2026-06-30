@@ -1170,6 +1170,164 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 37,
+    name: 'schema-v2-tables',
+    up: (db: SqliteDatabase) => {
+      // Schema v2 — additive foundation for the whole-system relational
+      // redesign (prjct = LLM data plane). Creates the normalized tables that
+      // later phases backfill → dual-write → cut over to, retiring the JSON
+      // blobs. PURELY ADDITIVE: no existing table/column changes, no reads or
+      // writes are flipped here, so this is a no-op for current behavior. All
+      // timestamps are INTEGER epoch-ms (sortable, no string parse). Parents
+      // are created before children; FKs reference existing tables (tasks,
+      // specs, llm_analysis, ideas, shipped_features, context_feedback,
+      // subtasks) and the new ones below.
+      db.run(`
+        -- ===== Domain 1: Knowledge (authored memory) =====
+        CREATE TABLE IF NOT EXISTS memory_entries (
+          id             TEXT PRIMARY KEY,
+          project_id     TEXT NOT NULL,
+          type           TEXT NOT NULL,
+          title          TEXT,
+          content        TEXT NOT NULL,
+          file           TEXT,
+          subject        TEXT,
+          provenance     TEXT NOT NULL,
+          confidence     REAL,
+          content_hash   TEXT NOT NULL,
+          topic_key      TEXT,
+          user_triggered INTEGER NOT NULL DEFAULT 0,
+          revision_count INTEGER NOT NULL DEFAULT 0,
+          created_at     INTEGER NOT NULL,
+          updated_at     INTEGER NOT NULL,
+          deleted_at     INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS ix_mem_recall ON memory_entries(project_id, type, created_at DESC) WHERE deleted_at IS NULL;
+        CREATE INDEX IF NOT EXISTS ix_mem_file ON memory_entries(file) WHERE file IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS ix_mem_topic ON memory_entries(topic_key);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_mem_hash ON memory_entries(project_id, content_hash);
+
+        CREATE TABLE IF NOT EXISTS memory_entry_tags (
+          entry_id   TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+          key        TEXT NOT NULL,
+          value      TEXT NOT NULL,
+          is_machine INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (entry_id, key, value)
+        );
+        CREATE INDEX IF NOT EXISTS ix_tag_lookup ON memory_entry_tags(key, value) WHERE is_machine = 0;
+
+        CREATE TABLE IF NOT EXISTS memory_links (
+          from_entry_id TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+          to_entry_id   TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+          relation      TEXT NOT NULL,
+          PRIMARY KEY (from_entry_id, to_entry_id, relation)
+        );
+
+        -- ===== Domain 2: Synthesis (llm_analysis children) =====
+        CREATE TABLE IF NOT EXISTS analysis_finding (
+          id          TEXT PRIMARY KEY,
+          analysis_id TEXT NOT NULL,
+          kind        TEXT NOT NULL,
+          title       TEXT NOT NULL,
+          detail      TEXT,
+          severity    TEXT,
+          sort_order  INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS ix_finding ON analysis_finding(analysis_id, kind, sort_order);
+        CREATE TABLE IF NOT EXISTS analysis_convention (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, rule TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS analysis_stack_item (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, kind TEXT, name TEXT);
+        CREATE TABLE IF NOT EXISTS analysis_command (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, name TEXT, command TEXT, purpose TEXT);
+        CREATE TABLE IF NOT EXISTS analysis_domain (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, name TEXT, paths TEXT);
+
+        -- ===== Domain 3: Specs (children) =====
+        CREATE TABLE IF NOT EXISTS spec_acceptance_criterion (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, text TEXT, met INTEGER DEFAULT 0, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_scope (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, kind TEXT, item TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_risk (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, risk TEXT, mitigation TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_test_step (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, text TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_review (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, lens TEXT, verdict TEXT, notes TEXT, created_at INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_selected_reviewer (spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, lens TEXT, PRIMARY KEY (spec_id, lens));
+        CREATE TABLE IF NOT EXISTS spec_linked_task (spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, task_id TEXT NOT NULL, PRIMARY KEY (spec_id, task_id));
+        CREATE TABLE IF NOT EXISTS spec_tag (spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, key TEXT, value TEXT, PRIMARY KEY (spec_id, key, value));
+
+        -- ===== Domain 4: Telemetry =====
+        CREATE TABLE IF NOT EXISTS agent_runs (
+          id            TEXT PRIMARY KEY,
+          project_id    TEXT NOT NULL,
+          parent_run_id TEXT REFERENCES agent_runs(id),
+          work_cycle_id TEXT,
+          linked_spec_id TEXT,
+          runtime       TEXT,
+          model_id      TEXT,
+          cli_version   TEXT,
+          role          TEXT,
+          agent_type    TEXT,
+          status        TEXT,
+          turns         INTEGER,
+          started_at    INTEGER,
+          ended_at      INTEGER,
+          device_id     TEXT,
+          created_at    INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS ix_runs_cycle ON agent_runs(work_cycle_id);
+        CREATE INDEX IF NOT EXISTS ix_runs_parent ON agent_runs(parent_run_id);
+
+        CREATE TABLE IF NOT EXISTS token_usage (
+          id               TEXT PRIMARY KEY,
+          agent_run_id     TEXT REFERENCES agent_runs(id) ON DELETE CASCADE,
+          work_cycle_id    TEXT,
+          event_key        TEXT NOT NULL,
+          source           TEXT NOT NULL,
+          is_estimated     INTEGER NOT NULL DEFAULT 0,
+          input_tokens     INTEGER NOT NULL,
+          output_tokens    INTEGER NOT NULL,
+          cache_read_tokens  INTEGER DEFAULT 0,
+          cache_write_tokens INTEGER DEFAULT 0,
+          model_id         TEXT,
+          measured_at      INTEGER,
+          created_at       INTEGER,
+          CHECK (input_tokens BETWEEN 0 AND 10000000 AND output_tokens BETWEEN 0 AND 10000000)
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_token_event ON token_usage(event_key);
+        CREATE INDEX IF NOT EXISTS ix_token_cycle ON token_usage(work_cycle_id);
+
+        CREATE TABLE IF NOT EXISTS agent_artifact (
+          agent_run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+          path TEXT NOT NULL,
+          op   TEXT NOT NULL,
+          count INTEGER,
+          PRIMARY KEY (agent_run_id, path, op)
+        );
+
+        -- ===== Domain 5/6: task/ship/idea children =====
+        CREATE TABLE IF NOT EXISTS subtask_dependency (subtask_id TEXT NOT NULL, depends_on TEXT NOT NULL, PRIMARY KEY (subtask_id, depends_on));
+        CREATE TABLE IF NOT EXISTS task_tag (task_id TEXT NOT NULL, key TEXT, value TEXT, PRIMARY KEY (task_id, key, value));
+        CREATE TABLE IF NOT EXISTS shipped_feature_tag (feature_id TEXT NOT NULL, key TEXT, value TEXT, PRIMARY KEY (feature_id, key, value));
+        CREATE TABLE IF NOT EXISTS idea_tag (idea_id TEXT NOT NULL, key TEXT, value TEXT, PRIMARY KEY (idea_id, key, value));
+
+        -- ===== Domain 9/10: observability + RL =====
+        CREATE TABLE IF NOT EXISTS entity_timeline (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, entity_type TEXT, entity_id TEXT, event TEXT, at INTEGER, detail TEXT);
+        CREATE INDEX IF NOT EXISTS ix_timeline_entity ON entity_timeline(entity_type, entity_id);
+        CREATE TABLE IF NOT EXISTS context_feedback_keyword (feedback_id TEXT NOT NULL, keyword TEXT NOT NULL, PRIMARY KEY (feedback_id, keyword));
+        CREATE TABLE IF NOT EXISTS context_feedback_file (feedback_id TEXT NOT NULL, role TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY (feedback_id, role, path));
+
+        -- ===== Domain 11: crew + team =====
+        CREATE TABLE IF NOT EXISTS crew_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, spec_id TEXT, task_id TEXT, implementer_summary TEXT, reviewer_notes TEXT, verdict TEXT, started_at INTEGER, ended_at INTEGER, created_at INTEGER);
+        CREATE TABLE IF NOT EXISTS crew_run_file (run_id TEXT NOT NULL REFERENCES crew_runs(id) ON DELETE CASCADE, path TEXT NOT NULL, op TEXT NOT NULL, PRIMARY KEY (run_id, path, op));
+        CREATE TABLE IF NOT EXISTS team_enrollment (project_id TEXT PRIMARY KEY, min_version TEXT, enrolled_at INTEGER, enrolled_by TEXT);
+
+        -- ===== Domain 13: workflows, gates & execution =====
+        CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT, description TEXT, is_builtin INTEGER, enabled INTEGER, created_at INTEGER, updated_at INTEGER);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_workflows_name ON workflows(project_id, name);
+        CREATE TABLE IF NOT EXISTS workflow_config (workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, key TEXT, value TEXT, PRIMARY KEY (workflow_id, key));
+        CREATE TABLE IF NOT EXISTS workflow_rule_condition (rule_id TEXT NOT NULL, kind TEXT, op TEXT, key TEXT, value TEXT, PRIMARY KEY (rule_id, kind, key, value));
+        CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workflow_id TEXT, command TEXT, work_cycle_id TEXT, status TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 0, max_iterations INTEGER, started_at INTEGER, ended_at INTEGER);
+        CREATE INDEX IF NOT EXISTS ix_wfruns_cycle ON workflow_runs(work_cycle_id);
+        CREATE TABLE IF NOT EXISTS workflow_run_step (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE, rule_id TEXT, seq INTEGER, status TEXT, attempt INTEGER NOT NULL DEFAULT 1, exit_code INTEGER, output TEXT, started_at INTEGER, ended_at INTEGER);
+        CREATE TABLE IF NOT EXISTS gate_evaluation (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE, rule_id TEXT, passed INTEGER NOT NULL, reason TEXT, evaluated_at INTEGER);
+      `)
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
