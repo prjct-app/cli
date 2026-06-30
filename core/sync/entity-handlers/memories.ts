@@ -53,7 +53,7 @@ export const memoriesHandler: EntityHandler = {
     // already present is the same knowledge — skip (also makes re-pull a no-op).
     const dup = prjctDb.get<{ id: string }>(
       projectId,
-      'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
+      'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
       contentHash,
       type
     )
@@ -69,7 +69,7 @@ export const memoriesHandler: EntityHandler = {
     // real content_hash, project_id, and the AUTHORED created_at so the
     // memory_entries trigger writes correct dedup + cross-device chronology
     // (appendEvent stamps events.timestamp = local apply time).
-    const eventId = prjctDb.appendEvent(projectId, `memory.${REMEMBER_ACTION_PREFIX}${type}`, {
+    prjctDb.appendEvent(projectId, `memory.${REMEMBER_ACTION_PREFIX}${type}`, {
       content,
       tags,
       source,
@@ -78,34 +78,10 @@ export const memoriesHandler: EntityHandler = {
       project_id: projectId,
       created_at: authored,
     })
-    if (eventId == null) return
-
-    // FTS mirror — same INSERT shape as project-memory.remember().
-    const memId = `mem_${eventId}`
-    const now = new Date().toISOString()
-    const title = (content.split('\n')[0] ?? content).slice(0, 80)
-    try {
-      prjctDb.run(
-        projectId,
-        `INSERT OR IGNORE INTO memories
-           (id, project_id, title, content, tags, type, provenance, content_hash,
-            user_triggered, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        memId,
-        projectId,
-        title,
-        content,
-        JSON.stringify(tags),
-        type,
-        provenance,
-        contentHash,
-        0,
-        authored,
-        now
-      )
-    } catch {
-      // Non-critical — the events row is authoritative.
-    }
+    // memory_entries (single source for recall + FTS) is populated by the
+    // memory_entries_from_events trigger on the appendEvent above — with the
+    // real content_hash, project_id, and authored created_at carried in the
+    // payload. No `memories` mirror anymore.
   },
 
   async delete(projectId, data) {
@@ -119,7 +95,7 @@ export const memoriesHandler: EntityHandler = {
       const contentHash = memoryFingerprint(content)
       const rows = prjctDb.query<{ id: string }>(
         projectId,
-        'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL',
+        'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL',
         contentHash,
         type
       )
@@ -137,13 +113,7 @@ export const memoriesHandler: EntityHandler = {
           Number(numeric)
         )
       }
-      prjctDb.run(
-        projectId,
-        'UPDATE memories SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
-        new Date().toISOString(),
-        memId
-      )
-      // Schema v2: drop it from the normalized table recall now reads.
+      // Single source: soft-delete in memory_entries (recall + FTS) + drop embedding.
       prjctDb.run(
         projectId,
         'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',

@@ -227,19 +227,19 @@ describe('insights cost', () => {
 
   it('prints a memory doctor fix-plan for cleanup actions', async () => {
     const log = spyOn(console, 'log').mockImplementation(() => {})
-    const old = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
+    const oldMs = Date.now() - 20 * 24 * 60 * 60 * 1000
     try {
+      // memory-doctor reads the single-source memory_entries (epoch-ms times).
       prjctDb.run(
         projectId,
-        `INSERT INTO memories (id, project_id, type, title, content, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO memory_entries
+           (id, project_id, type, title, content, provenance, content_hash,
+            user_triggered, revision_count, created_at, updated_at)
+         VALUES (?, ?, 'inbox', 'list', 'list', 'declared', 'h_low', 0, 0, ?, ?)`,
         'mem_low_signal',
         projectId,
-        'inbox',
-        'list',
-        'list',
-        old,
-        old
+        oldMs,
+        oldMs
       )
 
       const result = await new ProductCommands().insights('quality fix-plan', projectPath, {

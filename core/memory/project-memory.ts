@@ -215,7 +215,7 @@ export const projectMemory = {
       try {
         const dup = prjctDb.get<{ id: string }>(
           projectId,
-          'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
+          'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
           contentHash,
           args.type
         )
@@ -241,41 +241,9 @@ export const projectMemory = {
     )
     if (logResult?.projectId && !projectId) projectId = logResult.projectId
 
-    // Dual-write to the `memories` table so the FTS5 index (memories_fts)
-    // stays fresh. The trigger memories_ai keeps the FTS rows in sync.
-    // Best-effort: the audit-trail event already landed in `events`; if
-    // memories insert fails we just lose the FTS row for this entry.
-    if (logResult?.eventId != null) {
-      try {
-        const memId = `mem_${logResult.eventId}`
-        const now = new Date().toISOString()
-        const titleSrc = args.content.split('\n')[0] ?? args.content
-        const title = titleSrc.slice(0, 80)
-        prjctDb.run(
-          logResult.projectId,
-          `INSERT OR IGNORE INTO memories
-             (id, project_id, title, content, tags, type, provenance, content_hash,
-              user_triggered, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          memId,
-          logResult.projectId,
-          title,
-          args.content,
-          JSON.stringify(tags),
-          args.type,
-          provenance,
-          contentHash,
-          0,
-          now,
-          now
-        )
-        // memory_entries (Schema v2) is populated by the memory_entries_from_events
-        // trigger (migration 40) on the events insert above — covers every writer
-        // uniformly, so no per-call dual-write is needed here.
-      } catch {
-        // Non-critical — events row is the source of truth.
-      }
-    }
+    // memory_entries (the single source for recall + FTS) is populated by the
+    // memory_entries_from_events trigger on the events insert above — covers
+    // every writer uniformly. No `memories` mirror anymore.
 
     // Reinforcement loop: credit the entries this new one references — they
     // just proved load-bearing (the project is building on them). Feeds the
@@ -662,23 +630,8 @@ export const projectMemory = {
       }
     } catch {}
 
-    // FTS mirror — soft-delete so searchFts (filters deleted_at) stops it.
-    try {
-      const mem = prjctDb.get<{ id: string }>(
-        projectId,
-        'SELECT id FROM memories WHERE id = ? AND deleted_at IS NULL',
-        memId
-      )
-      if (mem) {
-        prjctDb.run(
-          projectId,
-          'UPDATE memories SET deleted_at = ? WHERE id = ?',
-          new Date().toISOString(),
-          memId
-        )
-        removed = true
-      }
-    } catch {}
+    // (memory_entries soft-delete below is the single-source forget; it also
+    // removes the entry from searchFts via the FTS triggers.)
 
     // Drop any stored embedding so it can't resurface via semantic search.
     try {

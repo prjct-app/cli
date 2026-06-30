@@ -82,15 +82,11 @@ describe('memory_entries dual-write (C1)', () => {
     // Verbatim dup is deduped — still one row for A.
     await projectMemory.remember(projectRoot, { type: 'decision', content: 'A', projectId })
 
-    const memCount = prjctDb.query<{ n: number }>(
-      projectId,
-      'SELECT COUNT(*) AS n FROM memories WHERE deleted_at IS NULL'
-    )[0].n
+    // memory_entries is the single source; the verbatim dup (A) is deduped.
     const v2Count = prjctDb.query<{ n: number }>(
       projectId,
-      'SELECT COUNT(*) AS n FROM memory_entries'
+      'SELECT COUNT(*) AS n FROM memory_entries WHERE deleted_at IS NULL'
     )[0].n
-    expect(v2Count).toBe(memCount)
     expect(v2Count).toBe(2)
   })
 })

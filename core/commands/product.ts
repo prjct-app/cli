@@ -342,17 +342,17 @@ async function buildValueSnapshot(projectId: string, projectPath: string): Promi
   }
 
   const memories = {
-    live: count(projectId, 'SELECT COUNT(*) AS value FROM memories WHERE deleted_at IS NULL'),
+    live: count(projectId, 'SELECT COUNT(*) AS value FROM memory_entries WHERE deleted_at IS NULL'),
     preventive: count(
       projectId,
-      `SELECT COUNT(*) AS value FROM memories
+      `SELECT COUNT(*) AS value FROM memory_entries
        WHERE deleted_at IS NULL AND type IN ('gotcha', 'anti-pattern', 'learning')`
     ),
     useful: count(projectId, 'SELECT COUNT(*) AS value FROM memory_usefulness WHERE score > 0'),
     surfaced: count(projectId, 'SELECT COUNT(*) AS value FROM memory_surface_log'),
     inbox: count(
       projectId,
-      `SELECT COUNT(*) AS value FROM memories WHERE deleted_at IS NULL AND type = 'inbox'`
+      `SELECT COUNT(*) AS value FROM memory_entries WHERE deleted_at IS NULL AND type = 'inbox'`
     ),
   }
 
@@ -401,7 +401,7 @@ function buildMemoryDoctor(projectId: string): {
   const byType = query<TypeCountRow>(
     projectId,
     `SELECT COALESCE(type, 'unknown') AS type, COUNT(*) AS value
-     FROM memories
+     FROM memory_entries
      WHERE deleted_at IS NULL
      GROUP BY COALESCE(type, 'unknown')
      ORDER BY value DESC, type ASC`
@@ -410,7 +410,7 @@ function buildMemoryDoctor(projectId: string): {
     projectId,
     `SELECT COUNT(*) AS value FROM (
        SELECT type, content_hash
-       FROM memories
+       FROM memory_entries
        WHERE deleted_at IS NULL AND content_hash IS NOT NULL
        GROUP BY type, content_hash
        HAVING COUNT(*) > 1
@@ -418,18 +418,18 @@ function buildMemoryDoctor(projectId: string): {
   )
   const staleInbox = query<MemoryRow>(
     projectId,
-    `SELECT id, title, content, type, tags, created_at
-     FROM memories
+    `SELECT id, title, content, type, '{}' AS tags, created_at
+     FROM memory_entries
      WHERE deleted_at IS NULL
        AND type = 'inbox'
-       AND created_at < datetime('now', '-14 days')
+       AND created_at < (CAST(strftime('%s','now','-14 days') AS INTEGER) * 1000)
      ORDER BY created_at ASC
      LIMIT 8`
   )
   const rows = query<MemoryRow>(
     projectId,
-    `SELECT id, title, content, type, tags, created_at
-     FROM memories
+    `SELECT id, title, content, type, '{}' AS tags, created_at
+     FROM memory_entries
      WHERE deleted_at IS NULL
      ORDER BY created_at DESC
      LIMIT 500`
@@ -437,7 +437,7 @@ function buildMemoryDoctor(projectId: string): {
   const noise = rows.filter((row) => isNoise(row.content)).slice(0, 8)
   const missingType = count(
     projectId,
-    `SELECT COUNT(*) AS value FROM memories
+    `SELECT COUNT(*) AS value FROM memory_entries
      WHERE deleted_at IS NULL AND (type IS NULL OR type = '')`
   )
   const provenUseful = count(
