@@ -234,6 +234,48 @@ function measuredCyclesFromEvents(projectId: string, since: string): Map<string,
   return byTask
 }
 
+interface TokenUsageRow {
+  work_cycle_id: string | null
+  input_tokens: number
+  output_tokens: number
+  is_estimated: number
+}
+
+/**
+ * C2 read path: aggregate measured usage from the typed `token_usage` table —
+ * one cycle per work_cycle_id, latest measurement wins (ORDER BY measured_at
+ * DESC). Structured (exact/estimated is a column), no JSON.parse.
+ */
+function measuredCyclesFromTokenUsage(projectId: string, since: string): Map<string, WorkCostTask> {
+  const sinceMs = Date.parse(since)
+  const rows = query<TokenUsageRow>(
+    projectId,
+    `SELECT work_cycle_id, input_tokens, output_tokens, is_estimated
+     FROM token_usage
+     WHERE measured_at >= ?
+     ORDER BY measured_at DESC`,
+    Number.isFinite(sinceMs) ? sinceMs : 0
+  )
+  const byCycle = new Map<string, WorkCostTask>()
+  for (const row of rows) {
+    const id = row.work_cycle_id
+    if (!id || byCycle.has(id)) continue // first seen = latest (DESC)
+    const tokensIn = nullableNumber(row.input_tokens) ?? 0
+    const tokensOut = nullableNumber(row.output_tokens) ?? 0
+    if (tokensIn + tokensOut <= 0) continue
+    byCycle.set(id, {
+      id,
+      description: id,
+      status: row.is_estimated ? 'estimated' : 'measured',
+      tokensIn,
+      tokensOut,
+      tokensTotal: tokensIn + tokensOut,
+      minutes: null,
+    })
+  }
+  return byCycle
+}
+
 export function buildWorkCostSnapshot(projectId: string, days: number): WorkCostSnapshot {
   const since = sinceIso(days)
   const now = new Date().toISOString()
@@ -252,8 +294,21 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
   for (const task of taskRows.map(toCostTask)) {
     if (task) merged.set(task.id, task)
   }
+  // Events fill any cycle not yet in the typed table (raw events, pre-backfill).
   for (const [id, cycle] of measuredCyclesFromEvents(projectId, since)) {
     merged.set(id, cycle)
+  }
+  // C2 read flip: the typed token_usage table is the authoritative structured
+  // source (exact/estimated split, CHECK-bounded) — overlay it LAST so its token
+  // counts + status win, but keep the richer description/minutes from the
+  // events/tasks sources (token_usage doesn't carry them).
+  for (const [id, cycle] of measuredCyclesFromTokenUsage(projectId, since)) {
+    const prev = merged.get(id)
+    merged.set(id, {
+      ...cycle,
+      description: prev?.description ?? cycle.description,
+      minutes: prev?.minutes ?? cycle.minutes,
+    })
   }
   const measuredTasks = [...merged.values()].sort((a, b) => b.tokensTotal - a.tokensTotal)
 

@@ -1386,6 +1386,76 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 39,
+    name: 'schema-v2-events-backfill',
+    up: (db: SqliteDatabase) => {
+      // Completeness backfill from the AUTHORITATIVE `events` log (the `memories`
+      // mirror used by migration 38 can lag events). Makes memory_entries and
+      // token_usage complete so the read-path flip never drops rows. INSERT OR
+      // IGNORE: latest-first ordering means the newest row per key wins and older
+      // duplicates / CHECK-violating corrupt counts skip cleanly. Rows already
+      // inserted by migration 38 (same `mem_<id>` PK) are skipped. project_id is
+      // read via subquery (one DB == one project); synthetic 'evt_<id>' hash
+      // keeps the NOT NULL + unique(project_id, content_hash) constraints happy
+      // for completeness-only rows.
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          SELECT
+            'mem_' || e.id,
+            (SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1),
+            substr(e.type, length('memory.remember.') + 1),
+            substr(json_extract(e.data, '$.content'), 1, 80),
+            json_extract(e.data, '$.content'),
+            json_extract(e.data, '$.tags.file'),
+            json_extract(e.data, '$.tags.subject'),
+            COALESCE(json_extract(e.data, '$.provenance'), 'declared'),
+            'evt_' || e.id,
+            0, 0,
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000,
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000
+          FROM events e
+          WHERE e.type >= 'memory.remember.' AND e.type < 'memory.remember/'
+            AND json_valid(e.data)
+            AND json_extract(e.data, '$.content') IS NOT NULL
+            AND (SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1) IS NOT NULL
+          ORDER BY e.id DESC
+        `)
+      } catch {
+        // Best-effort — dual-write keeps new entries consistent.
+      }
+      // Token usage history from task_tokens events (latest per cycle via DESC).
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO token_usage
+            (id, work_cycle_id, event_key, source, is_estimated, input_tokens,
+             output_tokens, model_id, measured_at, created_at)
+          SELECT
+            COALESCE(e.task_id, json_extract(e.data, '$.taskId')) || ':migrated',
+            COALESCE(e.task_id, json_extract(e.data, '$.taskId')),
+            COALESCE(e.task_id, json_extract(e.data, '$.taskId')) || ':migrated',
+            'migrated',
+            COALESCE(json_extract(e.data, '$.isEstimated'), 0),
+            json_extract(e.data, '$.tokensIn'),
+            json_extract(e.data, '$.tokensOut'),
+            json_extract(e.data, '$.model'),
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000,
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000
+          FROM events e
+          WHERE e.type = 'memory.task_tokens'
+            AND json_valid(e.data)
+            AND json_extract(e.data, '$.tokensIn') IS NOT NULL
+            AND COALESCE(e.task_id, json_extract(e.data, '$.taskId')) IS NOT NULL
+          ORDER BY e.id DESC
+        `)
+      } catch {
+        // Best-effort — live dual-write covers new token reports.
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
