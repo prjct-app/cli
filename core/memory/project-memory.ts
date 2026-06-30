@@ -39,6 +39,7 @@ import {
   shippedRowToEntry,
 } from './entries'
 import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX, REMEMBER_EVENT_RANGE } from './events'
+import { upsertMemoryEntryV2 } from './memory-entries-store'
 
 interface RecallOpts {
   /** Fuzzy-match against content + tag values */
@@ -205,6 +206,19 @@ export const projectMemory = {
           now,
           now
         )
+        // Schema v2 dual-write (C1): mirror into the normalized memory_entries +
+        // memory_entry_tags so recall can later read typed rows instead of
+        // JSON.parse-ing events.data / memories.tags. Best-effort.
+        upsertMemoryEntryV2({
+          id: memId,
+          projectId: logResult.projectId,
+          type: args.type,
+          content: args.content,
+          tags,
+          provenance,
+          contentHash,
+          createdAt: Date.parse(now),
+        })
       } catch {
         // Non-critical — events row is the source of truth.
       }

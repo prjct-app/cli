@@ -1328,6 +1328,64 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 38,
+    name: 'schema-v2-memory-backfill',
+    up: (db: SqliteDatabase) => {
+      // C1 backfill: populate memory_entries + memory_entry_tags from the
+      // existing `memories` mirror so the v2 tables hold the full history (new
+      // entries are dual-written live by projectMemory.remember). Pure copy —
+      // `memories` stays the source of truth until the read path is cut over.
+      // INSERT OR IGNORE skips rows already present / unique-hash collisions.
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          SELECT
+            id, project_id, type,
+            COALESCE(title, substr(content, 1, 80)),
+            content,
+            json_extract(tags, '$.file'),
+            json_extract(tags, '$.subject'),
+            COALESCE(provenance, 'declared'),
+            content_hash,
+            COALESCE(user_triggered, 0),
+            0,
+            CAST(strftime('%s', created_at) AS INTEGER) * 1000,
+            CAST(strftime('%s', COALESCE(updated_at, created_at)) AS INTEGER) * 1000
+          FROM memories
+          WHERE deleted_at IS NULL
+            AND content IS NOT NULL
+            AND content_hash IS NOT NULL
+            AND created_at IS NOT NULL
+        `)
+      } catch {
+        // Best-effort backfill — live dual-write keeps new entries consistent.
+      }
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+          SELECT me.id, je.key, je.value,
+            CASE WHEN je.key IN (
+              'source','session','window_days','window-days','touches','occurrences',
+              'phrase','slug','hash','content-hash','content_hash','key','kind',
+              'spec-id','spec_id','from','origin','event','task-count','task_count',
+              'context-schema','context_schema','synthesis','commit'
+            ) THEN 1 ELSE 0 END
+          FROM memories m
+          JOIN memory_entries me ON me.id = m.id
+          JOIN json_each(m.tags) je
+          WHERE m.tags IS NOT NULL
+            AND json_valid(m.tags)
+            AND substr(trim(m.tags), 1, 1) = '{'
+            AND je.value IS NOT NULL
+        `)
+      } catch {
+        // Tags are CSV in some legacy rows (not JSON) — those skip cleanly.
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
