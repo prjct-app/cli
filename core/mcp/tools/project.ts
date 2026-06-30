@@ -135,53 +135,98 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_task_set_status',
-    'Change the active work cycle status (e.g. "done", "paused", "active"). Records the transition and drives the workflow state machine through the compatibility status backend. "active"/"resume" promotes paused work back to focus. Optionally report this cycle\'s token usage (tokensIn/tokensOut) so prjct can measure net savings — any agent (Claude, Codex, Gemini, …) should pass its own counts when closing work.',
+    'Change the active work cycle status. Records the transition and drives the workflow state machine. "active"/"resume" promotes paused work back to focus. To report token usage use the dedicated prjct_cost_add tool — this verb only transitions state.',
     {
       projectPath: z.string().describe('Project directory path'),
       status: z
+        .enum(['done', 'completed', 'paused', 'active', 'resume', 'in_progress'])
+        .describe('New status'),
+    },
+    safeMcpCall('prjct_task_set_status', async (args: { projectPath: string; status: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
+      if (!outcome.ok) {
+        const text =
+          outcome.reason === 'unsupported'
+            ? outcome.message
+            : 'No active work cycle to update. Start one with prjct_task_start.'
+        return { content: [{ type: 'text', text }] }
+      }
+      const warnings = outcome.verificationWarnings ?? []
+      const text = [`✓ status → ${outcome.status} (task ${outcome.taskId})`]
+      if (warnings.length > 0) {
+        text.push('', 'Harness warnings:')
+        for (const warning of warnings) text.push(`- ${warning}`)
+      }
+      if (outcome.contextPrompt) text.push('', outcome.contextPrompt)
+      return {
+        content: [{ type: 'text', text: text.join('\n') }],
+      }
+    })
+  )
+
+  s.tool(
+    'prjct_cost_add',
+    "Report a work cycle's token usage so prjct can measure cost/ROI. A narrow, typed verb — any agent (Claude, Codex, Gemini, …) passes its own counts. Pass model/runtime when known; mark isEstimated=true if the counts are not exact provider usage.",
+    {
+      projectPath: z.string().describe('Project directory path'),
+      tokensIn: z.number().describe('Total input tokens this cycle consumed'),
+      tokensOut: z.number().describe('Total output tokens this cycle produced'),
+      model: z
         .string()
-        .describe('New status: done | completed | paused | active | resume | in_progress'),
-      tokensIn: z
-        .number()
         .optional()
-        .describe('Optional: total input tokens this work cycle consumed (any provider).'),
-      tokensOut: z
-        .number()
+        .describe('Model id when the runtime exposes it (e.g. claude-opus-4-8)'),
+      runtime: z.string().optional().describe('Runtime/host: claude | codex | gemini | …'),
+      isEstimated: z
+        .boolean()
         .optional()
-        .describe('Optional: total output tokens this work cycle produced (any provider).'),
+        .describe('True when the counts are an estimate, not exact provider usage. Default false.'),
+      workCycleId: z
+        .string()
+        .optional()
+        .describe('Work cycle/task id; defaults to the active cycle when omitted'),
     },
     safeMcpCall(
-      'prjct_task_set_status',
+      'prjct_cost_add',
       async (args: {
         projectPath: string
-        status: string
-        tokensIn?: number
-        tokensOut?: number
+        tokensIn: number
+        tokensOut: number
+        model?: string
+        runtime?: string
+        isEstimated?: boolean
+        workCycleId?: string
       }) => {
         const projectId = await resolveProjectId(args.projectPath)
-        const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
-        if (!outcome.ok) {
-          const text =
-            outcome.reason === 'unsupported'
-              ? outcome.message
-              : 'No active work cycle to update. Start one with prjct_task_start.'
-          return { content: [{ type: 'text', text }] }
+        let taskId = args.workCycleId
+        if (!taskId) {
+          const { resolveActiveTask } = await import('../../services/task-service')
+          const active = await resolveActiveTask(projectId, args.projectPath)
+          taskId = active?.id
         }
-        // Agent-agnostic token attribution: any agent reports its own usage here
-        // (Claude also auto-records via the Stop hook transcript; both write the
-        // same column, last write wins with the authoritative total).
-        if (outcome.taskId && (args.tokensIn != null || args.tokensOut != null)) {
-          recordTaskTokenUsage(projectId, outcome.taskId, args.tokensIn ?? 0, args.tokensOut ?? 0)
+        if (!taskId) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No work cycle to attribute cost to (pass workCycleId or start a cycle).',
+              },
+            ],
+          }
         }
-        const warnings = outcome.verificationWarnings ?? []
-        const text = [`✓ status → ${outcome.status} (task ${outcome.taskId})`]
-        if (warnings.length > 0) {
-          text.push('', 'Harness warnings:')
-          for (const warning of warnings) text.push(`- ${warning}`)
-        }
-        if (outcome.contextPrompt) text.push('', outcome.contextPrompt)
+        recordTaskTokenUsage(projectId, taskId, args.tokensIn, args.tokensOut, {
+          model: args.model,
+          runtime: args.runtime,
+          isEstimated: args.isEstimated ?? false,
+          source: 'mcp',
+        })
         return {
-          content: [{ type: 'text', text: text.join('\n') }],
+          content: [
+            {
+              type: 'text',
+              text: `Recorded ${args.tokensIn} in / ${args.tokensOut} out${args.model ? ` (${args.model})` : ''} for ${taskId}.`,
+            },
+          ],
         }
       }
     )
@@ -189,57 +234,153 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_analysis',
-    'The stored project analysis (stack, patterns, anti-patterns, conventions). Read this instead of re-deriving the architecture from source.',
+    'The stored project analysis: architecture, stack, patterns, anti-patterns, conventions, tech-debt, and insights. Read this instead of re-deriving the architecture from source. Pass mode:"archive" for the history of superseded analyses.',
     {
       projectPath: z.string().describe('Project directory path'),
+      mode: z
+        .enum(['active', 'archive'])
+        .optional()
+        .describe('"active" (default) = current analysis; "archive" = superseded history'),
     },
-    safeMcpCall('prjct_analysis', async (args: { projectPath: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const analysis = llmAnalysisStorage.getActive(projectId)
+    safeMcpCall(
+      'prjct_analysis',
+      async (args: { projectPath: string; mode?: 'active' | 'archive' }) => {
+        const projectId = await resolveProjectId(args.projectPath)
 
-      if (!analysis) {
-        return { content: [{ type: 'text', text: 'No analysis available. Run `prjct sync`.' }] }
-      }
-
-      const parts: string[] = ['## Project Analysis']
-
-      if (analysis.stack) {
-        parts.push('\n### Stack')
-        if (analysis.stack.languages?.length)
-          parts.push(`Languages: ${analysis.stack.languages.join(', ')}`)
-        if (analysis.stack.frameworks?.length)
-          parts.push(`Frameworks: ${analysis.stack.frameworks.join(', ')}`)
-        if (analysis.stack.packageManager)
-          parts.push(`Package Manager: ${analysis.stack.packageManager}`)
-      }
-
-      if (analysis.patterns?.length) {
-        parts.push(`\n### Patterns (${analysis.patterns.length})`)
-        for (const p of analysis.patterns) {
-          parts.push(`- **${p.name}**: ${p.description}`)
+        if (args.mode === 'archive') {
+          const superseded = llmAnalysisStorage
+            .getAllFull(projectId)
+            .filter((a) => a.status === 'superseded')
+          if (!superseded.length) {
+            return { content: [{ type: 'text', text: 'No superseded analyses in the archive.' }] }
+          }
+          const lines = ['## Analysis Archive (superseded)']
+          for (const a of superseded) {
+            const commit = a.commitHash ? a.commitHash.slice(0, 8) : 'unknown'
+            lines.push(
+              `\n### ${a.analyzedAt} (commit ${commit})`,
+              `Style: ${a.analysis.architecture?.style ?? 'unknown'} · patterns ${a.analysis.patterns?.length ?? 0} · anti-patterns ${a.analysis.antiPatterns?.length ?? 0} · tech-debt ${a.analysis.techDebt?.length ?? 0}`
+            )
+          }
+          return { content: [{ type: 'text', text: lines.join('\n') }] }
         }
-      }
 
-      if (analysis.antiPatterns?.length) {
-        parts.push(`\n### Anti-Patterns (${analysis.antiPatterns.length})`)
-        for (const a of analysis.antiPatterns) {
-          parts.push(`- **${a.issue}**: ${a.suggestion}`)
+        const analysis = llmAnalysisStorage.getActive(projectId)
+        if (!analysis) {
+          return { content: [{ type: 'text', text: 'No analysis available. Run `prjct sync`.' }] }
         }
-      }
 
-      if (analysis.conventions?.length) {
-        parts.push(`\n### Conventions (${analysis.conventions.length})`)
-        for (const c of analysis.conventions) {
-          parts.push(`- [${c.category}] ${c.rule}`)
+        const parts: string[] = ['## Project Analysis']
+
+        if (analysis.architecture?.style) {
+          parts.push('\n### Architecture')
+          parts.push(`Style: ${analysis.architecture.style}`)
+          if (analysis.architecture.domains?.length)
+            parts.push(`Domains: ${analysis.architecture.domains.join(', ')}`)
+          for (const i of analysis.architecture.insights ?? []) parts.push(`- ${i}`)
         }
-      }
 
-      return { content: [{ type: 'text', text: parts.join('\n') }] }
-    })
+        if (analysis.stack) {
+          parts.push('\n### Stack')
+          if (analysis.stack.languages?.length)
+            parts.push(`Languages: ${analysis.stack.languages.join(', ')}`)
+          if (analysis.stack.frameworks?.length)
+            parts.push(`Frameworks: ${analysis.stack.frameworks.join(', ')}`)
+          if (analysis.stack.packageManager)
+            parts.push(`Package Manager: ${analysis.stack.packageManager}`)
+        }
+
+        if (analysis.patterns?.length) {
+          parts.push(`\n### Patterns (${analysis.patterns.length})`)
+          for (const p of analysis.patterns) {
+            parts.push(`- **${p.name}**: ${p.description}`)
+          }
+        }
+
+        if (analysis.antiPatterns?.length) {
+          parts.push(`\n### Anti-Patterns (${analysis.antiPatterns.length})`)
+          for (const a of analysis.antiPatterns) {
+            parts.push(`- **${a.issue}**: ${a.suggestion}`)
+          }
+        }
+
+        if (analysis.conventions?.length) {
+          parts.push(`\n### Conventions (${analysis.conventions.length})`)
+          for (const c of analysis.conventions) {
+            parts.push(`- [${c.category}] ${c.rule}`)
+          }
+        }
+
+        if (analysis.techDebt?.length) {
+          parts.push(`\n### Tech Debt (${analysis.techDebt.length})`)
+          for (const d of analysis.techDebt) {
+            parts.push(`- [${d.priority}/${d.effort}] ${d.description} (${d.area})`)
+          }
+        }
+
+        const insights = analysis.projectInsights ?? []
+        if (insights.length) {
+          parts.push(`\n### Insights (${insights.length})`)
+          for (const i of insights) parts.push(`- ${i}`)
+        }
+
+        return { content: [{ type: 'text', text: parts.join('\n') }] }
+      }
+    )
   )
 
   // `prjct_patterns` was removed — it was a strict subset of `prjct_mem_list`
   // (recall with types=[decision, pattern, anti-pattern, gotcha]). One fewer
   // tool schema in the client's context every turn; callers pass the `types`
   // filter to `prjct_mem_list` for the same result.
+
+  // `prjct_developer` + `prjct_signals` replace the vault-only `developer.md`
+  // and `signals.md` read surfaces (WS-A: vault is off by default, so this
+  // synthesis must be queryable through a tool, not Read/Glob over markdown).
+  s.tool(
+    'prjct_developer',
+    'The synthesized developer profile — stated preferences (feedback) + friction lessons. Read this to act as the developer would without being told each time.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_developer', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const { projectMemory } = await import('../../memory/project-memory')
+      const { buildDeveloperProfile } = await import(
+        '../../services/wiki/developer-profile-builder'
+      )
+      const entries = projectMemory.allEntriesForIndex(projectId)
+      const body = buildDeveloperProfile(entries)
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              body ??
+              'No developer profile yet — capture `feedback` memories as preferences emerge.',
+          },
+        ],
+      }
+    })
+  )
+
+  s.tool(
+    'prjct_signals',
+    'Machine signals dashboard — hot files, recurring patterns, skill-misses, friction. Transient telemetry to act on, then let expire (not durable knowledge).',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_signals', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const { projectMemory } = await import('../../memory/project-memory')
+      const { buildSignalsFile, isSignalEntry } = await import(
+        '../../services/wiki/signals-builder'
+      )
+      const signals = projectMemory.allEntriesForIndex(projectId).filter(isSignalEntry)
+      const body = buildSignalsFile(signals, { boundary: 'llm' })
+      return {
+        content: [{ type: 'text', text: body ?? 'No active signals.' }],
+      }
+    })
+  )
 }
