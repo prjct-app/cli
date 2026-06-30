@@ -94,9 +94,12 @@ export async function buildSessionContext(
   // last sync so the model refreshes the architecture/risks map instead of
   // trusting a frozen snapshot for the session's big calls.
   const staleness = await buildStalenessNotice(projectPath, config.projectId)
+  // One-time heads-up if a legacy on-disk vault exists but generation is now off.
+  const { vaultRetirementNotice } = await import('../services/vault-retire-notice')
+  const vaultNotice = await vaultRetirementNotice(projectPath, config.projectId)
 
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness) return null
+  if (!persona && !digest && !staleness && !vaultNotice) return null
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
@@ -116,6 +119,10 @@ export async function buildSessionContext(
   if (staleness) {
     if (persona || digest) sections.push('')
     sections.push(staleness)
+  }
+  if (vaultNotice) {
+    if (persona || digest || staleness) sections.push('')
+    sections.push(vaultNotice)
   }
   return sections.join('\n')
 }

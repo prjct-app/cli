@@ -113,6 +113,16 @@ export interface LocalConfig {
    */
   notify?: { mode: 'on' | 'off' }
   /**
+   * Obsidian/markdown vault generation mode. **Default `off`** — prjct is the
+   * LLM data plane: agents read project knowledge through tools/CLI (`prjct
+   * search`, `prjct context memory`, `prjct_*` MCP), never by Read/Glob over a
+   * generated markdown tree. The vault is a write-only projection that cloud
+   * does not consume; keeping it on cannibalizes cloud and degrades agent
+   * context. `export` restores full Obsidian generation for users who opt in
+   * (`prjct vault on`). Unset ⇒ `off`. Resolved by `effectiveVaultMode`.
+   */
+  vault?: { mode: 'off' | 'export' }
+  /**
    * Override for the Obsidian-compatible wiki vault location.
    * - Absolute path (e.g. "/Users/jj/Documents/prjct/my-app")
    * - Or tilde-prefixed (e.g. "~/Documents/prjct/my-app")

@@ -71,6 +71,7 @@ export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = 
   cloud: lazy(async () => new (await import('./cloud')).CloudCommands()),
   tdd: lazy(async () => new (await import('./tdd')).TddCommands()),
   sdd: lazy(async () => new (await import('./sdd')).SddCommands()),
+  vault: lazy(async () => new (await import('./vault')).VaultCommands()),
   notify: lazy(async () => new (await import('./notify')).NotifyCommands()),
   agents: lazy(async () => new (await import('./agents')).AgentsCommands()),
   product: lazy(async () => new (await import('./product')).ProductCommands()),

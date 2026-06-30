@@ -251,11 +251,12 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('prjct seed')
     })
 
-    it('references the wiki data paths', async () => {
+    it('points knowledge access at tools, not the vault', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('.prjct/wiki/_generated/')
-      expect(content).toContain('.prjct/wiki/captured/')
+      // Vault retired as a default read surface — the skill routes to tools.
+      expect(content).not.toContain('.prjct/wiki/_generated/')
+      expect(content).toContain('prjct context memory')
       expect(content).toContain('.prjct/prjct.config.json')
     })
 

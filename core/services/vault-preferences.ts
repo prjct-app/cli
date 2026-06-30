@@ -9,9 +9,26 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { resolveUserHome } from '../infrastructure/user-home'
+import type { LocalConfig } from '../types/config'
 import { getConfig, setConfig, unsetConfig } from './global-config'
 
 export const VAULT_ROOT_CONFIG_KEY = 'vault-root'
+
+export type VaultMode = 'off' | 'export'
+export const VAULT_MODES: readonly VaultMode[] = ['off', 'export']
+
+/**
+ * Resolve whether the markdown vault should be generated. **Default `off`** —
+ * prjct is the LLM data plane; agents read through tools, not a generated tree.
+ * Config wins; `PRJCT_VAULT_MODE` env is the fallback. Unknown ⇒ `off`.
+ */
+export function effectiveVaultMode(config: LocalConfig | null): VaultMode {
+  const fromConfig = config?.vault?.mode
+  if (fromConfig && (VAULT_MODES as readonly string[]).includes(fromConfig)) return fromConfig
+  const fromEnv = process.env.PRJCT_VAULT_MODE?.toLowerCase()
+  if (fromEnv && (VAULT_MODES as readonly string[]).includes(fromEnv)) return fromEnv as VaultMode
+  return 'off'
+}
 
 export function getConfiguredVaultRoot(): string | undefined {
   const value = getConfig(VAULT_ROOT_CONFIG_KEY)

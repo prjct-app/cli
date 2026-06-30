@@ -61,7 +61,9 @@ beforeEach(async () => {
   await fs.mkdir(path.join(projectRoot, '.prjct'), { recursive: true })
   await fs.writeFile(
     path.join(projectRoot, '.prjct', 'prjct.config.json'),
-    JSON.stringify({ projectId, dataPath: '' }, null, 2)
+    // Vault generation is off by default (prjct = LLM data plane); these tests
+    // exercise the generator, so they opt into `export`.
+    JSON.stringify({ projectId, dataPath: '', vault: { mode: 'export' } }, null, 2)
   )
 
   // Redirect every path the wiki layer might consult into our sandbox.

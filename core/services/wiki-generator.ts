@@ -40,6 +40,7 @@ import shippedStorage from '../storage/shipped-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { WorkflowRule } from '../types/storage/extended'
 import { ensureObsidianVault } from './obsidian-vault'
+import { effectiveVaultMode } from './vault-preferences'
 import type { Manifest } from './wiki/_shared'
 import { sha256, slugify, VAULT_HOME_FILE, VAULT_START_HERE_FILE } from './wiki/_shared'
 import { buildArchitectureBaseline } from './wiki/architecture-builder'
@@ -158,6 +159,18 @@ export async function generateWiki(
   // Resolve vault location (new default is <vault-root>/<slug>/);
   // pre-2.2.0 projects get their old `.prjct/wiki/` migrated in-place.
   const wikiRoot = await resolveVaultRoot(projectPath)
+
+  // Gate: vault generation is OFF by default (prjct is the LLM data plane —
+  // agents read knowledge through tools, not a generated markdown tree). This
+  // is the single choke point every regen call site funnels through
+  // (hooks, sync, remember/capture, ship, task writes, MCP). Early-return
+  // BEFORE mkdir so an `off` project never even creates `_generated/`.
+  const { default: configManager } = await import('../infrastructure/config-manager')
+  const config = await configManager.readConfig(projectPath).catch(() => null)
+  if (effectiveVaultMode(config) === 'off') {
+    return { wikiRoot, filesWritten: 0, filesSkipped: 0, filesRemoved: 0 }
+  }
+
   const generatedRoot = path.join(wikiRoot, GENERATED_SUBDIR)
   await fs.mkdir(generatedRoot, { recursive: true })
   const legacyRemoved = await removeLegacyVaultFiles(wikiRoot, generatedRoot)

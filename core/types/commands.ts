@@ -353,6 +353,7 @@ export type CommandRoutingGroup =
   | 'cloud'
   | 'tdd'
   | 'sdd'
+  | 'vault'
   | 'notify'
   | 'agents'
   | 'product'

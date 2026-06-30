@@ -460,6 +460,28 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'vault',
+    group: 'optional',
+    surface: 'support',
+    routing: { group: 'vault', method: 'vault' },
+    optionSchema: {},
+    description: 'Obsidian/markdown vault generation (off by default; on for Obsidian export)',
+    usage: {
+      claude: 'p. vault [on|off|status]',
+      terminal: 'prjct vault [sub]',
+    },
+    params: '[on|off|status]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'No arg → show mode + vault location',
+      'on|export enables generation and regenerates now; off disables (files kept)',
+      'Default off — agents read knowledge through tools, not a markdown tree',
+    ],
+  },
+  {
     name: 'notify',
     group: 'setup',
     surface: 'support',
