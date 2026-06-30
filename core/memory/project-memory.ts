@@ -28,17 +28,15 @@ import { memoryFingerprint } from './content-fingerprint'
 import {
   collectSupersededIds,
   dedupeLatestByKey,
-  type EventRow,
   type MemoryEntry,
   type MemoryProvenance,
   type MemoryType,
   matchesTags,
   matchesTopic,
-  rowToEntry,
   type ShippedRow,
   shippedRowToEntry,
 } from './entries'
-import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX, REMEMBER_EVENT_RANGE } from './events'
+import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
 interface RecallOpts {
   /** Fuzzy-match against content + tag values */
@@ -110,11 +108,17 @@ function collectMirrorSupersededIds(projectId: string): Set<string> {
 
 /**
  * Read authored memory from the Schema v2 tables (memory_entries +
- * memory_entry_tags), mapped to the MemoryEntry shape. One indexed query for
- * the rows + one batched query for their tags — no JSON.parse per row. The
- * memory_entries_from_events trigger keeps these complete for every writer.
+ * memory_entry_tags), mapped to MemoryEntry. One indexed query for the rows +
+ * one batched query for their tags — no JSON.parse per row. `memory_entries` is
+ * the single read source; the trigger keeps it complete for every writer.
+ * `whereTail` is the part after `WHERE deleted_at IS NULL` (e.g. `AND type = ?
+ * ORDER BY ... LIMIT ?`); `params` binds its placeholders.
  */
-function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[] {
+function loadV2Entries(
+  projectId: string,
+  whereTail: string,
+  ...params: Array<string | number>
+): MemoryEntry[] {
   const rows = prjctDb.query<{
     id: string
     type: string
@@ -123,14 +127,10 @@ function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[
     created_at: number
   }>(
     projectId,
-    // rowid is the monotonic insert order — a correct numeric newest-first
-    // tiebreak (the TEXT `mem_N` id would sort lexicographically: mem_99 > mem_100).
     `SELECT id, type, content, provenance, created_at
      FROM memory_entries
-     WHERE deleted_at IS NULL
-     ORDER BY created_at DESC, rowid DESC
-     LIMIT ?`,
-    overfetch
+     WHERE deleted_at IS NULL ${whereTail}`,
+    ...params
   )
   if (rows.length === 0) return []
   const placeholders = rows.map(() => '?').join(',')
@@ -156,6 +156,11 @@ function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[
     rememberedAt: new Date(r.created_at).toISOString(),
     provenance: (r.provenance ?? 'declared') as MemoryProvenance,
   }))
+}
+
+/** Newest-first recall over all live entries (rowid = numeric insert order). */
+function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[] {
+  return loadV2Entries(projectId, 'ORDER BY created_at DESC, rowid DESC LIMIT ?', overfetch)
 }
 
 export const projectMemory = {
@@ -505,20 +510,20 @@ export const projectMemory = {
     // the scan to file-tagged remember rows in SQL — exact / suffix / basename
     // matching mirrors the original JS filter. Preventive-type filtering and
     // superseded pruning stay in JS over the (small) matched set.
+    // memory_entries.file is the typed, indexed equivalent of the old events
+    // `file_tag` generated column — exact / suffix / basename match in SQL.
     let matches: MemoryEntry[]
     try {
-      const rows = prjctDb.query<EventRow>(
+      matches = loadV2Entries(
         projectId,
-        `SELECT id, type, data, timestamp FROM events
-          WHERE file_tag IS NOT NULL
-            AND (file_tag = ? OR ? LIKE '%/' || file_tag OR file_tag = ? OR file_tag LIKE '%/' || ?)
-          ORDER BY id DESC`,
+        `AND file IS NOT NULL
+          AND (file = ? OR ? LIKE '%/' || file OR file = ? OR file LIKE '%/' || ?)
+          ORDER BY created_at DESC, rowid DESC`,
         filePath,
         filePath,
         base,
         base
-      )
-      matches = rows.map(rowToEntry).filter(isPreventive)
+      ).filter(isPreventive)
     } catch {
       return []
     }
@@ -531,13 +536,12 @@ export const projectMemory = {
     // pull away via `prjct guard` when the agent actually asks "what happened?".
     if (!opts.preventiveOnly) {
       try {
-        const ctxRows = prjctDb.query<EventRow>(
+        const ctxRows = loadV2Entries(
           projectId,
-          `SELECT id, type, data, timestamp FROM events
-          WHERE type = ? ORDER BY id DESC LIMIT 200`,
-          `${REMEMBER_EVENT_PREFIX}context`
+          'AND type = ? ORDER BY created_at DESC, rowid DESC LIMIT 200',
+          'context'
         )
-        for (const e of ctxRows.map(rowToEntry)) {
+        for (const e of ctxRows) {
           const files = (e.tags?.files ?? '').split(',').map((f) => f.trim())
           if (files.some((f) => f === filePath || f === base || f.endsWith(`/${base}`))) {
             matches.push(e)
@@ -565,15 +569,8 @@ export const projectMemory = {
       .trim()
       .match(/^(?:mem[_-])?(\d+)$/i)
     if (!m) return null
-    const rowId = Number(m[1])
     try {
-      const row = prjctDb.get<EventRow>(
-        projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE id = ? AND type LIKE ?',
-        rowId,
-        `${REMEMBER_EVENT_PREFIX}%`
-      )
-      return row ? rowToEntry(row) : null
+      return loadV2Entries(projectId, 'AND id = ?', `mem_${m[1]}`)[0] ?? null
     } catch {
       return null
     }
@@ -591,8 +588,8 @@ export const projectMemory = {
     try {
       const row = prjctDb.get<{ n: number }>(
         projectId,
-        'SELECT COUNT(*) AS n FROM events WHERE type = ?',
-        `${REMEMBER_EVENT_PREFIX}${type}`
+        'SELECT COUNT(*) AS n FROM memory_entries WHERE type = ? AND deleted_at IS NULL',
+        type
       )
       return row?.n ?? 0
     } catch {
@@ -610,13 +607,12 @@ export const projectMemory = {
   recallByType(projectId: string, type: string, limit: number): MemoryEntry[] {
     if (limit <= 0) return []
     try {
-      const rows = prjctDb.query<EventRow>(
+      return loadV2Entries(
         projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE type = ? ORDER BY id DESC LIMIT ?',
-        `${REMEMBER_EVENT_PREFIX}${type}`,
+        'AND type = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+        type,
         limit
       )
-      return rows.map(rowToEntry)
     } catch {
       return []
     }
@@ -756,18 +752,15 @@ export const projectMemory = {
    */
   unembeddedEntriesForIndex(projectId: string, model: string): MemoryEntry[] {
     try {
-      const rows = prjctDb.query<EventRow>(
+      const rows = loadV2Entries(
         projectId,
-        `SELECT e.id, e.type, e.data, e.timestamp FROM events e
-          WHERE e.type >= ? AND e.type < ?
-            AND e.type != ?
-            AND NOT EXISTS (
-              SELECT 1 FROM memory_embeddings me
-               WHERE me.memory_id = 'mem_' || e.id AND me.model = ?
-            )
-          ORDER BY e.id DESC`,
-        ...REMEMBER_EVENT_RANGE,
-        `${REMEMBER_EVENT_PREFIX}improvement-signal`,
+        `AND type != ?
+          AND NOT EXISTS (
+            SELECT 1 FROM memory_embeddings me
+             WHERE me.memory_id = memory_entries.id AND me.model = ?
+          )
+          ORDER BY created_at DESC, rowid DESC`,
+        'improvement-signal',
         model
       )
       const shipped = prjctDb.query<ShippedRow>(
@@ -780,7 +773,7 @@ export const projectMemory = {
           ORDER BY s.shipped_at DESC`,
         model
       )
-      return [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+      return [...rows, ...shipped.map(shippedRowToEntry)]
     } catch {
       return []
     }
@@ -788,16 +781,12 @@ export const projectMemory = {
 
   allEntriesForIndex(projectId: string): MemoryEntry[] {
     try {
-      const rows = prjctDb.query<EventRow>(
-        projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC',
-        ...REMEMBER_EVENT_RANGE
-      )
+      const entries = loadV2Entries(projectId, 'ORDER BY created_at DESC, rowid DESC')
       const shipped = prjctDb.query<ShippedRow>(
         projectId,
         'SELECT id, name, type, shipped_at, data FROM shipped_features ORDER BY shipped_at DESC'
       )
-      return [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+      return [...entries, ...shipped.map(shippedRowToEntry)]
     } catch {
       return []
     }
