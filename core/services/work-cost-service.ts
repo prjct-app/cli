@@ -104,7 +104,18 @@ export function recordTaskTokenUsage(
   taskId: string,
   tokensIn: number,
   tokensOut: number,
-  meta?: { description?: string; agent?: string }
+  meta?: {
+    description?: string
+    agent?: string
+    /** Model id when the runtime exposes it (e.g. claude-opus-4-8); else unknown. */
+    model?: string
+    /** Runtime/host: claude|codex|gemini|... when known. */
+    runtime?: string
+    /** True when the count is an estimate, not exact provider usage. */
+    isEstimated?: boolean
+    /** Where the measurement came from: transcript|mcp|cli. */
+    source?: string
+  }
 ): void {
   if (!taskId || tokensIn + tokensOut <= 0) return
   const ti = Math.round(tokensIn)
@@ -119,6 +130,10 @@ export function recordTaskTokenUsage(
         tokensOut: to,
         ...(meta?.description ? { description: meta.description } : {}),
         ...(meta?.agent ? { agent: meta.agent } : {}),
+        ...(meta?.model ? { model: meta.model } : {}),
+        ...(meta?.runtime ? { runtime: meta.runtime } : {}),
+        ...(meta?.isEstimated !== undefined ? { isEstimated: meta.isEstimated } : {}),
+        ...(meta?.source ? { source: meta.source } : {}),
       },
       taskId
     )
@@ -322,10 +337,31 @@ export async function publishWorkCostSnapshots(
       entityType: 'work_cost_snapshots',
       entityId: snapshot.id,
       eventType: 'upsert',
-      data: snapshot,
+      // AC8 (spec 4b5bc99e): never let free-text memory prose reach cloud egress.
+      // `topDeclaredTokenMentions` is regex-scraped from `memory.remember.*`
+      // content, so its `summary` can carry secrets/PII. Cloud telemetry must
+      // carry only structured numeric fields — strip the prose before publish.
+      // The local snapshot (returned below) keeps it for the local cost report.
+      data: redactSnapshotForCloud(snapshot),
     })
   }
   return snapshots
+}
+
+/** Drop free-text excerpts from the cloud payload, keeping structured fields. */
+function redactSnapshotForCloud(snapshot: WorkCostSnapshot): WorkCostSnapshot {
+  return {
+    ...snapshot,
+    historicalRescue: {
+      ...snapshot.historicalRescue,
+      topDeclaredTokenMentions: snapshot.historicalRescue.topDeclaredTokenMentions.map((m) => ({
+        tokens: m.tokens,
+        sourceType: m.sourceType,
+        occurredAt: m.occurredAt,
+        summary: '[redacted]',
+      })),
+    },
+  }
 }
 
 function toCostTask(row: CostTaskRow): WorkCostTask | null {

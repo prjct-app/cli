@@ -30,6 +30,40 @@ describe('sumTranscriptUsage', () => {
     expect(usage.tokensOut).toBe(40 + 60)
   })
 
+  it('does not sum the cumulative cache_read prefix across turns (anti-inflation)', () => {
+    // Claude re-reports the growing cached prefix each turn; summing it inflates
+    // tokensIn quadratically. We take the largest single cache_read, not the sum.
+    const lines = parseTranscriptJsonl(
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 1000 },
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 2000 },
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 3000 },
+          },
+        }),
+      ].join('\n')
+    )
+    const usage = sumTranscriptUsage(lines)
+    // per-turn inputs (100*3) + max cache_read (3000) — NOT 1000+2000+3000.
+    expect(usage.tokensIn).toBe(300 + 3000)
+    expect(usage.tokensOut).toBe(30)
+  })
+
   it('returns zero usage when no usage blocks are present', () => {
     const lines = parseTranscriptJsonl(JSON.stringify({ type: 'user', message: { role: 'user' } }))
     expect(sumTranscriptUsage(lines)).toEqual({ tokensIn: 0, tokensOut: 0 })

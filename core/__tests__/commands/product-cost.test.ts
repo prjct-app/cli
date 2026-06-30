@@ -6,6 +6,7 @@ import { ProductCommands } from '../../commands/product'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import {
+  buildWorkCostSnapshot,
   publishWorkCostSnapshots,
   recordTaskTokenUsage,
   type WorkCostSnapshot,
@@ -153,6 +154,43 @@ describe('insights cost', () => {
     expect(pending[0]?.event.entityType).toBe('work_cost_snapshots')
     expect(pending[0]?.event.entityId).toBe('work-cost-30d')
     expect(pending[0]?.event.eventType).toBe('upsert')
+  })
+
+  it('AC8: redacts free-text declared-token prose from the cloud payload', () => {
+    // Seed a remembered note that mentions tokens AND carries a secret-like phrase.
+    const now = new Date().toISOString()
+    prjctDb.appendEvent(projectId, 'memory.remember.learning', {
+      content: 'Saved ~5000 tokens by caching; key sk-live-SECRET-pii-12345',
+      tags: {},
+      provenance: 'declared',
+    })
+    prjctDb.run(
+      projectId,
+      'UPDATE events SET timestamp = ? WHERE type = ?',
+      now,
+      'memory.remember.learning'
+    )
+
+    // Local snapshot keeps the prose (used by the local cost report)...
+    const local = buildWorkCostSnapshot(projectId, 30)
+    const localMentions = local.historicalRescue.topDeclaredTokenMentions
+    expect(localMentions.length).toBeGreaterThan(0)
+    expect(localMentions.some((m) => m.summary.includes('SECRET'))).toBe(true)
+
+    // ...but the cloud payload must NOT (only structured numeric fields).
+    return publishWorkCostSnapshots(projectId, [30]).then(() => {
+      const pending = syncPendingStorage.list(projectId)
+      const published = pending.find((p) => p.event.entityId === 'work-cost-30d')
+      const data = published?.event.data as WorkCostSnapshot
+      const cloudMentions = data.historicalRescue.topDeclaredTokenMentions
+      expect(cloudMentions.length).toBeGreaterThan(0)
+      for (const m of cloudMentions) {
+        expect(m.summary).toBe('[redacted]')
+        expect(typeof m.tokens).toBe('number')
+      }
+      const serialized = JSON.stringify(data)
+      expect(serialized.includes('SECRET')).toBe(false)
+    })
   })
 
   it('reports measurement reliability gaps and next actions', async () => {
