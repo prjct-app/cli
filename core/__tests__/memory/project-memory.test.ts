@@ -419,23 +419,36 @@ describe('projectMemory.searchFts — BM25 relevance over recency', () => {
   }): void {
     const now = args.createdAt ?? new Date().toISOString()
     const tags = args.tags ?? {}
+    // Single-source: seed memory_entries (the table recall/searchFts read).
+    // The FTS trigger (migration 42) indexes it; tags go to the child table.
+    const createdMs = Date.parse(now) || Date.now()
     prjctDb.run(
       projectId,
-      `INSERT INTO memories
-         (id, project_id, title, content, tags, type, provenance, user_triggered,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO memory_entries
+         (id, project_id, type, title, content, file, subject, provenance,
+          content_hash, user_triggered, revision_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'declared', ?, 0, 0, ?, ?)`,
       args.id,
       projectId,
+      args.type,
       args.content.slice(0, 80),
       args.content,
-      JSON.stringify(tags),
-      args.type,
-      'declared',
-      0,
-      now,
-      now
+      typeof tags.file === 'string' ? tags.file : null,
+      typeof tags.subject === 'string' ? tags.subject : null,
+      `hash_${args.id}`,
+      createdMs,
+      createdMs
     )
+    prjctDb.run(projectId, 'DELETE FROM memory_entry_tags WHERE entry_id = ?', args.id)
+    for (const [k, v] of Object.entries(tags)) {
+      prjctDb.run(
+        projectId,
+        'INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine) VALUES (?, ?, ?, 0)',
+        args.id,
+        k,
+        String(v)
+      )
+    }
   }
 
   it('returns the topically-relevant entry even when it is older than recency-window misses', () => {
@@ -523,23 +536,22 @@ describe('projectMemory.countByType / recallByType — hot-path exact-type queri
 
 describe('projectMemory.forget', () => {
   function writeMemoryRow(args: { id: string; type: string; content: string }): void {
-    const now = new Date().toISOString()
+    // Single-source: seed memory_entries (the table searchFts/recall read).
+    const createdMs = Date.now()
     prjctDb.run(
       projectId,
-      `INSERT INTO memories
-         (id, project_id, title, content, tags, type, provenance, user_triggered,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO memory_entries
+         (id, project_id, type, title, content, provenance, content_hash,
+          user_triggered, revision_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'declared', ?, 0, 0, ?, ?)`,
       args.id,
       projectId,
+      args.type,
       args.content.slice(0, 80),
       args.content,
-      '{}',
-      args.type,
-      'declared',
-      0,
-      now,
-      now
+      `hash_${args.id}`,
+      createdMs,
+      createdMs
     )
   }
 

@@ -1689,6 +1689,43 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 42,
+    name: 'schema-v2-memory-entries-fts',
+    up: (db: SqliteDatabase) => {
+      // FTS over the single-source memory_entries (replaces memories_fts). C1
+      // search cutover: `prjct search` / searchFts reads this. External-content
+      // FTS5 over memory_entries(content, title); kept in sync by triggers on
+      // memory_entries so EVERY writer (incl. the session-cleanup direct append
+      // that had no FTS row before) is searchable. deleted_at is filtered in the
+      // query, not the index.
+      try {
+        db.run(
+          "CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5(content, title, content='memory_entries', content_rowid='rowid')"
+        )
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ai AFTER INSERT ON memory_entries BEGIN
+            INSERT INTO memory_entries_fts(rowid, content, title) VALUES (new.rowid, new.content, new.title);
+          END;
+        `)
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ad AFTER DELETE ON memory_entries BEGIN
+            INSERT INTO memory_entries_fts(memory_entries_fts, rowid, content, title) VALUES('delete', old.rowid, old.content, old.title);
+          END;
+        `)
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_fts_au AFTER UPDATE ON memory_entries BEGIN
+            INSERT INTO memory_entries_fts(memory_entries_fts, rowid, content, title) VALUES('delete', old.rowid, old.content, old.title);
+            INSERT INTO memory_entries_fts(rowid, content, title) VALUES (new.rowid, new.content, new.title);
+          END;
+        `)
+        // Backfill the index from existing rows.
+        db.run("INSERT INTO memory_entries_fts(memory_entries_fts) VALUES('rebuild')")
+      } catch {
+        // FTS5 unavailable or already built — search degrades to recall; non-fatal.
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

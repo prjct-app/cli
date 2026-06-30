@@ -175,23 +175,22 @@ describe('UserPromptSubmit — project state', () => {
 
 describe('UserPromptSubmit — topical trap cue', () => {
   function seedMirror(id: string, type: string, content: string): void {
-    const now = new Date().toISOString()
+    // Single-source: searchFts/recall read memory_entries (FTS trigger indexes).
+    const createdMs = Date.now()
     prjctDb.run(
       projectId,
-      `INSERT INTO memories
-         (id, project_id, title, content, tags, type, provenance, user_triggered,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO memory_entries
+         (id, project_id, type, title, content, provenance, content_hash,
+          user_triggered, revision_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'declared', ?, 0, 0, ?, ?)`,
       id,
       projectId,
+      type,
       content.slice(0, 80),
       content,
-      '{}',
-      type,
-      'declared',
-      0,
-      now,
-      now
+      `hash_${id}`,
+      createdMs,
+      createdMs
     )
   }
 

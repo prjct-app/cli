@@ -82,24 +82,29 @@ const MIN_OVERFETCH = 100
  */
 function collectMirrorSupersededIds(projectId: string): Set<string> {
   try {
-    const rows = prjctDb.query<{ id: string; tags: string | null }>(
+    // Single-source: relationship tags live in memory_entry_tags now (no JSON
+    // LIKE over a blob). Reassemble {id → tags} for the relationship keys only.
+    const rows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
       projectId,
-      `SELECT id, tags FROM memories
-        WHERE deleted_at IS NULL
-          AND (tags LIKE '%supersede%' OR tags LIKE '%duplicates%')`
+      `SELECT t.entry_id, t.key, t.value
+         FROM memory_entry_tags t
+         JOIN memory_entries m ON m.id = t.entry_id
+        WHERE m.deleted_at IS NULL
+          AND (t.key LIKE '%supersede%' OR t.key LIKE '%duplicate%')`
     )
-    const pseudo: Pick<MemoryEntry, 'id' | 'tags'>[] = []
-    for (const row of rows) {
-      if (!row.tags) continue
-      try {
-        const parsed = JSON.parse(row.tags) as unknown
-        if (parsed && typeof parsed === 'object') {
-          pseudo.push({ id: row.id, tags: parsed as Record<string, string> })
-        }
-      } catch {
-        // legacy non-JSON tags — skip
+    const byId = new Map<string, Record<string, string>>()
+    for (const r of rows) {
+      let tags = byId.get(r.entry_id)
+      if (!tags) {
+        tags = {}
+        byId.set(r.entry_id, tags)
       }
+      tags[r.key] = r.value
     }
+    const pseudo: Pick<MemoryEntry, 'id' | 'tags'>[] = [...byId.entries()].map(([id, tags]) => ({
+      id,
+      tags,
+    }))
     return collectSupersededIds(pseudo as MemoryEntry[])
   } catch {
     return new Set()
@@ -357,26 +362,25 @@ export const projectMemory = {
 
     type FtsRow = {
       id: string
-      title: string
       content: string
-      tags: string | null
       type: string | null
       provenance: string | null
-      created_at: string
+      created_at: number
     }
     let rows: FtsRow[]
     try {
       // Overfetch: superseded pruning below may drop rows, and this is
       // the surface that feeds the per-prompt trap cue — a stale decision
-      // must not consume the only result slot.
+      // must not consume the only result slot. Single-source: FTS over
+      // memory_entries (migration 42).
       rows = prjctDb.query<FtsRow>(
         projectId,
-        `SELECT m.id, m.title, m.content, m.tags, m.type, m.provenance, m.created_at
-         FROM memories_fts ft
-         JOIN memories m ON m.rowid = ft.rowid
-         WHERE memories_fts MATCH ?
+        `SELECT m.id, m.content, m.type, m.provenance, m.created_at
+         FROM memory_entries_fts ft
+         JOIN memory_entries m ON m.rowid = ft.rowid
+         WHERE memory_entries_fts MATCH ?
            AND m.deleted_at IS NULL
-         ORDER BY bm25(memories_fts) ASC, m.created_at DESC
+         ORDER BY bm25(memory_entries_fts) ASC, m.created_at DESC
          LIMIT ?`,
         matchExpr,
         limit * 2
@@ -384,26 +388,32 @@ export const projectMemory = {
     } catch {
       return []
     }
+    if (rows.length === 0) return []
 
-    let entries = rows.map((row) => {
-      let tags: Record<string, string> = {}
-      if (row.tags) {
-        try {
-          const parsed = JSON.parse(row.tags) as unknown
-          if (parsed && typeof parsed === 'object') tags = parsed as Record<string, string>
-        } catch {
-          // Comma-joined legacy form (migration 10 backfill). Best-effort.
-        }
+    const placeholders = rows.map(() => '?').join(',')
+    const tagRows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
+      projectId,
+      `SELECT entry_id, key, value FROM memory_entry_tags WHERE entry_id IN (${placeholders})`,
+      ...rows.map((r) => r.id)
+    )
+    const tagsById = new Map<string, Record<string, string>>()
+    for (const t of tagRows) {
+      let mp = tagsById.get(t.entry_id)
+      if (!mp) {
+        mp = {}
+        tagsById.set(t.entry_id, mp)
       }
-      return {
-        id: row.id,
-        type: row.type ?? 'fact',
-        content: row.content,
-        tags,
-        rememberedAt: row.created_at,
-        provenance: (row.provenance ?? 'declared') as MemoryProvenance,
-      }
-    })
+      mp[t.key] = t.value
+    }
+
+    let entries = rows.map((row) => ({
+      id: row.id,
+      type: (row.type ?? 'fact') as MemoryType,
+      content: row.content,
+      tags: tagsById.get(row.id) ?? {},
+      rememberedAt: new Date(row.created_at).toISOString(),
+      provenance: (row.provenance ?? 'declared') as MemoryProvenance,
+    }))
 
     // Author-declared compaction, same contract as recall(): a superseded
     // or duplicated entry must not surface as live advice. Unlike recall's
@@ -675,16 +685,17 @@ export const projectMemory = {
       prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)
     } catch {}
 
-    // Schema v2: soft-delete the normalized row so recall (which now reads
-    // memory_entries) stops returning it. The deleted event won't re-create it
-    // (trigger only fires on INSERT).
+    // Schema v2 single source: soft-delete the normalized row so recall +
+    // searchFts (which read memory_entries) stop returning it. Counts as a
+    // successful forget even if the events/legacy mirrors had nothing.
     try {
-      prjctDb.run(
+      const r = prjctDb.run(
         projectId,
-        'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
         Date.now(),
         memId
       )
+      if (r.changes > 0) removed = true
     } catch {}
 
     return removed
