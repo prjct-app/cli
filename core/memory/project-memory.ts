@@ -163,8 +163,28 @@ function loadV2Entries(
   }))
 }
 
-/** Newest-first recall over all live entries (rowid = numeric insert order). */
-function recallEntriesFromV2(projectId: string, overfetch: number): MemoryEntry[] {
+/**
+ * Newest-first recall over all live entries (rowid = numeric insert order).
+ * When `types` is given (the common case — most callers filter to 1-2 types),
+ * the predicate is pushed into SQL so `ix_mem_recall(project_id, type,
+ * created_at DESC)` can drive an indexed SEARCH instead of a full SCAN — this
+ * was previously JS-side-only, so every recall() (typed or not) scanned the
+ * whole table regardless of the caller's filter.
+ */
+function recallEntriesFromV2(
+  projectId: string,
+  overfetch: number,
+  types?: MemoryType[]
+): MemoryEntry[] {
+  if (types && types.length > 0) {
+    const placeholders = types.map(() => '?').join(',')
+    return loadV2Entries(
+      projectId,
+      `AND type IN (${placeholders}) ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+      ...types,
+      overfetch
+    )
+  }
   return loadV2Entries(projectId, 'ORDER BY created_at DESC, rowid DESC LIMIT ?', overfetch)
 }
 
@@ -417,8 +437,13 @@ export const projectMemory = {
     // C1 read flip: authored memory comes from the normalized v2 tables
     // (memory_entries + memory_entry_tags), kept complete for every writer by
     // the memory_entries_from_events trigger. Typed columns + indexed tags —
-    // no per-row JSON.parse of events.data on this per-prompt path.
-    const v2entries = wantEvents ? recallEntriesFromV2(projectId, overfetch) : []
+    // no per-row JSON.parse of events.data on this per-prompt path. The type
+    // predicate is pushed into SQL (not just the JS filter below) so the
+    // per-prompt hot path gets an indexed SEARCH instead of a full SCAN.
+    const sqlTypes = typesFilter
+      ? [...typesFilter].filter((t): t is MemoryType => t !== 'shipped')
+      : undefined
+    const v2entries = wantEvents ? recallEntriesFromV2(projectId, overfetch, sqlTypes) : []
     const shipped = wantShipped
       ? prjctDb.query<ShippedRow>(
           projectId,
