@@ -33,6 +33,23 @@ import type { WorkspaceBackend } from './state-storage/workspace'
 import * as workspace from './state-storage/workspace'
 import { StorageManager } from './storage-manager'
 
+/**
+ * The subset of task-shaped fields mirrorTaskRow needs, shared across
+ * CurrentTask / PreviousTask / WorkspaceTask. PreviousTask has no
+ * branch/linkedSpecId — the mirror's COALESCE-on-existing-row SQL already
+ * treats a missing value as "don't touch," so making them optional here is safe.
+ */
+type MirrorableTask = {
+  id: string
+  description: string
+  type?: CurrentTask['type']
+  branch?: string
+  linkedSpecId?: string
+  sessionId?: string
+  featureId?: string
+  startedAt?: string
+}
+
 class StateStorage extends StorageManager<StateJson> {
   constructor() {
     super('state.json', StateJsonSchema)
@@ -165,27 +182,36 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
-   * Schema v2 (C4) dual-write: upsert the active cycle into the typed `tasks`
+   * Schema v2 (C4) dual-write: upsert a work cycle into the typed `tasks`
    * table. Additive mirror — never the live read path for the work loop, never
    * throws. One DB per project, so no project_id column on `tasks`.
+   *
+   * Called from every lifecycle transition that changes a cycle's status
+   * (start/pause/resume/complete, singular AND per-workspace/multi-agent), not
+   * just start/complete — a task left un-mirrored on pause previously stayed
+   * `status='in_progress'` in the typed table forever, and workspace-parallel
+   * cycles never appeared in `tasks` at all (invisible to cost/dashboard/cloud
+   * consumers of the typed table).
    */
   private mirrorTaskRow(
     projectId: string,
-    task: CurrentTask,
+    task: MirrorableTask,
     status: string,
-    extra: { completedAt?: string } = {}
+    extra: { completedAt?: string; pausedAt?: string; pauseReason?: string } = {}
   ): void {
     try {
       prjctDb.run(
         projectId,
-        `INSERT INTO tasks (id, description, type, status, branch, linked_spec_id, session_id, feature_id, started_at, completed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO tasks (id, description, type, status, branch, linked_spec_id, session_id, feature_id, started_at, completed_at, paused_at, pause_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            description = excluded.description,
            status = excluded.status,
            branch = COALESCE(excluded.branch, tasks.branch),
            linked_spec_id = COALESCE(excluded.linked_spec_id, tasks.linked_spec_id),
-           completed_at = COALESCE(excluded.completed_at, tasks.completed_at)`,
+           completed_at = COALESCE(excluded.completed_at, tasks.completed_at),
+           paused_at = excluded.paused_at,
+           pause_reason = excluded.pause_reason`,
         task.id,
         task.description,
         task.type ?? null,
@@ -195,7 +221,9 @@ class StateStorage extends StorageManager<StateJson> {
         task.sessionId ?? null,
         task.featureId ?? null,
         task.startedAt ?? null,
-        extra.completedAt ?? null
+        extra.completedAt ?? null,
+        extra.pausedAt ?? null,
+        extra.pauseReason ?? null
       )
     } catch {
       /* best-effort mirror — kv_store state is the live source of truth */
@@ -342,11 +370,25 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   async pauseTask(projectId: string, reason?: string): Promise<PreviousTask | null> {
-    return lifecycle.pauseTask(this.lifecycleBackend(), projectId, reason)
+    const paused = await lifecycle.pauseTask(this.lifecycleBackend(), projectId, reason)
+    // Schema v2 (C4) dual-write: without this, a paused task stayed
+    // status='in_progress' in the typed `tasks` table indefinitely — any
+    // cost/dashboard/cloud consumer of that table saw phantom active work.
+    if (paused) {
+      this.mirrorTaskRow(projectId, paused, 'paused', {
+        pausedAt: paused.pausedAt,
+        pauseReason: paused.pauseReason,
+      })
+    }
+    return paused
   }
 
   async resumeTask(projectId: string, taskId?: string): Promise<CurrentTask | null> {
-    return lifecycle.resumeTask(this.lifecycleBackend(), projectId, taskId)
+    const resumed = await lifecycle.resumeTask(this.lifecycleBackend(), projectId, taskId)
+    if (resumed) {
+      this.mirrorTaskRow(projectId, resumed, 'in_progress')
+    }
+    return resumed
   }
 
   /**
@@ -447,7 +489,17 @@ class StateStorage extends StorageManager<StateJson> {
     // one (same as the singular path), but other workspaces are unaffected.
     const state = await this.read(projectId)
     this.validateTransition(state, 'task', workspaceId)
-    return workspace.startTaskInWorkspace(this.workspaceBackend(), projectId, task, workspaceId)
+    const started = await workspace.startTaskInWorkspace(
+      this.workspaceBackend(),
+      projectId,
+      task,
+      workspaceId
+    )
+    // Schema v2 (C4) dual-write: crew/multi-agent workspace cycles previously
+    // never appeared in the typed `tasks` table at all — undercounting every
+    // parallel-worktree cycle in cost/dashboard/cloud consumers of that table.
+    this.mirrorTaskRow(projectId, started, 'in_progress')
+    return started
   }
 
   async getCurrentTaskForWorkspace(
@@ -462,12 +514,16 @@ class StateStorage extends StorageManager<StateJson> {
     workspaceId: string,
     feedback?: TaskFeedback
   ): Promise<WorkspaceTask | null> {
-    return workspace.completeTaskInWorkspace(
+    const completed = await workspace.completeTaskInWorkspace(
       this.workspaceBackend(),
       projectId,
       workspaceId,
       feedback
     )
+    if (completed) {
+      this.mirrorTaskRow(projectId, completed, 'completed', { completedAt: getTimestamp() })
+    }
+    return completed
   }
 
   async getActiveTasks(projectId: string): Promise<WorkspaceTask[]> {
