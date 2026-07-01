@@ -97,7 +97,13 @@ export interface WorkflowRunSummary {
   gatesFailed: number
 }
 
-/** Recent workflow runs with their step + gate-outcome counts (newest first). */
+/**
+ * Recent workflow runs with their step + gate-outcome counts (newest first).
+ * Batched as 3 queries total (runs + step counts + gate counts, each grouped
+ * by run_id) instead of the previous 1 + limit*3 — a `limit=20` summary
+ * issued 61 round-trips before this, each a full scan of the child tables
+ * (no index on run_id existed until migration 47).
+ */
 export function getRecentWorkflowRuns(projectId: string, limit = 20): WorkflowRunSummary[] {
   try {
     const runs = prjctDb.query<{
@@ -111,36 +117,41 @@ export function getRecentWorkflowRuns(projectId: string, limit = 20): WorkflowRu
       'SELECT id, command, status, started_at, ended_at FROM workflow_runs ORDER BY started_at DESC LIMIT ?',
       limit
     )
-    return runs.map((r) => {
-      const steps =
-        prjctDb.get<{ n: number }>(
-          projectId,
-          'SELECT COUNT(*) AS n FROM workflow_run_step WHERE run_id = ?',
-          r.id
-        )?.n ?? 0
-      const gp =
-        prjctDb.get<{ n: number }>(
-          projectId,
-          'SELECT COUNT(*) AS n FROM gate_evaluation WHERE run_id = ? AND passed = 1',
-          r.id
-        )?.n ?? 0
-      const gf =
-        prjctDb.get<{ n: number }>(
-          projectId,
-          'SELECT COUNT(*) AS n FROM gate_evaluation WHERE run_id = ? AND passed = 0',
-          r.id
-        )?.n ?? 0
-      return {
-        id: r.id,
-        command: r.command,
-        status: r.status,
-        startedAt: r.started_at,
-        endedAt: r.ended_at,
-        steps,
-        gatesPassed: gp,
-        gatesFailed: gf,
-      }
-    })
+    if (runs.length === 0) return []
+
+    const placeholders = runs.map(() => '?').join(',')
+    const runIds = runs.map((r) => r.id)
+
+    const stepCounts = prjctDb.query<{ run_id: string; n: number }>(
+      projectId,
+      `SELECT run_id, COUNT(*) AS n FROM workflow_run_step WHERE run_id IN (${placeholders}) GROUP BY run_id`,
+      ...runIds
+    )
+    const gateCounts = prjctDb.query<{ run_id: string; passed: number; n: number }>(
+      projectId,
+      `SELECT run_id, passed, COUNT(*) AS n FROM gate_evaluation WHERE run_id IN (${placeholders}) GROUP BY run_id, passed`,
+      ...runIds
+    )
+
+    const stepsByRun = new Map(stepCounts.map((s) => [s.run_id, s.n]))
+    const gatesByRun = new Map<string, { passed: number; failed: number }>()
+    for (const g of gateCounts) {
+      const entry = gatesByRun.get(g.run_id) ?? { passed: 0, failed: 0 }
+      if (g.passed) entry.passed = g.n
+      else entry.failed = g.n
+      gatesByRun.set(g.run_id, entry)
+    }
+
+    return runs.map((r) => ({
+      id: r.id,
+      command: r.command,
+      status: r.status,
+      startedAt: r.started_at,
+      endedAt: r.ended_at,
+      steps: stepsByRun.get(r.id) ?? 0,
+      gatesPassed: gatesByRun.get(r.id)?.passed ?? 0,
+      gatesFailed: gatesByRun.get(r.id)?.failed ?? 0,
+    }))
   } catch {
     return []
   }

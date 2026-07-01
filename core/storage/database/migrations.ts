@@ -1974,6 +1974,38 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 47,
+    name: 'schema-v2-missing-indexes',
+    up: (db: SqliteDatabase) => {
+      // Line-by-line/efficiency audit: these child tables were queried by
+      // WHERE/JOIN predicates with no supporting index since their creation
+      // (migration 37), so every read did a full table scan — growing
+      // unbounded since none of these tables prune old rows.
+      for (const stmt of [
+        // getActiveRelational (llm-analysis-storage.ts) queries all four by
+        // analysis_id; only analysis_finding had ix_finding.
+        'CREATE INDEX IF NOT EXISTS ix_analysis_convention ON analysis_convention(analysis_id)',
+        'CREATE INDEX IF NOT EXISTS ix_analysis_stack_item ON analysis_stack_item(analysis_id)',
+        'CREATE INDEX IF NOT EXISTS ix_analysis_command ON analysis_command(analysis_id)',
+        'CREATE INDEX IF NOT EXISTS ix_analysis_domain ON analysis_domain(analysis_id)',
+        // measuredCyclesFromTokenUsage (work-cost-service.ts) filters + orders
+        // by measured_at, run 3x per publishWorkCostSnapshots call; only
+        // event_key (unique) and work_cycle_id were indexed.
+        'CREATE INDEX IF NOT EXISTS ix_token_measured ON token_usage(measured_at DESC)',
+        // getRecentWorkflowRuns (run-recorder.ts) counts steps/gates per run_id;
+        // neither child table had an index on its FK.
+        'CREATE INDEX IF NOT EXISTS ix_run_step_run ON workflow_run_step(run_id)',
+        'CREATE INDEX IF NOT EXISTS ix_gate_eval_run ON gate_evaluation(run_id)',
+      ]) {
+        try {
+          db.run(stmt)
+        } catch {
+          // Best-effort — a missing index degrades to a scan, never breaks reads.
+        }
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

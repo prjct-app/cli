@@ -75,22 +75,34 @@ const OVERFETCH_FACTOR = 4
 const MIN_OVERFETCH = 100
 
 /**
+ * The exact relationship-tag keys collectSupersededIds (entries.ts) reads —
+ * kept in sync with that function's `['supersedes', 'duplicates']` loop and
+ * its `'superseded-by'` check.
+ */
+const SUPERSEDE_TAG_KEYS = ['supersedes', 'duplicates', 'superseded-by']
+
+/**
  * Dead-id set for the FTS mirror: every entry retired by an author-declared
  * relationship tag, regardless of result window. Scans only live rows whose
- * tags mention a relationship key (LIKE pre-filter keeps it to a handful of
- * rows on a hot path that runs per prompt). Best-effort: empty set on error.
+ * tags match a relationship key exactly (an indexed IN lookup via
+ * ix_tag_lookup(key, value) — this used to be a leading-wildcard LIKE, which
+ * can't use that index and forced a full table scan on this per-prompt hot
+ * path). Best-effort: empty set on error.
  */
 function collectMirrorSupersededIds(projectId: string): Set<string> {
   try {
     // Single-source: relationship tags live in memory_entry_tags now (no JSON
     // LIKE over a blob). Reassemble {id → tags} for the relationship keys only.
+    const placeholders = SUPERSEDE_TAG_KEYS.map(() => '?').join(',')
     const rows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
       projectId,
       `SELECT t.entry_id, t.key, t.value
          FROM memory_entry_tags t
          JOIN memory_entries m ON m.id = t.entry_id
         WHERE m.deleted_at IS NULL
-          AND (t.key LIKE '%supersede%' OR t.key LIKE '%duplicate%')`
+          AND t.is_machine = 0
+          AND t.key IN (${placeholders})`,
+      ...SUPERSEDE_TAG_KEYS
     )
     const byId = new Map<string, Record<string, string>>()
     for (const r of rows) {
