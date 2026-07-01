@@ -2006,6 +2006,61 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 48,
+    name: 'schema-v2-drop-dangling-agent-runs-fk',
+    up: (db: SqliteDatabase) => {
+      // token_usage.agent_run_id REFERENCES agent_runs(id), but agent_runs was
+      // dropped in migration 44 (never wired to a writer/reader) — a dangling
+      // FK to a nonexistent table. Currently inert (PRAGMA foreign_keys is
+      // never enabled in this codebase), but every INSERT into token_usage
+      // (i.e. every recordTaskTokenUsage call) would silently start failing
+      // its typed dual-write the moment FK enforcement is ever turned on.
+      // agent_run_id has zero writers/readers in the codebase (grep-verified),
+      // so this rebuilds token_usage without it rather than keeping a dead
+      // dangling-FK column. SQLite can't ALTER TABLE DROP COLUMN a column
+      // that's part of a foreign key, so this is the standard rebuild:
+      // create-copy-drop-rename. Deliberately NOT wrapped in try/catch: the
+      // migration runner already wraps migration.up(db) in its own
+      // transaction (database.ts runImmediate) — letting any statement here
+      // throw means the whole rebuild rolls back atomically and the migration
+      // stays pending for retry, instead of risking a caught-and-swallowed
+      // failure mid-rebuild silently leaving token_usage empty or dropped.
+      db.run(`
+        CREATE TABLE token_usage_v48 (
+          id               TEXT PRIMARY KEY,
+          work_cycle_id    TEXT,
+          event_key        TEXT NOT NULL,
+          source           TEXT NOT NULL,
+          is_estimated     INTEGER NOT NULL DEFAULT 0,
+          input_tokens     INTEGER NOT NULL,
+          output_tokens    INTEGER NOT NULL,
+          cache_read_tokens  INTEGER DEFAULT 0,
+          cache_write_tokens INTEGER DEFAULT 0,
+          model_id         TEXT,
+          description      TEXT,
+          measured_at      INTEGER,
+          created_at       INTEGER,
+          CHECK (input_tokens BETWEEN 0 AND 10000000 AND output_tokens BETWEEN 0 AND 10000000)
+        )
+      `)
+      db.run(`
+        INSERT INTO token_usage_v48
+          (id, work_cycle_id, event_key, source, is_estimated, input_tokens,
+           output_tokens, cache_read_tokens, cache_write_tokens, model_id,
+           description, measured_at, created_at)
+        SELECT id, work_cycle_id, event_key, source, is_estimated, input_tokens,
+               output_tokens, cache_read_tokens, cache_write_tokens, model_id,
+               description, measured_at, created_at
+        FROM token_usage
+      `)
+      db.run('DROP TABLE token_usage')
+      db.run('ALTER TABLE token_usage_v48 RENAME TO token_usage')
+      db.run('CREATE UNIQUE INDEX IF NOT EXISTS ux_token_event ON token_usage(event_key)')
+      db.run('CREATE INDEX IF NOT EXISTS ix_token_cycle ON token_usage(work_cycle_id)')
+      db.run('CREATE INDEX IF NOT EXISTS ix_token_measured ON token_usage(measured_at DESC)')
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
