@@ -13,9 +13,10 @@
  *     builder shared by the CLI and the MCP tool (previously duplicated; the
  *     MCP copy pasted the spec body — fixed here by pointing every reviewer
  *     at `prjct spec show <id> --md`).
- *   - `reviewsGatePassed(content)` — the auto-promote gate: every SELECTED
- *     lens passed. Legacy specs (empty selected_reviewers) fall back to the
- *     three baseline lenses.
+ *   - `reviewsGatePassedRelational(projectId, specId)` — the auto-promote
+ *     gate, read from the projected spec_review/spec_selected_reviewer
+ *     tables (C6): every SELECTED lens passed. Legacy specs (empty selected
+ *     set) fall back to the three baseline lenses.
  *
  * Lens vocabulary is OPEN — any lowercase string is a valid lens (mirrors how
  * memory `type` accepts any string); agent-invented lenses get a generic
@@ -89,25 +90,6 @@ export function selectReviewers(content: SpecContent, domains: DomainDefinition[
   }
 
   return [...lenses]
-}
-
-/**
- * Auto-promote gate. Passes when every SELECTED lens recorded verdict=pass.
- * Legacy specs (selected_reviewers empty — audited before dynamic lenses)
- * fall back to the three baseline lenses.
- */
-export function reviewsGatePassed(content: SpecContent): boolean {
-  const r = content.reviews
-  if (!r) return false
-  const selected = content.selected_reviewers
-  if (selected.length > 0) {
-    return selected.every((lens) => r[lens]?.verdict === 'pass')
-  }
-  return (
-    r.strategic?.verdict === 'pass' &&
-    r.architecture?.verdict === 'pass' &&
-    r.design?.verdict === 'pass'
-  )
 }
 
 /**

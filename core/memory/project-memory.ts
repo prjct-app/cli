@@ -124,6 +124,33 @@ function collectMirrorSupersededIds(projectId: string): Set<string> {
 }
 
 /**
+ * Batch-load tags for a set of memory_entries ids — one query
+ * (`WHERE entry_id IN (...)`) instead of one per row. Shared by every reader
+ * that assembles MemoryEntry.tags (loadV2Entries, searchFts) so a future fix
+ * (chunking past SQLite's ~999-param IN limit, excluding is_machine tags,
+ * etc.) applies everywhere at once instead of drifting between copies.
+ */
+function batchTagsByEntryId(projectId: string, ids: string[]): Map<string, Record<string, string>> {
+  const tagsById = new Map<string, Record<string, string>>()
+  if (ids.length === 0) return tagsById
+  const placeholders = ids.map(() => '?').join(',')
+  const tagRows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
+    projectId,
+    `SELECT entry_id, key, value FROM memory_entry_tags WHERE entry_id IN (${placeholders})`,
+    ...ids
+  )
+  for (const t of tagRows) {
+    let m = tagsById.get(t.entry_id)
+    if (!m) {
+      m = {}
+      tagsById.set(t.entry_id, m)
+    }
+    m[t.key] = t.value
+  }
+  return tagsById
+}
+
+/**
  * Read authored memory from the Schema v2 tables (memory_entries +
  * memory_entry_tags), mapped to MemoryEntry. One indexed query for the rows +
  * one batched query for their tags — no JSON.parse per row. `memory_entries` is
@@ -150,21 +177,10 @@ function loadV2Entries(
     ...params
   )
   if (rows.length === 0) return []
-  const placeholders = rows.map(() => '?').join(',')
-  const tagRows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
+  const tagsById = batchTagsByEntryId(
     projectId,
-    `SELECT entry_id, key, value FROM memory_entry_tags WHERE entry_id IN (${placeholders})`,
-    ...rows.map((r) => r.id)
+    rows.map((r) => r.id)
   )
-  const tagsById = new Map<string, Record<string, string>>()
-  for (const t of tagRows) {
-    let m = tagsById.get(t.entry_id)
-    if (!m) {
-      m = {}
-      tagsById.set(t.entry_id, m)
-    }
-    m[t.key] = t.value
-  }
   return rows.map((r) => ({
     id: r.id,
     type: r.type as MemoryType,
@@ -390,21 +406,10 @@ export const projectMemory = {
     }
     if (rows.length === 0) return []
 
-    const placeholders = rows.map(() => '?').join(',')
-    const tagRows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
+    const tagsById = batchTagsByEntryId(
       projectId,
-      `SELECT entry_id, key, value FROM memory_entry_tags WHERE entry_id IN (${placeholders})`,
-      ...rows.map((r) => r.id)
+      rows.map((r) => r.id)
     )
-    const tagsById = new Map<string, Record<string, string>>()
-    for (const t of tagRows) {
-      let mp = tagsById.get(t.entry_id)
-      if (!mp) {
-        mp = {}
-        tagsById.set(t.entry_id, mp)
-      }
-      mp[t.key] = t.value
-    }
 
     let entries = rows.map((row) => ({
       id: row.id,
