@@ -45,11 +45,13 @@ Reading `prjct.config.json` gives you the `projectId`, which is the key to the
 |---|---|---|---|
 | **Config (identity)** | `<repo>/.prjct/prjct.config.json` | `projectId`, persona (`role`/`focus`/`mcps`/`packs`), optional `vaultPath` override | **Committable** (the `.prjct/` dir is gitignored, but you may track this one file) |
 | **State (source of truth)** | `~/.prjct-cli/projects/<projectId>/prjct.db` | Tasks, memory, events, metrics, analysis — everything | **No** — per-device, never in the repo |
-| **Vault (recall snapshot)** | `<vault-root>/<slug>/_generated/` | Auto-regenerated Markdown: architecture, patterns, decisions, gotchas, ships | **No** — regenerated from state, Obsidian-readable |
+| **Vault (optional Obsidian export)** | `<vault-root>/<slug>/_generated/` | Markdown: architecture, patterns, decisions, gotchas, ships | **No** — **off by default**; `prjct vault on` to enable, then regenerated from state |
 
-State is the source of truth. The vault is a **rebuilt projection** of it — never
-hand-edit `_generated/`; if something's wrong, fix the pipeline and regenerate
-(`prjct regen`).
+State (SQLite) is the source of truth, and agents read it through tools
+(`prjct search` / `context memory` / `guard` / MCP `prjct_*`), not files. The
+vault is an **optional human export**, off by default (`vault.mode`); when
+enabled it is a rebuilt projection — never hand-edit `_generated/`; fix the
+pipeline and regenerate.
 
 ## How to find each path
 

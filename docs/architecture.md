@@ -123,11 +123,19 @@ agent skills must stay compact. Their job is to route Claude, Codex, Gemini,
 Cursor, Windsurf, Antigravity, and future agents into prjct's RAG-backed
 project memory; they do not carry project history.
 
-The source of truth is SQLite. The regenerated vault under `_generated/` is a
-snapshot for `Read` / `Glob` fallback and human inspection, not a file tree the
-agent should load wholesale. When a work cycle needs prior knowledge, the agent pulls
-bounded context with `prjct work`, `prjct search`, `prjct context memory`,
-`prjct guard`, or the MCP `prjct_*` tools.
+The source of truth is SQLite, and agents read it **through tools, not files**.
+When a work cycle needs prior knowledge, the agent pulls bounded, ranked context
+with `prjct work`, `prjct search`, `prjct context memory`, `prjct guard`, or the
+MCP `prjct_*` tools. The Obsidian/markdown vault under `_generated/` is **off by
+default** (`vault.mode`, `prjct vault on` to enable) — it is an optional human
+export, never an agent read surface. prjct is the LLM data plane: relational
+SQLite in, structured tool output to the model, sync to cloud; no local UI.
+
+Authored memory has a single read source: the normalized `memory_entries`
+(+ `memory_entry_tags`, + `memory_entries_fts`) tables. `events` is the
+append-only write log + sync wire; a trigger projects every `memory.remember.*`
+event into `memory_entries`, so recall/search/guard read typed rows with no
+`JSON.parse` on the hot path. (The former `memories` mirror was retired.)
 
 Closeout is also model-authored synthesis, not raw telemetry. Raw quotes,
 counters, detector rows, and transcript chunks can inform a memory entry, but
