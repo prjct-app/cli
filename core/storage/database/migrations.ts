@@ -2087,6 +2087,62 @@ export const migrations: Migration[] = [
       db.run('DROP TABLE IF EXISTS analysis')
     },
   },
+  {
+    version: 51,
+    name: 'shipped-features-typed-store',
+    up: (db: SqliteDatabase) => {
+      // Schema v2 C5: ships lived in the `kv_store['shipped']` JSON blob (read
+      // + rewritten whole on every ship), while the typed `shipped_features`
+      // table — already READ by recall (project-memory) and reporting
+      // (product) — was never written, so those surfaces silently returned
+      // empty. This migration makes the typed table the single store.
+      //
+      // Root-cause for the observed 33k-row / 41-real-ship blob: `addShipped`
+      // minted a fresh id every call and the sync pull re-applied each ship, so
+      // the same ship accreted ~800×. A UNIQUE natural-key index makes the
+      // write idempotent (INSERT OR IGNORE) and dedups the backfill.
+      db.run(
+        'CREATE UNIQUE INDEX IF NOT EXISTS ux_shipped_natural ON shipped_features(name, version, shipped_at)'
+      )
+      const blob = db.prepare("SELECT data FROM kv_store WHERE key = 'shipped'").get() as
+        | { data?: string }
+        | undefined
+      if (blob?.data) {
+        let ships: Array<Record<string, unknown>> = []
+        try {
+          const parsed = JSON.parse(blob.data) as { shipped?: unknown }
+          if (Array.isArray(parsed?.shipped))
+            ships = parsed.shipped as Array<Record<string, unknown>>
+        } catch {
+          // Malformed blob must not brick startup — leave it, migrate nothing.
+          ships = []
+        }
+        const insert = db.prepare(
+          `INSERT OR IGNORE INTO shipped_features
+             (id, name, shipped_at, version, description, type, duration, data)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const s of ships) {
+          const id = s.id as string | undefined
+          const name = s.name as string | undefined
+          const shippedAt = s.shippedAt as string | undefined
+          if (!id || !name || !shippedAt) continue
+          insert.run(
+            id,
+            name,
+            shippedAt,
+            (s.version as string) ?? '',
+            (s.description as string) ?? null,
+            (s.type as string) ?? null,
+            (s.duration as string) ?? null,
+            JSON.stringify(s)
+          )
+        }
+      }
+      // Retire the legacy blob — the typed table is now the source of truth.
+      db.run("DELETE FROM kv_store WHERE key = 'shipped'")
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
