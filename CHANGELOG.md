@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.13.0] - 2026-07-01
+
+### Features
+
+- Schema v2 relational redesign + vault removal + legacy cleanup (#497)
+
+
 ## [3.12.2] - 2026-06-29
 
 ### Bug Fixes
