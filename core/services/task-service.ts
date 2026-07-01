@@ -33,6 +33,7 @@ import { buildLivingContextPrompt, parseLivingContextFields } from './living-con
 import { memoryService } from './memory-service'
 import projectService from './project-service'
 import { buildTaskHarness, evaluateHarnessCompletion } from './task-harness'
+import { type OrchestrationPlan, orchestrationFor } from './task-orchestration'
 import {
   decideTaskPipeline,
   formatTaskPipelineNextAction,
@@ -54,6 +55,8 @@ export interface StartTaskOutcome {
   linearId?: string
   linkedSpecId?: string
   harness?: TaskHarness
+  /** Triage → orchestration plan: model/effort + spec/tests + fan-out directive. */
+  orchestration?: OrchestrationPlan
   pipeline?: {
     classification: TaskPipelineClassification
     station: TaskPipelineStation
@@ -216,6 +219,25 @@ export async function startTask(
   const linkedSpecId = options.spec
   const harness = buildTaskHarness(description)
 
+  // Triage → orchestration: turn the harness + the project's SDD/TDD modes
+  // into a concrete plan (model tier, effort, spec/tests ceremony, fan-out) so
+  // a trivial task runs cheap and DIRECT while a complex one gets spec + TDD +
+  // a subagent crew — and the agent is told to set each subagent's model (they
+  // inherit the parent's expensive model otherwise). This is what makes the
+  // classification actually SAVE tokens instead of only gating evidence.
+  const orchestration = await (async () => {
+    try {
+      const cfg = await configManager.readConfig(projectPath).catch(() => null)
+      const [{ effectiveSddMode }, { effectiveTddMode }] = await Promise.all([
+        import('../commands/sdd'),
+        import('../commands/tdd'),
+      ])
+      return orchestrationFor(harness, effectiveSddMode(cfg), effectiveTddMode(cfg))
+    } catch {
+      return orchestrationFor(harness)
+    }
+  })()
+
   // Multi-agent: a task in a child worktree lands in activeTasks[] keyed by
   // its workspaceId, so parallel agents don't clobber a shared currentTask.
   // The main worktree keeps the singular currentTask path (transparent for
@@ -305,6 +327,7 @@ export async function startTask(
     linearId,
     linkedSpecId,
     harness,
+    orchestration,
     pipeline: {
       classification: pipelineState.classification,
       station: pipelineState.station,
