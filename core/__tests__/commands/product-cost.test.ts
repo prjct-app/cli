@@ -220,6 +220,55 @@ describe('insights cost', () => {
     })
   })
 
+  it('a corrupted out-of-range token count never leaks in via the tasks.tokens_in/out fallback', () => {
+    // token_usage's CHECK(input_tokens/output_tokens BETWEEN 0 AND 10_000_000)
+    // exists specifically to keep corrupted counts out of cost reports. Before
+    // this fix, recordTaskTokenUsage still wrote the corrupted value straight
+    // to tasks.tokens_in/out unconditionally, and buildWorkCostSnapshot's
+    // legacy-fallback merge (toCostTask) picked it up anyway for any task with
+    // no token_usage row — silently defeating the CHECK for exactly the
+    // corrupted-value case it exists to catch.
+    const now = new Date().toISOString()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO tasks (id, description, status, started_at, completed_at, tokens_in, tokens_out)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      'task-corrupt',
+      'Legit small cycle',
+      'completed',
+      now,
+      now,
+      500,
+      100
+    )
+
+    recordTaskTokenUsage(projectId, 'task-corrupt', 999_999_999, 1, { source: 'cli' })
+
+    // token_usage correctly rejected it (existing coverage in cost-meta.test.ts)...
+    const tokenUsageRows = prjctDb.query(
+      projectId,
+      'SELECT id FROM token_usage WHERE work_cycle_id = ?',
+      'task-corrupt'
+    )
+    expect(tokenUsageRows.length).toBe(0)
+
+    // ...and tasks.tokens_in/out must ALSO have rejected the corrupted write
+    // (same bound applied before either write) — the original legit values
+    // survive untouched, not overwritten with the corrupted 999,999,999.
+    const taskRow = prjctDb.query<{ tokens_in: number; tokens_out: number }>(
+      projectId,
+      'SELECT tokens_in, tokens_out FROM tasks WHERE id = ?',
+      'task-corrupt'
+    )[0]
+    expect(taskRow.tokens_in).toBe(500)
+    expect(taskRow.tokens_out).toBe(100)
+
+    // End-to-end: the snapshot reflects the legit value, never the corrupted one.
+    const snapshot = buildWorkCostSnapshot(projectId, 30)
+    const entry = snapshot.mostExpensive.find((t) => t.id === 'task-corrupt')
+    expect(entry?.tokensIn).toBe(500)
+  })
+
   it('reports measurement reliability gaps and next actions', async () => {
     const log = spyOn(console, 'log').mockImplementation(() => {})
     const now = new Date().toISOString()

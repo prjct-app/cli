@@ -85,6 +85,9 @@ export interface WorkCostSnapshot {
 
 export const TASK_TOKENS_EVENT = 'memory.task_tokens'
 
+/** Must match token_usage's CHECK(input_tokens/output_tokens BETWEEN 0 AND …) in migrations.ts. */
+const TOKEN_COUNT_MAX = 10_000_000
+
 /**
  * Persist measured token usage for a work cycle. Agent-agnostic: any agent
  * (Claude via the Stop-hook transcript, or Codex/Gemini/… via the
@@ -140,16 +143,26 @@ export function recordTaskTokenUsage(
   } catch {
     /* measurement must never block the caller */
   }
-  try {
-    prjctDb.run(
-      projectId,
-      'UPDATE tasks SET tokens_in = ?, tokens_out = ? WHERE id = ?',
-      ti,
-      to,
-      taskId
-    )
-  } catch {
-    /* best-effort mirror — the event is the source of truth */
+  // Same bound as token_usage's CHECK constraint (below) — applied here too so
+  // the legacy tasks.tokens_in/out mirror never carries a value token_usage
+  // would reject. Without this, a corrupted/out-of-range count that CHECK
+  // correctly keeps out of token_usage still landed in tasks.tokens_in/out,
+  // and buildWorkCostSnapshot's legacy-fallback merge (toCostTask, for tasks
+  // with no token_usage row) would silently surface it anyway — defeating the
+  // CHECK's whole purpose for exactly the corrupted-value case it exists for.
+  const inBounds = ti >= 0 && ti <= TOKEN_COUNT_MAX && to >= 0 && to <= TOKEN_COUNT_MAX
+  if (inBounds) {
+    try {
+      prjctDb.run(
+        projectId,
+        'UPDATE tasks SET tokens_in = ?, tokens_out = ? WHERE id = ?',
+        ti,
+        to,
+        taskId
+      )
+    } catch {
+      /* best-effort mirror — the event is the source of truth */
+    }
   }
   // Schema v2 dual-write (C2): mirror into the typed token_usage table with an
   // explicit is_estimated flag and model/runtime, so cost aggregation can later
@@ -246,12 +259,15 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
      ORDER BY COALESCE(completed_at, shipped_at, started_at) DESC`,
     since
   )
-  // C2 single-source read: token_usage is the authoritative structured token
-  // store (exact/estimated split, CHECK-bounded, backfilled from events by
-  // migration 39 + dual-written live). It is the ONLY source of TOKEN counts;
-  // the legacy `tasks` table supplies only metadata (description/minutes) for
-  // migrated installs. The `memory.task_tokens` events are no longer read for
-  // cost — they remain as the append-only audit log.
+  // C2 read: token_usage is the authoritative structured token store
+  // (exact/estimated split, CHECK-bounded, backfilled from events by
+  // migration 39 + dual-written live) and wins whenever a cycle has a row
+  // there. `tasks.tokens_in/out` is a legacy fallback for cycles with no
+  // token_usage row (pre-C2 migrated installs, or a token_usage write that
+  // failed independently of the tasks UPDATE) — recordTaskTokenUsage applies
+  // the SAME CHECK bound to both writes, so this fallback can never surface a
+  // value token_usage would have rejected. The `memory.task_tokens` events
+  // are no longer read for cost — they remain as the append-only audit log.
   const merged = new Map<string, WorkCostTask>()
   for (const task of taskRows.map(toCostTask)) {
     if (task) merged.set(task.id, task)
