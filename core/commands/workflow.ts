@@ -107,6 +107,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const beforeInstructions = outcome.instructions ?? []
       const pipeline = outcome.pipeline
       const harness = outcome.harness
+      const orchestration = outcome.orchestration
       // Cap the passive surface: 3–4 reranked hits are enough as a "has this
       // come up before?" cue. The agent pulls full bodies on demand via
       // `prjct search <id>` / `prjct context memory`. Keeps work --md lean.
@@ -139,6 +140,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
               ].filter((s): s is string => s !== null)
             )
           ),
+          orchestration
+            ? mdSection('How to run this (orchestration)', orchestration.directive)
+            : null,
           pipeline
             ? mdSection(
                 'Task Pipeline',
@@ -189,6 +193,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
             out.info(`Evidence: ${harness.expectedEvidence.join(', ')}`)
           }
         }
+        if (orchestration) out.info(orchestration.directive)
         if (riskLines.length > 0) {
           out.info('⚠ Risk — what bit us in this area before (read before you edit)')
           for (const line of riskLines) out.info(`  ${line}`)
