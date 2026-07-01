@@ -109,4 +109,31 @@ describe('recordTaskTokenUsage meta', () => {
     )
     expect(rows.length).toBe(0)
   })
+
+  it('C2: distinct sources for the same cycle do not collide on event_key (regression)', () => {
+    // core/hooks/stop.ts (Claude transcript, exact) and core/commands/primitives.ts
+    // (manual CLI, agent-agnostic) both used to omit `source`, defaulting to the
+    // same 'cli' bucket -> identical event_key `${taskId}:cli` -> the second
+    // write silently overwrote the first via ON CONFLICT DO UPDATE. Each caller
+    // now passes its own distinct source.
+    recordTaskTokenUsage(projectId, 'task-shared', 50000, 8000, {
+      source: 'claude-transcript',
+      isEstimated: false,
+    })
+    recordTaskTokenUsage(projectId, 'task-shared', 120, 40, { source: 'cli-manual' })
+
+    const rows = prjctDb.query<{ source: string; input_tokens: number; output_tokens: number }>(
+      projectId,
+      'SELECT source, input_tokens, output_tokens FROM token_usage WHERE work_cycle_id = ? ORDER BY source',
+      'task-shared'
+    )
+    // Both measurements survive as distinct rows — neither destroyed the other.
+    expect(rows.length).toBe(2)
+    const transcript = rows.find((r) => r.source === 'claude-transcript')
+    const manual = rows.find((r) => r.source === 'cli-manual')
+    expect(transcript?.input_tokens).toBe(50000)
+    expect(transcript?.output_tokens).toBe(8000)
+    expect(manual?.input_tokens).toBe(120)
+    expect(manual?.output_tokens).toBe(40)
+  })
 })

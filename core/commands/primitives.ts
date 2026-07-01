@@ -70,7 +70,12 @@ export class PrimitiveCommands extends PrjctCommandsBase {
             pid.value,
             outcome.taskId,
             Number.isFinite(tokensIn) ? tokensIn : 0,
-            Number.isFinite(tokensOut) ? tokensOut : 0
+            Number.isFinite(tokensOut) ? tokensOut : 0,
+            // Distinct source so this manual/agent-agnostic report never shares
+            // an event_key with the Claude Stop-hook's exact transcript
+            // measurement (core/hooks/stop.ts) — both used to default to 'cli'
+            // and silently clobber each other via the token_usage upsert.
+            { source: 'cli-manual' }
           )
         }
         const msg = `status → ${value}`

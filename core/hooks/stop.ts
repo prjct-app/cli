@@ -85,6 +85,12 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
                   {
                     description: activeTaskDescription,
                     agent: 'claude',
+                    // Distinct source so this exact transcript-derived measurement
+                    // never shares an event_key with the agent-agnostic manual
+                    // report (prjct status --tokens-in, core/commands/primitives.ts)
+                    // — both used to default to 'cli' and silently clobber each
+                    // other via the token_usage upsert (ON CONFLICT(event_key)).
+                    source: 'claude-transcript',
                   }
                 )
               }
