@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [3.14.0] - 2026-07-01
+
+### Features
+
+- triage drives orchestration — trivial→direct, complex→SDD+TDD+crew, per-subagent model (#499)
+
+### Performance
+
+- run bundled entry in-process — 41% faster commands (#498)
+
+
 ## [3.13.0] - 2026-07-01
 
 ### Features
