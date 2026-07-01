@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.15.0] - 2026-07-01
+
+### Features
+
+- ships in typed shipped_features table — retire the 5.4MB kv_store blob (Schema v2 C5) (#500)
+
+
 ## [3.14.0] - 2026-07-01
 
 ### Features
