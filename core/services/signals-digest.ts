@@ -11,7 +11,7 @@
  */
 
 import type { MemoryEntry } from '../memory/entries'
-import { type FormatMemoryMdOptions, linkifyMemRefs } from '../memory/format'
+import { linkifyMemRefs } from '../memory/format'
 import { summarizeFrictionLesson, truncate } from '../utils/text-summary'
 
 /** `tags.source` values produced by automatic detectors, not by an agent/user. */
@@ -47,10 +47,16 @@ type Section = { title: string; intro: string; rows: string[] }
 /**
  * Single digest of all machine signals. Returns null when the project has
  * none (no empty stub).
+ *
+ * `opts` is narrowed to just `boundary` (not the full FormatMemoryMdOptions)
+ * — this digest is MCP-tool output, not a vault page, so the Obsidian-only
+ * fields (vault/idTypeIndex/idTitleIndex/idSlugIndex/perEntryTypes/signalIds)
+ * must never reach linkifyMemRefs here, or a mem_N reference would render as
+ * `[[type#^mem-N|title]]` wikilink syntax with no vault to resolve it.
  */
 export function buildSignalsFile(
   signals: MemoryEntry[],
-  opts: FormatMemoryMdOptions
+  opts: { boundary?: 'llm' }
 ): string | null {
   if (signals.length === 0) return null
 

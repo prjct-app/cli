@@ -107,9 +107,8 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       // prjct state — current task / next / context, shipped, metrics,
       // ideas, patterns, wizard prefs — lives ONLY in SQLite
-      // (StorageManager → prjct.db) and is surfaced through the
-      // regenerated vault. We deliberately do NOT seed legacy
-      // write-through stub files (core/*.md, progress/*.md,
+      // (StorageManager → prjct.db), read through tools. We deliberately
+      // do NOT seed legacy write-through stub files (core/*.md, progress/*.md,
       // planning/*.md, memory/patterns.json, config/wizard.json) into
       // the global project folder: nothing ever read them back, so they
       // accumulated as orphaned garbage with no DB record. Nothing is
@@ -152,8 +151,8 @@ export class PlanningCommands extends PrjctCommandsBase {
 
         out.spin('architect mode...')
         // The architect idea is project state — it goes INTO prjct
-        // (SQLite + regenerated vault), never a loose planning/*.md that
-        // would orphan with no DB record.
+        // (SQLite), never a loose planning/*.md that would orphan with
+        // no DB record.
         const { projectMemory } = await import('../memory/project-memory')
         await projectMemory.remember(projectPath, {
           type: 'idea',

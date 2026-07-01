@@ -14,16 +14,20 @@ import type { MemoryEntry, MemoryProvenance, MemoryType } from './entries'
  * Designed to be short enough for Claude to read without tripping budgets.
  */
 /**
- * Render options. `vault: true` makes the output Obsidian-navigable:
- * every entry gets a block anchor (`^mem-N`) so it is a real link
- * target, and every `mem_N` token (cross-refs like `resolves=mem_X`
- * AND inline mentions) becomes a wikilink — closing the dangling-
- * pointer class (mem_3233). `idTypeIndex` maps `mem_N → type` across
- * ALL entries so a link can point at the right per-type file; unknown
- * ids fall back to a bare `[[mem_N]]` (still clickable, not dead text).
- * Without opts the output is byte-identical to before (CLI/terminal).
+ * Render options. The `vault`/`id*Index`/`perEntryTypes`/`signalIds` fields
+ * below are DEAD as of the vault-removal commit (2026-06-30) — the Obsidian
+ * export they targeted no longer exists, and no production caller sets them
+ * (only `core/__tests__/memory/project-memory.test.ts` still exercises this
+ * path). Left in place rather than removed because `formatMemoryMd` has many
+ * live callers and the removal was judged higher-risk than leaving inert
+ * code; marked `@deprecated` so a future caller doesn't reach for them
+ * thinking they still produce a resolvable link — `vault: true` today would
+ * embed `[[type#^mem-N|title]]` wikilink syntax into plain CLI/LLM markdown
+ * with nothing to resolve it. Without opts (or with only `boundary`/
+ * `compact`) the output is unaffected.
  */
 export interface FormatMemoryMdOptions {
+  /** @deprecated Dead since the vault removal — see interface doc comment. */
   vault?: boolean
   /**
    * Wrap each entry in `<user_content>` tags and escape tag values.
@@ -41,13 +45,17 @@ export interface FormatMemoryMdOptions {
    * Mutually exclusive with `vault` (compact never feeds Obsidian).
    */
   compact?: boolean
-  /** `mem_N → type` so a cross-ref resolves to the right vault target. */
+  /**
+   * `mem_N → type` so a cross-ref resolves to the right vault target.
+   * @deprecated Dead since the vault removal — see interface doc comment.
+   */
   idTypeIndex?: Map<string, string>
   /**
    * `mem_N → human title` (from {@link deriveTitle}). When present the
    * wikilink display text is the title, not the opaque `mem_N` — the
    * graph reads as knowledge for a human and an LLM, not DB keys.
    * Additive: absent → legacy `mem_N` display (CLI lock unaffected).
+   * @deprecated Dead since the vault removal — see interface doc comment.
    */
   idTitleIndex?: Map<string, string>
   /**
@@ -55,6 +63,7 @@ export interface FormatMemoryMdOptions {
    * {@link idSlugIndex}, refs to these link by the note's real basename
    * `[[<slug>|title]]`; everything else uses the aggregated-file block
    * anchor `[[type#^mem-N|title]]`. Absent → legacy block-anchor form.
+   * @deprecated Dead since the vault removal — see interface doc comment.
    */
   perEntryTypes?: ReadonlySet<string>
   /**
@@ -65,12 +74,14 @@ export interface FormatMemoryMdOptions {
    * does not). With `hideUnresolved:true` an alias-only link is treated
    * as unresolved and hidden → no edge. Linking by slug is what makes
    * the relations actually appear in the graph (the v2.23.3 regression).
+   * @deprecated Dead since the vault removal — see interface doc comment.
    */
   idSlugIndex?: Map<string, string>
   /**
    * Ids of machine-signal entries (detector output). They have no note
    * of their own — refs resolve into the single `signals.md` dashboard
    * (`[[signals#^mem-N|title]]`) instead of spawning telemetry nodes.
+   * @deprecated Dead since the vault removal — see interface doc comment.
    */
   signalIds?: ReadonlySet<string>
 }

@@ -193,7 +193,7 @@ export async function renderAuditDispatch(
     runLine,
     '',
     '## Where the spec lives — read it from prjct, it is NOT in this prompt',
-    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer runs \`prjct spec show ${id} --md\` itself, fresh, to read the full spec. Do NOT paste the spec body into the prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the reviewer, not pre-pasted by you.)`,
+    `The plan lives in prjct (SQLite), never duplicated into a dispatch payload. Each reviewer runs \`prjct spec show ${id} --md\` itself, fresh, to read the full spec. Do NOT paste the spec body into the prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the reviewer, not pre-pasted by you.)`,
     '',
     '## Model policy (perf — read before dispatching)',
     `${dispatch.modelDirective('spec-review')} The same applies to every lens — they judge a spec, they do not implement, so they run on a review-tier model, not the heaviest one. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,

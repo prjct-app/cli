@@ -76,8 +76,8 @@ const DIGEST_PER_TYPE = 3
  * therefore injected ONLY on cold-start sources — `startup`/`clear`/
  * `compact` — where the context is being built fresh anyway (no warm prefix
  * to bust) and grounding matters most: a freshly-updated model starts blank
- * and the vault is the only thing that survived the update. The mid-session
- * reusers call this with `digest` unset → persona-only, byte-identical.
+ * and SQLite-backed memory is the only thing that survived the update. The
+ * mid-session reusers call this with `digest` unset → persona-only, byte-identical.
  */
 export async function buildSessionContext(
   projectPath: string,
