@@ -168,11 +168,11 @@ All reads and writes go through `core/storage/database.ts` and the per-entity
 storage modules (`state-storage.ts`, `ideas-storage.ts`, `queue-storage.ts`,
 …). Connections are LRU-cached with WAL mode enabled.
 
-Legacy JSON state files are only touched by the one-time migration
-(`core/storage/migrate-json.ts`). See `docs/sqlite-migration.md` for the
-migration story, inspection tips, and troubleshooting.
+The pre-v1.24.1 JSON→SQLite migration subsystem (`migrate-json`) was retired
+in v3.12 — every active install migrated years ago. `docs/sqlite-migration.md`
+keeps the historical rationale for why prjct moved to SQLite.
 
-**Never** `fs.readFile` a legacy JSON state file directly. Go through the CLI.
+**Never** `fs.readFile` a state file directly. Go through the CLI / storage modules.
 
 ## Persona-aware context broker (v2)
 
@@ -230,6 +230,6 @@ steps, zero fixed pipelines.
 
 - **No barrel files, no re-exports.** Import directly from the source
   module: `import { X } from './y'`, never `export { X } from './y'`.
-- **All data in SQLite.** Never `fs.readFile` the legacy JSON state files.
+- **All data in SQLite.** Never `fs.readFile` a state file directly.
 - **Biome errors are blocking.** Do not commit code with lint errors.
 - **Schemas are source of truth.** Define with Zod, infer TypeScript types.

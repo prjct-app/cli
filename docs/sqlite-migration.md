@@ -1,6 +1,6 @@
 # SQLite Migration (v1.24.1+)
 
-> **Status:** complete on every v2.x install. This page is historical reference for the one-shot JSON → SQLite migration. The `migrate-json.ts` subsystem is on a deprecation track and will be removed in v3.0.
+> **Status:** the one-shot JSON → SQLite migration subsystem (`migrate-json`) was **removed in v3.12** — every active install migrated years ago. This page is retained purely as historical rationale for why prjct moved to SQLite; the mechanics below describe code that no longer exists.
 
 Pre-v1.24.1, project state lived in ~10 JSON files (`state.json`, `queue.json`, `shipped.json`, etc.) plus JSONL event streams. Partial writes, concurrency races, full-file scans, and zero schema enforcement made it brittle. v1.24.1 replaced that with one SQLite file per project (`~/.prjct-cli/projects/{projectId}/prjct.db`) running in WAL mode — atomic transactions, indexed queries, schema constraints.
 

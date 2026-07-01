@@ -2073,6 +2073,20 @@ export const migrations: Migration[] = [
       db.run('DROP TABLE IF EXISTS workflow_rule_cache')
     },
   },
+  {
+    version: 50,
+    name: 'drop-legacy-json-migration-tables',
+    up: (db: SqliteDatabase) => {
+      // `memory` (singular, pre-SQLite KV) and `analysis` (pre-LLM heuristic)
+      // were written ONLY by the legacy JSON→SQLite migrator (`migrate-json`,
+      // retired in this change) and read by NOTHING — grep-verified zero
+      // SELECT anywhere. With their sole writer gone they are pure dead schema.
+      // Not to be confused with `memory_entries`/`llm_analysis`, the live v2
+      // tables that superseded them.
+      db.run('DROP TABLE IF EXISTS memory')
+      db.run('DROP TABLE IF EXISTS analysis')
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
