@@ -1,5 +1,17 @@
 /**
- * Display helpers for friction-detector lessons.
+ * Small text-summarization helpers shared by the synthesized-markdown MCP
+ * tool bodies (prjct_developer, prjct_signals) — rescued from the retired
+ * wiki builders (WS-A) since these are pure text functions, not vault I/O.
+ */
+
+/** Truncate to at most `max` chars, appending an ellipsis when shortened.
+ *  The result (including the ellipsis) never exceeds `max`. */
+export function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value
+}
+
+/**
+ * Display helper for friction-detector lessons.
  *
  * New detector output is structured:
  *   [category] Lesson: ...
@@ -10,14 +22,8 @@
  *
  * Keep both readable so existing SQLite rows do not need migration.
  */
-
-import { truncate } from './_shared'
-
-function compact(line: string): string {
-  return line.replace(/\s+/g, ' ').trim()
-}
-
 export function summarizeFrictionLesson(content: string, max = 220): string {
+  const compact = (line: string) => line.replace(/\s+/g, ' ').trim()
   const lines = content.split('\n').map(compact).filter(Boolean)
 
   const first = lines[0] ?? compact(content)

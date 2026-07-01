@@ -101,8 +101,8 @@ and locked-down CI, which closes the supply-chain surface a native rebuild opens
 
 After install, **next session in any prjct-cli project**:
 
-- **Lookup-first protocol**: Claude reads the configured vault snapshot (default: your OS Documents folder, e.g. `~/Documents/prjct/<slug>/_generated/` on macOS/Linux) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
-- **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them in the vault.
+- **Lookup-first protocol**: Claude queries prjct (`prjct search`, `prjct context memory`, MCP `prjct_*`) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
+- **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them via recall.
 - **Pattern detection**: Stop hook detects hot files (>3 changes in 7 days), recurring bugs (gotchas with the same topic), tech-debt growth (TODO/FIXME count rising). All persisted as learnings, surfaced next session.
 - **5 quality workflows** activated by natural language ("review this branch", "qa the UI", "security check", "investigate this bug"):
   - `review` — Production Bug Hunt + Completeness Gate (3 modes)
@@ -114,47 +114,45 @@ After install, **next session in any prjct-cli project**:
 
 ## How it works
 
-State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault is an auto-regenerated Markdown snapshot under the root configured by `prjct setup` (default: your OS Documents folder, e.g. `~/Documents/prjct/<slug>/_generated/` on macOS/Linux) — agent-readable via `Read`/`Glob`, browsable in Obsidian.
+State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. prjct is the LLM
+data plane — agents read it **through tools**, not files: `prjct search`,
+`prjct context memory`, `prjct guard`, or the MCP `prjct_*` tools. There is no
+generated markdown export to browse or hand-edit.
 
 ```
 Claude Code session                       prjct-cli
        |                                    |
        | SessionStart hook fires            |
-       | --------------------------------> |  self-heal CLAUDE.md, regen vault
+       | --------------------------------> |  self-heal CLAUDE.md
        |                                    |  (opt-in: silent auto-update check)
        |                                    |
        | Lookup-first protocol kicks in:    |
-       | reads _generated/* before source   |
+       | queries prjct before source        |
        v                                    |
   Writes code, makes decisions              |
        |                                    |
        | Stop hook fires                    |
-       | --------------------------------> |  ingest captured/, ingest workflows/,
-       |                                    |  scan transcript → memory,
+       | --------------------------------> |  scan transcript → memory,
        |                                    |  detect hot files / recurring bugs
-       |                                    |  / tech-debt growth → memory,
-       |                                    |  regen vault
+       |                                    |  / tech-debt growth → memory
 ```
 
-State is the source of truth; the vault is recall. New knowledge enters via `prjct remember <type>`, `prjct capture`, or — automatically — the Stop hook's transcript scan.
+State is the source of truth. New knowledge enters via `prjct remember <type>`, `prjct capture`, or — automatically — the Stop hook's transcript scan.
 
 ### Where data actually lives
 
-Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Three tiers:
+Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Two tiers:
 
 | Tier | Location | Commit it? |
 |---|---|---|
 | Config / identity | `<repo>/.prjct/prjct.config.json` (`projectId`, persona) | **Yes** — small, machine-independent |
 | State (source of truth) | `~/.prjct-cli/projects/<projectId>/prjct.db` (SQLite) | No — per-device |
-| Vault (recall snapshot) | `<vault-root>/<slug>/_generated/` (Markdown; `prjct setup --vault-root <path>`) | No — regenerated |
 
 Find a project's data: read `projectId` from `.prjct/prjct.config.json`, then the
-DB is `~/.prjct-cli/projects/<projectId>/`, the vault is
-`<vault-root>/<slug>/` (`<slug>` = repo dir name lowercased; `prjct setup`
-chooses the global vault root, defaulting to the OS Documents folder; `PRJCT_CLI_HOME`
-relocates the global store). Teammates share knowledge via optional cloud sync
+DB is `~/.prjct-cli/projects/<projectId>/` (`PRJCT_CLI_HOME` relocates the
+global store). Teammates share knowledge via optional cloud sync
 (`prjct login` + `prjct sync`), **not** git — git never carries state. Full
-detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-paths.md)**.
+detail: **[docs/storage-and-paths.md](./docs/storage-and-paths.md)**.
 
 ## Agent compatibility levels
 
@@ -249,7 +247,7 @@ prjct ship                                  # bump version, commit, push, open P
 
 In Claude Code, ask naturally:
 - "review my changes" → activates the `review` workflow with Production Bug Hunt methodology
-- "what patterns does this project use?" → Claude reads `_generated/patterns.md` directly (no `grep`)
+- "what patterns does this project use?" → Claude calls MCP `prjct_analysis` directly (no `grep`)
 - "investigate why tests intermittently fail" → activates `investigate` with Iron Law
 
 Optional flags:
@@ -326,12 +324,12 @@ Slots ship **empty** — the human or the agent fills them on demand.
 
 | Event | Injects |
 |---|---|
-| `SessionStart` | Persona; on cold start (startup/clear/compact) also the knowledge digest — top traps + decisions in force, so a freshly-updated model starts grounded. Regenerates vault from DB |
+| `SessionStart` | Persona; on cold start (startup/clear/compact) also the knowledge digest — top traps + decisions in force, so a freshly-updated model starts grounded |
 | `UserPromptSubmit` | Active project state (task, branch, inbox) |
 | `PreToolUse` (Bash git commit) | Anti-patterns tagged with touched files |
 | `PreToolUse` (Edit/Write) | The file's preventive memory (gotchas/anti-patterns) right before you edit it — pushes what `prjct guard` makes pull |
 | `PostToolUse` (Edit/Write) | Silently annotates `files_touched` on active task |
-| `Stop` | Async prompt: "learn anything reusable?"; ingests captured/ then regenerates vault |
+| `Stop` | Async prompt: "learn anything reusable?"; scans the transcript for durable captures |
 | `SubagentStart` | Persona for fresh-brain subagents (cache-stable, digest-free) |
 | `CwdChanged` | Re-contextualizes on project switch |
 
@@ -359,11 +357,10 @@ prjct init               Initialize project in current directory
 prjct install            Install agent surfaces, Claude hooks, Codex status line
 prjct uninstall          Complete system removal
 prjct sync               Sync project state, rebuild indexes
-prjct regen              Full vault rebuild from SQLite
 prjct watch              Auto-sync on file changes
 prjct doctor             Check system health
 prjct hooks <install|uninstall|status>  Git hooks for auto-sync
-prjct context <memory|learnings|wiki>  Recall memory / sync the vault
+prjct context <memory|learnings>  Recall memory
 prjct review-risk        Advisory change-size + delivery-geometry hint (read-only)
 prjct workflow ["config"]  Configure hooks via natural language
 prjct stop / restart     Background daemon control (self-reloads on stale code; manual restart rarely needed)
@@ -386,9 +383,9 @@ prjct capture "check why webhook retries on 502"
 prjct context memory "auth refresh"
 ```
 
-Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `<vault-root>/<slug>/_generated/`.
+Memory is FTS5-backed (SQLite) and persona-filtered. Recall blends three signals — BM25 lexical, semantic vectors, and a usefulness ledger that reinforces what the project keeps building on. Capture **dedups** automatically: a verbatim re-capture of the same `(type, content)` is skipped, so detectors firing each session can't bloat the store.
 
-> SQLite is the source of truth. The export is a snapshot — never hand-edit `_generated/`; if data is missing, fix the pipeline.
+> SQLite is the source of truth. Agents read it through tools (`prjct search`, `prjct context memory`, MCP `prjct_*`) — there is no generated file to hand-edit.
 
 ### Semantic recall (embeddings)
 
@@ -432,27 +429,6 @@ prjct embeddings set --key "$AZURE_KEY" \
 | `--query <qs>` | Raw query string appended to the URL (e.g. `api-version=2023-05-15`) |
 
 Without a key the built-in local embedder is used. Vector dimensionality is detected from the provider's response (no hardcoded size). Each project re-vectorizes on its next session.
-
-### Drop files into the vault (bidirectional)
-
-Drop a file into `<vault-root>/<slug>/captured/` — it becomes memory, vectorized into the DB. Two shapes:
-
-```markdown
----
-type: learning
-tags: { domain: auth }
----
-JWT refresh rotation needs the prior token's `iat` to detect replay.
-```
-
-- **Structured** — a markdown file WITH frontmatter → one typed entry.
-- **Raw document** — any text file with no frontmatter (`.txt`, `.json`, `.csv`, `.md`, …) → a `source` entry, auto-chunked when long. Binary/rich docs (`.pdf`, `.docx`, `.rtf`, images) are extracted via tools you already have — `textutil` (macOS), `pdftotext` (poppler), `tesseract` (OCR) — with zero bundled dependency; without the tool the file waits for a re-sync after you install it.
-
-The Stop hook (or `prjct context wiki sync`) ingests, vectorizes, then moves the file to `captured/_ingested/<timestamp>/`. Content is scanned for secrets and prompt-injection before ingest.
-
-### Why a markdown export?
-
-Two reasons: (1) any agent with `Read`/`Glob` consumes it without an SDK or MCP handshake — the markdown tree is paged into ~5K-token chunks so a single file read stays cheap; (2) it survives `prjct uninstall` and remains human-readable. Obsidian compatibility is a side effect — `prjct install` auto-registers the vault so `obsidian://open?vault=<slug>` works in one click, but Obsidian is never required.
 
 ## Code Intelligence
 
@@ -498,7 +474,7 @@ prjct-cli/
     packs/               Pack manifests + pack-manager
     mcp/                 MCP server (5 tool groups)
     domain/              BM25, import-graph, git-cochange, file-ranker
-    services/            wiki-generator, wiki-ingest, sync, skill-generator
+    services/            sync-service, skill-generator, pattern-detector
     storage/             SQLite (one DB per project) — source of truth
     schemas/             Zod — runtime validation
     infrastructure/      path-manager, ai-provider, command-installer
@@ -519,8 +495,8 @@ prjct-cli/
 
 **How do I initialize / register a new project?**
 In any git repo, run `prjct sync` (it auto-runs on the first `prjct` command) or
-`prjct init`. This creates `.prjct/prjct.config.json` with a `projectId`, builds
-the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vault.
+`prjct init`. This creates `.prjct/prjct.config.json` with a `projectId` and
+builds the SQLite store at `~/.prjct-cli/projects/<projectId>/`.
 
 **How do I start an AI Agile work cycle?**
 Run `prjct work "<intent>"` from the repo. It registers the work cycle in
@@ -558,9 +534,9 @@ persisting findings to memory. Concrete examples:
 
 You can also pull project knowledge directly: ask "what patterns does this
 project use?" and the agent runs `prjct search`, `prjct context memory`, or
-`prjct guard` before reading source. The generated vault is a snapshot fallback;
-the fast path is SQLite + retrieval so agents do not flood their context.
-Outside an agent, every command takes `--md` to emit agent-ready markdown.
+`prjct guard` before reading source — bounded, ranked SQLite retrieval, so
+agents do not flood their context. Outside an agent, every command takes
+`--md` to emit agent-ready markdown.
 
 **What does prjct-cli output look like in a normal terminal?**
 A branded, **animated** spinner with full colors and interactive prompts (the
@@ -587,7 +563,7 @@ piped stdio (non-TTY), it adapts on every axis, with no flag:
   structured markdown the model consumes directly.
 - **Context injection** — the installed hooks feed Claude persona + active task
   + topical memory at `SessionStart`/`UserPromptSubmit`, and the lookup-first
-  protocol points it at the regenerated vault before it re-reads source.
+  protocol points it at `prjct search`/MCP tools before it re-reads source.
 
 Full per-environment table: [docs/environments.md](./docs/environments.md).
 
@@ -618,9 +594,9 @@ git check-ignore -v .prjct                         # why git ignores it
 
 The path is always `<repoRoot>/.prjct/` (strictly relative to the project — no
 env var, no global lookup). Read `projectId` from `prjct.config.json` to reach
-the *other* tiers: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`, vault at
-`<vault-root>/<slug>/_generated/` (`prjct setup --vault-root <path>` configures the vault root; `PRJCT_CLI_HOME` overrides the global
-base). The in-repo `.prjct/` holds only config, not state — full detail in
+the state tier: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`
+(`PRJCT_CLI_HOME` overrides the global base). The in-repo `.prjct/` holds only
+config, not state — full detail in
 [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
 **How does prjct-cli detect its environment with no configuration?**
@@ -632,8 +608,8 @@ anything.
 
 **Is all project data really in a local `.prjct/` directory? Team/VCS implications?**
 No — only `.prjct/prjct.config.json` (small, **committable** identity) is in the
-repo. State is per-device SQLite under `~/.prjct-cli` (never committed); the
-vault is regenerated. Teams coordinate via optional cloud sync, not git. Full
+repo. State is per-device SQLite under `~/.prjct-cli` (never committed).
+Teams coordinate via optional cloud sync, not git. Full
 tradeoffs: [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
 ## Links

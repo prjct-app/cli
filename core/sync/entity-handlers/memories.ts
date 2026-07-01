@@ -53,52 +53,35 @@ export const memoriesHandler: EntityHandler = {
     // already present is the same knowledge — skip (also makes re-pull a no-op).
     const dup = prjctDb.get<{ id: string }>(
       projectId,
-      'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
+      'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
       contentHash,
       type
     )
     if (dup) return
 
-    // Source of truth: the events row. NO publishCRUD here (no echo).
-    const eventId = prjctDb.appendEvent(projectId, `memory.${REMEMBER_ACTION_PREFIX}${type}`, {
-      content,
-      tags,
-      source,
-      provenance,
-    })
-    if (eventId == null) return
-
-    // FTS mirror — same INSERT shape as project-memory.remember().
-    const memId = `mem_${eventId}`
     // Preserve the authored time from the remote event so chronology survives
     // the round trip (machine A's 10:00 memory shows as 10:00 on machine B,
     // not "now"). Falls back to now only when the event omits it.
     const authored =
       (data.created_at as string) || (data.createdAt as string) || new Date().toISOString()
-    const now = new Date().toISOString()
-    const title = (content.split('\n')[0] ?? content).slice(0, 80)
-    try {
-      prjctDb.run(
-        projectId,
-        `INSERT OR IGNORE INTO memories
-           (id, project_id, title, content, tags, type, provenance, content_hash,
-            user_triggered, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        memId,
-        projectId,
-        title,
-        content,
-        JSON.stringify(tags),
-        type,
-        provenance,
-        contentHash,
-        0,
-        authored,
-        now
-      )
-    } catch {
-      // Non-critical — the events row is authoritative.
-    }
+
+    // Source of truth: the events row. NO publishCRUD here (no echo). Carry the
+    // real content_hash, project_id, and the AUTHORED created_at so the
+    // memory_entries trigger writes correct dedup + cross-device chronology
+    // (appendEvent stamps events.timestamp = local apply time).
+    prjctDb.appendEvent(projectId, `memory.${REMEMBER_ACTION_PREFIX}${type}`, {
+      content,
+      tags,
+      source,
+      provenance,
+      content_hash: contentHash,
+      project_id: projectId,
+      created_at: authored,
+    })
+    // memory_entries (single source for recall + FTS) is populated by the
+    // memory_entries_from_events trigger on the appendEvent above — with the
+    // real content_hash, project_id, and authored created_at carried in the
+    // payload. No `memories` mirror anymore.
   },
 
   async delete(projectId, data) {
@@ -112,7 +95,7 @@ export const memoriesHandler: EntityHandler = {
       const contentHash = memoryFingerprint(content)
       const rows = prjctDb.query<{ id: string }>(
         projectId,
-        'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL',
+        'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL',
         contentHash,
         type
       )
@@ -130,10 +113,11 @@ export const memoriesHandler: EntityHandler = {
           Number(numeric)
         )
       }
+      // Single source: soft-delete in memory_entries (recall + FTS) + drop embedding.
       prjctDb.run(
         projectId,
-        'UPDATE memories SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
-        new Date().toISOString(),
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',
+        Date.now(),
         memId
       )
       prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)

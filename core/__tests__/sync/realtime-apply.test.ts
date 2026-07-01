@@ -19,7 +19,9 @@ let projectId: string
 const origRead = authConfig.read.bind(authConfig)
 
 function memoryCount(): number {
-  return prjctDb.get<{ cnt: number }>(projectId, 'SELECT COUNT(*) as cnt FROM memories')?.cnt ?? 0
+  return (
+    prjctDb.get<{ cnt: number }>(projectId, 'SELECT COUNT(*) as cnt FROM memory_entries')?.cnt ?? 0
+  )
 }
 
 describe('syncManager.applyRealtimeEvent', () => {

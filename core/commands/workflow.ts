@@ -314,6 +314,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
         return workflowShow(null, projectId, options)
       }
 
+      // `runs` (C8 read surface) isn't an executable IntentType — handle it here.
+      if (trimmed.toLowerCase() === 'runs') {
+        return this.runs(projectId, options)
+      }
+
       const intent = detectIntent(trimmed)
 
       switch (intent.type) {
@@ -355,6 +360,27 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
       return failFromError(error)
     }
+  }
+
+  /**
+   * Recent workflow runs with step + gate-outcome counts (C8 read surface).
+   */
+  async runs(projectId: string, options: MdOption): Promise<CommandResult> {
+    const { getRecentWorkflowRuns } = await import('../workflow-engine/run-recorder')
+    const runs = getRecentWorkflowRuns(projectId, 20)
+    if (runs.length === 0) {
+      const msg = 'No workflow runs recorded yet.'
+      if (options.md) console.log(`> ${msg}`)
+      else out.info(msg)
+      return { success: true }
+    }
+    const lines = runs.map(
+      (r) =>
+        `- \`${r.command}\` — ${r.status} · ${r.steps} step(s) · gates ${r.gatesPassed}✓/${r.gatesFailed}✗`
+    )
+    if (options.md) console.log(['## Workflow runs', ...lines].join('\n'))
+    else out.info(['Workflow runs:', ...lines].join('\n'))
+    return { success: true }
   }
 
   /**

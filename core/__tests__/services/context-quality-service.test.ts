@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, type spyOn } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
 import {
   evaluateContextQuality,
@@ -13,18 +12,15 @@ import { patchPathManager, restorePathManager } from '../_setup/path-manager-moc
 
 let tmpRoot: string
 let projectRoot: string
-let vaultRoot: string
 let projectId: string
 let spies: Array<ReturnType<typeof spyOn>>
 
 beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-context-quality-'))
   projectRoot = path.join(tmpRoot, 'repo')
-  vaultRoot = path.join(tmpRoot, 'vault')
   projectId = `context-quality-${Date.now()}`
   spies = []
   patchPathManager(tmpRoot)
-  spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(async () => vaultRoot))
   await fs.mkdir(path.join(projectRoot, '.prjct'), { recursive: true })
   await fs.writeFile(
     path.join(projectRoot, '.prjct', 'prjct.config.json'),

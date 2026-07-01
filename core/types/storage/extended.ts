@@ -110,17 +110,6 @@ export interface ValidationSchema {
   safeParse(data: unknown): { success: boolean; error?: ZodError }
 }
 
-// Migrate JSON Types (from migrate-json.ts)
-
-export interface MigrationResult {
-  success: boolean
-  migratedFiles: string[]
-  skippedFiles: string[]
-  errors: Array<{ file: string; error: string }>
-  backupDir: string | null
-  duration: number
-}
-
 // Index Storage Types (from index-storage.ts)
 
 export interface LanguageStats {

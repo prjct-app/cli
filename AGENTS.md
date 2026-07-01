@@ -24,9 +24,9 @@ core/
   commands/       CLI command handlers
   hooks/          7 Claude Code hook subcommands (passive context injection)
   packs/          Pack manifests + pack-manager (persona, memory types, slots)
-  memory/         projectMemory (unified surface over SQLite + wiki)
+  memory/         projectMemory (unified surface over SQLite)
   workflow-engine/ Engine + state-machine + when-evaluator (declarative)
-  services/       sync-service, skill-generator, wiki-generator, wiki-ingest
+  services/       sync-service, skill-generator, pattern-detector
   domain/         Pure algorithms (bm25, import-graph, git-cochange, file-ranker)
   storage/        SQLite persistence (one DB per project)
   schemas/        Zod schemas — source of truth
@@ -153,8 +153,7 @@ Recognize the user's intent and run the right verb yourself.
 - Lookup is pull-first and bounded:
 - prjct is a RAG-backed project memory harness. Do not preload project history into agent instructions.
 - Start work with `prjct work "<intent>" --md`; read the surfaced likely files FIRST — do not grep-walk the repo to rediscover where code lives.
-- Pull more context on demand with `prjct search`, `prjct context memory`, `prjct guard`, or MCP `prjct_*` tools.
-- The vault `_generated/` is a Read/Glob fallback snapshot, not the source of truth and not something to load wholesale.
+- Pull more context on demand with `prjct search`, `prjct context memory`, `prjct guard`, or MCP `prjct_*` tools — not something to load wholesale.
 - On close, save synthesized context with `prjct remember context "<...>"`: what changed, why, key data, files, outcome, next — not raw quotes, counters, or transcript chunks.
 - Trivial work proceeds directly. Substantive implementation work follows a persisted intent brief
   + strict evidence: reviewed intent, tests before implementation when required, then code.

@@ -97,7 +97,6 @@ Re-run Path 1 (works whether installed or not), or `prjct update` from a termina
 - **Hooks** in `~/.claude/settings.json` (SessionStart, UserPromptSubmit, Stop, PostToolUse, PreToolUse, SubagentStart, CwdChanged)
 - **Lookup-first block** between `<!-- prjct:start -->` markers in `~/.claude/CLAUDE.md`
 - **Config dir** at `~/.prjct-cli/` (per-project SQLite under `projects/<id>/`)
-- **Vault** at `~/Documents/prjct/<slug>/_generated/` (auto-regenerated, browsable in Obsidian)
 - **Native SQLite binding** (`better-sqlite3`) for Node installs; verified during package install, `prjct install`, and daemon startup
 
 Self-heal updates the CLAUDE.md block and hooks on every version bump — no manual `prjct setup` needed after upgrade.
@@ -108,7 +107,7 @@ Self-heal updates the CLAUDE.md block and hooks on every version bump — no man
 
 In a fresh Claude Code session inside any prjct project:
 
-1. Ask "what patterns does this project use?" — Claude should read `_generated/patterns.md`, NOT `grep -r` in source.
+1. Ask "what patterns does this project use?" — Claude should call MCP `prjct_analysis`, NOT `grep -r` in source.
 2. Ask "review my changes" — the prjct skill activates with Production Bug Hunt methodology.
-3. Make some edits + close Claude — Stop hook auto-captures decisions/learnings (visible in `_generated/memory/decision.md`).
+3. Make some edits + close Claude — Stop hook auto-captures decisions/learnings (verify with `prjct search "<topic>"`).
 4. Open a second session in the same repo — prjct's hooks inject relevant memory, so you don't re-explain.

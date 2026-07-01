@@ -5,8 +5,6 @@
  * stream) so:
  *   - Specs are queryable as first-class entities (status, links, etc.)
  *   - Specs surface in `prjct context memory spec` recall
- *   - Vault regen (`prjct sync`, on `remember`/`ship`/etc) renders specs
- *     to <vault-root>/<slug>/_generated/specs/<slug>.md
  *
  * Service is intentionally thin — Claude does the heavy lifting
  * (interactive spec drafting, audit-spec subagent dispatch). The
@@ -25,7 +23,7 @@ import {
 } from '../types/spec'
 import { getTimestamp } from '../utils/date-helper'
 import { execFileAsync } from '../utils/exec'
-import { reviewsGatePassed } from './spec-audit-dispatch'
+import { reviewsGatePassedRelational } from './spec-audit-dispatch'
 
 /**
  * Read git HEAD sha at `projectPath`. Returns null when not a git repo
@@ -193,7 +191,7 @@ class SpecService {
       )
     }
 
-    if (updated && reviewsGatePassed(updated.content)) {
+    if (updated && reviewsGatePassedRelational(projectId, id)) {
       // All SELECTED lenses pass → auto-promote draft to reviewed.
       if (updated.status === 'draft') {
         const promoted = specStorage.setStatus(projectId, id, 'reviewed')

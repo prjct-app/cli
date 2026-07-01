@@ -12,8 +12,7 @@
  *    the last detection run. Suggests debt is accumulating without
  *    being addressed.
  *
- * All detectors persist findings as `learning` memory entries so the
- * wiki regen exposes them under `_generated/memory/learning.md`. The
+ * All detectors persist findings as `learning` memory entries. The
  * lookup-first protocol in CLAUDE.md (M0) ensures Claude finds them
  * at session start and can propose action.
  *

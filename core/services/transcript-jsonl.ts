@@ -50,16 +50,20 @@ function num(value: unknown): number {
  *   - Gemini   : promptTokenCount / candidatesTokenCount
  * Cache reads/creations count as input — real billed input the cycle incurred.
  */
-function usagePairFrom(usage: Record<string, unknown>): TranscriptUsage {
+function usagePairFrom(usage: Record<string, unknown>): TranscriptUsage & { cacheRead: number } {
+  // Per-turn input deltas (safe to sum): genuinely new input each turn.
   const tokensIn =
     num(usage.input_tokens) +
     num(usage.cache_creation_input_tokens) +
-    num(usage.cache_read_input_tokens) +
     num(usage.prompt_tokens) +
     num(usage.promptTokenCount)
   const tokensOut =
     num(usage.output_tokens) + num(usage.completion_tokens) + num(usage.candidatesTokenCount)
-  return { tokensIn, tokensOut }
+  // cache_read is the cumulative cached prefix RE-REPORTED every turn; summing
+  // it across turns inflates tokensIn quadratically (reviewed audit, spec
+  // 4b5bc99e). Return it separately so the caller takes the last/max, not a sum.
+  const cacheRead = num(usage.cache_read_input_tokens)
+  return { tokensIn, tokensOut, cacheRead }
 }
 
 /**
@@ -75,6 +79,9 @@ function usagePairFrom(usage: Record<string, unknown>): TranscriptUsage {
 export function sumTranscriptUsage(lines: TranscriptJsonlLine[]): TranscriptUsage {
   let tokensIn = 0
   let tokensOut = 0
+  // cache_read is cumulative (re-reported each turn) — take the largest single
+  // report, not the sum, so a long session doesn't inflate input quadratically.
+  let maxCacheRead = 0
   for (const line of lines) {
     const usage =
       asRecord(asRecord(line.message)?.usage) ??
@@ -84,6 +91,7 @@ export function sumTranscriptUsage(lines: TranscriptJsonlLine[]): TranscriptUsag
     const pair = usagePairFrom(usage)
     tokensIn += pair.tokensIn
     tokensOut += pair.tokensOut
+    if (pair.cacheRead > maxCacheRead) maxCacheRead = pair.cacheRead
   }
-  return { tokensIn, tokensOut }
+  return { tokensIn: tokensIn + maxCacheRead, tokensOut }
 }

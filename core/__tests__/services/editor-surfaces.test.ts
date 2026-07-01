@@ -59,7 +59,7 @@ describe('multi-editor surfaces generated from one contract', () => {
   it('keeps compact skills pull-only and storage-safe', () => {
     for (const skill of [codex, antigravitySkill]) {
       expect(skill).toContain('do not preload project history')
-      expect(skill).toContain('vault `_generated/` is a fallback snapshot')
+      expect(skill).toContain('not something to load wholesale')
       expect(skill).toContain('Save synthesized memory in English')
       expect(skill).not.toContain('~/.prjct-cli/projects/{projectId}/prjct.db')
       expect(skill).not.toContain('workflow stations')

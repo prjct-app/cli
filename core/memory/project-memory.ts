@@ -28,17 +28,15 @@ import { memoryFingerprint } from './content-fingerprint'
 import {
   collectSupersededIds,
   dedupeLatestByKey,
-  type EventRow,
   type MemoryEntry,
   type MemoryProvenance,
   type MemoryType,
   matchesTags,
   matchesTopic,
-  rowToEntry,
   type ShippedRow,
   shippedRowToEntry,
 } from './entries'
-import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX, REMEMBER_EVENT_RANGE } from './events'
+import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
 interface RecallOpts {
   /** Fuzzy-match against content + tag values */
@@ -77,35 +75,145 @@ const OVERFETCH_FACTOR = 4
 const MIN_OVERFETCH = 100
 
 /**
+ * The exact relationship-tag keys collectSupersededIds (entries.ts) reads —
+ * kept in sync with that function's `['supersedes', 'duplicates']` loop and
+ * its `'superseded-by'` check.
+ */
+const SUPERSEDE_TAG_KEYS = ['supersedes', 'duplicates', 'superseded-by']
+
+/**
  * Dead-id set for the FTS mirror: every entry retired by an author-declared
  * relationship tag, regardless of result window. Scans only live rows whose
- * tags mention a relationship key (LIKE pre-filter keeps it to a handful of
- * rows on a hot path that runs per prompt). Best-effort: empty set on error.
+ * tags match a relationship key exactly (an indexed IN lookup via
+ * ix_tag_lookup(key, value) — this used to be a leading-wildcard LIKE, which
+ * can't use that index and forced a full table scan on this per-prompt hot
+ * path). Best-effort: empty set on error.
  */
 function collectMirrorSupersededIds(projectId: string): Set<string> {
   try {
-    const rows = prjctDb.query<{ id: string; tags: string | null }>(
+    // Single-source: relationship tags live in memory_entry_tags now (no JSON
+    // LIKE over a blob). Reassemble {id → tags} for the relationship keys only.
+    const placeholders = SUPERSEDE_TAG_KEYS.map(() => '?').join(',')
+    const rows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
       projectId,
-      `SELECT id, tags FROM memories
-        WHERE deleted_at IS NULL
-          AND (tags LIKE '%supersede%' OR tags LIKE '%duplicates%')`
+      `SELECT t.entry_id, t.key, t.value
+         FROM memory_entry_tags t
+         JOIN memory_entries m ON m.id = t.entry_id
+        WHERE m.deleted_at IS NULL
+          AND t.is_machine = 0
+          AND t.key IN (${placeholders})`,
+      ...SUPERSEDE_TAG_KEYS
     )
-    const pseudo: Pick<MemoryEntry, 'id' | 'tags'>[] = []
-    for (const row of rows) {
-      if (!row.tags) continue
-      try {
-        const parsed = JSON.parse(row.tags) as unknown
-        if (parsed && typeof parsed === 'object') {
-          pseudo.push({ id: row.id, tags: parsed as Record<string, string> })
-        }
-      } catch {
-        // legacy non-JSON tags — skip
+    const byId = new Map<string, Record<string, string>>()
+    for (const r of rows) {
+      let tags = byId.get(r.entry_id)
+      if (!tags) {
+        tags = {}
+        byId.set(r.entry_id, tags)
       }
+      tags[r.key] = r.value
     }
+    const pseudo: Pick<MemoryEntry, 'id' | 'tags'>[] = [...byId.entries()].map(([id, tags]) => ({
+      id,
+      tags,
+    }))
     return collectSupersededIds(pseudo as MemoryEntry[])
   } catch {
     return new Set()
   }
+}
+
+/**
+ * Batch-load tags for a set of memory_entries ids — one query
+ * (`WHERE entry_id IN (...)`) instead of one per row. Shared by every reader
+ * that assembles MemoryEntry.tags (loadV2Entries, searchFts) so a future fix
+ * (chunking past SQLite's ~999-param IN limit, excluding is_machine tags,
+ * etc.) applies everywhere at once instead of drifting between copies.
+ */
+function batchTagsByEntryId(projectId: string, ids: string[]): Map<string, Record<string, string>> {
+  const tagsById = new Map<string, Record<string, string>>()
+  if (ids.length === 0) return tagsById
+  const placeholders = ids.map(() => '?').join(',')
+  const tagRows = prjctDb.query<{ entry_id: string; key: string; value: string }>(
+    projectId,
+    `SELECT entry_id, key, value FROM memory_entry_tags WHERE entry_id IN (${placeholders})`,
+    ...ids
+  )
+  for (const t of tagRows) {
+    let m = tagsById.get(t.entry_id)
+    if (!m) {
+      m = {}
+      tagsById.set(t.entry_id, m)
+    }
+    m[t.key] = t.value
+  }
+  return tagsById
+}
+
+/**
+ * Read authored memory from the Schema v2 tables (memory_entries +
+ * memory_entry_tags), mapped to MemoryEntry. One indexed query for the rows +
+ * one batched query for their tags — no JSON.parse per row. `memory_entries` is
+ * the single read source; the trigger keeps it complete for every writer.
+ * `whereTail` is the part after `WHERE deleted_at IS NULL` (e.g. `AND type = ?
+ * ORDER BY ... LIMIT ?`); `params` binds its placeholders.
+ */
+function loadV2Entries(
+  projectId: string,
+  whereTail: string,
+  ...params: Array<string | number>
+): MemoryEntry[] {
+  const rows = prjctDb.query<{
+    id: string
+    type: string
+    content: string
+    provenance: string | null
+    created_at: number
+  }>(
+    projectId,
+    `SELECT id, type, content, provenance, created_at
+     FROM memory_entries
+     WHERE deleted_at IS NULL ${whereTail}`,
+    ...params
+  )
+  if (rows.length === 0) return []
+  const tagsById = batchTagsByEntryId(
+    projectId,
+    rows.map((r) => r.id)
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    type: r.type as MemoryType,
+    content: r.content,
+    tags: tagsById.get(r.id) ?? {},
+    rememberedAt: new Date(r.created_at).toISOString(),
+    provenance: (r.provenance ?? 'declared') as MemoryProvenance,
+  }))
+}
+
+/**
+ * Newest-first recall over all live entries (rowid = numeric insert order).
+ * When `types` is given (the common case — most callers filter to 1-2 types),
+ * the predicate is pushed into SQL so `ix_mem_recall(project_id, type,
+ * created_at DESC)` can drive an indexed SEARCH instead of a full SCAN — this
+ * was previously JS-side-only, so every recall() (typed or not) scanned the
+ * whole table regardless of the caller's filter.
+ */
+function recallEntriesFromV2(
+  projectId: string,
+  overfetch: number,
+  types?: MemoryType[]
+): MemoryEntry[] {
+  if (types && types.length > 0) {
+    const placeholders = types.map(() => '?').join(',')
+    return loadV2Entries(
+      projectId,
+      `AND type IN (${placeholders}) ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+      ...types,
+      overfetch
+    )
+  }
+  return loadV2Entries(projectId, 'ORDER BY created_at DESC, rowid DESC LIMIT ?', overfetch)
 }
 
 export const projectMemory = {
@@ -147,15 +255,15 @@ export const projectMemory = {
     // Dedup net: a verbatim re-capture of the same (type, content) adds no
     // knowledge — it only dilutes recall and burns slots in the fixed-size
     // injection budget. Skip it. This is the universal guard behind EVERY
-    // capture path (manual `remember`, the friction / skill-miss detectors,
-    // wiki-ingest), so a single detector re-firing each session can't spam the
+    // capture path (manual `remember`, the friction / skill-miss detectors),
+    // so a single detector re-firing each session can't spam the
     // store. Best-effort: any lookup failure falls through to a normal write —
     // a dedup miss is cheaper than a dropped capture.
     if (projectId) {
       try {
         const dup = prjctDb.get<{ id: string }>(
           projectId,
-          'SELECT id FROM memories WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
+          'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
           contentHash,
           args.type
         )
@@ -173,42 +281,17 @@ export const projectMemory = {
         tags,
         source: args.source,
         provenance,
+        // Carried so the memory_entries_from_events trigger writes the REAL
+        // content fingerprint (for dedup) + project_id — not a synthetic value.
+        content_hash: contentHash,
+        ...(projectId ? { project_id: projectId } : {}),
       }
     )
     if (logResult?.projectId && !projectId) projectId = logResult.projectId
 
-    // Dual-write to the `memories` table so the FTS5 index (memories_fts)
-    // stays fresh. The trigger memories_ai keeps the FTS rows in sync.
-    // Best-effort: the audit-trail event already landed in `events`; if
-    // memories insert fails we just lose the FTS row for this entry.
-    if (logResult?.eventId != null) {
-      try {
-        const memId = `mem_${logResult.eventId}`
-        const now = new Date().toISOString()
-        const titleSrc = args.content.split('\n')[0] ?? args.content
-        const title = titleSrc.slice(0, 80)
-        prjctDb.run(
-          logResult.projectId,
-          `INSERT OR IGNORE INTO memories
-             (id, project_id, title, content, tags, type, provenance, content_hash,
-              user_triggered, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          memId,
-          logResult.projectId,
-          title,
-          args.content,
-          JSON.stringify(tags),
-          args.type,
-          provenance,
-          contentHash,
-          0,
-          now,
-          now
-        )
-      } catch {
-        // Non-critical — events row is the source of truth.
-      }
-    }
+    // memory_entries (the single source for recall + FTS) is populated by the
+    // memory_entries_from_events trigger on the events insert above — covers
+    // every writer uniformly. No `memories` mirror anymore.
 
     // Reinforcement loop: credit the entries this new one references — they
     // just proved load-bearing (the project is building on them). Feeds the
@@ -262,13 +345,6 @@ export const projectMemory = {
     } catch {
       // Best-effort — local memory write already succeeded.
     }
-
-    try {
-      const { requestVaultRegeneration } = await import('../services/vault-regeneration')
-      await requestVaultRegeneration(projectPath, projectId)
-    } catch {
-      // Best-effort — local memory write already succeeded.
-    }
   },
 
   /**
@@ -295,26 +371,25 @@ export const projectMemory = {
 
     type FtsRow = {
       id: string
-      title: string
       content: string
-      tags: string | null
       type: string | null
       provenance: string | null
-      created_at: string
+      created_at: number
     }
     let rows: FtsRow[]
     try {
       // Overfetch: superseded pruning below may drop rows, and this is
       // the surface that feeds the per-prompt trap cue — a stale decision
-      // must not consume the only result slot.
+      // must not consume the only result slot. Single-source: FTS over
+      // memory_entries (migration 42).
       rows = prjctDb.query<FtsRow>(
         projectId,
-        `SELECT m.id, m.title, m.content, m.tags, m.type, m.provenance, m.created_at
-         FROM memories_fts ft
-         JOIN memories m ON m.rowid = ft.rowid
-         WHERE memories_fts MATCH ?
+        `SELECT m.id, m.content, m.type, m.provenance, m.created_at
+         FROM memory_entries_fts ft
+         JOIN memory_entries m ON m.rowid = ft.rowid
+         WHERE memory_entries_fts MATCH ?
            AND m.deleted_at IS NULL
-         ORDER BY bm25(memories_fts) ASC, m.created_at DESC
+         ORDER BY bm25(memory_entries_fts) ASC, m.created_at DESC
          LIMIT ?`,
         matchExpr,
         limit * 2
@@ -322,26 +397,21 @@ export const projectMemory = {
     } catch {
       return []
     }
+    if (rows.length === 0) return []
 
-    let entries = rows.map((row) => {
-      let tags: Record<string, string> = {}
-      if (row.tags) {
-        try {
-          const parsed = JSON.parse(row.tags) as unknown
-          if (parsed && typeof parsed === 'object') tags = parsed as Record<string, string>
-        } catch {
-          // Comma-joined legacy form (migration 10 backfill). Best-effort.
-        }
-      }
-      return {
-        id: row.id,
-        type: row.type ?? 'fact',
-        content: row.content,
-        tags,
-        rememberedAt: row.created_at,
-        provenance: (row.provenance ?? 'declared') as MemoryProvenance,
-      }
-    })
+    const tagsById = batchTagsByEntryId(
+      projectId,
+      rows.map((r) => r.id)
+    )
+
+    let entries = rows.map((row) => ({
+      id: row.id,
+      type: (row.type ?? 'fact') as MemoryType,
+      content: row.content,
+      tags: tagsById.get(row.id) ?? {},
+      rememberedAt: new Date(row.created_at).toISOString(),
+      provenance: (row.provenance ?? 'declared') as MemoryProvenance,
+    }))
 
     // Author-declared compaction, same contract as recall(): a superseded
     // or duplicated entry must not surface as live advice. Unlike recall's
@@ -374,14 +444,16 @@ export const projectMemory = {
     const wantShipped = typesFilter ? typesFilter.has('shipped') : true
     const wantEvents = typesFilter ? [...typesFilter].some((t) => t !== 'shipped') : true
 
-    const rows = wantEvents
-      ? prjctDb.query<EventRow>(
-          projectId,
-          'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC LIMIT ?',
-          ...REMEMBER_EVENT_RANGE,
-          overfetch
-        )
-      : []
+    // C1 read flip: authored memory comes from the normalized v2 tables
+    // (memory_entries + memory_entry_tags), kept complete for every writer by
+    // the memory_entries_from_events trigger. Typed columns + indexed tags —
+    // no per-row JSON.parse of events.data on this per-prompt path. The type
+    // predicate is pushed into SQL (not just the JS filter below) so the
+    // per-prompt hot path gets an indexed SEARCH instead of a full SCAN.
+    const sqlTypes = typesFilter
+      ? [...typesFilter].filter((t): t is MemoryType => t !== 'shipped')
+      : undefined
+    const v2entries = wantEvents ? recallEntriesFromV2(projectId, overfetch, sqlTypes) : []
     const shipped = wantShipped
       ? prjctDb.query<ShippedRow>(
           projectId,
@@ -390,7 +462,7 @@ export const projectMemory = {
         )
       : []
 
-    let entries: MemoryEntry[] = [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+    let entries: MemoryEntry[] = [...v2entries, ...shipped.map(shippedRowToEntry)]
 
     if (typesFilter) {
       entries = entries.filter((e) => typesFilter.has(e.type))
@@ -451,20 +523,20 @@ export const projectMemory = {
     // the scan to file-tagged remember rows in SQL — exact / suffix / basename
     // matching mirrors the original JS filter. Preventive-type filtering and
     // superseded pruning stay in JS over the (small) matched set.
+    // memory_entries.file is the typed, indexed equivalent of the old events
+    // `file_tag` generated column — exact / suffix / basename match in SQL.
     let matches: MemoryEntry[]
     try {
-      const rows = prjctDb.query<EventRow>(
+      matches = loadV2Entries(
         projectId,
-        `SELECT id, type, data, timestamp FROM events
-          WHERE file_tag IS NOT NULL
-            AND (file_tag = ? OR ? LIKE '%/' || file_tag OR file_tag = ? OR file_tag LIKE '%/' || ?)
-          ORDER BY id DESC`,
+        `AND file IS NOT NULL
+          AND (file = ? OR ? LIKE '%/' || file OR file = ? OR file LIKE '%/' || ?)
+          ORDER BY created_at DESC, rowid DESC`,
         filePath,
         filePath,
         base,
         base
-      )
-      matches = rows.map(rowToEntry).filter(isPreventive)
+      ).filter(isPreventive)
     } catch {
       return []
     }
@@ -477,13 +549,12 @@ export const projectMemory = {
     // pull away via `prjct guard` when the agent actually asks "what happened?".
     if (!opts.preventiveOnly) {
       try {
-        const ctxRows = prjctDb.query<EventRow>(
+        const ctxRows = loadV2Entries(
           projectId,
-          `SELECT id, type, data, timestamp FROM events
-          WHERE type = ? ORDER BY id DESC LIMIT 200`,
-          `${REMEMBER_EVENT_PREFIX}context`
+          'AND type = ? ORDER BY created_at DESC, rowid DESC LIMIT 200',
+          'context'
         )
-        for (const e of ctxRows.map(rowToEntry)) {
+        for (const e of ctxRows) {
           const files = (e.tags?.files ?? '').split(',').map((f) => f.trim())
           if (files.some((f) => f === filePath || f === base || f.endsWith(`/${base}`))) {
             matches.push(e)
@@ -511,15 +582,8 @@ export const projectMemory = {
       .trim()
       .match(/^(?:mem[_-])?(\d+)$/i)
     if (!m) return null
-    const rowId = Number(m[1])
     try {
-      const row = prjctDb.get<EventRow>(
-        projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE id = ? AND type LIKE ?',
-        rowId,
-        `${REMEMBER_EVENT_PREFIX}%`
-      )
-      return row ? rowToEntry(row) : null
+      return loadV2Entries(projectId, 'AND id = ?', `mem_${m[1]}`)[0] ?? null
     } catch {
       return null
     }
@@ -537,8 +601,8 @@ export const projectMemory = {
     try {
       const row = prjctDb.get<{ n: number }>(
         projectId,
-        'SELECT COUNT(*) AS n FROM events WHERE type = ?',
-        `${REMEMBER_EVENT_PREFIX}${type}`
+        'SELECT COUNT(*) AS n FROM memory_entries WHERE type = ? AND deleted_at IS NULL',
+        type
       )
       return row?.n ?? 0
     } catch {
@@ -556,13 +620,12 @@ export const projectMemory = {
   recallByType(projectId: string, type: string, limit: number): MemoryEntry[] {
     if (limit <= 0) return []
     try {
-      const rows = prjctDb.query<EventRow>(
+      return loadV2Entries(
         projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE type = ? ORDER BY id DESC LIMIT ?',
-        `${REMEMBER_EVENT_PREFIX}${type}`,
+        'AND type = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+        type,
         limit
       )
-      return rows.map(rowToEntry)
     } catch {
       return []
     }
@@ -602,27 +665,25 @@ export const projectMemory = {
       }
     } catch {}
 
-    // FTS mirror — soft-delete so searchFts (filters deleted_at) stops it.
-    try {
-      const mem = prjctDb.get<{ id: string }>(
-        projectId,
-        'SELECT id FROM memories WHERE id = ? AND deleted_at IS NULL',
-        memId
-      )
-      if (mem) {
-        prjctDb.run(
-          projectId,
-          'UPDATE memories SET deleted_at = ? WHERE id = ?',
-          new Date().toISOString(),
-          memId
-        )
-        removed = true
-      }
-    } catch {}
+    // (memory_entries soft-delete below is the single-source forget; it also
+    // removes the entry from searchFts via the FTS triggers.)
 
     // Drop any stored embedding so it can't resurface via semantic search.
     try {
       prjctDb.run(projectId, 'DELETE FROM memory_embeddings WHERE memory_id = ?', memId)
+    } catch {}
+
+    // Schema v2 single source: soft-delete the normalized row so recall +
+    // searchFts (which read memory_entries) stop returning it. Counts as a
+    // successful forget even if the events/legacy mirrors had nothing.
+    try {
+      const r = prjctDb.run(
+        projectId,
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
+        Date.now(),
+        memId
+      )
+      if (r.changes > 0) removed = true
     } catch {}
 
     return removed
@@ -690,18 +751,15 @@ export const projectMemory = {
    */
   unembeddedEntriesForIndex(projectId: string, model: string): MemoryEntry[] {
     try {
-      const rows = prjctDb.query<EventRow>(
+      const rows = loadV2Entries(
         projectId,
-        `SELECT e.id, e.type, e.data, e.timestamp FROM events e
-          WHERE e.type >= ? AND e.type < ?
-            AND e.type != ?
-            AND NOT EXISTS (
-              SELECT 1 FROM memory_embeddings me
-               WHERE me.memory_id = 'mem_' || e.id AND me.model = ?
-            )
-          ORDER BY e.id DESC`,
-        ...REMEMBER_EVENT_RANGE,
-        `${REMEMBER_EVENT_PREFIX}improvement-signal`,
+        `AND type != ?
+          AND NOT EXISTS (
+            SELECT 1 FROM memory_embeddings me
+             WHERE me.memory_id = memory_entries.id AND me.model = ?
+          )
+          ORDER BY created_at DESC, rowid DESC`,
+        'improvement-signal',
         model
       )
       const shipped = prjctDb.query<ShippedRow>(
@@ -714,7 +772,7 @@ export const projectMemory = {
           ORDER BY s.shipped_at DESC`,
         model
       )
-      return [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+      return [...rows, ...shipped.map(shippedRowToEntry)]
     } catch {
       return []
     }
@@ -722,16 +780,12 @@ export const projectMemory = {
 
   allEntriesForIndex(projectId: string): MemoryEntry[] {
     try {
-      const rows = prjctDb.query<EventRow>(
-        projectId,
-        'SELECT id, type, data, timestamp FROM events WHERE type >= ? AND type < ? ORDER BY id DESC',
-        ...REMEMBER_EVENT_RANGE
-      )
+      const entries = loadV2Entries(projectId, 'ORDER BY created_at DESC, rowid DESC')
       const shipped = prjctDb.query<ShippedRow>(
         projectId,
         'SELECT id, name, type, shipped_at, data FROM shipped_features ORDER BY shipped_at DESC'
       )
-      return [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+      return [...entries, ...shipped.map(shippedRowToEntry)]
     } catch {
       return []
     }

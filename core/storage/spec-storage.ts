@@ -33,6 +33,47 @@ interface SpecRow {
   archived_at: string | null
 }
 
+/**
+ * Schema v2 (C6): project a spec's list fields into the normalized child tables
+ * so the spec — and its gate (selected reviewers + verdicts) — is queryable as
+ * relational records, not only a JSON blob. Clears + reinserts (content fully
+ * replaces on each write). The `specs.content` blob is retained for the typed
+ * full-object readers until they cut over.
+ */
+function projectSpecRelational(projectId: string, id: string, content: SpecContent): void {
+  try {
+    // Only the GATE state is projected relationally (spec_review +
+    // spec_selected_reviewer) — that's the one consumer (reviewsGatePassedRelational).
+    // The rest of the spec (criteria/scope/risks/test_plan/links/tags) stays in
+    // the specs.content aggregate blob, which is the sync aggregate root and the
+    // read source of truth. No redundant write-only child tables.
+    prjctDb.run(projectId, 'DELETE FROM spec_review WHERE spec_id = ?', id)
+    prjctDb.run(projectId, 'DELETE FROM spec_selected_reviewer WHERE spec_id = ?', id)
+    for (const [lens, review] of Object.entries(content.reviews ?? {})) {
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_review (id, spec_id, lens, verdict, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        `${id}-rev-${lens}`,
+        id,
+        lens,
+        review.verdict,
+        review.notes ?? null,
+        Date.now()
+      )
+    }
+    for (const lens of content.selected_reviewers) {
+      prjctDb.run(
+        projectId,
+        'INSERT OR IGNORE INTO spec_selected_reviewer (spec_id, lens) VALUES (?, ?)',
+        id,
+        lens
+      )
+    }
+  } catch {
+    // Best-effort projection — the content blob stays the source of truth.
+  }
+}
+
 class SpecStorage {
   /**
    * Strictly-monotonic `updated_at` for a spec row.
@@ -85,6 +126,7 @@ class SpecStorage {
       now,
       now
     )
+    projectSpecRelational(projectId, id, validatedContent)
 
     const spec: Spec = {
       id,
@@ -125,7 +167,7 @@ class SpecStorage {
 
   /**
    * Fuzzy-match title or content. Falls back to LIKE — for serious
-   * search the FTS5 `memories_fts` table is the better surface.
+   * search the FTS5 `memory_entries_fts` table is the better surface.
    */
   search(projectId: string, query: string): Spec[] {
     const like = `%${query}%`
@@ -148,6 +190,7 @@ class SpecStorage {
       now,
       id
     )
+    projectSpecRelational(projectId, id, validated)
     const spec = this.get(projectId, id)
     if (spec) this.publishSync(projectId, spec)
     return spec
@@ -181,6 +224,7 @@ class SpecStorage {
     )
     const ok = result.changes === 1
     if (ok) {
+      projectSpecRelational(projectId, id, validated)
       const spec = this.get(projectId, id)
       if (spec) this.publishSync(projectId, spec)
     }
@@ -293,7 +337,7 @@ class SpecStorage {
           ? spec.tags
           : JSON.stringify(spec.tags)
     const now = getTimestamp()
-    prjctDb.run(
+    const result = prjctDb.run(
       projectId,
       `INSERT INTO specs (id, title, status, content, tags, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -306,6 +350,23 @@ class SpecStorage {
       spec.created_at || now,
       spec.updated_at || now
     )
+    // Project the relational gate state (spec_review/spec_selected_reviewer)
+    // ONLY when this INSERT actually landed a new spec (result.changes > 0).
+    // "Local data is never modified by sync" — ON CONFLICT DO NOTHING above
+    // means an existing local spec's content is untouched, so a brand-new spec
+    // has no local gate rows yet and this projection is purely additive.
+    // Without this, a spec pulled from another machine kept its full reviewed
+    // content in the blob but reviewsGatePassedRelational read empty tables and
+    // reported "not reviewed" for a spec that was already fully approved.
+    if (result.changes > 0) {
+      try {
+        const parsed = SpecContentSchema.parse(JSON.parse(content))
+        projectSpecRelational(projectId, spec.id, parsed)
+      } catch {
+        // Malformed/legacy remote content — the blob still landed; the
+        // relational gate projection is best-effort, not a hard dependency.
+      }
+    }
   }
 
   count(projectId: string): { total: number; draft: number; shipped: number } {

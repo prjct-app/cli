@@ -462,7 +462,6 @@ export async function setTaskStatus(
         harnessWarnings: verification.warnings,
       })
       await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
-      await regenerateVaultAfterTaskWrite(projectPath, projectId)
       return {
         ok: true,
         taskId: wsTask.id,
@@ -535,10 +534,6 @@ export async function setTaskStatus(
     // already-completed task). The audit log still captures intent.
   }
 
-  if (normalized === 'done' || normalized === 'completed') {
-    await regenerateVaultAfterTaskWrite(projectPath, projectId)
-  }
-
   return {
     ok: true,
     taskId: active.id,
@@ -546,18 +541,6 @@ export async function setTaskStatus(
     verificationWarnings: verification.warnings,
     contextPrompt:
       normalized === 'done' || normalized === 'completed' ? TASK_CONTEXT_PROMPT : undefined,
-  }
-}
-
-async function regenerateVaultAfterTaskWrite(
-  projectPath: string,
-  projectId: string
-): Promise<void> {
-  try {
-    const { requestVaultRegeneration } = await import('./vault-regeneration')
-    await requestVaultRegeneration(projectPath, projectId)
-  } catch {
-    // Best-effort: task state is source of truth; next write/hook can recover.
   }
 }
 

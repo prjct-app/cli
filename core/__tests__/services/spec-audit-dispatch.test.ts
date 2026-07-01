@@ -3,22 +3,24 @@
  *
  * `selectReviewers` is the deterministic baseline (no LLM): `architecture`
  * is the floor; lenses are added when the spec text signals their concern.
- * `reviewsGatePassed` is the auto-promote gate over the SELECTED set, with a
- * legacy fallback to the three baseline lenses when no set was recorded.
+ * `reviewsGatePassedRelational` is the auto-promote gate over the SELECTED
+ * set (read from spec_selected_reviewer/spec_review, C6), with a legacy
+ * fallback to the three baseline lenses when no set was recorded.
  */
 
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { LENS_CATALOG } from '../../services/review-lenses'
 import {
   renderAuditDispatch,
-  reviewsGatePassed,
+  reviewsGatePassedRelational,
   selectReviewers,
 } from '../../services/spec-audit-dispatch'
-import { emptySpecContent, type SpecContent, type SpecReview } from '../../types/spec'
+import prjctDb from '../../storage/database'
+import { emptySpecContent } from '../../types/spec'
 import type { DomainDefinition } from '../../types/storage/extended'
-
-const pass: SpecReview = { verdict: 'pass', notes: 'ok', ts: '2026-06-19T00:00:00.000Z' }
-const fail: SpecReview = { verdict: 'fail', notes: 'no', ts: '2026-06-19T00:00:00.000Z' }
 
 describe('selectReviewers — dynamic baseline', () => {
   it('picks ONLY architecture for a trivial spec', () => {
@@ -52,49 +54,80 @@ describe('selectReviewers — dynamic baseline', () => {
   })
 })
 
-describe('reviewsGatePassed — gate over the selected set', () => {
-  const withReviews = (selected: string[], reviews: Record<string, SpecReview>): SpecContent => ({
-    ...emptySpecContent('g'),
-    selected_reviewers: selected,
-    reviews,
+describe('reviewsGatePassedRelational — gate over the selected set (C6)', () => {
+  let projectId: string
+  let projectsDir: string
+  let originalProjectsDir: string | undefined
+
+  beforeEach(async () => {
+    projectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-gate-rel-'))
+    originalProjectsDir = process.env.PRJCT_PROJECTS_DIR
+    process.env.PRJCT_PROJECTS_DIR = projectsDir
+    projectId = `gaterel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    prjctDb.run(projectId, 'SELECT 1 WHERE 1=0')
+  })
+  afterEach(async () => {
+    if (originalProjectsDir === undefined) delete process.env.PRJCT_PROJECTS_DIR
+    else process.env.PRJCT_PROJECTS_DIR = originalProjectsDir
+    await fs.rm(projectsDir, { recursive: true, force: true })
   })
 
-  it('passes when every selected lens passed', () => {
-    expect(
-      reviewsGatePassed(
-        withReviews(['architecture', 'security'], { architecture: pass, security: pass })
+  const specId = 'gate-spec'
+  function seed(selected: string[], verdicts: Record<string, 'pass' | 'fail'>): void {
+    for (const lens of selected) {
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_selected_reviewer (spec_id, lens) VALUES (?, ?)',
+        specId,
+        lens
       )
-    ).toBe(true)
+    }
+    for (const [lens, verdict] of Object.entries(verdicts)) {
+      prjctDb.run(
+        projectId,
+        'INSERT INTO spec_review (id, spec_id, lens, verdict, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        `${specId}-${lens}`,
+        specId,
+        lens,
+        verdict,
+        'notes',
+        new Date().toISOString()
+      )
+    }
+  }
+
+  it('passes when every selected lens passed', () => {
+    seed(['architecture', 'security'], { architecture: 'pass', security: 'pass' })
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(true)
   })
 
   it('fails when a selected lens failed', () => {
-    expect(
-      reviewsGatePassed(
-        withReviews(['architecture', 'security'], { architecture: pass, security: fail })
-      )
-    ).toBe(false)
+    seed(['architecture', 'security'], { architecture: 'pass', security: 'fail' })
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(false)
   })
 
   it('fails when a selected lens is missing', () => {
-    expect(
-      reviewsGatePassed(withReviews(['architecture', 'security'], { architecture: pass }))
-    ).toBe(false)
+    seed(['architecture', 'security'], { architecture: 'pass' })
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(false)
   })
 
   it('does NOT require unselected lenses (a 1-lens spec promotes on 1 pass)', () => {
-    expect(reviewsGatePassed(withReviews(['architecture'], { architecture: pass }))).toBe(true)
+    seed(['architecture'], { architecture: 'pass' })
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(true)
   })
 
-  it('legacy fallback: empty selected_reviewers ⇒ the three baseline lenses', () => {
-    expect(
-      reviewsGatePassed(withReviews([], { strategic: pass, architecture: pass, design: pass }))
-    ).toBe(true)
-    // Legacy partial (only 2 of 3 baseline) does not promote.
-    expect(reviewsGatePassed(withReviews([], { strategic: pass, architecture: pass }))).toBe(false)
+  it('legacy fallback: empty selected set ⇒ the three baseline lenses', () => {
+    seed([], { strategic: 'pass', architecture: 'pass', design: 'pass' })
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(true)
+  })
+
+  it('legacy fallback: partial baseline (2 of 3) does not promote', () => {
+    seed([], { strategic: 'pass', architecture: 'pass' })
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(false)
   })
 
   it('no reviews at all ⇒ false', () => {
-    expect(reviewsGatePassed(emptySpecContent('g'))).toBe(false)
+    expect(reviewsGatePassedRelational(projectId, specId)).toBe(false)
   })
 })
 

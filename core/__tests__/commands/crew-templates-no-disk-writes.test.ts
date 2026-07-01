@@ -9,9 +9,8 @@
  * "Edits to `.prjct/` ... you may edit directly" — the leader treated the
  * whole .prjct/ subtree as a free-write zone.
  *
- * Product invariant: SQLite + regenerated vault are the only allowed
- * persistence surfaces. The ONLY hand-editable file under .prjct/ is
- * .prjct/prjct.config.json.
+ * Product invariant: SQLite is the only allowed persistence surface. The
+ * ONLY hand-editable file under .prjct/ is .prjct/prjct.config.json.
  */
 
 import { describe, expect, test } from 'bun:test'

@@ -1,23 +1,18 @@
 /**
- * Machine-signal quarantine + `signals.md` dashboard.
+ * Machine-signal digest — rescued from the retired wiki builders (WS-A):
+ * this is a pure markdown-string function, not vault I/O, and backs the
+ * `prjct_signals` MCP tool.
  *
  * Auto-detectors (hot-file churn, skill-miss, friction, recurring bugs)
- * write their output into project memory as regular entries. That is
- * right for the DB — recall and the hooks feed on them — but rendering
- * each one as its own vault note drowned the knowledge graph in dozens
- * of `hot-file-NNN` / `skill-miss-...-NNN` nodes (45% of all entries
- * are machine telemetry). The vault is for KNOWLEDGE; telemetry gets
- * exactly one page.
- *
- * Every rendered row keeps its `^mem-N` block anchor so cross-refs
- * resolve as `[[signals#^mem-N|title]]` — one hub node in the graph
- * instead of a dust cloud.
+ * write their output into project memory as regular entries. That is right
+ * for the DB — recall and the hooks feed on them — but it is telemetry, not
+ * curated knowledge, so it gets its own compact digest rather than being
+ * mixed into topical recall.
  */
 
-import type { MemoryEntry } from '../../memory/entries'
-import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
-import { truncate } from './_shared'
-import { summarizeFrictionLesson } from './friction-lessons'
+import type { MemoryEntry } from '../memory/entries'
+import { linkifyMemRefs } from '../memory/format'
+import { summarizeFrictionLesson, truncate } from '../utils/text-summary'
 
 /** `tags.source` values produced by automatic detectors, not by an agent/user. */
 export const MACHINE_SOURCES: ReadonlySet<string> = new Set([
@@ -38,10 +33,6 @@ export function isSignalEntry(e: Pick<MemoryEntry, 'type' | 'tags'>): boolean {
   return source !== undefined && MACHINE_SOURCES.has(source)
 }
 
-function rowId(id: string): string {
-  return id.replace(/^mem[_-]/, '')
-}
-
 function dateOnly(iso: string): string {
   const m = (iso || '').match(/^(\d{4}-\d{2}-\d{2})/)
   return m ? m[1] : ''
@@ -54,12 +45,18 @@ function oneLine(content: string, max = 220): string {
 type Section = { title: string; intro: string; rows: string[] }
 
 /**
- * Single dashboard page for all machine signals. Returns null when the
- * project has none (the page simply doesn't exist — no empty stub).
+ * Single digest of all machine signals. Returns null when the project has
+ * none (no empty stub).
+ *
+ * `opts` is narrowed to just `boundary` (not the full FormatMemoryMdOptions)
+ * — this digest is MCP-tool output, not a vault page, so the Obsidian-only
+ * fields (vault/idTypeIndex/idTitleIndex/idSlugIndex/perEntryTypes/signalIds)
+ * must never reach linkifyMemRefs here, or a mem_N reference would render as
+ * `[[type#^mem-N|title]]` wikilink syntax with no vault to resolve it.
  */
 export function buildSignalsFile(
   signals: MemoryEntry[],
-  opts: FormatMemoryMdOptions
+  opts: { boundary?: 'llm' }
 ): string | null {
   if (signals.length === 0) return null
 
@@ -77,7 +74,11 @@ export function buildSignalsFile(
     else other.push(e)
   }
 
-  const anchor = (e: MemoryEntry) => `^mem-${rowId(e.id)}`
+  // Plain id reference — this used to be an Obsidian block anchor
+  // (`^mem-N`, so other vault pages could link `[[signals#^mem-N]]`); with
+  // no vault, that syntax is meaningless noise in MCP tool output, so this
+  // just names the id for traceability (`prjct context memory <id>`).
+  const idRef = (e: MemoryEntry) => `\`${e.id}\``
   const stamp = (e: MemoryEntry) => {
     const d = dateOnly(e.rememberedAt)
     return d ? ` _(${d})_` : ''
@@ -87,7 +88,7 @@ export function buildSignalsFile(
 
   if (hotFiles.length > 0) {
     // Newest entry per file leads; older churn entries for the same
-    // file stay listed (their anchors must exist) but compactly.
+    // file stay listed but compactly.
     const byFile = new Map<string, MemoryEntry[]>()
     for (const e of hotFiles) {
       const file = e.tags?.file ?? '(unknown file)'
@@ -102,8 +103,8 @@ export function buildSignalsFile(
       const touches = latest.tags?.touches ? `${latest.tags.touches} touches` : 'churning'
       const win = latest.tags?.window_days ?? latest.tags?.['window-days']
       const window = win ? ` in ${win}d` : ''
-      rows.push(`- \`${file}\` — ${touches}${window}${stamp(latest)} ${anchor(latest)}`)
-      for (const o of older) rows.push(`    - earlier sighting${stamp(o)} ${anchor(o)}`)
+      rows.push(`- \`${file}\` — ${touches}${window}${stamp(latest)} ${idRef(latest)}`)
+      for (const o of older) rows.push(`    - earlier sighting${stamp(o)} ${idRef(o)}`)
     }
     sections.push({
       title: 'Hot files',
@@ -116,7 +117,7 @@ export function buildSignalsFile(
     sections.push({
       title: 'Recurring patterns',
       intro: 'The same class of change keeps happening.',
-      rows: recurring.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${anchor(e)}`),
+      rows: recurring.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${idRef(e)}`),
     })
   }
 
@@ -125,7 +126,7 @@ export function buildSignalsFile(
       title: 'Knowledge being missed',
       intro: 'Project knowledge existed but was not applied in a session.',
       rows: skillMisses.map(
-        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${anchor(e)}`
+        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${idRef(e)}`
       ),
     })
   }
@@ -134,7 +135,7 @@ export function buildSignalsFile(
     sections.push({
       title: 'Friction',
       intro: 'Processed lessons from developer pushback — do not repeat.',
-      rows: friction.map((e) => `- ${summarizeFrictionLesson(e.content)}${stamp(e)} ${anchor(e)}`),
+      rows: friction.map((e) => `- ${summarizeFrictionLesson(e.content)}${stamp(e)} ${idRef(e)}`),
     })
   }
 
@@ -143,7 +144,7 @@ export function buildSignalsFile(
       title: 'Other signals',
       intro: '',
       rows: other.map(
-        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${anchor(e)}`
+        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${idRef(e)}`
       ),
     })
   }

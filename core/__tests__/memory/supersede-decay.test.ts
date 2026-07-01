@@ -95,24 +95,34 @@ describe('projectMemory.searchFts — superseded entries never surface', () => {
     content: string,
     tags: Record<string, string> = {}
   ): void {
-    const now = new Date().toISOString()
+    // Single-source: seed memory_entries (read by searchFts) + its tag child
+    // table (read by the supersede-prune). FTS trigger indexes on insert.
+    const createdMs = Date.now()
     prjctDb.run(
       projectId,
-      `INSERT INTO memories
-         (id, project_id, title, content, tags, type, provenance, user_triggered,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO memory_entries
+         (id, project_id, type, title, content, provenance, content_hash,
+          user_triggered, revision_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'declared', ?, 0, 0, ?, ?)`,
       id,
       projectId,
+      type,
       content.slice(0, 80),
       content,
-      JSON.stringify(tags),
-      type,
-      'declared',
-      0,
-      now,
-      now
+      `hash_${id}`,
+      createdMs,
+      createdMs
     )
+    prjctDb.run(projectId, 'DELETE FROM memory_entry_tags WHERE entry_id = ?', id)
+    for (const [k, v] of Object.entries(tags)) {
+      prjctDb.run(
+        projectId,
+        'INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine) VALUES (?, ?, ?, 0)',
+        id,
+        k,
+        String(v)
+      )
+    }
   }
 
   it('drops an entry retired by a superseding entry that BM25 would not co-return', () => {

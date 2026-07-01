@@ -1,21 +1,21 @@
 /**
- * Developer profile synthesis — the "know the developer" half of the RAG north
- * star (the project half is architecture.md).
+ * Developer profile synthesis — the "know the developer" half of the RAG
+ * north star. Rescued from the retired wiki builders (WS-A): this is a pure
+ * markdown-string function, not vault I/O, and backs the `prjct_developer`
+ * MCP tool.
  *
  * prjct already captures who the developer is, scattered across two memory
  * streams: explicit `feedback` (the rules they stated — "memory in English",
  * "no native deps", "ship as minor") and `improvement-signal` friction (the
- * moments they pushed back). This builder synthesizes them into one
- * `developer.md` so an agent can act as the developer would WITHOUT being told
- * each time — the dev and the LLM moving as one.
+ * moments they pushed back). This builder synthesizes them into one profile
+ * so an agent can act as the developer would WITHOUT being told each time.
  *
  * Deterministic; no LLM. Returns null when there's nothing to say yet.
  */
 
-import type { MemoryEntry } from '../../memory/entries'
-import { deriveTitle } from '../../memory/format'
-import { truncate } from './_shared'
-import { summarizeFrictionLesson } from './friction-lessons'
+import type { MemoryEntry } from '../memory/entries'
+import { deriveTitle } from '../memory/format'
+import { summarizeFrictionLesson, truncate } from '../utils/text-summary'
 
 const MAX_PREFERENCES = 25
 const MAX_FRICTION = 15
@@ -58,11 +58,5 @@ export function buildDeveloperProfile(declared: MemoryEntry[]): string | null {
     lines.push('')
   }
 
-  lines.push(
-    '---',
-    '',
-    'See also: [architecture](architecture.md) · [project context](project-context.md)',
-    ''
-  )
   return `${lines.join('\n')}\n`
 }

@@ -1,15 +1,12 @@
 /**
- * signals.md — the single dashboard for machine telemetry.
- *
- * Locks the vault-v2 contract: detector output (hot-file churn,
- * skill-miss, friction) renders as ONE page with block anchors, so the
- * graph shows one hub node instead of dozens of telemetry stubs.
+ * Machine-signal digest — the single dashboard for machine telemetry
+ * (hot-file churn, skill-miss, friction), backing the prjct_signals MCP
+ * tool. Block anchors keep each row addressable.
  */
 
 import { describe, expect, it } from 'bun:test'
 import type { MemoryEntry } from '../../memory/entries'
-import { buildVaultOpts } from '../../services/wiki/memory-builder'
-import { buildSignalsFile, isSignalEntry } from '../../services/wiki/signals-builder'
+import { buildSignalsFile, isSignalEntry } from '../../services/signals-digest'
 
 const mk = (over: Partial<MemoryEntry> & { id: string }): MemoryEntry => ({
   type: 'improvement-signal',
@@ -78,22 +75,23 @@ describe('buildSignalsFile', () => {
       tags: { source: 'friction-detector' },
     }),
   ]
-  const body = buildSignalsFile(signals, buildVaultOpts(signals)) ?? ''
+  const body = buildSignalsFile(signals, { boundary: 'llm' }) ?? ''
 
   it('returns null when there are no signals (no empty stub page)', () => {
-    expect(buildSignalsFile([], buildVaultOpts([]))).toBeNull()
+    expect(buildSignalsFile([], { boundary: 'llm' })).toBeNull()
   })
 
   it('groups hot files by file with the newest entry leading', () => {
     expect(body).toContain('## Hot files')
     expect(body).toContain('`core/a.ts` — 4 touches in 7d')
-    expect(body.indexOf('^mem-100')).toBeLessThan(body.indexOf('^mem-101'))
+    expect(body.indexOf('`mem_100`')).toBeLessThan(body.indexOf('`mem_101`'))
   })
 
-  it('every signal keeps a block anchor so [[signals#^mem-N]] resolves', () => {
-    for (const id of ['100', '101', '102', '103']) {
-      expect(body).toContain(`^mem-${id}`)
+  it('every signal keeps a plain id reference (no vault-only anchor syntax)', () => {
+    for (const id of ['mem_100', 'mem_101', 'mem_102', 'mem_103']) {
+      expect(body).toContain(`\`${id}\``)
     }
+    expect(body).not.toContain('^mem-')
   })
 
   it('sections skill-misses and friction separately', () => {
@@ -111,7 +109,7 @@ describe('buildSignalsFile', () => {
         tags: { source: 'friction-detector' },
       }),
     ]
-    const out = buildSignalsFile(legacy, buildVaultOpts(legacy)) ?? ''
+    const out = buildSignalsFile(legacy, { boundary: 'llm' }) ?? ''
     expect(out).toContain('User pushback')
     expect(out).toContain('no corras el ship manual')
   })

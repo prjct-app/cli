@@ -27,7 +27,7 @@ const TERMINAL_COMMANDS = [
   },
   {
     name: 'sync',
-    description: 'Refresh RAG indexes, vault snapshot, and context quality',
+    description: 'Refresh RAG indexes and context quality',
     example: 'prjct sync',
   },
   {
@@ -63,7 +63,7 @@ const TERMINAL_COMMANDS = [
     name: 'context',
     description: 'Memory-bound context tools for AI',
     example: 'prjct context memory "auth"',
-    subcommands: ['memory', 'learnings', 'wiki'],
+    subcommands: ['memory', 'learnings'],
   },
   {
     name: 'stop',

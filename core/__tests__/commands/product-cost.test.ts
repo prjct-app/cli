@@ -6,6 +6,7 @@ import { ProductCommands } from '../../commands/product'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import {
+  buildWorkCostSnapshot,
   publishWorkCostSnapshots,
   recordTaskTokenUsage,
   type WorkCostSnapshot,
@@ -155,6 +156,119 @@ describe('insights cost', () => {
     expect(pending[0]?.event.eventType).toBe('upsert')
   })
 
+  it('AC8: redacts free-text declared-token prose from the cloud payload', () => {
+    // Seed a remembered note that mentions tokens AND carries a secret-like phrase.
+    const now = new Date().toISOString()
+    prjctDb.appendEvent(projectId, 'memory.remember.learning', {
+      content: 'Saved ~5000 tokens by caching; key sk-live-SECRET-pii-12345',
+      tags: {},
+      provenance: 'declared',
+    })
+    prjctDb.run(
+      projectId,
+      'UPDATE events SET timestamp = ? WHERE type = ?',
+      now,
+      'memory.remember.learning'
+    )
+
+    // Local snapshot keeps the prose (used by the local cost report)...
+    const local = buildWorkCostSnapshot(projectId, 30)
+    const localMentions = local.historicalRescue.topDeclaredTokenMentions
+    expect(localMentions.length).toBeGreaterThan(0)
+    expect(localMentions.some((m) => m.summary.includes('SECRET'))).toBe(true)
+
+    // ...but the cloud payload must NOT (only structured numeric fields).
+    return publishWorkCostSnapshots(projectId, [30]).then(() => {
+      const pending = syncPendingStorage.list(projectId)
+      const published = pending.find((p) => p.event.entityId === 'work-cost-30d')
+      const data = published?.event.data as WorkCostSnapshot
+      const cloudMentions = data.historicalRescue.topDeclaredTokenMentions
+      expect(cloudMentions.length).toBeGreaterThan(0)
+      for (const m of cloudMentions) {
+        expect(m.summary).toBe('[redacted]')
+        expect(typeof m.tokens).toBe('number')
+      }
+      const serialized = JSON.stringify(data)
+      expect(serialized.includes('SECRET')).toBe(false)
+    })
+  })
+
+  it('AC8: redacts mostExpensive[].description (user task intent) from the cloud payload', () => {
+    // A work-cycle description is free text authored by the user/agent (e.g.
+    // `prjct work "rotate the sk-live-SECRET key"` or the Stop-hook transcript
+    // description) — the same secret-leak class as the declared-token prose,
+    // but carried through recordTaskTokenUsage -> token_usage.description ->
+    // mostExpensive[], a path the original AC8 redaction missed entirely.
+    recordTaskTokenUsage(projectId, 'task-secret', 1000, 200, {
+      description: 'rotate the sk-live-SECRET-pii-99999 key',
+      source: 'cli',
+    })
+
+    const local = buildWorkCostSnapshot(projectId, 30)
+    expect(local.mostExpensive.some((t) => t.description.includes('SECRET'))).toBe(true)
+
+    return publishWorkCostSnapshots(projectId, [30]).then(() => {
+      const pending = syncPendingStorage.list(projectId)
+      const published = pending.find((p) => p.event.entityId === 'work-cost-30d')
+      const data = published?.event.data as WorkCostSnapshot
+      expect(data.mostExpensive.length).toBeGreaterThan(0)
+      for (const t of data.mostExpensive) {
+        expect(t.description).toBe('[redacted]')
+      }
+      const serialized = JSON.stringify(data)
+      expect(serialized.includes('SECRET')).toBe(false)
+    })
+  })
+
+  it('a corrupted out-of-range token count never leaks in via the tasks.tokens_in/out fallback', () => {
+    // token_usage's CHECK(input_tokens/output_tokens BETWEEN 0 AND 10_000_000)
+    // exists specifically to keep corrupted counts out of cost reports. Before
+    // this fix, recordTaskTokenUsage still wrote the corrupted value straight
+    // to tasks.tokens_in/out unconditionally, and buildWorkCostSnapshot's
+    // legacy-fallback merge (toCostTask) picked it up anyway for any task with
+    // no token_usage row — silently defeating the CHECK for exactly the
+    // corrupted-value case it exists to catch.
+    const now = new Date().toISOString()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO tasks (id, description, status, started_at, completed_at, tokens_in, tokens_out)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      'task-corrupt',
+      'Legit small cycle',
+      'completed',
+      now,
+      now,
+      500,
+      100
+    )
+
+    recordTaskTokenUsage(projectId, 'task-corrupt', 999_999_999, 1, { source: 'cli' })
+
+    // token_usage correctly rejected it (existing coverage in cost-meta.test.ts)...
+    const tokenUsageRows = prjctDb.query(
+      projectId,
+      'SELECT id FROM token_usage WHERE work_cycle_id = ?',
+      'task-corrupt'
+    )
+    expect(tokenUsageRows.length).toBe(0)
+
+    // ...and tasks.tokens_in/out must ALSO have rejected the corrupted write
+    // (same bound applied before either write) — the original legit values
+    // survive untouched, not overwritten with the corrupted 999,999,999.
+    const taskRow = prjctDb.query<{ tokens_in: number; tokens_out: number }>(
+      projectId,
+      'SELECT tokens_in, tokens_out FROM tasks WHERE id = ?',
+      'task-corrupt'
+    )[0]
+    expect(taskRow.tokens_in).toBe(500)
+    expect(taskRow.tokens_out).toBe(100)
+
+    // End-to-end: the snapshot reflects the legit value, never the corrupted one.
+    const snapshot = buildWorkCostSnapshot(projectId, 30)
+    const entry = snapshot.mostExpensive.find((t) => t.id === 'task-corrupt')
+    expect(entry?.tokensIn).toBe(500)
+  })
+
   it('reports measurement reliability gaps and next actions', async () => {
     const log = spyOn(console, 'log').mockImplementation(() => {})
     const now = new Date().toISOString()
@@ -189,19 +303,19 @@ describe('insights cost', () => {
 
   it('prints a memory doctor fix-plan for cleanup actions', async () => {
     const log = spyOn(console, 'log').mockImplementation(() => {})
-    const old = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
+    const oldMs = Date.now() - 20 * 24 * 60 * 60 * 1000
     try {
+      // memory-doctor reads the single-source memory_entries (epoch-ms times).
       prjctDb.run(
         projectId,
-        `INSERT INTO memories (id, project_id, type, title, content, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO memory_entries
+           (id, project_id, type, title, content, provenance, content_hash,
+            user_triggered, revision_count, created_at, updated_at)
+         VALUES (?, ?, 'inbox', 'list', 'list', 'declared', 'h_low', 0, 0, ?, ?)`,
         'mem_low_signal',
         projectId,
-        'inbox',
-        'list',
-        'list',
-        old,
-        old
+        oldMs,
+        oldMs
       )
 
       const result = await new ProductCommands().insights('quality fix-plan', projectPath, {

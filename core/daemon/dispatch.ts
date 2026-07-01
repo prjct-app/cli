@@ -113,8 +113,6 @@ export async function executeCommand(
         },
         request.cwd
       )
-    case 'regen':
-      return commands.regenVault(request.cwd, { md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

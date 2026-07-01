@@ -13,15 +13,17 @@
  *     builder shared by the CLI and the MCP tool (previously duplicated; the
  *     MCP copy pasted the spec body — fixed here by pointing every reviewer
  *     at `prjct spec show <id> --md`).
- *   - `reviewsGatePassed(content)` — the auto-promote gate: every SELECTED
- *     lens passed. Legacy specs (empty selected_reviewers) fall back to the
- *     three baseline lenses.
+ *   - `reviewsGatePassedRelational(projectId, specId)` — the auto-promote
+ *     gate, read from the projected spec_review/spec_selected_reviewer
+ *     tables (C6): every SELECTED lens passed. Legacy specs (empty selected
+ *     set) fall back to the three baseline lenses.
  *
  * Lens vocabulary is OPEN — any lowercase string is a valid lens (mirrors how
  * memory `type` accepts any string); agent-invented lenses get a generic
  * rubric and resolve to the sonnet reviewer tier via the model policy fallback.
  */
 
+import prjctDb from '../storage/database'
 import type { AIProviderName } from '../types/provider'
 import type { SpecContent } from '../types/spec'
 import type { DomainDefinition } from '../types/storage/extended'
@@ -91,22 +93,30 @@ export function selectReviewers(content: SpecContent, domains: DomainDefinition[
 }
 
 /**
- * Auto-promote gate. Passes when every SELECTED lens recorded verdict=pass.
- * Legacy specs (selected_reviewers empty — audited before dynamic lenses)
- * fall back to the three baseline lenses.
+ * Schema v2 (C6): the gate as a RELATIONAL query over the projected child
+ * tables (spec_selected_reviewer + spec_review) — no content-blob parse. Every
+ * selected lens must have a `pass` verdict; legacy specs (no selected set) fall
+ * back to the three baseline lenses.
  */
-export function reviewsGatePassed(content: SpecContent): boolean {
-  const r = content.reviews
-  if (!r) return false
-  const selected = content.selected_reviewers
-  if (selected.length > 0) {
-    return selected.every((lens) => r[lens]?.verdict === 'pass')
-  }
-  return (
-    r.strategic?.verdict === 'pass' &&
-    r.architecture?.verdict === 'pass' &&
-    r.design?.verdict === 'pass'
+export function reviewsGatePassedRelational(projectId: string, specId: string): boolean {
+  const selected = prjctDb
+    .query<{ lens: string }>(
+      projectId,
+      'SELECT lens FROM spec_selected_reviewer WHERE spec_id = ?',
+      specId
+    )
+    .map((r) => r.lens)
+  const passed = new Set(
+    prjctDb
+      .query<{ lens: string }>(
+        projectId,
+        "SELECT lens FROM spec_review WHERE spec_id = ? AND verdict = 'pass'",
+        specId
+      )
+      .map((r) => r.lens)
   )
+  if (selected.length > 0) return selected.every((lens) => passed.has(lens))
+  return passed.has('strategic') && passed.has('architecture') && passed.has('design')
 }
 
 /**
@@ -183,7 +193,7 @@ export async function renderAuditDispatch(
     runLine,
     '',
     '## Where the spec lives — read it from prjct, it is NOT in this prompt',
-    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer runs \`prjct spec show ${id} --md\` itself, fresh, to read the full spec. Do NOT paste the spec body into the prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the reviewer, not pre-pasted by you.)`,
+    `The plan lives in prjct (SQLite), never duplicated into a dispatch payload. Each reviewer runs \`prjct spec show ${id} --md\` itself, fresh, to read the full spec. Do NOT paste the spec body into the prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the reviewer, not pre-pasted by you.)`,
     '',
     '## Model policy (perf — read before dispatching)',
     `${dispatch.modelDirective('spec-review')} The same applies to every lens — they judge a spec, they do not implement, so they run on a review-tier model, not the heaviest one. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,

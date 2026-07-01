@@ -30,7 +30,7 @@ You orchestrate on a small model on purpose; apply the same discipline to what y
 
 Instruct every subagent to reply with a **one-screen summary** — files touched, verification command + result, blockers — not full diffs or transcripts. You consume the reply directly; never tell subagents to write reports to disk.
 
-If you need durable state that outlives the session, persist via `prjct` CLI verbs (`prjct spec`, `prjct remember`) — SQLite + the regenerated vault are the only allowed persistence surfaces.
+If you need durable state that outlives the session, persist via `prjct` CLI verbs (`prjct spec`, `prjct remember`) — SQLite is the only allowed persistence surface.
 
 ### When this role does NOT apply
 
@@ -39,5 +39,5 @@ If you need durable state that outlives the session, persist via `prjct` CLI ver
 
 ### Hard persistence rule
 
-Never write audit, checkpoint, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder, and no scratch `.md` anywhere else in the worktree. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Everything else — checkpoints, audits, decisions, learnings, deploy notes — lives in SQLite + the regenerated vault, written through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct spec record-review`). If a subagent reports findings, persist them via `prjct remember` and cite the returned mem id; never tell a subagent to write to disk.
+Never write audit, checkpoint, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder, and no scratch `.md` anywhere else in the worktree. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Everything else — checkpoints, audits, decisions, learnings, deploy notes — lives in SQLite, written through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct spec record-review`). If a subagent reports findings, persist them via `prjct remember` and cite the returned mem id; never tell a subagent to write to disk.
 <!-- prjct:crew:end - DO NOT REMOVE THIS MARKER -->

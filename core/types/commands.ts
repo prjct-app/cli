@@ -138,8 +138,6 @@ export interface SetupOptions {
   force?: boolean
   /** Skip interactive prompts */
   nonInteractive?: boolean
-  /** Configure global readable vault root during setup */
-  vaultRoot?: string
 }
 
 /**

@@ -298,13 +298,6 @@ export class ShippingCommands extends PrjctCommandsBase {
         console.warn('⚠️  Failed to sync AI context after shipping:', getErrorMessage(syncError))
       }
 
-      try {
-        const { regenerateWikiDeferred } = await import('../services/wiki-generator')
-        await regenerateWikiDeferred(projectPath, projectId)
-      } catch (wikiError) {
-        console.warn('⚠️  Wiki regeneration failed (non-blocking):', getErrorMessage(wikiError))
-      }
-
       const stepsRun = beforeResult.stepsRun.length + afterResult.stepsRun.length
 
       if (options.md) {

@@ -18,7 +18,6 @@ import type { MemoryType } from '../../memory/entries'
 import { formatMemoryMd } from '../../memory/format'
 import { projectMemory } from '../../memory/project-memory'
 import { usefulnessService } from '../../services/usefulness'
-import { VAULT_HOME_FILE } from '../../services/wiki/_shared'
 import type { ContextToolOutput } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 
@@ -30,8 +29,6 @@ import { getErrorMessage } from '../../types/fs'
  * Usage:
  *   prjct context memory [topic]
  *   prjct context learnings [topic]
- *   prjct context wiki
- *   prjct context wiki sync [--force]
  */
 export async function runContextTool(
   args: string[],
@@ -48,9 +45,6 @@ export async function runContextTool(
 
       case 'learnings':
         return await runMemoryTool(toolArgs, projectPath, { kind: 'learnings' })
-
-      case 'wiki':
-        return await runWikiTool(projectPath, toolArgs)
 
       case 'help':
         return {
@@ -79,72 +73,6 @@ export async function runContextTool(
 }
 
 // Tool Runners
-
-async function runWikiTool(projectPath: string, args: string[] = []): Promise<ContextToolOutput> {
-  const projectId = await configManager.getProjectId(projectPath)
-  if (!projectId) {
-    return {
-      tool: 'error',
-      result: { error: 'No prjct project. Run `prjct init` first.', code: 'NO_PROJECT' },
-    }
-  }
-
-  const subcommand = args[0]
-  if (subcommand === 'sync') {
-    return runWikiSyncTool(projectPath, projectId, args.slice(1))
-  }
-
-  const { generateWiki } = await import('../../services/wiki-generator')
-  const { wikiRoot, filesWritten } = await generateWiki(projectPath, projectId)
-  return {
-    tool: 'wiki',
-    result: {
-      markdown: `> Wiki rebuilt at \`${wikiRoot}\` — ${filesWritten} files. Read \`${wikiRoot}/_generated/${VAULT_HOME_FILE}\` with the Read tool.`,
-      entryCount: filesWritten,
-    },
-  }
-}
-
-async function runWikiSyncTool(
-  projectPath: string,
-  projectId: string,
-  args: string[]
-): Promise<ContextToolOutput> {
-  const force = args.includes('--force')
-  const { ingestCapturedNotes } = await import('../../services/wiki-ingest')
-  const { regenerateWikiDeferred } = await import('../../services/wiki-generator')
-
-  const result = await ingestCapturedNotes(projectPath, { force })
-
-  if (result.ingested > 0) {
-    await regenerateWikiDeferred(projectPath, projectId)
-  }
-
-  const lines: string[] = []
-  lines.push(`> Ingested ${result.ingested} note(s) from \`.prjct/wiki/captured/\`.`)
-  if (result.skipped.length > 0) {
-    lines.push('', '**Skipped:**')
-    for (const s of result.skipped) lines.push(`- \`${s.file}\` — ${s.reason}`)
-  }
-  if (result.errors.length > 0) {
-    lines.push('', '**Errors:**')
-    for (const e of result.errors) lines.push(`- \`${e.file}\` — ${e.error}`)
-  }
-  if (result.ingested === 0 && result.skipped.length === 0 && result.errors.length === 0) {
-    lines.push(
-      '',
-      'Nothing to ingest. Drop markdown notes with frontmatter into `.prjct/wiki/captured/` and re-run.'
-    )
-  }
-
-  return {
-    tool: 'wiki',
-    result: {
-      markdown: lines.join('\n'),
-      entryCount: result.ingested,
-    },
-  }
-}
 
 async function runMemoryTool(
   args: string[],
@@ -241,12 +169,6 @@ SUBTOOLS:
 
   learnings [topic]
     Shortcut for the learnings slice (learning / anti-pattern / gotcha).
-
-  wiki [sync] [--force]
-    Without a subcommand: rebuild \`.prjct/wiki/_generated/\`.
-    With \`sync\`: ingest user notes from \`.prjct/wiki/captured/\`
-    into project memory, then rebuild. Pass \`--force\` to accept
-    secret-like content.
 
 NOTE: File-oriented subtools (files, signatures, imports, recent,
 summary) were removed in alpha.12 — Claude has Glob/Grep/Read/git

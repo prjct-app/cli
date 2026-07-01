@@ -38,7 +38,6 @@ import { projectMemory } from '../memory/project-memory'
 import { recordAgentSessionStart } from '../services/agent-session-recorder'
 import { createStalenessChecker } from '../services/staleness-checker'
 import { usefulnessService } from '../services/usefulness'
-import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'
 import { type HookIo, runHook } from './_runner'
@@ -77,8 +76,8 @@ const DIGEST_PER_TYPE = 3
  * therefore injected ONLY on cold-start sources — `startup`/`clear`/
  * `compact` — where the context is being built fresh anyway (no warm prefix
  * to bust) and grounding matters most: a freshly-updated model starts blank
- * and the vault is the only thing that survived the update. The mid-session
- * reusers call this with `digest` unset → persona-only, byte-identical.
+ * and SQLite-backed memory is the only thing that survived the update. The
+ * mid-session reusers call this with `digest` unset → persona-only, byte-identical.
  */
 export async function buildSessionContext(
   projectPath: string,
@@ -94,9 +93,12 @@ export async function buildSessionContext(
   // last sync so the model refreshes the architecture/risks map instead of
   // trusting a frozen snapshot for the session's big calls.
   const staleness = await buildStalenessNotice(projectPath, config.projectId)
+  // One-time heads-up for a project that had vault export switched on.
+  const { vaultRetirementNotice } = await import('../services/vault-retire-notice')
+  const vaultNotice = await vaultRetirementNotice(config, config.projectId)
 
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness) return null
+  if (!persona && !digest && !staleness && !vaultNotice) return null
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
@@ -116,6 +118,10 @@ export async function buildSessionContext(
   if (staleness) {
     if (persona || digest) sections.push('')
     sections.push(staleness)
+  }
+  if (vaultNotice) {
+    if (persona || digest || staleness) sections.push('')
+    sections.push(vaultNotice)
   }
   return sections.join('\n')
 }
@@ -201,7 +207,7 @@ function buildKnowledgeDigest(projectId: string): string | null {
   }
   lines.push(
     '',
-    '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is lives in `developer.md` in the vault.'
+    '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is: MCP `prjct_developer`.'
   )
   return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
 }
@@ -356,12 +362,6 @@ export function runSessionStartHook(
             directory: p,
             goal: _input.source ?? null,
           })
-        }
-
-        // Refresh the Obsidian vault from DB so the files Claude may Read
-        // reflect current project state. Best-effort; errors are swallowed.
-        if (cachedConfig?.projectId) {
-          await regenerateWikiDeferred(p, cachedConfig.projectId).catch(() => undefined)
         }
 
         // Self-heal hooks + global CLAUDE.md when the binary moved past the

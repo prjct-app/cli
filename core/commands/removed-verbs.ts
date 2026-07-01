@@ -1,6 +1,8 @@
 /**
  * Verbs that existed in prjct v1.x but were removed during the v2 cleanup
- * (commits b730bc08, 92660d3b, f6366eb5, e3a163cb — April 2026).
+ * (commits b730bc08, 92660d3b, f6366eb5, e3a163cb — April 2026), plus later
+ * feature removals (vault/regen — 2026-06-30, when the Obsidian/markdown
+ * vault feature was deleted entirely).
  *
  * These must NOT fall through to the bare-dispatch auto-route to `capture`,
  * because that silently swallows workflow intent into the inbox (e.g. user
@@ -72,6 +74,14 @@ export const REMOVED_VERBS: Readonly<Record<string, RemovedVerb>> = {
   plan: {
     replacement: 'prjct init',
     note: 'Planning is now part of init/task flow.',
+  },
+  vault: {
+    replacement: 'prjct search / prjct context memory / MCP prjct_*',
+    note: 'The Obsidian/markdown vault was removed. Agents read project knowledge through tools now.',
+  },
+  regen: {
+    replacement: 'prjct sync --full',
+    note: 'The vault it regenerated was removed; there is nothing left to rebuild.',
   },
 } as const
 

@@ -19,6 +19,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { memoryFingerprint } from '../memory/content-fingerprint'
 import { projectMemory } from '../memory/project-memory'
 import { archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
@@ -95,6 +96,13 @@ async function archiveAgedInbox(projectId: string, inboxDays: number): Promise<n
           Number(numericId)
         )
       }
+      // Schema v2: drop it from the normalized table recall now reads.
+      prjctDb.run(
+        projectId,
+        'UPDATE memory_entries SET deleted_at = ? WHERE id = ?',
+        Date.now(),
+        entry.id
+      )
       moved++
     } catch {
       // Per-entry failures are silent — keeping the loop moving is
@@ -222,9 +230,15 @@ export async function recordCleanupReport(projectId: string, report: CleanupRepo
     .filter((s): s is string => Boolean(s))
     .join(', ')
 
+  // memory_entries (Schema v2) is kept in sync by the memory_entries_from_events
+  // trigger — this direct remember-event write is mirrored there automatically.
+  // Carry content_hash + project_id so the trigger writes correct dedup keys.
+  const cleanupContent = `Session cleanup: ${summary}`
   prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
-    content: `Session cleanup: ${summary}`,
+    content: cleanupContent,
     tags: { source: 'session-cleanup', key: 'last-cleanup' },
     provenance: 'extracted',
+    content_hash: memoryFingerprint(cleanupContent),
+    project_id: projectId,
   })
 }

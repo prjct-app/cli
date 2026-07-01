@@ -9,16 +9,6 @@
  * so the daemon fast path never pays for these modules.
  */
 
-function readOptionValue(args: string[], name: string): string | undefined {
-  const inlinePrefix = `${name}=`
-  const inline = args.find((arg) => arg.startsWith(inlinePrefix))
-  if (inline) return inline.slice(inlinePrefix.length)
-  const index = args.indexOf(name)
-  if (index === -1) return undefined
-  const value = args[index + 1]
-  return value && !value.startsWith('-') ? value : undefined
-}
-
 export interface BinCommandContext {
   /** --quiet / -q was passed (already stripped from args). */
   isQuietMode: boolean
@@ -220,7 +210,6 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
         : await commands.setup({
             force: args.includes('--force'),
             nonInteractive: args.includes('--non-interactive') || args.includes('--yes'),
-            vaultRoot: readOptionValue(args, '--vault-root') ?? readOptionValue(args, '--vault'),
           })
     if (result.message) console.log(result.message)
     process.exitCode = result.success ? 0 : 1

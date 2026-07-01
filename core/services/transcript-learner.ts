@@ -7,8 +7,7 @@
  * gotchas discovered) without explicitly calling `prjct remember`. The
  * next session has to re-derive the same insights from source. This
  * service is the safety net: at session end, scan what the assistant
- * said, lift the substantive bits into SQLite as memory entries, and
- * the wiki regen exposes them under `_generated/memory/<type>.md`.
+ * said and lift the substantive bits into SQLite as memory entries.
  *
  * Design constraints (from mem_899: efficiency contract):
  *   - Asynchronous, best-effort, never blocks session close

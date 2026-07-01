@@ -27,7 +27,7 @@ function memoryRows(): Array<{
 }> {
   return prjctDb.query(
     projectId,
-    'SELECT id, type, content_hash, deleted_at FROM memories ORDER BY id'
+    'SELECT id, type, content_hash, deleted_at FROM memory_entries ORDER BY id'
   )
 }
 
@@ -104,7 +104,7 @@ describe('memories entity handler', () => {
     await memoriesHandler.delete(projectId, data)
     const rows = prjctDb.query<{ deleted_at: string | null; type: string }>(
       projectId,
-      'SELECT deleted_at, type FROM memories'
+      'SELECT deleted_at, type FROM memory_entries'
     )
     expect(rows[0].deleted_at).not.toBeNull()
     expect(rememberEventCount()).toBe(0)

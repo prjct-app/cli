@@ -18,11 +18,10 @@ core/
   packs/                        Pack manifests + manager (persona, memory
                                 types, workflow slots, hook signals)
   memory/                       projectMemory — unified surface over SQLite
-                                + wiki (save / list / similar / forget / wiki)
+                                (save / list / similar / forget / search)
   workflow-engine/               Engine (state-machine, when-evaluator) — runs
                                 bash, mcp:, and persona:context step types
-  services/                     sync-service, skill-generator, wiki-generator,
-                                wiki-ingest, pattern-extractor
+  services/                     sync-service, skill-generator, pattern-extractor
   domain/                       Pure algorithms — no IO, no singletons
                                 (bm25, import-graph, git-cochange, file-ranker)
   storage/                      SQLite persistence (one DB file per project)
@@ -123,11 +122,20 @@ agent skills must stay compact. Their job is to route Claude, Codex, Gemini,
 Cursor, Windsurf, Antigravity, and future agents into prjct's RAG-backed
 project memory; they do not carry project history.
 
-The source of truth is SQLite. The regenerated vault under `_generated/` is a
-snapshot for `Read` / `Glob` fallback and human inspection, not a file tree the
-agent should load wholesale. When a work cycle needs prior knowledge, the agent pulls
-bounded context with `prjct work`, `prjct search`, `prjct context memory`,
-`prjct guard`, or the MCP `prjct_*` tools.
+The source of truth is SQLite, and agents read it **through tools, not files**.
+When a work cycle needs prior knowledge, the agent pulls bounded, ranked context
+with `prjct work`, `prjct search`, `prjct context memory`, `prjct guard`, or the
+MCP `prjct_*` tools. There is no generated markdown vault — the Obsidian/wiki
+export feature was removed entirely; it was write-only, no code read it back,
+and it cannibalized the paid cloud product. prjct is the LLM data plane:
+relational SQLite in, structured tool output to the model, sync to cloud; no
+local UI, no local export.
+
+Authored memory has a single read source: the normalized `memory_entries`
+(+ `memory_entry_tags`, + `memory_entries_fts`) tables. `events` is the
+append-only write log + sync wire; a trigger projects every `memory.remember.*`
+event into `memory_entries`, so recall/search/guard read typed rows with no
+`JSON.parse` on the hot path. (The former `memories` mirror was retired.)
 
 Closeout is also model-authored synthesis, not raw telemetry. Raw quotes,
 counters, detector rows, and transcript chunks can inform a memory entry, but
@@ -160,11 +168,11 @@ All reads and writes go through `core/storage/database.ts` and the per-entity
 storage modules (`state-storage.ts`, `ideas-storage.ts`, `queue-storage.ts`,
 …). Connections are LRU-cached with WAL mode enabled.
 
-Legacy JSON state files are only touched by the one-time migration
-(`core/storage/migrate-json.ts`). See `docs/sqlite-migration.md` for the
-migration story, inspection tips, and troubleshooting.
+The pre-v1.24.1 JSON→SQLite migration subsystem (`migrate-json`) was retired
+in v3.12 — every active install migrated years ago. `docs/sqlite-migration.md`
+keeps the historical rationale for why prjct moved to SQLite.
 
-**Never** `fs.readFile` a legacy JSON state file directly. Go through the CLI.
+**Never** `fs.readFile` a state file directly. Go through the CLI / storage modules.
 
 ## Persona-aware context broker (v2)
 
@@ -180,7 +188,7 @@ injects bounded `additionalContext` into the LLM on relevant events:
 - `SubagentStart` → compact role/task/trap digest for fresh-brain subagents
 - `CwdChanged` → re-contextualize on project switch
 
-Topical memory, decisions, learnings, and wiki detail are pull-first through
+Topical memory, decisions, and learnings are pull-first through
 `prjct search`, `prjct context memory`, `prjct guard`, or MCP tools. That keeps
 the hot prompt path cache-friendly and bounded without weakening recall when an
 agent actually needs prior knowledge.
@@ -222,6 +230,6 @@ steps, zero fixed pipelines.
 
 - **No barrel files, no re-exports.** Import directly from the source
   module: `import { X } from './y'`, never `export { X } from './y'`.
-- **All data in SQLite.** Never `fs.readFile` the legacy JSON state files.
+- **All data in SQLite.** Never `fs.readFile` a state file directly.
 - **Biome errors are blocking.** Do not commit code with lint errors.
 - **Schemas are source of truth.** Define with Zod, infer TypeScript types.

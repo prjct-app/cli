@@ -816,38 +816,45 @@ export const migrations: Migration[] = [
       // safe to re-run (NULL backfill only, keep-earliest is deterministic).
       const numOf = (id: string): number => Number(String(id).replace(/^mem[_-]/i, '')) || 0
 
-      // 1) Backfill content_hash wherever it's missing.
-      const memAll = db.prepare('SELECT id, content, content_hash FROM memories').all() as Array<{
-        id: string
-        content: string
-        content_hash: string | null
-      }>
-      const setHash = db.prepare('UPDATE memories SET content_hash = ? WHERE id = ?')
-      for (const r of memAll) {
-        if (!r.content_hash) setHash.run(memoryFingerprint(r.content ?? ''), r.id)
-      }
+      // Parts 1+2 operate on the `memories` table, which is retired in a later
+      // migration. Guard so re-running this migration after that drop is a
+      // no-op (the events dedup in part 3 is what matters going forward).
+      try {
+        // 1) Backfill content_hash wherever it's missing.
+        const memAll = db.prepare('SELECT id, content, content_hash FROM memories').all() as Array<{
+          id: string
+          content: string
+          content_hash: string | null
+        }>
+        const setHash = db.prepare('UPDATE memories SET content_hash = ? WHERE id = ?')
+        for (const r of memAll) {
+          if (!r.content_hash) setHash.run(memoryFingerprint(r.content ?? ''), r.id)
+        }
 
-      // 2) Soft-delete duplicate `memories` rows: keep the earliest (smallest
-      //    mem_<id>) per (type, content_hash); mark the rest deleted so
-      //    searchFts — which filters `deleted_at IS NULL` — stops returning
-      //    them. Soft, not hard: the row stays resolvable by id.
-      const memLive = db
-        .prepare('SELECT id, type, content_hash FROM memories WHERE deleted_at IS NULL')
-        .all() as Array<{ id: string; type: string | null; content_hash: string | null }>
-      const canonicalMem = new Map<string, number>() // group key -> min numeric id
-      for (const r of memLive) {
-        if (!r.content_hash) continue
-        const k = `${r.type ?? ''}::${r.content_hash}`
-        const n = numOf(r.id)
-        const cur = canonicalMem.get(k)
-        if (cur === undefined || n < cur) canonicalMem.set(k, n)
-      }
-      const nowIso = new Date().toISOString()
-      const softDelete = db.prepare('UPDATE memories SET deleted_at = ? WHERE id = ?')
-      for (const r of memLive) {
-        if (!r.content_hash) continue
-        const k = `${r.type ?? ''}::${r.content_hash}`
-        if (canonicalMem.get(k) !== numOf(r.id)) softDelete.run(nowIso, r.id)
+        // 2) Soft-delete duplicate `memories` rows: keep the earliest (smallest
+        //    mem_<id>) per (type, content_hash); mark the rest deleted so
+        //    searchFts — which filters `deleted_at IS NULL` — stops returning
+        //    them. Soft, not hard: the row stays resolvable by id.
+        const memLive = db
+          .prepare('SELECT id, type, content_hash FROM memories WHERE deleted_at IS NULL')
+          .all() as Array<{ id: string; type: string | null; content_hash: string | null }>
+        const canonicalMem = new Map<string, number>() // group key -> min numeric id
+        for (const r of memLive) {
+          if (!r.content_hash) continue
+          const k = `${r.type ?? ''}::${r.content_hash}`
+          const n = numOf(r.id)
+          const cur = canonicalMem.get(k)
+          if (cur === undefined || n < cur) canonicalMem.set(k, n)
+        }
+        const nowIso = new Date().toISOString()
+        const softDelete = db.prepare('UPDATE memories SET deleted_at = ? WHERE id = ?')
+        for (const r of memLive) {
+          if (!r.content_hash) continue
+          const k = `${r.type ?? ''}::${r.content_hash}`
+          if (canonicalMem.get(k) !== numOf(r.id)) softDelete.run(nowIso, r.id)
+        }
+      } catch {
+        // `memories` table retired — skip the legacy mirror dedup.
       }
 
       // 3) Hard-delete duplicate remember-events: keep the earliest per
@@ -1125,22 +1132,29 @@ export const migrations: Migration[] = [
         if (cleaned) updateEvent.run(cleaned, row.id)
       }
 
-      const memoryRows = db
-        .prepare(
-          `SELECT id, content FROM memories
-           WHERE type = 'improvement-signal'
-             AND json_extract(tags, '$.source') = 'friction-detector'
-             AND content LIKE '%Evidence:%'`
+      // The `memories` mirror is retired in a later migration; guard so a
+      // re-run after that drop is a no-op (the events scrub above is what feeds
+      // the single-source memory_entries projection).
+      try {
+        const memoryRows = db
+          .prepare(
+            `SELECT id, content FROM memories
+             WHERE type = 'improvement-signal'
+               AND json_extract(tags, '$.source') = 'friction-detector'
+               AND content LIKE '%Evidence:%'`
+          )
+          .all() as Array<{ id: string; content: string }>
+        const updateMemory = db.prepare(
+          'UPDATE memories SET content = ?, content_hash = ?, updated_at = ? WHERE id = ?'
         )
-        .all() as Array<{ id: string; content: string }>
-      const updateMemory = db.prepare(
-        'UPDATE memories SET content = ?, content_hash = ?, updated_at = ? WHERE id = ?'
-      )
-      const now = new Date().toISOString()
-      for (const row of memoryRows) {
-        const cleaned = stripLiteralFrictionEvidence(row.content)
-        if (cleaned !== row.content)
-          updateMemory.run(cleaned, memoryFingerprint(cleaned), now, row.id)
+        const now = new Date().toISOString()
+        for (const row of memoryRows) {
+          const cleaned = stripLiteralFrictionEvidence(row.content)
+          if (cleaned !== row.content)
+            updateMemory.run(cleaned, memoryFingerprint(cleaned), now, row.id)
+        }
+      } catch {
+        // `memories` table retired — events scrub already covers the source.
       }
     },
   },
@@ -1168,6 +1182,909 @@ export const migrations: Migration[] = [
       } catch {
         // Column may already exist (re-run safety).
       }
+    },
+  },
+  {
+    version: 37,
+    name: 'schema-v2-tables',
+    up: (db: SqliteDatabase) => {
+      // Schema v2 — additive foundation for the whole-system relational
+      // redesign (prjct = LLM data plane). Creates the normalized tables that
+      // later phases backfill → dual-write → cut over to, retiring the JSON
+      // blobs. PURELY ADDITIVE: no existing table/column changes, no reads or
+      // writes are flipped here, so this is a no-op for current behavior. All
+      // timestamps are INTEGER epoch-ms (sortable, no string parse). Parents
+      // are created before children; FKs reference existing tables (tasks,
+      // specs, llm_analysis, ideas, shipped_features, context_feedback,
+      // subtasks) and the new ones below.
+      db.run(`
+        -- ===== Domain 1: Knowledge (authored memory) =====
+        CREATE TABLE IF NOT EXISTS memory_entries (
+          id             TEXT PRIMARY KEY,
+          project_id     TEXT NOT NULL,
+          type           TEXT NOT NULL,
+          title          TEXT,
+          content        TEXT NOT NULL,
+          file           TEXT,
+          subject        TEXT,
+          provenance     TEXT NOT NULL,
+          confidence     REAL,
+          content_hash   TEXT NOT NULL,
+          topic_key      TEXT,
+          user_triggered INTEGER NOT NULL DEFAULT 0,
+          revision_count INTEGER NOT NULL DEFAULT 0,
+          created_at     INTEGER NOT NULL,
+          updated_at     INTEGER NOT NULL,
+          deleted_at     INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS ix_mem_recall ON memory_entries(project_id, type, created_at DESC) WHERE deleted_at IS NULL;
+        CREATE INDEX IF NOT EXISTS ix_mem_file ON memory_entries(file) WHERE file IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS ix_mem_topic ON memory_entries(topic_key);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_mem_hash ON memory_entries(project_id, content_hash);
+
+        CREATE TABLE IF NOT EXISTS memory_entry_tags (
+          entry_id   TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+          key        TEXT NOT NULL,
+          value      TEXT NOT NULL,
+          is_machine INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (entry_id, key, value)
+        );
+        CREATE INDEX IF NOT EXISTS ix_tag_lookup ON memory_entry_tags(key, value) WHERE is_machine = 0;
+
+        CREATE TABLE IF NOT EXISTS memory_links (
+          from_entry_id TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+          to_entry_id   TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+          relation      TEXT NOT NULL,
+          PRIMARY KEY (from_entry_id, to_entry_id, relation)
+        );
+
+        -- ===== Domain 2: Synthesis (llm_analysis children) =====
+        CREATE TABLE IF NOT EXISTS analysis_finding (
+          id          TEXT PRIMARY KEY,
+          analysis_id TEXT NOT NULL,
+          kind        TEXT NOT NULL,
+          title       TEXT NOT NULL,
+          detail      TEXT,
+          severity    TEXT,
+          sort_order  INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS ix_finding ON analysis_finding(analysis_id, kind, sort_order);
+        CREATE TABLE IF NOT EXISTS analysis_convention (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, rule TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS analysis_stack_item (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, kind TEXT, name TEXT);
+        CREATE TABLE IF NOT EXISTS analysis_command (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, name TEXT, command TEXT, purpose TEXT);
+        CREATE TABLE IF NOT EXISTS analysis_domain (id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, name TEXT, paths TEXT);
+
+        -- ===== Domain 3: Specs (children) =====
+        CREATE TABLE IF NOT EXISTS spec_acceptance_criterion (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, text TEXT, met INTEGER DEFAULT 0, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_scope (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, kind TEXT, item TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_risk (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, risk TEXT, mitigation TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_test_step (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, text TEXT, sort_order INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_review (id TEXT PRIMARY KEY, spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, lens TEXT, verdict TEXT, notes TEXT, created_at INTEGER);
+        CREATE TABLE IF NOT EXISTS spec_selected_reviewer (spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, lens TEXT, PRIMARY KEY (spec_id, lens));
+        CREATE TABLE IF NOT EXISTS spec_linked_task (spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, task_id TEXT NOT NULL, PRIMARY KEY (spec_id, task_id));
+        CREATE TABLE IF NOT EXISTS spec_tag (spec_id TEXT NOT NULL REFERENCES specs(id) ON DELETE CASCADE, key TEXT, value TEXT, PRIMARY KEY (spec_id, key, value));
+
+        -- ===== Domain 4: Telemetry =====
+        CREATE TABLE IF NOT EXISTS agent_runs (
+          id            TEXT PRIMARY KEY,
+          project_id    TEXT NOT NULL,
+          parent_run_id TEXT REFERENCES agent_runs(id),
+          work_cycle_id TEXT,
+          linked_spec_id TEXT,
+          runtime       TEXT,
+          model_id      TEXT,
+          cli_version   TEXT,
+          role          TEXT,
+          agent_type    TEXT,
+          status        TEXT,
+          turns         INTEGER,
+          started_at    INTEGER,
+          ended_at      INTEGER,
+          device_id     TEXT,
+          created_at    INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS ix_runs_cycle ON agent_runs(work_cycle_id);
+        CREATE INDEX IF NOT EXISTS ix_runs_parent ON agent_runs(parent_run_id);
+
+        CREATE TABLE IF NOT EXISTS token_usage (
+          id               TEXT PRIMARY KEY,
+          agent_run_id     TEXT REFERENCES agent_runs(id) ON DELETE CASCADE,
+          work_cycle_id    TEXT,
+          event_key        TEXT NOT NULL,
+          source           TEXT NOT NULL,
+          is_estimated     INTEGER NOT NULL DEFAULT 0,
+          input_tokens     INTEGER NOT NULL,
+          output_tokens    INTEGER NOT NULL,
+          cache_read_tokens  INTEGER DEFAULT 0,
+          cache_write_tokens INTEGER DEFAULT 0,
+          model_id         TEXT,
+          measured_at      INTEGER,
+          created_at       INTEGER,
+          CHECK (input_tokens BETWEEN 0 AND 10000000 AND output_tokens BETWEEN 0 AND 10000000)
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_token_event ON token_usage(event_key);
+        CREATE INDEX IF NOT EXISTS ix_token_cycle ON token_usage(work_cycle_id);
+
+        CREATE TABLE IF NOT EXISTS agent_artifact (
+          agent_run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+          path TEXT NOT NULL,
+          op   TEXT NOT NULL,
+          count INTEGER,
+          PRIMARY KEY (agent_run_id, path, op)
+        );
+
+        -- ===== Domain 5/6: task/ship/idea children =====
+        CREATE TABLE IF NOT EXISTS subtask_dependency (subtask_id TEXT NOT NULL, depends_on TEXT NOT NULL, PRIMARY KEY (subtask_id, depends_on));
+        CREATE TABLE IF NOT EXISTS task_tag (task_id TEXT NOT NULL, key TEXT, value TEXT, PRIMARY KEY (task_id, key, value));
+        CREATE TABLE IF NOT EXISTS shipped_feature_tag (feature_id TEXT NOT NULL, key TEXT, value TEXT, PRIMARY KEY (feature_id, key, value));
+        CREATE TABLE IF NOT EXISTS idea_tag (idea_id TEXT NOT NULL, key TEXT, value TEXT, PRIMARY KEY (idea_id, key, value));
+
+        -- ===== Domain 9/10: observability + RL =====
+        CREATE TABLE IF NOT EXISTS entity_timeline (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, entity_type TEXT, entity_id TEXT, event TEXT, at INTEGER, detail TEXT);
+        CREATE INDEX IF NOT EXISTS ix_timeline_entity ON entity_timeline(entity_type, entity_id);
+        CREATE TABLE IF NOT EXISTS context_feedback_keyword (feedback_id TEXT NOT NULL, keyword TEXT NOT NULL, PRIMARY KEY (feedback_id, keyword));
+        CREATE TABLE IF NOT EXISTS context_feedback_file (feedback_id TEXT NOT NULL, role TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY (feedback_id, role, path));
+
+        -- ===== Domain 11: crew + team =====
+        CREATE TABLE IF NOT EXISTS crew_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, spec_id TEXT, task_id TEXT, implementer_summary TEXT, reviewer_notes TEXT, verdict TEXT, started_at INTEGER, ended_at INTEGER, created_at INTEGER);
+        CREATE TABLE IF NOT EXISTS crew_run_file (run_id TEXT NOT NULL REFERENCES crew_runs(id) ON DELETE CASCADE, path TEXT NOT NULL, op TEXT NOT NULL, PRIMARY KEY (run_id, path, op));
+        CREATE TABLE IF NOT EXISTS team_enrollment (project_id TEXT PRIMARY KEY, min_version TEXT, enrolled_at INTEGER, enrolled_by TEXT);
+
+        -- ===== Domain 13: workflows, gates & execution =====
+        CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT, description TEXT, is_builtin INTEGER, enabled INTEGER, created_at INTEGER, updated_at INTEGER);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_workflows_name ON workflows(project_id, name);
+        CREATE TABLE IF NOT EXISTS workflow_config (workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, key TEXT, value TEXT, PRIMARY KEY (workflow_id, key));
+        CREATE TABLE IF NOT EXISTS workflow_rule_condition (rule_id TEXT NOT NULL, kind TEXT, op TEXT, key TEXT, value TEXT, PRIMARY KEY (rule_id, kind, key, value));
+        CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workflow_id TEXT, command TEXT, work_cycle_id TEXT, status TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 0, max_iterations INTEGER, started_at INTEGER, ended_at INTEGER);
+        CREATE INDEX IF NOT EXISTS ix_wfruns_cycle ON workflow_runs(work_cycle_id);
+        CREATE TABLE IF NOT EXISTS workflow_run_step (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE, rule_id TEXT, seq INTEGER, status TEXT, attempt INTEGER NOT NULL DEFAULT 1, exit_code INTEGER, output TEXT, started_at INTEGER, ended_at INTEGER);
+        CREATE TABLE IF NOT EXISTS gate_evaluation (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE, rule_id TEXT, passed INTEGER NOT NULL, reason TEXT, evaluated_at INTEGER);
+      `)
+    },
+  },
+  {
+    version: 38,
+    name: 'schema-v2-memory-backfill',
+    up: (db: SqliteDatabase) => {
+      // C1 backfill: populate memory_entries + memory_entry_tags from the
+      // existing `memories` mirror so the v2 tables hold the full history (new
+      // entries are dual-written live by projectMemory.remember). Pure copy —
+      // `memories` stays the source of truth until the read path is cut over.
+      // INSERT OR IGNORE skips rows already present / unique-hash collisions.
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          SELECT
+            id, project_id, type,
+            COALESCE(title, substr(content, 1, 80)),
+            content,
+            json_extract(tags, '$.file'),
+            json_extract(tags, '$.subject'),
+            COALESCE(provenance, 'declared'),
+            content_hash,
+            COALESCE(user_triggered, 0),
+            0,
+            CAST(strftime('%s', created_at) AS INTEGER) * 1000,
+            CAST(strftime('%s', COALESCE(updated_at, created_at)) AS INTEGER) * 1000
+          FROM memories
+          WHERE deleted_at IS NULL
+            AND content IS NOT NULL
+            AND content_hash IS NOT NULL
+            AND created_at IS NOT NULL
+        `)
+      } catch {
+        // Best-effort backfill — live dual-write keeps new entries consistent.
+      }
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+          SELECT me.id, je.key, je.value,
+            CASE WHEN je.key IN (
+              'source','session','window_days','window-days','touches','occurrences',
+              'phrase','slug','hash','content-hash','content_hash','key','kind',
+              'spec-id','spec_id','from','origin','event','task-count','task_count',
+              'context-schema','context_schema','synthesis','commit'
+            ) THEN 1 ELSE 0 END
+          FROM memories m
+          JOIN memory_entries me ON me.id = m.id
+          JOIN json_each(m.tags) je
+          WHERE m.tags IS NOT NULL
+            AND json_valid(m.tags)
+            AND substr(trim(m.tags), 1, 1) = '{'
+            AND je.value IS NOT NULL
+        `)
+      } catch {
+        // Tags are CSV in some legacy rows (not JSON) — those skip cleanly.
+      }
+    },
+  },
+  {
+    version: 39,
+    name: 'schema-v2-events-backfill',
+    up: (db: SqliteDatabase) => {
+      // Completeness backfill from the AUTHORITATIVE `events` log (the `memories`
+      // mirror used by migration 38 can lag events). Makes memory_entries and
+      // token_usage complete so the read-path flip never drops rows. INSERT OR
+      // IGNORE: latest-first ordering means the newest row per key wins and older
+      // duplicates / CHECK-violating corrupt counts skip cleanly. Rows already
+      // inserted by migration 38 (same `mem_<id>` PK) are skipped. project_id is
+      // read via subquery (one DB == one project); synthetic 'evt_<id>' hash
+      // keeps the NOT NULL + unique(project_id, content_hash) constraints happy
+      // for completeness-only rows.
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          SELECT
+            'mem_' || e.id,
+            (SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1),
+            substr(e.type, length('memory.remember.') + 1),
+            substr(json_extract(e.data, '$.content'), 1, 80),
+            json_extract(e.data, '$.content'),
+            json_extract(e.data, '$.tags.file'),
+            json_extract(e.data, '$.tags.subject'),
+            COALESCE(json_extract(e.data, '$.provenance'), 'declared'),
+            'evt_' || e.id,
+            0, 0,
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000,
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000
+          FROM events e
+          WHERE e.type >= 'memory.remember.' AND e.type < 'memory.remember/'
+            AND json_valid(e.data)
+            AND json_extract(e.data, '$.content') IS NOT NULL
+            AND (SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1) IS NOT NULL
+          ORDER BY e.id DESC
+        `)
+      } catch {
+        // Best-effort — dual-write keeps new entries consistent.
+      }
+      // Token usage history from task_tokens events (latest per cycle via DESC).
+      try {
+        db.run(`
+          INSERT OR IGNORE INTO token_usage
+            (id, work_cycle_id, event_key, source, is_estimated, input_tokens,
+             output_tokens, model_id, measured_at, created_at)
+          SELECT
+            COALESCE(e.task_id, json_extract(e.data, '$.taskId')) || ':migrated',
+            COALESCE(e.task_id, json_extract(e.data, '$.taskId')),
+            COALESCE(e.task_id, json_extract(e.data, '$.taskId')) || ':migrated',
+            'migrated',
+            COALESCE(json_extract(e.data, '$.isEstimated'), 0),
+            json_extract(e.data, '$.tokensIn'),
+            json_extract(e.data, '$.tokensOut'),
+            json_extract(e.data, '$.model'),
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000,
+            CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000
+          FROM events e
+          WHERE e.type = 'memory.task_tokens'
+            AND json_valid(e.data)
+            AND json_extract(e.data, '$.tokensIn') IS NOT NULL
+            AND COALESCE(e.task_id, json_extract(e.data, '$.taskId')) IS NOT NULL
+          ORDER BY e.id DESC
+        `)
+      } catch {
+        // Best-effort — live dual-write covers new token reports.
+      }
+    },
+  },
+  {
+    version: 40,
+    name: 'schema-v2-memory-entries-trigger',
+    up: (db: SqliteDatabase) => {
+      // C1 read-flip prerequisite: a trigger that mirrors EVERY memory.remember.*
+      // event into memory_entries + memory_entry_tags. This makes the v2 tables
+      // the single, always-complete projection of the events log — no matter
+      // which path wrote the event (remember(), sync apply, session-cleanup, or
+      // a raw appendEvent in tests). With this in place recall can read typed
+      // rows with exact parity to the events-based path. INSERT OR IGNORE keeps
+      // it inert for rows already backfilled (same mem_<id> PK) and never aborts
+      // the originating events insert. project_id is informational (one DB ==
+      // one project; recall doesn't filter on it); content_hash is event-unique
+      // ('evt_<id>') so each remember event maps 1:1 (matches current recall,
+      // which is deduped upstream by remember()'s own guard).
+      db.run(`
+        CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+        AFTER INSERT ON events
+        WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+          AND json_valid(NEW.data)
+          AND json_extract(NEW.data, '$.content') IS NOT NULL
+        BEGIN
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          VALUES (
+            'mem_' || NEW.id,
+            COALESCE((SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1), 'local'),
+            substr(NEW.type, length('memory.remember.') + 1),
+            substr(json_extract(NEW.data, '$.content'), 1, 80),
+            json_extract(NEW.data, '$.content'),
+            json_extract(NEW.data, '$.tags.file'),
+            json_extract(NEW.data, '$.tags.subject'),
+            COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+            'evt_' || NEW.id,
+            0, 0,
+            CAST(strftime('%s', NEW.timestamp) AS INTEGER) * 1000,
+            CAST(strftime('%s', NEW.timestamp) AS INTEGER) * 1000
+          );
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+          SELECT 'mem_' || NEW.id, je.key, je.value,
+            CASE WHEN je.key IN (
+              'source','session','window_days','window-days','touches','occurrences',
+              'phrase','slug','hash','content-hash','content_hash','key','kind',
+              'spec-id','spec_id','from','origin','event','task-count','task_count',
+              'context-schema','context_schema','synthesis','commit'
+            ) THEN 1 ELSE 0 END
+          FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+          WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+        END;
+      `)
+    },
+  },
+  {
+    version: 41,
+    name: 'schema-v2-memory-entries-correctness',
+    up: (db: SqliteDatabase) => {
+      // Correctness fix for the v2 memory projection (audit F1–F5): the three
+      // population mechanisms (mig 38/39/40) disagreed on hashing, project_id,
+      // timestamp precision/source, and the dedup index was type-blind. This
+      // rebuilds memory_entries from the AUTHORITATIVE events log in JS — real
+      // content fingerprint, real project_id, ms-precision created_at preferring
+      // the authored time, full tags — ungated (fixes events-only installs),
+      // then installs a corrected trigger for future writes.
+      const MACHINE_KEYS = new Set([
+        'source',
+        'session',
+        'window_days',
+        'window-days',
+        'touches',
+        'occurrences',
+        'phrase',
+        'slug',
+        'hash',
+        'content-hash',
+        'content_hash',
+        'key',
+        'kind',
+        'spec-id',
+        'spec_id',
+        'from',
+        'origin',
+        'event',
+        'task-count',
+        'task_count',
+        'context-schema',
+        'context_schema',
+        'synthesis',
+        'commit',
+      ])
+
+      // 1. Tear down the old projection + trigger + type-blind unique index.
+      try {
+        db.run('DROP TRIGGER IF EXISTS memory_entries_from_events')
+      } catch {}
+      try {
+        db.run('DELETE FROM memory_entry_tags')
+      } catch {}
+      try {
+        db.run('DELETE FROM memory_entries')
+      } catch {}
+      try {
+        db.run('DROP INDEX IF EXISTS ux_mem_hash')
+      } catch {}
+      try {
+        db.run(
+          'CREATE UNIQUE INDEX IF NOT EXISTS ux_mem_hash ON memory_entries(project_id, content_hash, type)'
+        )
+      } catch {}
+
+      // 2. Rebuild from events (data.tags is always an object for remember rows).
+      let fallbackPid = 'local'
+      try {
+        const r = db
+          .prepare('SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1')
+          .get() as { project_id?: string } | undefined
+        if (r?.project_id) fallbackPid = r.project_id
+      } catch {}
+
+      let rows: Array<{ id: number; type: string; data: string; timestamp: string }> = []
+      try {
+        rows = db
+          .prepare(
+            "SELECT id, type, data, timestamp FROM events WHERE type >= 'memory.remember.' AND type < 'memory.remember/' ORDER BY id ASC"
+          )
+          .all() as typeof rows
+      } catch {}
+
+      const insEntry = db.prepare(
+        `INSERT OR IGNORE INTO memory_entries
+           (id, project_id, type, title, content, file, subject, provenance,
+            content_hash, user_triggered, revision_count, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+      )
+      const insTag = db.prepare(
+        'INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine) VALUES (?, ?, ?, ?)'
+      )
+
+      for (const row of rows) {
+        let data: {
+          content?: unknown
+          tags?: unknown
+          provenance?: unknown
+          content_hash?: unknown
+          project_id?: unknown
+          created_at?: unknown
+        }
+        try {
+          data = JSON.parse(row.data)
+        } catch {
+          continue
+        }
+        const content = data.content
+        if (typeof content !== 'string' || !content) continue
+        const id = `mem_${row.id}`
+        const type = String(row.type).slice('memory.remember.'.length)
+        const tags =
+          data.tags && typeof data.tags === 'object' && !Array.isArray(data.tags)
+            ? (data.tags as Record<string, unknown>)
+            : {}
+        const hash =
+          typeof data.content_hash === 'string' ? data.content_hash : memoryFingerprint(content)
+        const pid = typeof data.project_id === 'string' ? data.project_id : fallbackPid
+        const createdAt =
+          (typeof data.created_at === 'string' ? Date.parse(data.created_at) : NaN) ||
+          Date.parse(row.timestamp) ||
+          0
+        try {
+          insEntry.run(
+            id,
+            pid,
+            type,
+            content.split('\n')[0].slice(0, 80),
+            content,
+            typeof tags.file === 'string' ? tags.file : null,
+            typeof tags.subject === 'string' ? tags.subject : null,
+            typeof data.provenance === 'string' ? data.provenance : 'declared',
+            hash,
+            createdAt,
+            createdAt
+          )
+          for (const [k, v] of Object.entries(tags)) {
+            if (v == null) continue
+            insTag.run(id, k, String(v), MACHINE_KEYS.has(k) ? 1 : 0)
+          }
+        } catch {
+          // skip a malformed row, keep rebuilding
+        }
+      }
+
+      // 3. Corrected trigger for future writes: real content_hash/project_id
+      // from the event payload, ms-precision created_at preferring the authored
+      // time (julianday so sub-second survives), graceful fallbacks.
+      db.run(`
+        CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+        AFTER INSERT ON events
+        WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+          AND json_valid(NEW.data)
+          AND json_extract(NEW.data, '$.content') IS NOT NULL
+        BEGIN
+          INSERT OR IGNORE INTO memory_entries
+            (id, project_id, type, title, content, file, subject, provenance,
+             content_hash, user_triggered, revision_count, created_at, updated_at)
+          VALUES (
+            'mem_' || NEW.id,
+            COALESCE(json_extract(NEW.data, '$.project_id'),
+                     (SELECT project_id FROM memories WHERE project_id IS NOT NULL LIMIT 1),
+                     'local'),
+            substr(NEW.type, length('memory.remember.') + 1),
+            substr(json_extract(NEW.data, '$.content'), 1, 80),
+            json_extract(NEW.data, '$.content'),
+            json_extract(NEW.data, '$.tags.file'),
+            json_extract(NEW.data, '$.tags.subject'),
+            COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+            COALESCE(json_extract(NEW.data, '$.content_hash'), 'evt_' || NEW.id),
+            0, 0,
+            CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+            CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER)
+          );
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+          SELECT 'mem_' || NEW.id, je.key, je.value,
+            CASE WHEN je.key IN (
+              'source','session','window_days','window-days','touches','occurrences',
+              'phrase','slug','hash','content-hash','content_hash','key','kind',
+              'spec-id','spec_id','from','origin','event','task-count','task_count',
+              'context-schema','context_schema','synthesis','commit'
+            ) THEN 1 ELSE 0 END
+          FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+          WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+        END;
+      `)
+    },
+  },
+  {
+    version: 42,
+    name: 'schema-v2-memory-entries-fts',
+    up: (db: SqliteDatabase) => {
+      // FTS over the single-source memory_entries (replaces memories_fts). C1
+      // search cutover: `prjct search` / searchFts reads this. External-content
+      // FTS5 over memory_entries(content, title); kept in sync by triggers on
+      // memory_entries so EVERY writer (incl. the session-cleanup direct append
+      // that had no FTS row before) is searchable. deleted_at is filtered in the
+      // query, not the index.
+      try {
+        db.run(
+          "CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5(content, title, content='memory_entries', content_rowid='rowid')"
+        )
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ai AFTER INSERT ON memory_entries BEGIN
+            INSERT INTO memory_entries_fts(rowid, content, title) VALUES (new.rowid, new.content, new.title);
+          END;
+        `)
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ad AFTER DELETE ON memory_entries BEGIN
+            INSERT INTO memory_entries_fts(memory_entries_fts, rowid, content, title) VALUES('delete', old.rowid, old.content, old.title);
+          END;
+        `)
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_fts_au AFTER UPDATE ON memory_entries BEGIN
+            INSERT INTO memory_entries_fts(memory_entries_fts, rowid, content, title) VALUES('delete', old.rowid, old.content, old.title);
+            INSERT INTO memory_entries_fts(rowid, content, title) VALUES (new.rowid, new.content, new.title);
+          END;
+        `)
+        // Backfill the index from existing rows.
+        db.run("INSERT INTO memory_entries_fts(memory_entries_fts) VALUES('rebuild')")
+      } catch {
+        // FTS5 unavailable or already built — search degrades to recall; non-fatal.
+      }
+    },
+  },
+  {
+    version: 43,
+    name: 'schema-v2-token-usage-description',
+    up: (db: SqliteDatabase) => {
+      // C2 single-source: token_usage carries the work-cycle description so the
+      // cost report no longer needs to read the memory.task_tokens events for it.
+      try {
+        db.run('ALTER TABLE token_usage ADD COLUMN description TEXT')
+      } catch {
+        // Column already exists (re-run safety).
+      }
+    },
+  },
+  {
+    version: 44,
+    name: 'schema-v2-drop-unused-tables',
+    up: (db: SqliteDatabase) => {
+      // Remove the forward-schema tables migration 37 created that have no
+      // writer/reader (dead schema). Keeping only what's actually wired:
+      // memory_entries(+tags,+fts), analysis_* (5 child tables, read by
+      // getActiveRelational), spec_review + spec_selected_reviewer (the gate),
+      // token_usage, and workflow_runs/run_step/gate_evaluation (read by
+      // `prjct workflow runs`). Everything else is dropped rather than shipped
+      // half-built. FK-children are dropped before their parents.
+      const drops = [
+        // spec children superseded by the content aggregate (gate keeps review + selected_reviewer)
+        'DROP TABLE IF EXISTS spec_acceptance_criterion',
+        'DROP TABLE IF EXISTS spec_scope',
+        'DROP TABLE IF EXISTS spec_risk',
+        'DROP TABLE IF EXISTS spec_test_step',
+        'DROP TABLE IF EXISTS spec_linked_task',
+        'DROP TABLE IF EXISTS spec_tag',
+        // telemetry tables with no writer (agent_sessions still serves)
+        'DROP TABLE IF EXISTS agent_artifact',
+        'DROP TABLE IF EXISTS agent_runs',
+        // entity tag/timeline projections never wired
+        'DROP TABLE IF EXISTS subtask_dependency',
+        'DROP TABLE IF EXISTS task_tag',
+        'DROP TABLE IF EXISTS shipped_feature_tag',
+        'DROP TABLE IF EXISTS idea_tag',
+        'DROP TABLE IF EXISTS entity_timeline',
+        'DROP TABLE IF EXISTS context_feedback_keyword',
+        'DROP TABLE IF EXISTS context_feedback_file',
+        // crew/team still live in kv_store
+        'DROP TABLE IF EXISTS crew_run_file',
+        'DROP TABLE IF EXISTS crew_runs',
+        'DROP TABLE IF EXISTS team_enrollment',
+        // workflows superseded by custom_workflows + workflow_rules
+        'DROP TABLE IF EXISTS workflow_config',
+        'DROP TABLE IF EXISTS workflow_rule_condition',
+        'DROP TABLE IF EXISTS workflows',
+        // memory graph never wired
+        'DROP TABLE IF EXISTS memory_links',
+      ]
+      for (const stmt of drops) {
+        try {
+          db.run(stmt)
+        } catch {
+          // Best-effort — table may not exist on partial chains.
+        }
+      }
+    },
+  },
+  {
+    version: 45,
+    name: 'schema-v2-retire-memories-table',
+    up: (db: SqliteDatabase) => {
+      // Retire the `memories` mirror for good: nothing writes or reads it now
+      // (single source = memory_entries + its FTS). First recreate the
+      // memory_entries trigger WITHOUT the `memories` project_id subquery (else
+      // dropping memories would break every remember-event insert), then drop
+      // memories, its FTS, and its sync triggers.
+      try {
+        db.run('DROP TRIGGER IF EXISTS memory_entries_from_events')
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+          AFTER INSERT ON events
+          WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+            AND json_valid(NEW.data)
+            AND json_extract(NEW.data, '$.content') IS NOT NULL
+          BEGIN
+            INSERT OR IGNORE INTO memory_entries
+              (id, project_id, type, title, content, file, subject, provenance,
+               content_hash, user_triggered, revision_count, created_at, updated_at)
+            VALUES (
+              'mem_' || NEW.id,
+              COALESCE(json_extract(NEW.data, '$.project_id'), 'local'),
+              substr(NEW.type, length('memory.remember.') + 1),
+              substr(json_extract(NEW.data, '$.content'), 1, 80),
+              json_extract(NEW.data, '$.content'),
+              json_extract(NEW.data, '$.tags.file'),
+              json_extract(NEW.data, '$.tags.subject'),
+              COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+              COALESCE(json_extract(NEW.data, '$.content_hash'), 'evt_' || NEW.id),
+              0, 0,
+              CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+              CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER)
+            );
+            INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+            SELECT 'mem_' || NEW.id, je.key, je.value,
+              CASE WHEN je.key IN (
+                'source','session','window_days','window-days','touches','occurrences',
+                'phrase','slug','hash','content-hash','content_hash','key','kind',
+                'spec-id','spec_id','from','origin','event','task-count','task_count',
+                'context-schema','context_schema','synthesis','commit'
+              ) THEN 1 ELSE 0 END
+            FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+            WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+          END;
+        `)
+      } catch {
+        // If recreation fails, keep the existing trigger (don't break inserts).
+      }
+      for (const stmt of [
+        'DROP TRIGGER IF EXISTS memories_ai',
+        'DROP TRIGGER IF EXISTS memories_ad',
+        'DROP TRIGGER IF EXISTS memories_au',
+        'DROP TABLE IF EXISTS memories_fts',
+        'DROP TABLE IF EXISTS memories',
+      ]) {
+        try {
+          db.run(stmt)
+        } catch {
+          // Best-effort teardown.
+        }
+      }
+    },
+  },
+  {
+    version: 46,
+    name: 'schema-v2-memory-entries-recapture-and-timestamp-fixes',
+    up: (db: SqliteDatabase) => {
+      // Line-by-line audit findings, three related bugs in the C1 rebuild
+      // (migrations 40/41/45), fixed together:
+      //
+      // 1. ux_mem_hash was a plain UNIQUE(project_id, content_hash, type) index
+      //    with no `deleted_at` awareness. forget() soft-deletes (sets
+      //    deleted_at) but leaves the row's (hash, type) slot occupied, so a
+      //    later remember() of the identical content passes the dedup guard
+      //    (which correctly checks deleted_at IS NULL) but the trigger's
+      //    INSERT OR IGNORE then silently collides with the tombstoned row and
+      //    drops the recapture — permanently, with no error. Fix: make the
+      //    index partial (WHERE deleted_at IS NULL) so a tombstoned row never
+      //    blocks a new live row with the same hash/type.
+      // 2. The trigger computed created_at/updated_at via julianday(...) with
+      //    no validity guard; memory_entries.created_at is NOT NULL and the
+      //    insert is INSERT OR IGNORE, so a non-ISO8601 timestamp (e.g. a
+      //    legacy-imported event) makes julianday() return NULL, the NOT NULL
+      //    violation is silently swallowed, and the memory is never created —
+      //    invisible with no error. Fix: COALESCE the computed ms value to
+      //    "now" so the insert always has a valid timestamp.
+      // 3. Repair any row already corrupted by this: migration 41's one-time
+      //    JS backfill defaulted unparseable timestamps to epoch 0 (buried at
+      //    the bottom of every recency-ordered recall, effectively
+      //    unreachable) instead of a usable fallback.
+      try {
+        db.run('DROP INDEX IF EXISTS ux_mem_hash')
+        db.run(
+          `CREATE UNIQUE INDEX IF NOT EXISTS ux_mem_hash
+           ON memory_entries(project_id, content_hash, type)
+           WHERE deleted_at IS NULL`
+        )
+      } catch {
+        // Best-effort — an existing non-partial index still prevents true dupes.
+      }
+
+      try {
+        db.run(`
+          UPDATE memory_entries
+          SET created_at = COALESCE(
+                (SELECT CAST(ROUND((julianday(e.timestamp) - 2440587.5) * 86400000) AS INTEGER)
+                 FROM events e WHERE 'mem_' || e.id = memory_entries.id),
+                CAST(unixepoch() AS INTEGER) * 1000
+              ),
+              updated_at = COALESCE(
+                (SELECT CAST(ROUND((julianday(e.timestamp) - 2440587.5) * 86400000) AS INTEGER)
+                 FROM events e WHERE 'mem_' || e.id = memory_entries.id),
+                CAST(unixepoch() AS INTEGER) * 1000
+              )
+          WHERE created_at <= 0
+        `)
+      } catch {
+        // Best-effort repair — a rare edge case, never blocks migration.
+      }
+
+      try {
+        db.run('DROP TRIGGER IF EXISTS memory_entries_from_events')
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+          AFTER INSERT ON events
+          WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+            AND json_valid(NEW.data)
+            AND json_extract(NEW.data, '$.content') IS NOT NULL
+          BEGIN
+            INSERT OR IGNORE INTO memory_entries
+              (id, project_id, type, title, content, file, subject, provenance,
+               content_hash, user_triggered, revision_count, created_at, updated_at)
+            VALUES (
+              'mem_' || NEW.id,
+              COALESCE(json_extract(NEW.data, '$.project_id'), 'local'),
+              substr(NEW.type, length('memory.remember.') + 1),
+              substr(json_extract(NEW.data, '$.content'), 1, 80),
+              json_extract(NEW.data, '$.content'),
+              json_extract(NEW.data, '$.tags.file'),
+              json_extract(NEW.data, '$.tags.subject'),
+              COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+              COALESCE(json_extract(NEW.data, '$.content_hash'), 'evt_' || NEW.id),
+              0, 0,
+              COALESCE(
+                CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+                CAST(unixepoch() AS INTEGER) * 1000
+              ),
+              COALESCE(
+                CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+                CAST(unixepoch() AS INTEGER) * 1000
+              )
+            );
+            INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+            SELECT 'mem_' || NEW.id, je.key, je.value,
+              CASE WHEN je.key IN (
+                'source','session','window_days','window-days','touches','occurrences',
+                'phrase','slug','hash','content-hash','content_hash','key','kind',
+                'spec-id','spec_id','from','origin','event','task-count','task_count',
+                'context-schema','context_schema','synthesis','commit'
+              ) THEN 1 ELSE 0 END
+            FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+            WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+          END;
+        `)
+      } catch {
+        // If recreation fails, keep the existing trigger (don't break inserts).
+      }
+    },
+  },
+  {
+    version: 47,
+    name: 'schema-v2-missing-indexes',
+    up: (db: SqliteDatabase) => {
+      // Line-by-line/efficiency audit: these child tables were queried by
+      // WHERE/JOIN predicates with no supporting index since their creation
+      // (migration 37), so every read did a full table scan — growing
+      // unbounded since none of these tables prune old rows.
+      for (const stmt of [
+        // getActiveRelational (llm-analysis-storage.ts) queries all four by
+        // analysis_id; only analysis_finding had ix_finding.
+        'CREATE INDEX IF NOT EXISTS ix_analysis_convention ON analysis_convention(analysis_id)',
+        'CREATE INDEX IF NOT EXISTS ix_analysis_stack_item ON analysis_stack_item(analysis_id)',
+        'CREATE INDEX IF NOT EXISTS ix_analysis_command ON analysis_command(analysis_id)',
+        'CREATE INDEX IF NOT EXISTS ix_analysis_domain ON analysis_domain(analysis_id)',
+        // measuredCyclesFromTokenUsage (work-cost-service.ts) filters + orders
+        // by measured_at, run 3x per publishWorkCostSnapshots call; only
+        // event_key (unique) and work_cycle_id were indexed.
+        'CREATE INDEX IF NOT EXISTS ix_token_measured ON token_usage(measured_at DESC)',
+        // getRecentWorkflowRuns (run-recorder.ts) counts steps/gates per run_id;
+        // neither child table had an index on its FK.
+        'CREATE INDEX IF NOT EXISTS ix_run_step_run ON workflow_run_step(run_id)',
+        'CREATE INDEX IF NOT EXISTS ix_gate_eval_run ON gate_evaluation(run_id)',
+      ]) {
+        try {
+          db.run(stmt)
+        } catch {
+          // Best-effort — a missing index degrades to a scan, never breaks reads.
+        }
+      }
+    },
+  },
+  {
+    version: 48,
+    name: 'schema-v2-drop-dangling-agent-runs-fk',
+    up: (db: SqliteDatabase) => {
+      // token_usage.agent_run_id REFERENCES agent_runs(id), but agent_runs was
+      // dropped in migration 44 (never wired to a writer/reader) — a dangling
+      // FK to a nonexistent table. Currently inert (PRAGMA foreign_keys is
+      // never enabled in this codebase), but every INSERT into token_usage
+      // (i.e. every recordTaskTokenUsage call) would silently start failing
+      // its typed dual-write the moment FK enforcement is ever turned on.
+      // agent_run_id has zero writers/readers in the codebase (grep-verified),
+      // so this rebuilds token_usage without it rather than keeping a dead
+      // dangling-FK column. SQLite can't ALTER TABLE DROP COLUMN a column
+      // that's part of a foreign key, so this is the standard rebuild:
+      // create-copy-drop-rename. Deliberately NOT wrapped in try/catch: the
+      // migration runner already wraps migration.up(db) in its own
+      // transaction (database.ts runImmediate) — letting any statement here
+      // throw means the whole rebuild rolls back atomically and the migration
+      // stays pending for retry, instead of risking a caught-and-swallowed
+      // failure mid-rebuild silently leaving token_usage empty or dropped.
+      db.run(`
+        CREATE TABLE token_usage_v48 (
+          id               TEXT PRIMARY KEY,
+          work_cycle_id    TEXT,
+          event_key        TEXT NOT NULL,
+          source           TEXT NOT NULL,
+          is_estimated     INTEGER NOT NULL DEFAULT 0,
+          input_tokens     INTEGER NOT NULL,
+          output_tokens    INTEGER NOT NULL,
+          cache_read_tokens  INTEGER DEFAULT 0,
+          cache_write_tokens INTEGER DEFAULT 0,
+          model_id         TEXT,
+          description      TEXT,
+          measured_at      INTEGER,
+          created_at       INTEGER,
+          CHECK (input_tokens BETWEEN 0 AND 10000000 AND output_tokens BETWEEN 0 AND 10000000)
+        )
+      `)
+      db.run(`
+        INSERT INTO token_usage_v48
+          (id, work_cycle_id, event_key, source, is_estimated, input_tokens,
+           output_tokens, cache_read_tokens, cache_write_tokens, model_id,
+           description, measured_at, created_at)
+        SELECT id, work_cycle_id, event_key, source, is_estimated, input_tokens,
+               output_tokens, cache_read_tokens, cache_write_tokens, model_id,
+               description, measured_at, created_at
+        FROM token_usage
+      `)
+      db.run('DROP TABLE token_usage')
+      db.run('ALTER TABLE token_usage_v48 RENAME TO token_usage')
+      db.run('CREATE UNIQUE INDEX IF NOT EXISTS ux_token_event ON token_usage(event_key)')
+      db.run('CREATE INDEX IF NOT EXISTS ix_token_cycle ON token_usage(work_cycle_id)')
+      db.run('CREATE INDEX IF NOT EXISTS ix_token_measured ON token_usage(measured_at DESC)')
+    },
+  },
+  {
+    version: 49,
+    name: 'drop-dead-workflow-rule-cache',
+    up: (db: SqliteDatabase) => {
+      // `workflow_rule_cache` (created migration-era pre-Schema-v2) has zero
+      // readers and zero writers in the codebase — grep-verified, distinctive
+      // name so no false positives. The Schema v2 plan flagged it as dead
+      // schema to drop; a table with no code path is structural cruft, not a
+      // design. Its child index goes with it automatically on DROP TABLE.
+      db.run('DROP TABLE IF EXISTS workflow_rule_cache')
+    },
+  },
+  {
+    version: 50,
+    name: 'drop-legacy-json-migration-tables',
+    up: (db: SqliteDatabase) => {
+      // `memory` (singular, pre-SQLite KV) and `analysis` (pre-LLM heuristic)
+      // were written ONLY by the legacy JSON→SQLite migrator (`migrate-json`,
+      // retired in this change) and read by NOTHING — grep-verified zero
+      // SELECT anywhere. With their sole writer gone they are pure dead schema.
+      // Not to be confused with `memory_entries`/`llm_analysis`, the live v2
+      // tables that superseded them.
+      db.run('DROP TABLE IF EXISTS memory')
+      db.run('DROP TABLE IF EXISTS analysis')
     },
   },
 ]

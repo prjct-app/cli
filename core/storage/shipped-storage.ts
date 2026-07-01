@@ -222,4 +222,3 @@ class ShippedStorage extends StorageManager<ShippedJson> {
 }
 
 export const shippedStorage = new ShippedStorage()
-export default shippedStorage

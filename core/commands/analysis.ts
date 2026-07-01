@@ -2,9 +2,7 @@
  * Analysis Commands: analyze, sync, and related helpers
  */
 
-import fs from 'node:fs/promises'
 import analyzer from '../domain/analyzer'
-import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
@@ -13,7 +11,6 @@ import { buildAnalysisPayload } from '../services/analysis-payload-builder'
 import { syncService } from '../services/sync-service'
 import { analysisStorage } from '../storage/analysis-storage'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
-import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
@@ -78,13 +75,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       const summary = generateAnalysisSummary(analysisData, projectPath)
 
-      const config = await configManager.readConfig(projectPath).catch(() => null)
-      const wikiRoot = await pathManager.getWikiPath(projectPath, config?.vaultPath)
-      const summaryPath = `${wikiRoot}/_generated/analysis/repo-summary.md`
-
-      await fs.mkdir(`${wikiRoot}/_generated/analysis`, { recursive: true })
-      await fs.writeFile(summaryPath, summary, 'utf-8')
-
       await this.logToMemory(projectPath, 'repository_analyzed', {
         timestamp: dateHelper.getTimestamp(),
         fileCount: analysisData.fileCount,
@@ -92,14 +82,14 @@ export class AnalysisCommands extends PrjctCommandsBase {
       })
 
       console.log('✅ Analysis complete!\n')
-      console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}\n`)
-      console.log('Next steps:')
+      console.log(summary)
+      console.log('\nNext steps:')
       console.log('• p. sync → Generate agents based on stack')
       console.log('• p. work "<intent>" → Start an AI Agile work cycle')
 
       return {
         success: true,
-        summaryPath,
+        summary,
         data: analysisData,
       }
     } catch (error) {
@@ -374,52 +364,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
 
       return { success: true, data: payload }
-    } catch (error) {
-      return failFromError(error)
-    }
-  }
-
-  /**
-   * Force a full rebuild of the Obsidian vault for the current project.
-   *
-   * Nukes `_generated/` and re-emits from scratch. Useful after upgrading
-   * prjct-cli (so old layouts migrate) or when the user wants a clean
-   * reset. The regular regen path is incremental via the manifest; this
-   * bypass exists specifically for "migrate this old project to the new
-   * generator output" without waiting on a trigger.
-   */
-  async regenVault(
-    projectPath: string = process.cwd(),
-    options: MdOption = {}
-  ): Promise<CommandResult> {
-    try {
-      const proj = await requireProject(projectPath)
-      if (!proj.ok) return proj.result
-      const projectId = proj.value
-
-      const fs = await import('node:fs/promises')
-      const pathManager = (await import('../infrastructure/path-manager')).default
-      const configMod = await import('../infrastructure/config-manager')
-      const config = await configMod.default.readConfig(projectPath).catch(() => null)
-      const wikiRoot = await pathManager.getWikiPath(projectPath, config?.vaultPath)
-      const generatedRoot = `${wikiRoot}/_generated`
-
-      // Full wipe. The generator's sweep pass handles incremental cleanup
-      // on every regen, but this command exists specifically to reset
-      // stale layouts from prior versions — start from empty.
-      await fs.rm(generatedRoot, { recursive: true, force: true })
-
-      const { generateWiki } = await import('../services/wiki-generator')
-      const result = await generateWiki(projectPath, projectId)
-
-      if (options.md) {
-        console.log(
-          `---\n\n## Vault regenerated\n\n| Metric | Value |\n|---|---|\n| Wiki root | \`${result.wikiRoot}\` |\n| Files written | ${result.filesWritten} |\n| Files skipped | ${result.filesSkipped} |\n| Files removed | ${result.filesRemoved} |\n`
-        )
-      } else {
-        console.log(JSON.stringify({ success: true, message: 'Vault regenerated', ...result }))
-      }
-      return { success: true }
     } catch (error) {
       return failFromError(error)
     }

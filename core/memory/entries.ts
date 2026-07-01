@@ -7,8 +7,6 @@
  * markdown rendering in format.ts.
  */
 
-import { REMEMBER_EVENT_PREFIX } from './events'
-
 /**
  * Sovereign knowledge-base facets — the model-agnostic project knowledge
  * (identity, voice, glossary, frameworks) any LLM brain reads on demand.
@@ -105,13 +103,6 @@ export function isModelMemory(entry: Pick<MemoryEntry, 'type' | 'tags'>): boolea
   return true
 }
 
-export interface EventRow {
-  id: number
-  type: string
-  data: string
-  timestamp: string
-}
-
 export interface ShippedRow {
   id: string
   name: string
@@ -128,27 +119,10 @@ export function safeJson<T>(raw: string, fallback: T): T {
   }
 }
 
-export function rowToEntry(row: EventRow): MemoryEntry {
-  const type = row.type.slice(REMEMBER_EVENT_PREFIX.length) as MemoryType
-  const data = safeJson<{
-    content?: string
-    tags?: Record<string, string>
-    source?: string
-    provenance?: MemoryProvenance
-  }>(row.data, {})
-  // Entries written via `prjct remember` default to `declared` — the user
-  // (or Claude) explicitly captured them. Auto-capture flows can override
-  // by setting `provenance` explicitly.
-  return {
-    id: `mem_${row.id}`,
-    type,
-    content: data.content ?? '',
-    tags: data.tags ?? {},
-    rememberedAt: row.timestamp,
-    source: data.source,
-    provenance: data.provenance ?? 'declared',
-  }
-}
+// rowToEntry (events row → MemoryEntry) was removed in the C1 single-source
+// cutover: every authored-memory reader now reads the typed memory_entries
+// tables (see project-memory.loadV2Entries), so nothing parses events.data into
+// a MemoryEntry anymore.
 
 export function shippedRowToEntry(row: ShippedRow): MemoryEntry {
   const meta = row.data

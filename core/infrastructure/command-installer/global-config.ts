@@ -10,7 +10,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent, listTemplates } from '../../agentic/template-loader'
-import { resolveVaultRoot } from '../../services/vault-preferences'
 import { getErrorMessage, isNotFoundError } from '../../types/fs'
 import type { GlobalConfigResult } from '../../types/infrastructure'
 import { mergeWithMarkers } from '../ide-project-installer'
@@ -19,24 +18,23 @@ import pathManager from '../path-manager'
 const GLOBAL_CLAUDE_MD_CONTENT = `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Project knowledge layer
 
-prjct stores project memory (decisions, learnings, gotchas, patterns, ships, analyses) per project and regenerates a readable Markdown vault. **Use it — don't re-read source from scratch.**
+prjct stores project memory (decisions, learnings, gotchas, patterns, ships, analyses) per project in SQLite and serves it to you through tools. **Query it — don't re-read source from scratch.**
 
 prjct remembers and shows the path; it does not own execution. Treat prjct output as durable signals (task state, memories, specs, workflows, risks, recent learnings). Claude, GPT, and other agents decide the concrete HOW with their own native tools and judgment, then persist meaningful outcomes back to prjct.
 
-You are in a prjct project when any of these signs are present: \`%%PRJCT_VAULT_GENERATED%%/\` exists, OR \`.prjct/\` is in cwd, OR \`~/.prjct-cli/projects/\` has an entry for the current path.
+You are in a prjct project when \`.prjct/\` is in cwd OR \`~/.prjct-cli/projects/\` has an entry for the current path.
 
 ## Lookup FIRST, source LAST
 
-Before reading source code or running broad searches for ANY question about the project (architecture, conventions, decisions, recent ships, bugs, patterns, tech debt, past analyses), READ these vault files first using Read/Glob — no CLI round-trip:
+Before reading source code or running broad searches for ANY question about the project (architecture, conventions, decisions, recent ships, bugs, patterns, tech debt, past analyses), QUERY prjct first — bounded, ranked answers from SQLite, no markdown trees to wade through:
 
-- \`%%PRJCT_VAULT_GENERATED%%/index.md\` — overview, ships, memory counts, patterns count
-- \`%%PRJCT_VAULT_GENERATED%%/architecture.md\` — domains, conventions, key insights
-- \`%%PRJCT_VAULT_GENERATED%%/{patterns,insights,tech-debt}.md\` — inferred state of the project
-- \`%%PRJCT_VAULT_GENERATED%%/memory/{decision,gotcha,learning,fact,inbox}.md\` — captured knowledge
-- \`%%PRJCT_VAULT_GENERATED%%/analysis/{anti-patterns,insights,patterns,refactors,risk-areas,tech-debt}/\` — past analyses by category
-- \`%%PRJCT_VAULT_GENERATED%%/{ships,releases,tags}/\` — history & taxonomy
+- \`prjct context memory <topic>\` / \`prjct search "<q>"\` — captured decisions, gotchas, learnings, facts
+- \`prjct context --md\` — current state: active cycle, ships, recent learnings
+- architecture / conventions / patterns / anti-patterns / tech-debt / insights → MCP \`prjct_analysis\` (add \`mode:archive\` for history)
+- developer preferences → MCP \`prjct_developer\`; machine signals → MCP \`prjct_signals\`
+- specs → MCP \`prjct_spec_list\` / \`prjct_spec_get\`; per-file traps before editing → \`prjct guard <file>\`
 
-Only fall through to source/repo reading when the vault does not contain the answer.
+Only fall through to source/repo reading when prjct does not contain the answer.
 
 ## Capture analyses BACK to prjct
 
@@ -44,23 +42,12 @@ When you complete substantive work — analysis, decision, learning, gotcha — 
 
 ## Where things live
 
-- Source of truth: SQLite at \`~/.prjct-cli/projects/<id>/\` (don't read directly — use \`prjct\` CLI)
-- Read snapshot: vault at \`%%PRJCT_VAULT_GENERATED%%/\` (Read/Glob freely; never hand-edit — fix the pipeline)
+- Source of truth: SQLite at \`~/.prjct-cli/projects/<id>/\` (don't read directly — use \`prjct\` CLI / MCP tools)
 - Project config: \`.prjct/prjct.config.json\` in repo root
-
-The vault regenerates automatically on \`remember\`, \`capture\`, \`ship\`, \`sync\`, and the SessionStart/Stop hooks.
 
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
 `
-
-function applyConfiguredVaultPaths(content: string): string {
-  const vaultRoot = pathManager.getDisplayPath(resolveVaultRoot())
-  const vaultGenerated = path.join(vaultRoot, '<slug>', '_generated')
-  return content
-    .replaceAll('%%PRJCT_VAULT_GENERATED%%', vaultGenerated)
-    .replaceAll('%%PRJCT_VAULT_PROJECT%%', path.join(vaultRoot, '<slug>'))
-}
 
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
@@ -146,8 +133,6 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
         }
       }
     }
-
-    templateContent = applyConfiguredVaultPaths(templateContent)
 
     let existingContent = ''
     let fileExists = false

@@ -85,6 +85,9 @@ export interface WorkCostSnapshot {
 
 export const TASK_TOKENS_EVENT = 'memory.task_tokens'
 
+/** Must match token_usage's CHECK(input_tokens/output_tokens BETWEEN 0 AND …) in migrations.ts. */
+const TOKEN_COUNT_MAX = 10_000_000
+
 /**
  * Persist measured token usage for a work cycle. Agent-agnostic: any agent
  * (Claude via the Stop-hook transcript, or Codex/Gemini/… via the
@@ -104,7 +107,18 @@ export function recordTaskTokenUsage(
   taskId: string,
   tokensIn: number,
   tokensOut: number,
-  meta?: { description?: string; agent?: string }
+  meta?: {
+    description?: string
+    agent?: string
+    /** Model id when the runtime exposes it (e.g. claude-opus-4-8); else unknown. */
+    model?: string
+    /** Runtime/host: claude|codex|gemini|... when known. */
+    runtime?: string
+    /** True when the count is an estimate, not exact provider usage. */
+    isEstimated?: boolean
+    /** Where the measurement came from: transcript|mcp|cli. */
+    source?: string
+  }
 ): void {
   if (!taskId || tokensIn + tokensOut <= 0) return
   const ti = Math.round(tokensIn)
@@ -119,70 +133,119 @@ export function recordTaskTokenUsage(
         tokensOut: to,
         ...(meta?.description ? { description: meta.description } : {}),
         ...(meta?.agent ? { agent: meta.agent } : {}),
+        ...(meta?.model ? { model: meta.model } : {}),
+        ...(meta?.runtime ? { runtime: meta.runtime } : {}),
+        ...(meta?.isEstimated !== undefined ? { isEstimated: meta.isEstimated } : {}),
+        ...(meta?.source ? { source: meta.source } : {}),
       },
       taskId
     )
   } catch {
     /* measurement must never block the caller */
   }
+  // Same bound as token_usage's CHECK constraint (below) — applied here too so
+  // the legacy tasks.tokens_in/out mirror never carries a value token_usage
+  // would reject. Without this, a corrupted/out-of-range count that CHECK
+  // correctly keeps out of token_usage still landed in tasks.tokens_in/out,
+  // and buildWorkCostSnapshot's legacy-fallback merge (toCostTask, for tasks
+  // with no token_usage row) would silently surface it anyway — defeating the
+  // CHECK's whole purpose for exactly the corrupted-value case it exists for.
+  const inBounds = ti >= 0 && ti <= TOKEN_COUNT_MAX && to >= 0 && to <= TOKEN_COUNT_MAX
+  if (inBounds) {
+    try {
+      prjctDb.run(
+        projectId,
+        'UPDATE tasks SET tokens_in = ?, tokens_out = ? WHERE id = ?',
+        ti,
+        to,
+        taskId
+      )
+    } catch {
+      /* best-effort mirror — the event is the source of truth */
+    }
+  }
+  // Schema v2 dual-write (C2): mirror into the typed token_usage table with an
+  // explicit is_estimated flag and model/runtime, so cost aggregation can later
+  // read structured rows (and exact/estimated never get mixed). Keyed by
+  // (work_cycle_id, source) with upsert = current SET semantics (latest total
+  // wins). The CHECK bound silently rejects corrupted values. Best-effort.
   try {
+    const source = meta?.source ?? 'cli'
+    const eventKey = `${taskId}:${source}`
+    const now = Date.now()
     prjctDb.run(
       projectId,
-      'UPDATE tasks SET tokens_in = ?, tokens_out = ? WHERE id = ?',
+      `INSERT INTO token_usage
+         (id, work_cycle_id, event_key, source, is_estimated, input_tokens, output_tokens, model_id, description, measured_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(event_key) DO UPDATE SET
+         input_tokens = excluded.input_tokens,
+         output_tokens = excluded.output_tokens,
+         is_estimated = excluded.is_estimated,
+         model_id = excluded.model_id,
+         description = COALESCE(excluded.description, token_usage.description),
+         measured_at = excluded.measured_at`,
+      eventKey,
+      taskId,
+      eventKey,
+      source,
+      meta?.isEstimated ? 1 : 0,
       ti,
       to,
-      taskId
+      meta?.model ?? null,
+      meta?.description ?? null,
+      now,
+      now
     )
   } catch {
-    /* best-effort mirror — the event is the source of truth */
+    /* best-effort typed mirror — the event row stays the source of truth */
   }
 }
 
-interface TokenEventRow {
-  task_id: string | null
-  data: string
+// (measuredCyclesFromEvents removed — token_usage is the single read source for
+// cost; the memory.task_tokens events remain only as the append-only audit log.)
+
+interface TokenUsageRow {
+  work_cycle_id: string | null
+  input_tokens: number
+  output_tokens: number
+  is_estimated: number
+  description: string | null
 }
 
 /**
- * Aggregate measured token usage from `memory.task_tokens` events in the
- * window, one cycle per task (latest event wins — SET semantics). This is what
- * makes measurement work for the live flow, where work cycles never land in the
- * `tasks` table.
+ * C2 read path: aggregate measured usage from the typed `token_usage` table —
+ * one cycle per work_cycle_id, latest measurement wins (ORDER BY measured_at
+ * DESC). Structured (exact/estimated is a column), no JSON.parse.
  */
-function measuredCyclesFromEvents(projectId: string, since: string): Map<string, WorkCostTask> {
-  const rows = query<TokenEventRow>(
+function measuredCyclesFromTokenUsage(projectId: string, since: string): Map<string, WorkCostTask> {
+  const sinceMs = Date.parse(since)
+  const rows = query<TokenUsageRow>(
     projectId,
-    `SELECT task_id, data
-     FROM events
-     WHERE type = ? AND timestamp >= ? AND json_valid(data)
-     ORDER BY id DESC`,
-    TASK_TOKENS_EVENT,
-    since
+    `SELECT work_cycle_id, input_tokens, output_tokens, is_estimated, description
+     FROM token_usage
+     WHERE measured_at >= ?
+     ORDER BY measured_at DESC`,
+    Number.isFinite(sinceMs) ? sinceMs : 0
   )
-  const byTask = new Map<string, WorkCostTask>()
+  const byCycle = new Map<string, WorkCostTask>()
   for (const row of rows) {
-    let parsed: { taskId?: string; tokensIn?: number; tokensOut?: number; description?: string }
-    try {
-      parsed = JSON.parse(row.data)
-    } catch {
-      continue
-    }
-    const id = row.task_id ?? parsed.taskId
-    if (!id || byTask.has(id)) continue // first seen = latest (DESC) = authoritative
-    const tokensIn = nullableNumber(parsed.tokensIn ?? null) ?? 0
-    const tokensOut = nullableNumber(parsed.tokensOut ?? null) ?? 0
+    const id = row.work_cycle_id
+    if (!id || byCycle.has(id)) continue // first seen = latest (DESC)
+    const tokensIn = nullableNumber(row.input_tokens) ?? 0
+    const tokensOut = nullableNumber(row.output_tokens) ?? 0
     if (tokensIn + tokensOut <= 0) continue
-    byTask.set(id, {
+    byCycle.set(id, {
       id,
-      description: parsed.description ?? id,
-      status: 'measured',
+      description: row.description ?? id,
+      status: row.is_estimated ? 'estimated' : 'measured',
       tokensIn,
       tokensOut,
       tokensTotal: tokensIn + tokensOut,
       minutes: null,
     })
   }
-  return byTask
+  return byCycle
 }
 
 export function buildWorkCostSnapshot(projectId: string, days: number): WorkCostSnapshot {
@@ -196,15 +259,26 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
      ORDER BY COALESCE(completed_at, shipped_at, started_at) DESC`,
     since
   )
-  // Merge two measurement sources, event wins (it's the authoritative latest
-  // SET and the only one the live flow actually populates): the legacy `tasks`
-  // table (migrated installs) and `memory.task_tokens` events (every agent).
+  // C2 read: token_usage is the authoritative structured token store
+  // (exact/estimated split, CHECK-bounded, backfilled from events by
+  // migration 39 + dual-written live) and wins whenever a cycle has a row
+  // there. `tasks.tokens_in/out` is a legacy fallback for cycles with no
+  // token_usage row (pre-C2 migrated installs, or a token_usage write that
+  // failed independently of the tasks UPDATE) — recordTaskTokenUsage applies
+  // the SAME CHECK bound to both writes, so this fallback can never surface a
+  // value token_usage would have rejected. The `memory.task_tokens` events
+  // are no longer read for cost — they remain as the append-only audit log.
   const merged = new Map<string, WorkCostTask>()
   for (const task of taskRows.map(toCostTask)) {
     if (task) merged.set(task.id, task)
   }
-  for (const [id, cycle] of measuredCyclesFromEvents(projectId, since)) {
-    merged.set(id, cycle)
+  for (const [id, cycle] of measuredCyclesFromTokenUsage(projectId, since)) {
+    const prev = merged.get(id)
+    merged.set(id, {
+      ...cycle,
+      description: prev?.description ?? cycle.description,
+      minutes: prev?.minutes ?? cycle.minutes,
+    })
   }
   const measuredTasks = [...merged.values()].sort((a, b) => b.tokensTotal - a.tokensTotal)
 
@@ -322,10 +396,43 @@ export async function publishWorkCostSnapshots(
       entityType: 'work_cost_snapshots',
       entityId: snapshot.id,
       eventType: 'upsert',
-      data: snapshot,
+      // AC8 (spec 4b5bc99e): never let free-text memory prose reach cloud egress.
+      // `topDeclaredTokenMentions` is regex-scraped from `memory.remember.*`
+      // content, so its `summary` can carry secrets/PII. Cloud telemetry must
+      // carry only structured numeric fields — strip the prose before publish.
+      // The local snapshot (returned below) keeps it for the local cost report.
+      data: redactSnapshotForCloud(snapshot),
     })
   }
   return snapshots
+}
+
+/**
+ * Drop free-text excerpts from the cloud payload, keeping structured fields.
+ * AC8 (spec 4b5bc99e): cloud telemetry must carry only structured numeric
+ * fields — this must catch EVERY free-text field in WorkCostSnapshot, not
+ * just the regex-scraped memory prose. `mostExpensive[].description` is
+ * user-authored (the work-cycle intent phrase, e.g. from `prjct work "..."`
+ * or the Stop-hook transcript) and can contain the same class of secrets/PII
+ * as memory content — it must be redacted too, not just topDeclaredTokenMentions.
+ */
+function redactSnapshotForCloud(snapshot: WorkCostSnapshot): WorkCostSnapshot {
+  return {
+    ...snapshot,
+    mostExpensive: snapshot.mostExpensive.map((t) => ({
+      ...t,
+      description: '[redacted]',
+    })),
+    historicalRescue: {
+      ...snapshot.historicalRescue,
+      topDeclaredTokenMentions: snapshot.historicalRescue.topDeclaredTokenMentions.map((m) => ({
+        tokens: m.tokens,
+        sourceType: m.sourceType,
+        occurredAt: m.occurredAt,
+        summary: '[redacted]',
+      })),
+    },
+  }
 }
 
 function toCostTask(row: CostTaskRow): WorkCostTask | null {
