@@ -48,7 +48,7 @@ export function buildInductionDispatch(ctx: InductionContext): string {
     '3. **Gates (Stop-Slop)** — what must be true before "done": add a blocking check with `prjct workflow gate ship "verify:auto"` (or `prjct workflow gate ship "<your test command>"`) so it runs every time.',
     '4. **Roster** — if the flow needed specialists, note which review lenses it raised (architecture + security/data/perf/design/strategic) so future runs compose them.',
     '',
-    'Keep each organ MODEL-AGNOSTIC: name verbs and capabilities, never a specific model. Persist ONLY through prjct verbs — SQLite + the regenerated vault are the only surfaces.',
+    'Keep each organ MODEL-AGNOSTIC: name verbs and capabilities, never a specific model. Persist ONLY through prjct verbs — SQLite is the only surface.',
   ].join('\n')}\n`
 }
 

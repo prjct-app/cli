@@ -84,13 +84,14 @@ describe('buildSignalsFile', () => {
   it('groups hot files by file with the newest entry leading', () => {
     expect(body).toContain('## Hot files')
     expect(body).toContain('`core/a.ts` — 4 touches in 7d')
-    expect(body.indexOf('^mem-100')).toBeLessThan(body.indexOf('^mem-101'))
+    expect(body.indexOf('`mem_100`')).toBeLessThan(body.indexOf('`mem_101`'))
   })
 
-  it('every signal keeps a block anchor so [[signals#^mem-N]] resolves', () => {
-    for (const id of ['100', '101', '102', '103']) {
-      expect(body).toContain(`^mem-${id}`)
+  it('every signal keeps a plain id reference (no vault-only anchor syntax)', () => {
+    for (const id of ['mem_100', 'mem_101', 'mem_102', 'mem_103']) {
+      expect(body).toContain(`\`${id}\``)
     }
+    expect(body).not.toContain('^mem-')
   })
 
   it('sections skill-misses and friction separately', () => {

@@ -51,7 +51,7 @@ The work advances only when **every** selected specialist returns `VERDICT: APPR
 
 When you launch a subagent, instruct it to reply with a **one-screen summary** — files touched, verification command + outcome, blockers. Not a full diff, not a transcript, not a "see attached" file reference. You consume the reply directly.
 
-Subagents must not write reports to disk. Persistence on this project goes through `prjct` CLI verbs only — SQLite + the regenerated vault are the only allowed surfaces.
+Subagents must not write reports to disk. Persistence on this project goes through `prjct` CLI verbs only — SQLite is the only allowed surface.
 
 ## Model policy when dispatching (perf — non-negotiable)
 
@@ -65,7 +65,7 @@ You run on a small model on purpose: you orchestrate, you do not implement. Appl
 
 ## Point, don't carry — nothing leaves prjct (MUST)
 
-The plan, work cycle, and memory live in prjct (SQLite + regenerated vault) — never in your dispatch prompt, never in a scratch file. When you delegate, your prompt NAMES where the work lives and the subagent reads it itself in its own window: `prjct work --md` (active work + related context), `prjct spec show <id> --md` (the plan), `prjct context memory <topic>` (memory). Do not paste plan/work/memory content into the subagent prompt — pass the command. Subagents persist back only through `prjct` verbs. No plan, memory, or work context may exist outside prjct.
+The plan, work cycle, and memory live in prjct (SQLite) — never in your dispatch prompt, never in a scratch file. When you delegate, your prompt NAMES where the work lives and the subagent reads it itself in its own window: `prjct work --md` (active work + related context), `prjct spec show <id> --md` (the plan), `prjct context memory <topic>` (memory). Do not paste plan/work/memory content into the subagent prompt — pass the command. Subagents persist back only through `prjct` verbs. No plan, memory, or work context may exist outside prjct.
 
 Example correct prompt to a subagent:
 
@@ -86,7 +86,7 @@ Burning tokens looks like: pasting file contents or task/plan/memory bodies into
 When the reviewer replies `VERDICT: APPROVED`:
 
 1. Parse the `FILES:` block (one path per line; no annotations) from EVERY implementer that ran this round and union them into a single comma-joined list (dedupe — a clean fan-out should have no overlap, but be safe). Combine the implementers' one-line summaries into the `--implementer-summary`.
-2. Call `prjct crew record-run` to persist the run as ONE durable DB row + vault page — one row per crew round, whether it was one implementer or a fan-out of several. Idempotent on `--run-id` (so a retry with the same id is safe):
+2. Call `prjct crew record-run` to persist the run as ONE durable DB row — one row per crew round, whether it was one implementer or a fan-out of several. Idempotent on `--run-id` (so a retry with the same id is safe):
 
    ```
    prjct crew record-run \
@@ -128,4 +128,4 @@ Match the implementer count to the work. One subtask → one implementer. Three 
 
 ## Hard persistence rule
 
-Never write audit, checklist, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Durable state — checkpoints, audits, reviews, decisions, learnings — goes through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct spec record-review`). SQLite + the regenerated vault are the only allowed persistence surfaces.
+Never write audit, checklist, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Durable state — checkpoints, audits, reviews, decisions, learnings — goes through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct spec record-review`). SQLite is the only allowed persistence surface.

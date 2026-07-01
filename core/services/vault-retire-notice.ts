@@ -8,7 +8,6 @@
  * deletes any existing `_generated/` files; shown once (a kv flag).
  */
 
-import configManager from '../infrastructure/config-manager'
 import prjctDb from '../storage/database'
 
 const NOTICE_FLAG_KEY = 'vault-retire-notice-shown'
@@ -16,13 +15,17 @@ const NOTICE_FLAG_KEY = 'vault-retire-notice-shown'
 /**
  * Returns the notice string the first time conditions hold, then null forever.
  * Best-effort: any failure returns null (a notice is never load-bearing).
+ *
+ * Takes the already-parsed config rather than a projectPath — the sole
+ * caller (buildSessionContext) already has it in scope on every SessionStart
+ * and cwd-changed invocation; re-reading + re-parsing prjct.config.json here
+ * was a second disk read for a check that's a no-op for ~99%+ of projects.
  */
 export async function vaultRetirementNotice(
-  projectPath: string,
+  config: unknown,
   projectId: string
 ): Promise<string | null> {
   try {
-    const config = await configManager.readConfig(projectPath).catch(() => null)
     const hadExportOn = (config as { vault?: { mode?: string } } | null)?.vault?.mode === 'export'
     if (!hadExportOn) return null
 

@@ -224,11 +224,11 @@ describe('SessionStart hook — knowledge digest (cold-start only)', () => {
     expect(ctx ?? '').not.toContain('Keeps being missed')
   })
 
-  test('digest references developer.md and id-resolution path', async () => {
+  test('digest references prjct_developer and id-resolution path', async () => {
     await freshProject({ role: 'DEV' })
     insertMemory('decision', 'ship as minor when the squash title starts with feat:')
     const ctx = await buildSessionContext(projectPath, null, { digest: true })
-    expect(ctx).toContain('developer.md')
+    expect(ctx).toContain('prjct_developer')
     expect(ctx).toContain('prjct search')
   })
 })

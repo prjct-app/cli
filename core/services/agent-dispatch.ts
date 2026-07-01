@@ -129,6 +129,6 @@ export function buildEmulatedCrewProtocol(m: DispatchMechanism, checkpoints: str
     '## Rules',
     "- Point, don't carry: the plan/work/memory live in prjct — read them in each role (`prjct work --md`, `prjct spec show <id> --md`, `prjct context memory <topic>`), never paste them between roles.",
     '- Advance only when EVERY selected specialist returns APPROVED: run `prjct crew record-run …` (one durable row), THEN close the work cycle. If any returns CHANGES_REQUESTED, loop back to the implementer with the notes.',
-    '- Persist ONLY through prjct verbs — SQLite + the regenerated vault are the only allowed surfaces. Never write reports/audits to disk.',
+    '- Persist ONLY through prjct verbs — SQLite is the only allowed surface. Never write reports/audits to disk.',
   ].join('\n')}\n`
 }

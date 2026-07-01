@@ -95,7 +95,7 @@ export async function buildSessionContext(
   const staleness = await buildStalenessNotice(projectPath, config.projectId)
   // One-time heads-up for a project that had vault export switched on.
   const { vaultRetirementNotice } = await import('../services/vault-retire-notice')
-  const vaultNotice = await vaultRetirementNotice(projectPath, config.projectId)
+  const vaultNotice = await vaultRetirementNotice(config, config.projectId)
 
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
   if (!persona && !digest && !staleness && !vaultNotice) return null
@@ -207,7 +207,7 @@ function buildKnowledgeDigest(projectId: string): string | null {
   }
   lines.push(
     '',
-    '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is lives in `developer.md` in the vault.'
+    '> Resolve any `mem_id` with `prjct search <id>`. Who the developer is: MCP `prjct_developer`.'
   )
   return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
 }

@@ -24,6 +24,10 @@ describe('REMOVED_VERBS', () => {
       'tokens',
       'velocity',
       'plan',
+      // Removed later, with the vault/wiki feature deletion — must get the
+      // same clean-error treatment, not silently auto-route to `capture`.
+      'vault',
+      'regen',
     ]
     for (const verb of required) {
       expect(isRemovedVerb(verb)).toBe(true)

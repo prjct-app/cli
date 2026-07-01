@@ -3,7 +3,7 @@
  * (core/*.md, progress/*.md, planning/*.md, memory/patterns.json,
  * config/wizard.json) into the global project folder. Nothing read
  * them back, so they orphaned as garbage with no DB record — the whole
- * point of "all state in SQLite + the regenerated vault".
+ * point of "all state in SQLite".
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'

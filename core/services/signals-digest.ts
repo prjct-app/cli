@@ -33,10 +33,6 @@ export function isSignalEntry(e: Pick<MemoryEntry, 'type' | 'tags'>): boolean {
   return source !== undefined && MACHINE_SOURCES.has(source)
 }
 
-function rowId(id: string): string {
-  return id.replace(/^mem[_-]/, '')
-}
-
 function dateOnly(iso: string): string {
   const m = (iso || '').match(/^(\d{4}-\d{2}-\d{2})/)
   return m ? m[1] : ''
@@ -72,7 +68,11 @@ export function buildSignalsFile(
     else other.push(e)
   }
 
-  const anchor = (e: MemoryEntry) => `^mem-${rowId(e.id)}`
+  // Plain id reference — this used to be an Obsidian block anchor
+  // (`^mem-N`, so other vault pages could link `[[signals#^mem-N]]`); with
+  // no vault, that syntax is meaningless noise in MCP tool output, so this
+  // just names the id for traceability (`prjct context memory <id>`).
+  const idRef = (e: MemoryEntry) => `\`${e.id}\``
   const stamp = (e: MemoryEntry) => {
     const d = dateOnly(e.rememberedAt)
     return d ? ` _(${d})_` : ''
@@ -82,7 +82,7 @@ export function buildSignalsFile(
 
   if (hotFiles.length > 0) {
     // Newest entry per file leads; older churn entries for the same
-    // file stay listed (their anchors must exist) but compactly.
+    // file stay listed but compactly.
     const byFile = new Map<string, MemoryEntry[]>()
     for (const e of hotFiles) {
       const file = e.tags?.file ?? '(unknown file)'
@@ -97,8 +97,8 @@ export function buildSignalsFile(
       const touches = latest.tags?.touches ? `${latest.tags.touches} touches` : 'churning'
       const win = latest.tags?.window_days ?? latest.tags?.['window-days']
       const window = win ? ` in ${win}d` : ''
-      rows.push(`- \`${file}\` — ${touches}${window}${stamp(latest)} ${anchor(latest)}`)
-      for (const o of older) rows.push(`    - earlier sighting${stamp(o)} ${anchor(o)}`)
+      rows.push(`- \`${file}\` — ${touches}${window}${stamp(latest)} ${idRef(latest)}`)
+      for (const o of older) rows.push(`    - earlier sighting${stamp(o)} ${idRef(o)}`)
     }
     sections.push({
       title: 'Hot files',
@@ -111,7 +111,7 @@ export function buildSignalsFile(
     sections.push({
       title: 'Recurring patterns',
       intro: 'The same class of change keeps happening.',
-      rows: recurring.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${anchor(e)}`),
+      rows: recurring.map((e) => `- ${oneLine(e.content)}${stamp(e)} ${idRef(e)}`),
     })
   }
 
@@ -120,7 +120,7 @@ export function buildSignalsFile(
       title: 'Knowledge being missed',
       intro: 'Project knowledge existed but was not applied in a session.',
       rows: skillMisses.map(
-        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${anchor(e)}`
+        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${idRef(e)}`
       ),
     })
   }
@@ -129,7 +129,7 @@ export function buildSignalsFile(
     sections.push({
       title: 'Friction',
       intro: 'Processed lessons from developer pushback — do not repeat.',
-      rows: friction.map((e) => `- ${summarizeFrictionLesson(e.content)}${stamp(e)} ${anchor(e)}`),
+      rows: friction.map((e) => `- ${summarizeFrictionLesson(e.content)}${stamp(e)} ${idRef(e)}`),
     })
   }
 
@@ -138,7 +138,7 @@ export function buildSignalsFile(
       title: 'Other signals',
       intro: '',
       rows: other.map(
-        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${anchor(e)}`
+        (e) => `- ${linkifyMemRefs(oneLine(e.content), opts)}${stamp(e)} ${idRef(e)}`
       ),
     })
   }
