@@ -391,10 +391,22 @@ export async function publishWorkCostSnapshots(
   return snapshots
 }
 
-/** Drop free-text excerpts from the cloud payload, keeping structured fields. */
+/**
+ * Drop free-text excerpts from the cloud payload, keeping structured fields.
+ * AC8 (spec 4b5bc99e): cloud telemetry must carry only structured numeric
+ * fields — this must catch EVERY free-text field in WorkCostSnapshot, not
+ * just the regex-scraped memory prose. `mostExpensive[].description` is
+ * user-authored (the work-cycle intent phrase, e.g. from `prjct work "..."`
+ * or the Stop-hook transcript) and can contain the same class of secrets/PII
+ * as memory content — it must be redacted too, not just topDeclaredTokenMentions.
+ */
 function redactSnapshotForCloud(snapshot: WorkCostSnapshot): WorkCostSnapshot {
   return {
     ...snapshot,
+    mostExpensive: snapshot.mostExpensive.map((t) => ({
+      ...t,
+      description: '[redacted]',
+    })),
     historicalRescue: {
       ...snapshot.historicalRescue,
       topDeclaredTokenMentions: snapshot.historicalRescue.topDeclaredTokenMentions.map((m) => ({

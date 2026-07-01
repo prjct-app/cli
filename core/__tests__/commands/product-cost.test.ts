@@ -193,6 +193,33 @@ describe('insights cost', () => {
     })
   })
 
+  it('AC8: redacts mostExpensive[].description (user task intent) from the cloud payload', () => {
+    // A work-cycle description is free text authored by the user/agent (e.g.
+    // `prjct work "rotate the sk-live-SECRET key"` or the Stop-hook transcript
+    // description) — the same secret-leak class as the declared-token prose,
+    // but carried through recordTaskTokenUsage -> token_usage.description ->
+    // mostExpensive[], a path the original AC8 redaction missed entirely.
+    recordTaskTokenUsage(projectId, 'task-secret', 1000, 200, {
+      description: 'rotate the sk-live-SECRET-pii-99999 key',
+      source: 'cli',
+    })
+
+    const local = buildWorkCostSnapshot(projectId, 30)
+    expect(local.mostExpensive.some((t) => t.description.includes('SECRET'))).toBe(true)
+
+    return publishWorkCostSnapshots(projectId, [30]).then(() => {
+      const pending = syncPendingStorage.list(projectId)
+      const published = pending.find((p) => p.event.entityId === 'work-cost-30d')
+      const data = published?.event.data as WorkCostSnapshot
+      expect(data.mostExpensive.length).toBeGreaterThan(0)
+      for (const t of data.mostExpensive) {
+        expect(t.description).toBe('[redacted]')
+      }
+      const serialized = JSON.stringify(data)
+      expect(serialized.includes('SECRET')).toBe(false)
+    })
+  })
+
   it('reports measurement reliability gaps and next actions', async () => {
     const log = spyOn(console, 'log').mockImplementation(() => {})
     const now = new Date().toISOString()
