@@ -337,7 +337,7 @@ class SpecStorage {
           ? spec.tags
           : JSON.stringify(spec.tags)
     const now = getTimestamp()
-    prjctDb.run(
+    const result = prjctDb.run(
       projectId,
       `INSERT INTO specs (id, title, status, content, tags, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -350,6 +350,23 @@ class SpecStorage {
       spec.created_at || now,
       spec.updated_at || now
     )
+    // Project the relational gate state (spec_review/spec_selected_reviewer)
+    // ONLY when this INSERT actually landed a new spec (result.changes > 0).
+    // "Local data is never modified by sync" — ON CONFLICT DO NOTHING above
+    // means an existing local spec's content is untouched, so a brand-new spec
+    // has no local gate rows yet and this projection is purely additive.
+    // Without this, a spec pulled from another machine kept its full reviewed
+    // content in the blob but reviewsGatePassedRelational read empty tables and
+    // reported "not reviewed" for a spec that was already fully approved.
+    if (result.changes > 0) {
+      try {
+        const parsed = SpecContentSchema.parse(JSON.parse(content))
+        projectSpecRelational(projectId, spec.id, parsed)
+      } catch {
+        // Malformed/legacy remote content — the blob still landed; the
+        // relational gate projection is best-effort, not a hard dependency.
+      }
+    }
   }
 
   count(projectId: string): { total: number; draft: number; shipped: number } {

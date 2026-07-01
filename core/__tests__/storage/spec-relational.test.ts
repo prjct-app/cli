@@ -91,4 +91,71 @@ describe('spec relational projection (C6)', () => {
     )[0].n
     expect(pending).toBe(1) // security hasn't passed → gate not met
   })
+
+  it('applyRemote (sync-pull) projects the gate for a genuinely NEW spec', () => {
+    // Regression: a spec pulled from another machine, already fully reviewed
+    // there, used to land its content blob but leave spec_review/
+    // spec_selected_reviewer empty — reviewsGatePassedRelational would read
+    // empty tables and report "not reviewed" for an already-approved spec.
+    const remoteContent = {
+      ...emptySpecContent('goal from remote'),
+      selected_reviewers: ['architecture', 'security'],
+      reviews: {
+        architecture: { verdict: 'pass', notes: 'ok', ts: new Date().toISOString() },
+        security: { verdict: 'pass', notes: 'ok', ts: new Date().toISOString() },
+      },
+    }
+    specStorage.applyRemote(projectId, {
+      id: 'remote-spec-1',
+      title: 'Remote spec',
+      status: 'reviewed',
+      content: remoteContent,
+    })
+
+    expect(count('spec_selected_reviewer', 'remote-spec-1')).toBe(2)
+    const reviews = prjctDb.query<{ lens: string; verdict: string }>(
+      projectId,
+      'SELECT lens, verdict FROM spec_review WHERE spec_id = ?',
+      'remote-spec-1'
+    )
+    expect(reviews.length).toBe(2)
+    expect(reviews.every((r) => r.verdict === 'pass')).toBe(true)
+  })
+
+  it('applyRemote never overwrites local gate state for an EXISTING spec (local wins)', () => {
+    // "Local data is never modified by sync" invariant: if the spec already
+    // exists locally, ON CONFLICT DO NOTHING skips the content INSERT, so the
+    // relational projection must also skip — otherwise a stale/older remote
+    // copy could silently rewrite the local (possibly newer) gate state.
+    const spec = specStorage.create(projectId, {
+      title: 'Local spec',
+      content: { ...emptySpecContent('local goal'), selected_reviewers: ['architecture'] },
+    })
+    specStorage.updateContent(projectId, spec.id, {
+      ...emptySpecContent('local goal'),
+      selected_reviewers: ['architecture'],
+      reviews: {
+        architecture: { verdict: 'pass', notes: 'local pass', ts: new Date().toISOString() },
+      },
+    })
+    expect(count('spec_selected_reviewer', spec.id)).toBe(1)
+
+    // A remote copy of the SAME id arrives with no reviews at all.
+    specStorage.applyRemote(projectId, {
+      id: spec.id,
+      title: 'Remote stale copy',
+      status: 'draft',
+      content: { ...emptySpecContent('local goal'), selected_reviewers: [] },
+    })
+
+    // Local gate state is untouched.
+    expect(count('spec_selected_reviewer', spec.id)).toBe(1)
+    const reviews = prjctDb.query<{ verdict: string }>(
+      projectId,
+      'SELECT verdict FROM spec_review WHERE spec_id = ?',
+      spec.id
+    )
+    expect(reviews.length).toBe(1)
+    expect(reviews[0].verdict).toBe('pass')
+  })
 })
