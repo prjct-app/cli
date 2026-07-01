@@ -100,4 +100,37 @@ describe('memory_entries correctness', () => {
     expect(got.length).toBe(1)
     expect(got[0].content).toBe('DB: Postgres (updated)')
   })
+
+  it('F6: forget() then recapturing the identical content actually recreates the entry', async () => {
+    // Regression: ux_mem_hash was UNIQUE(project_id, content_hash, type) with
+    // no deleted_at awareness. forget() soft-deletes (deleted_at set) but the
+    // tombstoned row still occupies the (hash, type) unique slot. A later
+    // remember() of the SAME content passes the dedup guard (which correctly
+    // checks deleted_at IS NULL and finds nothing) and logs a new event — but
+    // the trigger's INSERT OR IGNORE then silently collides with the
+    // tombstoned row and the recapture is dropped, permanently, with no error.
+    await projectMemory.remember(projectRoot, {
+      type: 'gotcha',
+      content: 'flaky test needs a retry',
+      projectId,
+    })
+    const before = projectMemory.recall(projectId, { types: ['gotcha'] })
+    expect(before.length).toBe(1)
+    const id = before[0].id
+
+    const forgotten = projectMemory.forget(projectId, id)
+    expect(forgotten).toBe(true)
+    expect(projectMemory.recall(projectId, { types: ['gotcha'] }).length).toBe(0)
+
+    // Recapture the IDENTICAL content — must actually recreate a live entry,
+    // not silently no-op against the tombstoned row.
+    await projectMemory.remember(projectRoot, {
+      type: 'gotcha',
+      content: 'flaky test needs a retry',
+      projectId,
+    })
+    const after = projectMemory.recall(projectId, { types: ['gotcha'] })
+    expect(after.length).toBe(1)
+    expect(after[0].content).toBe('flaky test needs a retry')
+  })
 })

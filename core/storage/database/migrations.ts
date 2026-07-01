@@ -1868,6 +1868,112 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 46,
+    name: 'schema-v2-memory-entries-recapture-and-timestamp-fixes',
+    up: (db: SqliteDatabase) => {
+      // Line-by-line audit findings, three related bugs in the C1 rebuild
+      // (migrations 40/41/45), fixed together:
+      //
+      // 1. ux_mem_hash was a plain UNIQUE(project_id, content_hash, type) index
+      //    with no `deleted_at` awareness. forget() soft-deletes (sets
+      //    deleted_at) but leaves the row's (hash, type) slot occupied, so a
+      //    later remember() of the identical content passes the dedup guard
+      //    (which correctly checks deleted_at IS NULL) but the trigger's
+      //    INSERT OR IGNORE then silently collides with the tombstoned row and
+      //    drops the recapture — permanently, with no error. Fix: make the
+      //    index partial (WHERE deleted_at IS NULL) so a tombstoned row never
+      //    blocks a new live row with the same hash/type.
+      // 2. The trigger computed created_at/updated_at via julianday(...) with
+      //    no validity guard; memory_entries.created_at is NOT NULL and the
+      //    insert is INSERT OR IGNORE, so a non-ISO8601 timestamp (e.g. a
+      //    legacy-imported event) makes julianday() return NULL, the NOT NULL
+      //    violation is silently swallowed, and the memory is never created —
+      //    invisible with no error. Fix: COALESCE the computed ms value to
+      //    "now" so the insert always has a valid timestamp.
+      // 3. Repair any row already corrupted by this: migration 41's one-time
+      //    JS backfill defaulted unparseable timestamps to epoch 0 (buried at
+      //    the bottom of every recency-ordered recall, effectively
+      //    unreachable) instead of a usable fallback.
+      try {
+        db.run('DROP INDEX IF EXISTS ux_mem_hash')
+        db.run(
+          `CREATE UNIQUE INDEX IF NOT EXISTS ux_mem_hash
+           ON memory_entries(project_id, content_hash, type)
+           WHERE deleted_at IS NULL`
+        )
+      } catch {
+        // Best-effort — an existing non-partial index still prevents true dupes.
+      }
+
+      try {
+        db.run(`
+          UPDATE memory_entries
+          SET created_at = COALESCE(
+                (SELECT CAST(ROUND((julianday(e.timestamp) - 2440587.5) * 86400000) AS INTEGER)
+                 FROM events e WHERE 'mem_' || e.id = memory_entries.id),
+                CAST(unixepoch() AS INTEGER) * 1000
+              ),
+              updated_at = COALESCE(
+                (SELECT CAST(ROUND((julianday(e.timestamp) - 2440587.5) * 86400000) AS INTEGER)
+                 FROM events e WHERE 'mem_' || e.id = memory_entries.id),
+                CAST(unixepoch() AS INTEGER) * 1000
+              )
+          WHERE created_at <= 0
+        `)
+      } catch {
+        // Best-effort repair — a rare edge case, never blocks migration.
+      }
+
+      try {
+        db.run('DROP TRIGGER IF EXISTS memory_entries_from_events')
+        db.run(`
+          CREATE TRIGGER IF NOT EXISTS memory_entries_from_events
+          AFTER INSERT ON events
+          WHEN NEW.type >= 'memory.remember.' AND NEW.type < 'memory.remember/'
+            AND json_valid(NEW.data)
+            AND json_extract(NEW.data, '$.content') IS NOT NULL
+          BEGIN
+            INSERT OR IGNORE INTO memory_entries
+              (id, project_id, type, title, content, file, subject, provenance,
+               content_hash, user_triggered, revision_count, created_at, updated_at)
+            VALUES (
+              'mem_' || NEW.id,
+              COALESCE(json_extract(NEW.data, '$.project_id'), 'local'),
+              substr(NEW.type, length('memory.remember.') + 1),
+              substr(json_extract(NEW.data, '$.content'), 1, 80),
+              json_extract(NEW.data, '$.content'),
+              json_extract(NEW.data, '$.tags.file'),
+              json_extract(NEW.data, '$.tags.subject'),
+              COALESCE(json_extract(NEW.data, '$.provenance'), 'declared'),
+              COALESCE(json_extract(NEW.data, '$.content_hash'), 'evt_' || NEW.id),
+              0, 0,
+              COALESCE(
+                CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+                CAST(unixepoch() AS INTEGER) * 1000
+              ),
+              COALESCE(
+                CAST(ROUND((julianday(COALESCE(json_extract(NEW.data, '$.created_at'), NEW.timestamp)) - 2440587.5) * 86400000) AS INTEGER),
+                CAST(unixepoch() AS INTEGER) * 1000
+              )
+            );
+            INSERT OR IGNORE INTO memory_entry_tags (entry_id, key, value, is_machine)
+            SELECT 'mem_' || NEW.id, je.key, je.value,
+              CASE WHEN je.key IN (
+                'source','session','window_days','window-days','touches','occurrences',
+                'phrase','slug','hash','content-hash','content_hash','key','kind',
+                'spec-id','spec_id','from','origin','event','task-count','task_count',
+                'context-schema','context_schema','synthesis','commit'
+              ) THEN 1 ELSE 0 END
+            FROM json_each(COALESCE(json_extract(NEW.data, '$.tags'), '{}')) je
+            WHERE je.value IS NOT NULL AND je.type != 'object' AND je.type != 'array';
+          END;
+        `)
+      } catch {
+        // If recreation fails, keep the existing trigger (don't break inserts).
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
