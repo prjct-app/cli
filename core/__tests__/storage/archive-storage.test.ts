@@ -160,44 +160,50 @@ describe('Archive Storage', () => {
 
   describe('shipped archival', () => {
     it('should archive shipped features older than 90 days', async () => {
-      // Write shipped data with old and recent items
-      await shippedStorage.write(testProjectId, {
-        shipped: [
-          { id: 'recent', name: 'Recent', version: '2.0.0', shippedAt: daysAgoISO(10) },
-          { id: 'old', name: 'Old', version: '1.0.0', shippedAt: daysAgoISO(100) },
-        ],
-        lastUpdated: getTimestamp(),
-      })
+      // Seed shipped rows (typed store) with old and recent items.
+      const recent = await shippedStorage.addShipped(
+        testProjectId,
+        { name: 'Recent', version: '2.0.0' },
+        daysAgoISO(10)
+      )
+      const old = await shippedStorage.addShipped(
+        testProjectId,
+        { name: 'Old', version: '1.0.0' },
+        daysAgoISO(100)
+      )
 
       const archived = await shippedStorage.archiveOldShipped(testProjectId)
       expect(archived).toBe(1)
 
       // Verify active storage only has recent
-      const data = await shippedStorage.read(testProjectId)
-      expect(data.shipped).toHaveLength(1)
-      expect(data.shipped[0].id).toBe('recent')
+      const data = await shippedStorage.getAll(testProjectId)
+      expect(data).toHaveLength(1)
+      expect(data[0].id).toBe(recent.id)
 
       // Verify archive table has old item
       const records = archiveStorage.getArchived(testProjectId, 'shipped')
       expect(records).toHaveLength(1)
-      expect(records[0].entity_id).toBe('old')
+      expect(records[0].entity_id).toBe(old.id)
       expect(records[0].summary).toBe('Old v1.0.0')
     })
 
     it('should not archive recent shipped features', async () => {
-      await shippedStorage.write(testProjectId, {
-        shipped: [
-          { id: 'r1', name: 'R1', version: '1.0.0', shippedAt: daysAgoISO(5) },
-          { id: 'r2', name: 'R2', version: '1.1.0', shippedAt: daysAgoISO(30) },
-        ],
-        lastUpdated: getTimestamp(),
-      })
+      await shippedStorage.addShipped(
+        testProjectId,
+        { name: 'R1', version: '1.0.0' },
+        daysAgoISO(5)
+      )
+      await shippedStorage.addShipped(
+        testProjectId,
+        { name: 'R2', version: '1.1.0' },
+        daysAgoISO(30)
+      )
 
       const archived = await shippedStorage.archiveOldShipped(testProjectId)
       expect(archived).toBe(0)
 
-      const data = await shippedStorage.read(testProjectId)
-      expect(data.shipped).toHaveLength(2)
+      const data = await shippedStorage.getAll(testProjectId)
+      expect(data).toHaveLength(2)
     })
   })
 

@@ -1,8 +1,17 @@
 /**
  * Shipped Storage
  *
- * Manages shipped features via storage/shipped.json
- * Generates context/shipped.md for Claude
+ * Schema v2 (C5): ships are stored in the typed `shipped_features` table —
+ * indexed columns for the hot fields (name, version, shipped_at) and a cold
+ * `data` JSON column for the rare extras (tasks, agent, changes). Reads are
+ * bounded indexed queries, NOT a parse of the whole history: `getRecent` is a
+ * `LIMIT`, `getCount` is a `COUNT(*)`. The legacy `kv_store['shipped']` blob
+ * (read + rewritten whole on every ship) is retired by migration 51, which
+ * also backfills it into this table.
+ *
+ * `addShipped` is idempotent via the natural-key UNIQUE index
+ * (name, version, shipped_at) — re-applying a pulled ship is a no-op, closing
+ * the duplication that had grown the blob to 33k rows for 41 real ships.
  */
 
 import { generateUUID } from '../schemas/schemas'
@@ -17,16 +26,51 @@ import { StorageManager } from './storage-manager'
 // to force a re-backfill in a future release.
 const SHIP_BACKFILL_FLAG = 'shipped:backfilled:v1'
 
+/** A row of the typed `shipped_features` table. */
+interface ShippedFeatureRow {
+  id: string
+  name: string
+  shipped_at: string
+  version: string
+  description: string | null
+  type: string | null
+  duration: string | null
+  data: string | null
+}
+
+/** Reconstruct a full `ShippedFeature` from a typed row + its cold `data` JSON. */
+function rowToFeature(row: ShippedFeatureRow): ShippedFeature {
+  let extra: Partial<ShippedFeature> = {}
+  if (row.data) {
+    try {
+      extra = JSON.parse(row.data) as Partial<ShippedFeature>
+    } catch {
+      extra = {}
+    }
+  }
+  const feature: ShippedFeature = {
+    ...extra,
+    id: row.id,
+    name: row.name,
+    shippedAt: row.shipped_at,
+    version: row.version,
+  }
+  if (row.description != null) feature.description = row.description
+  if (row.type != null) feature.type = row.type as ShippedFeature['type']
+  if (row.duration != null) feature.duration = row.duration
+  return feature
+}
+
 class ShippedStorage extends StorageManager<ShippedJson> {
   constructor() {
     super('shipped.json', ShippedJsonSchema)
   }
 
+  // Vestigial abstract-method implementations — the base blob read/write path
+  // is no longer used (all methods below query the typed table). Kept only so
+  // `publishEvent` (the sync surface) stays available on this class.
   protected getDefault(): ShippedJson {
-    return {
-      shipped: [],
-      lastUpdated: '',
-    }
+    return { shipped: [], lastUpdated: '' }
   }
 
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
@@ -35,26 +79,25 @@ class ShippedStorage extends StorageManager<ShippedJson> {
 
   // =========== Domain Methods ===========
 
-  /**
-   * Get all shipped features
-   */
+  /** All ships, newest first. */
   async getAll(projectId: string): Promise<ShippedFeature[]> {
-    const data = await this.read(projectId)
-    return data.shipped
+    return prjctDb
+      .query<ShippedFeatureRow>(
+        projectId,
+        'SELECT * FROM shipped_features ORDER BY shipped_at DESC'
+      )
+      .map(rowToFeature)
   }
 
   /**
    * One-time backfill: re-publish every locally-stored ship as a canonical
    * `shipped_item.created` event so ships shipped BEFORE the canonical-event fix
-   * (which previously emitted off-contract `feature.shipped` and were dropped at
-   * /sync/batch) finally reach the cloud. Guarded by a per-project kv flag so it
-   * runs once; idempotent server-side via (project_id, entity_id, content_hash)
-   * dedup. Returns the number of ships re-published (0 if already backfilled).
+   * finally reach the cloud. Guarded by a per-project kv flag so it runs once;
+   * idempotent server-side via (project_id, entity_id, content_hash) dedup.
    */
   async republishShips(projectId: string): Promise<number> {
     if (prjctDb.getDoc<{ at: string }>(projectId, SHIP_BACKFILL_FLAG)) return 0
-    const data = await this.read(projectId)
-    const ships = Array.isArray(data.shipped) ? data.shipped : []
+    const ships = await this.getAll(projectId)
     for (const ship of ships) {
       await this.publishEvent(projectId, 'shipped_item.created', {
         id: ship.id,
@@ -68,18 +111,21 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     return ships.length
   }
 
-  /**
-   * Get recent shipped features
-   */
+  /** Recent ships — a bounded indexed query, not a full-history read. */
   async getRecent(projectId: string, limit: number = 5): Promise<ShippedFeature[]> {
-    const data = await this.read(projectId)
-    return data.shipped
-      .sort((a, b) => new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime())
-      .slice(0, limit)
+    return prjctDb
+      .query<ShippedFeatureRow>(
+        projectId,
+        'SELECT * FROM shipped_features ORDER BY shipped_at DESC LIMIT ?',
+        limit
+      )
+      .map(rowToFeature)
   }
 
   /**
-   * Add a shipped feature
+   * Record a shipped feature. Idempotent: the natural-key UNIQUE index means
+   * re-applying the same (name, version, shipped_at) is a no-op — pulled ships
+   * from other machines never accrete duplicates.
    */
   async addShipped(
     projectId: string,
@@ -94,17 +140,22 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       shippedAt: shippedAt || getTimestamp(),
     }
 
-    await this.update(projectId, (data) => ({
-      shipped: [shipped, ...(Array.isArray(data.shipped) ? data.shipped : [])],
-      lastUpdated: getTimestamp(),
-    }))
+    prjctDb.run(
+      projectId,
+      `INSERT OR IGNORE INTO shipped_features
+         (id, name, shipped_at, version, description, type, duration, data)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      shipped.id,
+      shipped.name,
+      shipped.shippedAt,
+      shipped.version ?? '',
+      shipped.description ?? null,
+      shipped.type ?? null,
+      shipped.duration ?? null,
+      JSON.stringify(shipped)
+    )
 
-    // Publish a canonical `shipped_item` event: `shipped_item.created` derives
-    // to entityType `shipped_items` (the table the cloud reads for ships) and a
-    // top-level `id` so the event carries a stable entity id. The legacy
-    // `feature.shipped` shape pluralized to `features` (off-contract → dropped)
-    // and exposed only `shipId` (unrecognized → null entity id), so ships never
-    // reached the cloud.
+    // Publish a canonical `shipped_item` event for cloud sync (unchanged wire).
     await this.publishEvent(projectId, 'shipped_item.created', {
       id: shipped.id,
       shipId: shipped.id,
@@ -116,40 +167,43 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     return shipped
   }
 
-  /**
-   * Get shipped by version
-   */
+  /** Most recent ship for a version. */
   async getByVersion(projectId: string, version: string): Promise<ShippedFeature | undefined> {
-    const data = await this.read(projectId)
-    return data.shipped.find((s) => s.version === version)
+    const row = prjctDb.get<ShippedFeatureRow>(
+      projectId,
+      'SELECT * FROM shipped_features WHERE version = ? ORDER BY shipped_at DESC LIMIT 1',
+      version
+    )
+    return row ? rowToFeature(row) : undefined
   }
 
-  /**
-   * Get count
-   */
+  /** Total ships — a COUNT, not a length of a parsed array. */
   async getCount(projectId: string): Promise<number> {
-    const data = await this.read(projectId)
-    return data.shipped.length
+    return (
+      prjctDb.get<{ c: number }>(projectId, 'SELECT COUNT(*) AS c FROM shipped_features')?.c ?? 0
+    )
   }
 
   /**
-   * Get shipped in date range
+   * Ships in a date range. `shipped_at` is ISO-8601 UTC text, so lexicographic
+   * comparison is chronological.
    */
   async getByDateRange(
     projectId: string,
     startDate: Date,
     endDate: Date
   ): Promise<ShippedFeature[]> {
-    const data = await this.read(projectId)
-    return data.shipped.filter((s) => {
-      const date = new Date(s.shippedAt)
-      return date >= startDate && date <= endDate
-    })
+    return prjctDb
+      .query<ShippedFeatureRow>(
+        projectId,
+        'SELECT * FROM shipped_features WHERE shipped_at >= ? AND shipped_at <= ? ORDER BY shipped_at DESC',
+        startDate.toISOString(),
+        endDate.toISOString()
+      )
+      .map(rowToFeature)
   }
 
-  /**
-   * Get stats for a period
-   */
+  /** Ship count for a period. */
   async getStats(
     projectId: string,
     period: 'week' | 'month' | 'year' = 'month'
@@ -170,27 +224,26 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     }
 
     const shipped = await this.getByDateRange(projectId, startDate, now)
-
-    return {
-      count: shipped.length,
-      period,
-    }
+    return { count: shipped.length, period }
   }
 
   /**
-   * Archive shipped features older than retention period (PRJ-267).
-   * Moves old items to archive table, keeps 1-line summary in active storage.
-   * Returns count of archived items.
+   * Archive shipped features older than retention period (PRJ-267). Moves old
+   * rows to the archive table and deletes them from the active table.
    */
   async archiveOldShipped(projectId: string): Promise<number> {
-    const data = await this.read(projectId)
-    const threshold = getDaysAgo(ARCHIVE_POLICIES.SHIPPED_RETENTION_DAYS)
+    const thresholdIso = getDaysAgo(ARCHIVE_POLICIES.SHIPPED_RETENTION_DAYS).toISOString()
 
-    const stale = data.shipped.filter((s) => new Date(s.shippedAt) < threshold)
+    const stale = prjctDb
+      .query<ShippedFeatureRow>(
+        projectId,
+        'SELECT * FROM shipped_features WHERE shipped_at < ? ORDER BY shipped_at DESC',
+        thresholdIso
+      )
+      .map(rowToFeature)
 
     if (stale.length === 0) return 0
 
-    // Persist to archive table
     archiveStorage.archiveMany(
       projectId,
       stale.map((s) => ({
@@ -202,15 +255,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       }))
     )
 
-    // Remove from active storage
-    const freshIds = new Set(
-      data.shipped.filter((s) => new Date(s.shippedAt) >= threshold).map((s) => s.id)
-    )
-
-    await this.update(projectId, (d) => ({
-      shipped: d.shipped.filter((s) => freshIds.has(s.id)),
-      lastUpdated: getTimestamp(),
-    }))
+    prjctDb.run(projectId, 'DELETE FROM shipped_features WHERE shipped_at < ?', thresholdIso)
 
     await this.publishEvent(projectId, 'shipped.archived', {
       count: stale.length,

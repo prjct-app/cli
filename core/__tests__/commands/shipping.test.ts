@@ -123,8 +123,8 @@ describe('ship() — workflow-first', () => {
     // …the marker was cleared…
     expect(prjctDb.getDoc(projectId, SHIP_MARKER_KEY)).toBeNull()
     // …and the current ship still recorded its own row.
-    const all = await shippedStorage.read(projectId)
-    expect(all.shipped.some((s: { name: string }) => s.name === 'next thing')).toBe(true)
+    const all = await shippedStorage.getAll(projectId)
+    expect(all.some((s) => s.name === 'next thing')).toBe(true)
   })
 
   test('reconcile is a no-op when the marker version is already recorded', async () => {
@@ -137,9 +137,9 @@ describe('ship() — workflow-first', () => {
 
     await cmd.ship('another', projectPath, { md: true, intent: 'register-only' })
 
-    const all = await shippedStorage.read(projectId)
+    const all = await shippedStorage.getAll(projectId)
     // No duplicate 5.0.0 row, and the stale marker is cleared.
-    expect(all.shipped.filter((s: { version: string }) => s.version === '5.0.0')).toHaveLength(1)
+    expect(all.filter((s) => s.version === '5.0.0')).toHaveLength(1)
     expect(prjctDb.getDoc(projectId, SHIP_MARKER_KEY)).toBeNull()
   })
 
