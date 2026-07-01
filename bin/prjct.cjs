@@ -12,6 +12,7 @@ const childProcess = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
+const url = require('node:url')
 
 const SCRIPT_PATH = fs.realpathSync(__filename)
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH)
@@ -280,6 +281,47 @@ function runWithNode(args) {
   spawnAndExit(process.execPath, [distBin, ...args], { env: withSqliteFlag() })
 }
 
+/**
+ * Fastest path: run the bundled entry IN-PROCESS under the node that already
+ * booted to run this launcher — NO second runtime boot. The historical design
+ * spawned a fresh bun/node process solely to inject `--experimental-sqlite`;
+ * but node:sqlite is available WITHOUT that flag on node >=22.5 (the supported
+ * minimum), so the second process is pure overhead (~40ms). The bundled
+ * `dist/bin/prjct.mjs` is a thin cold-entry (daemon client) that reads
+ * process.argv directly — identical argv in-process vs spawned — and calls
+ * process.exit() itself, so once imported it OWNS the process.
+ *
+ * Returns true once the entry has started (caller must NOT fall through to a
+ * spawn, or the command would run twice). Returns false only when in-process
+ * load is not viable (old node, missing bundle, Windows) or the module fails
+ * to load — then the caller falls back to the spawn path.
+ */
+async function runInProcess() {
+  // Windows keeps the well-tested spawn path (shim/pathext nuances).
+  if (process.platform === 'win32') return false
+  const distBin = path.join(ROOT_DIR, 'dist', 'bin', 'prjct.mjs')
+  if (!fs.existsSync(distBin) || !nodeVersionOk()) return false
+  // node:sqlite is experimental on node 22.x → suppress the cosmetic
+  // ExperimentalWarning so stderr stays clean for `--md` consumers (the
+  // module is functionally available without the flag).
+  const origEmit = process.emitWarning.bind(process)
+  process.emitWarning = (warning, ...rest) => {
+    const msg = typeof warning === 'string' ? warning : warning?.message || ''
+    if (typeof msg === 'string' && /sqlite/i.test(msg)) return
+    return origEmit(warning, ...rest)
+  }
+  try {
+    // Resolves when the entry's top-level finishes; the entry keeps the event
+    // loop alive (daemon socket / core fallback) and exits the process itself.
+    await import(url.pathToFileURL(distBin).href)
+    return true
+  } catch {
+    // Module failed to load in-process — restore warnings and fall back.
+    process.emitWarning = origEmit
+    return false
+  }
+}
+
 function runWithBun(args) {
   if (process.platform === 'win32') return false
   const distBin = path.join(ROOT_DIR, 'dist', 'bin', 'prjct.mjs')
@@ -289,7 +331,7 @@ function runWithBun(args) {
   return true
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2)
   if (args[0] === 'mcp-server') runMcpServer(args)
 
@@ -311,8 +353,14 @@ function main() {
     writeSetupStamp(version)
   }
 
+  // Fastest first: run the entry in-process under this node (no second boot).
+  // Only falls through to a spawned runtime if in-process load isn't viable.
+  if (await runInProcess()) return
   if (runWithBun(args)) return
   runWithNode(args)
 }
 
-main()
+main().catch((error) => {
+  console.error(`Error: ${error?.message || error}`)
+  process.exit(1)
+})
