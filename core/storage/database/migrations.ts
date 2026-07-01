@@ -2061,6 +2061,18 @@ export const migrations: Migration[] = [
       db.run('CREATE INDEX IF NOT EXISTS ix_token_measured ON token_usage(measured_at DESC)')
     },
   },
+  {
+    version: 49,
+    name: 'drop-dead-workflow-rule-cache',
+    up: (db: SqliteDatabase) => {
+      // `workflow_rule_cache` (created migration-era pre-Schema-v2) has zero
+      // readers and zero writers in the codebase — grep-verified, distinctive
+      // name so no false positives. The Schema v2 plan flagged it as dead
+      // schema to drop; a table with no code path is structural cruft, not a
+      // design. Its child index goes with it automatically on DROP TABLE.
+      db.run('DROP TABLE IF EXISTS workflow_rule_cache')
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
