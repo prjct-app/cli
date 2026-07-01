@@ -255,8 +255,8 @@ export const projectMemory = {
     // Dedup net: a verbatim re-capture of the same (type, content) adds no
     // knowledge — it only dilutes recall and burns slots in the fixed-size
     // injection budget. Skip it. This is the universal guard behind EVERY
-    // capture path (manual `remember`, the friction / skill-miss detectors,
-    // wiki-ingest), so a single detector re-firing each session can't spam the
+    // capture path (manual `remember`, the friction / skill-miss detectors),
+    // so a single detector re-firing each session can't spam the
     // store. Best-effort: any lookup failure falls through to a normal write —
     // a dedup miss is cheaper than a dropped capture.
     if (projectId) {
@@ -342,13 +342,6 @@ export const projectMemory = {
           rememberedAt: new Date().toISOString(),
         },
       })
-    } catch {
-      // Best-effort — local memory write already succeeded.
-    }
-
-    try {
-      const { requestVaultRegeneration } = await import('../services/vault-regeneration')
-      await requestVaultRegeneration(projectPath, projectId)
     } catch {
       // Best-effort — local memory write already succeeded.
     }

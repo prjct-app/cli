@@ -5,7 +5,6 @@
  * - Generate unique project identifiers from project paths
  * - Manage paths between local project and global storage
  * - Ensure directory structures exist
- * - Resolve wiki vault paths (delegates to ./path-manager/wiki-paths)
  * - Detect monorepos (delegates to ./path-manager/monorepo)
  *
  */
@@ -24,11 +23,6 @@ import {
   findContainingPackage,
   findMonorepoRoot,
 } from './path-manager/monorepo'
-import {
-  getLegacyWikiPath,
-  getWikiPath,
-  getWikiPathWithProjectHash,
-} from './path-manager/wiki-paths'
 import { resolveUserHome, resolveUserPath } from './user-home'
 
 class PathManager {
@@ -309,20 +303,6 @@ class PathManager {
 
   getContextPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'context')
-  }
-
-  // Wiki vault (delegates to ./path-manager/wiki-paths)
-
-  async getWikiPath(projectPath: string, overrideVaultPath?: string): Promise<string> {
-    return getWikiPath(projectPath, overrideVaultPath)
-  }
-
-  getWikiPathWithProjectHash(projectPath: string, projectId: string): string {
-    return getWikiPathWithProjectHash(projectPath, projectId)
-  }
-
-  getLegacyWikiPath(projectPath: string): string {
-    return getLegacyWikiPath(projectPath)
   }
 
   // Monorepo (delegates to ./path-manager/monorepo)

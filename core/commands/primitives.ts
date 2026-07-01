@@ -294,8 +294,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
    *
    * Lives here (not as `remember forget <id>`, which only ever created a junk
    * `type:forget` entry) so an agent's instinct `prjct forget mem_1234`
-   * actually deletes. Regenerates the vault so the entry stops surfacing in
-   * `.prjct/wiki/_generated/` too.
+   * actually deletes.
    */
   async forget(
     id: string | null = null,
@@ -318,11 +317,6 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         else out.fail(`no memory entry matched ${target}`)
         return { success: false, error: `No memory entry matched ${target}` }
       }
-
-      // Drop the entry from the agent-crawlable vault too, mirroring
-      // `remember`'s post-write regen.
-      const { requestVaultRegeneration } = await import('../services/vault-regeneration')
-      await requestVaultRegeneration(projectPath, pid.value)
 
       if (options.md) console.log(`✓ forgot ${target}`)
       else out.done(`forgot ${target}`)

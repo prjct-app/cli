@@ -303,13 +303,6 @@ class PrjctCommands {
     return (await this.analysisG()).saveLlmAnalysis(analysisJson, projectPath, options)
   }
 
-  async regenVault(
-    projectPath: string = process.cwd(),
-    options: MdOption = {}
-  ): Promise<CommandResult> {
-    return (await this.analysisG()).regenVault(projectPath, options)
-  }
-
   // ========== Context Commands ==========
 
   async context(

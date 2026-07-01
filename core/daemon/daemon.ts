@@ -75,9 +75,9 @@ let updateTimer: ReturnType<typeof setInterval> | null = null
 let _requestChain: Promise<unknown> = Promise.resolve()
 
 export async function startDaemon(options: { foreground?: boolean }): Promise<void> {
-  // Flag child services (wiki-generator etc.) can check to know they're
-  // running under the long-lived daemon — lets them fire-and-forget safe
-  // work that would otherwise be killed by `process.exit()` in the CLI.
+  // Flag child services can check to know they're running under the
+  // long-lived daemon — lets them fire-and-forget safe work that would
+  // otherwise be killed by `process.exit()` in the CLI.
   process.env.PRJCT_IN_DAEMON = '1'
 
   const socketPath = DAEMON_PATHS.socket()

@@ -3,12 +3,10 @@
  *
  * Silent by contract. The hook does several useful things, all in
  * `afterEmit` so the host parser doesn't wait on housekeeping:
- *   1. Ingest captured/ notes + workflow edits → SQLite.
- *   2. Mine the assistant transcript for substantive captures.
- *   3. Detect durable patterns (hot files, debt growth).
- *   4. Run session-end housekeeping (inbox age-out, archive prune).
- *   5. Detect friction signals from user pushback in the transcript.
- *   6. Regenerate the `_generated/` vault snapshot.
+ *   1. Mine the assistant transcript for substantive captures.
+ *   2. Detect durable patterns (hot files, debt growth).
+ *   3. Run session-end housekeeping (inbox age-out, archive prune).
+ *   4. Detect friction signals from user pushback in the transcript.
  *
  * Each step internally swallows its own failures, so the rest of
  * cleanup still runs even if one step trips. The hook deliberately
@@ -34,8 +32,6 @@ import {
 } from '../services/transcript-jsonl'
 import { ingestTranscript } from '../services/transcript-learner'
 import { usefulnessService } from '../services/usefulness'
-import { regenerateWikiDeferred } from '../services/wiki-generator'
-import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
 import { recordTaskTokenUsage } from '../services/work-cost-service'
 import { type HookIo, runHook } from './_runner'
 
@@ -110,20 +106,6 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           tokensOut: transcriptUsage?.tokensOut,
           agent: 'claude',
         })
-
-        // Captured notes → memory entries (existing behavior).
-        try {
-          await ingestCapturedNotes(p)
-        } catch {
-          // Ingest failure shouldn't block regen — captured/ stays for next turn.
-        }
-
-        // M1b INPUT: workflow overrides → workflow_rules table.
-        try {
-          await ingestWorkflowEdits(p, config)
-        } catch {
-          // Same contract — failed parses leave the file in place for the user.
-        }
 
         // M1a: auto-capture substantive insights from the assistant's
         // transcript. Conservative heuristics, hashed-dedup, never blocks.
@@ -243,8 +225,6 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         } catch {
           /* never block session end on cloud sync */
         }
-
-        await regenerateWikiDeferred(p, config.projectId).catch(() => undefined)
       },
     },
     io

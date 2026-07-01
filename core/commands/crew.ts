@@ -12,7 +12,6 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
 import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import { type AgentRole, getAgentModelPolicy } from '../schemas/model'
 import {
   buildEmulatedCrewProtocol,
@@ -575,22 +574,12 @@ export class CrewCommands extends PrjctCommandsBase {
         reviewerNotes: options['reviewer-notes'] ?? null,
       })
 
-      const slug = run.spec_id ?? run.task_id ?? run.id
-      const config = await configManager.readConfig(projectPath).catch(() => null)
-      const wikiRoot = await pathManager.getWikiPath(projectPath, config?.vaultPath)
-      const vaultPath = path.join(
-        wikiRoot,
-        '_generated',
-        'crew-runs',
-        `${slug}-${run.started_at}.md`
-      )
       if (options.md) {
         console.log(`✓ crew run recorded: run-id=${run.id}`)
-        console.log(`  vault: ${vaultPath}`)
       } else {
         out.done(`crew run recorded: run-id=${run.id}`)
       }
-      return { success: true, runId: run.id, vaultPath }
+      return { success: true, runId: run.id }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
     }

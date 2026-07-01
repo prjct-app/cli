@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, type spyOn, test } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -44,8 +44,6 @@ describe('analysis-save-llm', () => {
 
   beforeEach(async () => {
     ;({ projectPath, projectId } = await freshProject())
-    const vaultRoot = path.join(projectPath, '.test-vault')
-    spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(async () => vaultRoot))
   })
 
   afterEach(async () => {

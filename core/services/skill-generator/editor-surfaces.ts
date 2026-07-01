@@ -31,7 +31,7 @@ export const CONTRACT = {
   rag: 'prjct is a RAG-backed project memory harness; do not preload project history.',
   entrypoint:
     '`prjct work "<intent>" --md` is the single entrypoint — recognize intent and run the verb yourself.',
-  pull: 'Pull only what surfaces: `prjct search` / `prjct context memory <topic>` / `prjct guard <file>` / MCP `prjct_*`; the vault `_generated/` is a fallback snapshot, not something to load wholesale.',
+  pull: 'Pull only what surfaces: `prjct search` / `prjct context memory <topic>` / `prjct guard <file>` / MCP `prjct_*` — not something to load wholesale.',
   remember:
     'Save synthesized memory in English: `prjct remember <decision|learning|gotcha|context> "<text>"`.',
   kb: `KB facets (\`${KB}\`): \`prjct remember <facet>\` / \`prjct context memory <facet>\` — pulled on demand, never injected here.`,

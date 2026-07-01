@@ -38,7 +38,6 @@ import { projectMemory } from '../memory/project-memory'
 import { recordAgentSessionStart } from '../services/agent-session-recorder'
 import { createStalenessChecker } from '../services/staleness-checker'
 import { usefulnessService } from '../services/usefulness'
-import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'
 import { type HookIo, runHook } from './_runner'
@@ -94,7 +93,7 @@ export async function buildSessionContext(
   // last sync so the model refreshes the architecture/risks map instead of
   // trusting a frozen snapshot for the session's big calls.
   const staleness = await buildStalenessNotice(projectPath, config.projectId)
-  // One-time heads-up if a legacy on-disk vault exists but generation is now off.
+  // One-time heads-up for a project that had vault export switched on.
   const { vaultRetirementNotice } = await import('../services/vault-retire-notice')
   const vaultNotice = await vaultRetirementNotice(projectPath, config.projectId)
 
@@ -363,12 +362,6 @@ export function runSessionStartHook(
             directory: p,
             goal: _input.source ?? null,
           })
-        }
-
-        // Refresh the Obsidian vault from DB so the files Claude may Read
-        // reflect current project state. Best-effort; errors are swallowed.
-        if (cachedConfig?.projectId) {
-          await regenerateWikiDeferred(p, cachedConfig.projectId).catch(() => undefined)
         }
 
         // Self-heal hooks + global CLAUDE.md when the binary moved past the

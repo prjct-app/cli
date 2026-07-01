@@ -121,7 +121,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     '### Data paths',
     '',
-    '- Project knowledge — query via tools (`prjct search`, `prjct context memory`, MCP `prjct_*`); SQLite is the source of truth (Obsidian export off by default; `prjct vault on` to enable)',
+    '- Project knowledge — query via tools (`prjct search`, `prjct context memory`, MCP `prjct_*`); SQLite is the source of truth',
     '- `.prjct/prjct.config.json` — persona + active packs',
     '',
     '## Act: `prjct work` is the single normal entrypoint',

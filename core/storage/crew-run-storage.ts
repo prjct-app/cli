@@ -3,8 +3,7 @@
  *
  * One kv_store row per crew session: key `crew-run:<run-id>`, value is
  * the structured record below. Source-of-truth for what implementer +
- * reviewer produced in a single crew flow; vault regen renders each
- * row to `<vault-root>/<slug>/_generated/crew-runs/...`.
+ * reviewer produced in a single crew flow.
  *
  * NOT a `prjct remember` entry — keeps the memory taxonomy clean of
  * ephemeral per-role scratch. See spec a50b32d1 AC #3.

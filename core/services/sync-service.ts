@@ -481,11 +481,6 @@ class SyncService {
         await writeProjectAgentSurfaces(this.projectPath)
       })
 
-      await phase('vault', async () => {
-        const { generateWiki } = await import('./wiki-generator')
-        await generateWiki(this.projectPath, this.projectId!)
-      })
-
       // 11. Run verification checks (built-in + custom from config)
       let verification: VerificationReport | undefined
       await phase('verify', async () => {

@@ -9,7 +9,8 @@
  * `commandRegistry.execute`, silently dropping every flag.
  *
  * This bit `embeddings` (`set --key` became a no-op via the daemon, 2.34.0)
- * and `init`/`login`/`auth`/`regen` (flags dropped). Every command whose cold
+ * and `init`/`login`/`auth` (flags dropped; `regen` no longer exists — the
+ * vault feature it regenerated was removed). Every command whose cold
  * handler consumes an `options.X` flag MUST be either:
  *   - cold-handled (listed in `_binCommands` in bin/prjct.ts → never forwarded), or
  *   - explicitly cased in dispatch.ts (so the daemon forwards its flags).
@@ -90,7 +91,7 @@ describe('cold ↔ daemon option-forwarding parity', () => {
     for (const c of ['embeddings', 'capture', 'ship', 'task', 'team', 'guard', 'remember']) {
       expect(schema.has(c)).toBe(true)
     }
-    for (const c of ['init', 'regen']) {
+    for (const c of ['init']) {
       expect(cased.has(c)).toBe(true)
     }
     for (const c of ['login', 'logout', 'auth']) {

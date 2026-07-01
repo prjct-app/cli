@@ -368,10 +368,6 @@ export function registerMemoryTools(server: McpServer) {
     safeMcpCall('prjct_mem_forget', async (args: { projectPath: string; id: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const removed = projectMemory.forget(projectId, args.id)
-      if (removed) {
-        const { requestVaultRegeneration } = await import('../../services/vault-regeneration')
-        await requestVaultRegeneration(args.projectPath, projectId)
-      }
       return {
         content: [
           {

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import type { MemoryEntry } from '../../memory/entries'
-import { buildDeveloperProfile } from '../../services/wiki/developer-profile-builder'
+import { buildDeveloperProfile } from '../../services/developer-profile'
 
 function entry(
   id: string,

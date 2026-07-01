@@ -22,7 +22,7 @@ The user describes a feature, fix, or initiative WITH goals or stakes. You don't
 - risks (each with mitigation)
 - test plan
 
-The CLI persists this in the `specs` table; the vault renders to `_generated/specs/<slug>.md`.
+The CLI persists this in the `specs` SQLite table.
 
 ### 2. `audit-spec`
 

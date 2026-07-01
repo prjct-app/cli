@@ -11,7 +11,7 @@ import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { publishCRUD } from '../sync/publish-helper'
 import { parseLivingContextFields } from './living-context-contract'
-import { isSignalEntry } from './wiki/signals-builder'
+import { isSignalEntry } from './signals-digest'
 
 export interface ContextQualityReport {
   score: number

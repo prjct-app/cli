@@ -18,11 +18,10 @@ core/
   packs/                        Pack manifests + manager (persona, memory
                                 types, workflow slots, hook signals)
   memory/                       projectMemory — unified surface over SQLite
-                                + wiki (save / list / similar / forget / wiki)
+                                (save / list / similar / forget / search)
   workflow-engine/               Engine (state-machine, when-evaluator) — runs
                                 bash, mcp:, and persona:context step types
-  services/                     sync-service, skill-generator, wiki-generator,
-                                wiki-ingest, pattern-extractor
+  services/                     sync-service, skill-generator, pattern-extractor
   domain/                       Pure algorithms — no IO, no singletons
                                 (bm25, import-graph, git-cochange, file-ranker)
   storage/                      SQLite persistence (one DB file per project)
@@ -126,10 +125,11 @@ project memory; they do not carry project history.
 The source of truth is SQLite, and agents read it **through tools, not files**.
 When a work cycle needs prior knowledge, the agent pulls bounded, ranked context
 with `prjct work`, `prjct search`, `prjct context memory`, `prjct guard`, or the
-MCP `prjct_*` tools. The Obsidian/markdown vault under `_generated/` is **off by
-default** (`vault.mode`, `prjct vault on` to enable) — it is an optional human
-export, never an agent read surface. prjct is the LLM data plane: relational
-SQLite in, structured tool output to the model, sync to cloud; no local UI.
+MCP `prjct_*` tools. There is no generated markdown vault — the Obsidian/wiki
+export feature was removed entirely; it was write-only, no code read it back,
+and it cannibalized the paid cloud product. prjct is the LLM data plane:
+relational SQLite in, structured tool output to the model, sync to cloud; no
+local UI, no local export.
 
 Authored memory has a single read source: the normalized `memory_entries`
 (+ `memory_entry_tags`, + `memory_entries_fts`) tables. `events` is the
@@ -188,7 +188,7 @@ injects bounded `additionalContext` into the LLM on relevant events:
 - `SubagentStart` → compact role/task/trap digest for fresh-brain subagents
 - `CwdChanged` → re-contextualize on project switch
 
-Topical memory, decisions, learnings, and wiki detail are pull-first through
+Topical memory, decisions, and learnings are pull-first through
 `prjct search`, `prjct context memory`, `prjct guard`, or MCP tools. That keeps
 the hot prompt path cache-friendly and bounded without weakening recall when an
 agent actually needs prior knowledge.

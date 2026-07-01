@@ -10,7 +10,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent, listTemplates } from '../../agentic/template-loader'
-import { resolveVaultRoot } from '../../services/vault-preferences'
 import { getErrorMessage, isNotFoundError } from '../../types/fs'
 import type { GlobalConfigResult } from '../../types/infrastructure'
 import { mergeWithMarkers } from '../ide-project-installer'
@@ -35,7 +34,7 @@ Before reading source code or running broad searches for ANY question about the 
 - developer preferences → MCP \`prjct_developer\`; machine signals → MCP \`prjct_signals\`
 - specs → MCP \`prjct_spec_list\` / \`prjct_spec_get\`; per-file traps before editing → \`prjct guard <file>\`
 
-Only fall through to source/repo reading when prjct does not contain the answer. (The markdown vault is OFF by default — opt in with \`prjct vault on\` for Obsidian export; agents should use the tools above, not Read/Glob over generated files.)
+Only fall through to source/repo reading when prjct does not contain the answer.
 
 ## Capture analyses BACK to prjct
 
@@ -49,17 +48,6 @@ When you complete substantive work — analysis, decision, learning, gotcha — 
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
 `
-
-function applyConfiguredVaultPaths(content: string): string {
-  // Vault path placeholders were removed when the global router moved to a
-  // tools-first lookup (vault is off by default). Kept as an identity pass so
-  // any lingering placeholder in older templates still resolves harmlessly.
-  const vaultRoot = pathManager.getDisplayPath(resolveVaultRoot())
-  const vaultGenerated = path.join(vaultRoot, '<slug>', '_generated')
-  return content
-    .replaceAll('%%PRJCT_VAULT_GENERATED%%', vaultGenerated)
-    .replaceAll('%%PRJCT_VAULT_PROJECT%%', path.join(vaultRoot, '<slug>'))
-}
 
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
@@ -145,8 +133,6 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
         }
       }
     }
-
-    templateContent = applyConfiguredVaultPaths(templateContent)
 
     let existingContent = ''
     let fileExists = false

@@ -138,8 +138,6 @@ export interface SetupOptions {
   force?: boolean
   /** Skip interactive prompts */
   nonInteractive?: boolean
-  /** Configure global readable vault root during setup */
-  vaultRoot?: string
 }
 
 /**
@@ -353,7 +351,6 @@ export type CommandRoutingGroup =
   | 'cloud'
   | 'tdd'
   | 'sdd'
-  | 'vault'
   | 'notify'
   | 'agents'
   | 'product'

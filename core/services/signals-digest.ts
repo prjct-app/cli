@@ -1,23 +1,18 @@
 /**
- * Machine-signal quarantine + `signals.md` dashboard.
+ * Machine-signal digest — rescued from the retired wiki builders (WS-A):
+ * this is a pure markdown-string function, not vault I/O, and backs the
+ * `prjct_signals` MCP tool.
  *
  * Auto-detectors (hot-file churn, skill-miss, friction, recurring bugs)
- * write their output into project memory as regular entries. That is
- * right for the DB — recall and the hooks feed on them — but rendering
- * each one as its own vault note drowned the knowledge graph in dozens
- * of `hot-file-NNN` / `skill-miss-...-NNN` nodes (45% of all entries
- * are machine telemetry). The vault is for KNOWLEDGE; telemetry gets
- * exactly one page.
- *
- * Every rendered row keeps its `^mem-N` block anchor so cross-refs
- * resolve as `[[signals#^mem-N|title]]` — one hub node in the graph
- * instead of a dust cloud.
+ * write their output into project memory as regular entries. That is right
+ * for the DB — recall and the hooks feed on them — but it is telemetry, not
+ * curated knowledge, so it gets its own compact digest rather than being
+ * mixed into topical recall.
  */
 
-import type { MemoryEntry } from '../../memory/entries'
-import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/format'
-import { truncate } from './_shared'
-import { summarizeFrictionLesson } from './friction-lessons'
+import type { MemoryEntry } from '../memory/entries'
+import { type FormatMemoryMdOptions, linkifyMemRefs } from '../memory/format'
+import { summarizeFrictionLesson, truncate } from '../utils/text-summary'
 
 /** `tags.source` values produced by automatic detectors, not by an agent/user. */
 export const MACHINE_SOURCES: ReadonlySet<string> = new Set([
@@ -54,8 +49,8 @@ function oneLine(content: string, max = 220): string {
 type Section = { title: string; intro: string; rows: string[] }
 
 /**
- * Single dashboard page for all machine signals. Returns null when the
- * project has none (the page simply doesn't exist — no empty stub).
+ * Single digest of all machine signals. Returns null when the project has
+ * none (no empty stub).
  */
 export function buildSignalsFile(
   signals: MemoryEntry[],

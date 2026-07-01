@@ -5,16 +5,10 @@
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
-import readline from 'node:readline'
 import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import {
-  getConfiguredVaultRoot,
-  getDefaultVaultRoot,
-  setConfiguredVaultRoot,
-} from '../services/vault-preferences'
 import authConfig from '../sync/auth-config'
 import { syncClient } from '../sync/sync-client'
 import syncManager from '../sync/sync-manager'
@@ -429,8 +423,6 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
       }
     }
 
-    await this.configureVaultRoot({})
-
     await this.installCodexSurface(codexDetection.installed, 'Installed Codex skill')
     await this.installAntigravitySurface(antigravityDetection.installed)
 
@@ -478,8 +470,6 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
       console.log('ℹ️  No local CLI runtime detected.')
       console.log('   Continuing with universal AGENTS.md/MCP-compatible setup.')
     }
-
-    await this.configureVaultRoot(options)
 
     if (hasGlobalCliProvider) {
       console.log('📦 Installing p. command router...')
@@ -558,53 +548,6 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
     return {
       success: true,
       message: '',
-    }
-  }
-
-  private async configureVaultRoot(options: SetupOptions): Promise<void> {
-    const requested = this.readVaultRootOption(options)?.trim()
-    if (requested) {
-      const saved = setConfiguredVaultRoot(requested)
-      console.log(`✅ Vault root configured: ${pathManager.getDisplayPath(saved)}`)
-      return
-    }
-
-    const current = getConfiguredVaultRoot()
-    const defaultRoot = getDefaultVaultRoot()
-    const interactive =
-      !options.nonInteractive &&
-      process.env.CI !== 'true' &&
-      process.stdin.isTTY === true &&
-      process.stdout.isTTY === true
-
-    if (!interactive) {
-      const root = current ?? setConfiguredVaultRoot(defaultRoot)
-      console.log(`✅ Vault root: ${pathManager.getDisplayPath(root)}`)
-      return
-    }
-
-    console.log('\n📚 Readable project vaults')
-    if (current) console.log(`Current: ${pathManager.getDisplayPath(current)}`)
-    console.log(`Default: ${pathManager.getDisplayPath(defaultRoot)}`)
-    const answer = await this.ask(
-      'Where should prjct store readable project vaults? Press Enter for default/current: '
-    )
-    const chosen = answer.trim() || current || defaultRoot
-    const saved = setConfiguredVaultRoot(chosen)
-    console.log(`✅ Vault root configured: ${pathManager.getDisplayPath(saved)}`)
-  }
-
-  private readVaultRootOption(options: SetupOptions): string | undefined {
-    const raw = options as SetupOptions & { 'vault-root'?: string; vault?: string }
-    return raw.vaultRoot ?? raw['vault-root'] ?? raw.vault
-  }
-
-  private async ask(question: string): Promise<string> {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-    try {
-      return await new Promise<string>((resolve) => rl.question(question, resolve))
-    } finally {
-      rl.close()
     }
   }
 

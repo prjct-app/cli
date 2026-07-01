@@ -246,7 +246,6 @@ async function main(): Promise<void> {
                   success: false,
                   error: 'analysis-save-llm requires analysis text, JSON, or a file path',
                 }),
-          regen: () => commands.regenVault(process.cwd(), { md }),
           start: () => commands.start(),
           // Auth (cloud sync)
           login: () => commands.login({ md }),

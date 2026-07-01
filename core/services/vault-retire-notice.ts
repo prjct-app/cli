@@ -1,16 +1,15 @@
 /**
- * One-time vault-retirement notice (WS-A). When a project has an existing
- * on-disk `_generated/` vault but generation is now OFF by default, surface a
- * single heads-up so the user knows their files are intact and agents now read
- * through tools. Shown once (a kv flag), never deletes anything.
+ * One-time notice: the Obsidian/markdown vault feature has been removed
+ * entirely (wiki-generator, `prjct vault`, and the whole export pipeline).
+ * Shown only to a project whose config still carries a historical
+ * `vault: { mode: 'export' }` field (the field itself was removed from
+ * LocalConfig's type, but a config.json written before this change still
+ * has it on disk) — i.e. only users who had actually opted in. Never
+ * deletes any existing `_generated/` files; shown once (a kv flag).
  */
 
-import { existsSync } from 'node:fs'
-import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import prjctDb from '../storage/database'
-import { effectiveVaultMode } from './vault-preferences'
-import { resolveVaultRoot } from './wiki-migration'
 
 const NOTICE_FLAG_KEY = 'vault-retire-notice-shown'
 
@@ -24,20 +23,18 @@ export async function vaultRetirementNotice(
 ): Promise<string | null> {
   try {
     const config = await configManager.readConfig(projectPath).catch(() => null)
-    if (effectiveVaultMode(config) !== 'off') return null
+    const hadExportOn = (config as { vault?: { mode?: string } } | null)?.vault?.mode === 'export'
+    if (!hadExportOn) return null
 
     const already = prjctDb.getDoc<{ shown: boolean }>(projectId, NOTICE_FLAG_KEY)
     if (already?.shown) return null
 
-    const wikiRoot = await resolveVaultRoot(projectPath).catch(() => null)
-    if (!wikiRoot || !existsSync(path.join(wikiRoot, '_generated'))) return null
-
     prjctDb.setDoc(projectId, NOTICE_FLAG_KEY, { shown: true })
     return [
-      '> **prjct no longer regenerates the Obsidian/markdown vault by default.**',
-      '> Your existing files are untouched. Agents now read project knowledge through',
-      '> prjct tools (`prjct search`, `prjct context memory`, `prjct_analysis`, …).',
-      '> Run `prjct vault on` to keep regenerating the vault for Obsidian.',
+      '> **prjct has removed the Obsidian/markdown vault feature.**',
+      '> Any files it previously generated are untouched on disk, but prjct no',
+      '> longer regenerates them. Agents read project knowledge through prjct',
+      '> tools (`prjct search`, `prjct context memory`, `prjct_analysis`, …).',
     ].join('\n')
   } catch {
     return null

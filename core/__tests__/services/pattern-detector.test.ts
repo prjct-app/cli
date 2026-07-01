@@ -37,7 +37,7 @@ describe('pattern-detector — isIgnored', () => {
 
   test('does not ignore source files', () => {
     expect(isIgnored('src/index.ts')).toBe(false)
-    expect(isIgnored('core/services/wiki-generator.ts')).toBe(false)
+    expect(isIgnored('core/services/sync-service.ts')).toBe(false)
     expect(isIgnored('README.md')).toBe(false)
   })
 

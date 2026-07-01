@@ -382,9 +382,7 @@ export function registerProjectTools(server: McpServer) {
     safeMcpCall('prjct_developer', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const { projectMemory } = await import('../../memory/project-memory')
-      const { buildDeveloperProfile } = await import(
-        '../../services/wiki/developer-profile-builder'
-      )
+      const { buildDeveloperProfile } = await import('../../services/developer-profile')
       const entries = projectMemory.allEntriesForIndex(projectId)
       const body = buildDeveloperProfile(entries)
       return {
@@ -409,9 +407,7 @@ export function registerProjectTools(server: McpServer) {
     safeMcpCall('prjct_signals', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const { projectMemory } = await import('../../memory/project-memory')
-      const { buildSignalsFile, isSignalEntry } = await import(
-        '../../services/wiki/signals-builder'
-      )
+      const { buildSignalsFile, isSignalEntry } = await import('../../services/signals-digest')
       const signals = projectMemory.allEntriesForIndex(projectId).filter(isSignalEntry)
       const body = buildSignalsFile(signals, { boundary: 'llm' })
       return {

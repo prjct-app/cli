@@ -52,7 +52,7 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
     features: [
       'v3 AI Agile replacement for ticket-style planning',
-      'Stores the durable brief in SQLite + regenerated vault',
+      'Stores the durable brief in SQLite',
       'Sub-verbs mirror spec for compatibility: list, show, update, audit, link-work, ship',
     ],
   },
@@ -145,23 +145,6 @@ export const COMMANDS: CommandMeta[] = [
       'Monorepo support: --package=<name> for single package sync',
       'Nested PRJCT.md inheritance',
       'Per-package CLAUDE.md generation',
-    ],
-  },
-  {
-    name: 'regen',
-    group: 'legacy',
-    surface: 'legacy',
-    routing: { group: 'analysis', method: 'regenVault' },
-    description: 'Compatibility repair alias; prefer `sync --full`',
-    usage: { claude: null, terminal: 'prjct regen [--md]' },
-    implemented: true,
-    hasTemplate: false,
-    requiresProject: true,
-    requiresLlm: false,
-    features: [
-      'Nukes `_generated/` and rebuilds from SQLite + CHANGELOG',
-      'Use after upgrading prjct-cli to migrate an old vault layout',
-      'Idempotent — same output if nothing changed',
     ],
   },
   {
@@ -259,7 +242,6 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Accepts `mem_1234`, `mem-1234`, or a bare `1234`',
       'Hard-deletes the source event + drops the FTS mirror and any embedding — cannot resurface lexically or semantically',
-      'Regenerates the vault so the entry stops surfacing in `.prjct/wiki/_generated/`',
     ],
   },
   {
@@ -457,28 +439,6 @@ export const COMMANDS: CommandMeta[] = [
       'No arg → show mode + the active task spec station (pipeline checklist)',
       'off|advisory|strict sets the intensity (opt-in, like lean)',
       'strict: every task needs a reviewed spec; ship blocks unspecced work',
-    ],
-  },
-  {
-    name: 'vault',
-    group: 'optional',
-    surface: 'support',
-    routing: { group: 'vault', method: 'vault' },
-    optionSchema: {},
-    description: 'Obsidian/markdown vault generation (off by default; on for Obsidian export)',
-    usage: {
-      claude: 'p. vault [on|off|status]',
-      terminal: 'prjct vault [sub]',
-    },
-    params: '[on|off|status]',
-    implemented: true,
-    hasTemplate: false,
-    requiresProject: true,
-    isOptional: true,
-    features: [
-      'No arg → show mode + vault location',
-      'on|export enables generation and regenerates now; off disables (files kept)',
-      'Default off — agents read knowledge through tools, not a markdown tree',
     ],
   },
   {
@@ -746,8 +706,8 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'setup', method: 'setup' },
     routingMode: 'bin-only',
     description: 'Reconfigure editor installations and user-owned defaults',
-    usage: { claude: 'p. setup', terminal: 'prjct setup [--vault-root <path>]' },
-    params: '[--force] [--vault-root <path>] [--non-interactive]',
+    usage: { claude: 'p. setup', terminal: 'prjct setup' },
+    params: '[--force] [--non-interactive]',
     implemented: true,
     hasTemplate: true,
     requiresProject: false,
@@ -987,7 +947,6 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Drafting: `prjct spec "<title>"` IS the create action — there is no `draft` subverb (aliases `draft`/`new`/`create` are tolerated and stripped)',
       'Persists in `specs` SQLite table + memory event stream',
-      'Renders to <vault-root>/<slug>/_generated/specs/<slug>.md',
       'Sub-verbs: list, show, update, set-status, record-review, link-task, ship, audit, inventory',
     ],
   },
