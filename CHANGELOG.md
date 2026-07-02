@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.21.2] - 2026-07-02
+
+### Performance
+
+- hot-path follow-up — stop-hook throttle, BM25 query-path, config cache (#509)
+
+
 ## [3.21.1] - 2026-07-02
 
 ### Bug Fixes
