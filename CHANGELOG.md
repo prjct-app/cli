@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.19.0] - 2026-07-02
+
+### Features
+
+- ideas in typed table + orphan kv-key sweep (Schema v2) (#505)
+
+
 ## [3.18.0] - 2026-07-02
 
 ### Features
