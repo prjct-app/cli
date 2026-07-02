@@ -2297,6 +2297,40 @@ export const migrations: Migration[] = [
       db.run("DELETE FROM kv_store WHERE key = 'queue'")
     },
   },
+  {
+    version: 54,
+    name: 'velocity-restored-and-dev-evolution',
+    up: (db: SqliteDatabase) => {
+      // Velocity's write path had been amputated (saveMetrics had zero
+      // callers; readers always got defaults). Restored: sprints are now
+      // COMPUTED from the typed tables (tasks.completed_at +
+      // shipped_features.shipped_at) and persisted into the existing
+      // `velocity_sprints` table on every sync. The kv blob only ever held
+      // defaults — retire it.
+      db.run("DELETE FROM kv_store WHERE key = 'velocity'")
+
+      // Developer evolution: weekly typed snapshots of what the agent has
+      // learned about the developer (preference/friction/knowledge counts +
+      // delivery numbers) with a generated one-line summary. Evolution =
+      // SELECT over snapshots ordered by week. Granular facts stay in
+      // memory_entries; this is the queryable rollup.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS developer_profile_snapshots (
+           week               INTEGER PRIMARY KEY,  -- epoch-week (one snapshot per ISO week)
+           captured_at        TEXT NOT NULL,
+           preferences        INTEGER NOT NULL DEFAULT 0,  -- feedback-type entries (lifetime)
+           frictions          INTEGER NOT NULL DEFAULT 0,  -- improvement-signals (lifetime)
+           decisions_7d       INTEGER NOT NULL DEFAULT 0,
+           gotchas_7d         INTEGER NOT NULL DEFAULT 0,
+           learnings_7d       INTEGER NOT NULL DEFAULT 0,
+           tasks_completed_7d INTEGER NOT NULL DEFAULT 0,
+           ships_7d           INTEGER NOT NULL DEFAULT 0,
+           velocity_avg       REAL NOT NULL DEFAULT 0,
+           summary            TEXT NOT NULL
+         )`
+      )
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
