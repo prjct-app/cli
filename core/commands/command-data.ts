@@ -882,6 +882,22 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'memory',
+    group: 'memoryExport',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'memoryExport', method: 'memory' },
+    optionSchema: {},
+    description:
+      'Git-shareable project memory: `export` writes chunked JSONL to .prjct/memory-export/ (commit it); `import` replays a committed export with content-hash dedup — zero-server team onboarding.',
+    usage: {
+      claude: 'p. memory export',
+      terminal: 'prjct memory export | prjct memory import',
+    },
+  },
+  {
     name: 'guard',
     group: 'core',
     surface: 'ai-agile',

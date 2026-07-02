@@ -178,6 +178,15 @@ export async function saveDraftAnalysis(
       // Feedback aggregation failure shouldn't block analysis.
     }
 
+    // Refresh the skill index alongside analysis — both need projectPath and
+    // both are per-sync catalog rebuilds (best-effort; never blocks the sync).
+    try {
+      const { refreshSkillIndex } = await import('../skill-index')
+      await refreshSkillIndex(projectId, projectPath)
+    } catch {
+      /* index refresh is best-effort */
+    }
+
     const extracted = await patternExtractor.extract({
       projectId,
       projectPath,
