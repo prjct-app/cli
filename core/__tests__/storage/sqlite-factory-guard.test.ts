@@ -30,6 +30,9 @@ const ALLOWLIST = new Set(
   [
     'core/storage/database/sqlite-compat.ts',
     'core/__tests__/storage/sqlite-factory-guard.test.ts',
+    // Source-inspection test: asserts the LAUNCHER's node:sqlite availability
+    // probe exists (as a string expectation) — it never acquires a driver.
+    'core/__tests__/infrastructure/cjs-launcher-setup-stamp.test.ts',
   ].map((p) => path.normalize(p))
 )
 

@@ -95,3 +95,27 @@ describe('evaluateHarnessCompletion', () => {
     expect(evaluation.warnings.join('\n')).not.toContain('expects a regression test')
   })
 })
+
+describe('detectKind — word-aware matching (no mid-word false positives)', () => {
+  test('"docker" no longer classifies as docs/H0 (was: substring "doc")', () => {
+    const h = buildTaskHarness('add docker healthcheck to the daemon')
+    expect(h.kind).not.toBe('docs')
+    expect(h.level).not.toBe('H0')
+  })
+
+  test('"author" no longer classifies as security/H3 (was: substring "auth")', () => {
+    const h = buildTaskHarness('update author field in package metadata')
+    expect(h.kind).not.toBe('security')
+    expect(h.level).not.toBe('H3')
+  })
+
+  test('"debug" no longer classifies as bug (was: substring "bug")', () => {
+    expect(buildTaskHarness('debug output improvements for the daemon').kind).not.toBe('bug')
+  })
+
+  test('legit families still match: documentation→docs, authentication→security, implementation→feature', () => {
+    expect(buildTaskHarness('update the documentation site').kind).toBe('docs')
+    expect(buildTaskHarness('harden the authentication flow').kind).toBe('security')
+    expect(buildTaskHarness('improve the implement flow for exports').kind).toBe('feature')
+  })
+})

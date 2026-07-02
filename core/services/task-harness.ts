@@ -127,13 +127,36 @@ export async function evaluateHarnessCompletion(
 }
 
 function detectKind(text: string): HarnessKind {
-  if (hasAny(text, ['security', 'seguridad', 'auth', 'permission', 'secret'])) return 'security'
-  if (hasAny(text, ['bug', 'fix', 'falla', 'fallo', 'error', 'broken', 'regression', 'no se'])) {
+  // Short ambiguous stems appear with their word families spelled out because
+  // hasAny only prefix-matches terms >=5 chars: bare `doc` used to substring-
+  // match "docker" (→ docs → H0 → cheap-model directive on a real code task),
+  // `auth` matched "author" (→ security → H3), `bug` matched "debug".
+  if (
+    hasAny(text, ['security', 'seguridad', 'auth', 'authent', 'authoriz', 'permission', 'secret'])
+  ) {
+    return 'security'
+  }
+  if (
+    hasAny(text, [
+      'bug',
+      'bugs',
+      'fix',
+      'fixes',
+      'fixed',
+      'fixing',
+      'falla',
+      'fallo',
+      'error',
+      'broken',
+      'regression',
+      'no se',
+    ])
+  ) {
     return 'bug'
   }
   if (hasAny(text, ['refactor', 'cleanup', 'split', 'restructure'])) return 'refactor'
-  if (hasAny(text, ['doc', 'readme', 'changelog', 'typo'])) return 'docs'
-  if (hasAny(text, ['chore', 'format', 'lint'])) return 'chore'
+  if (hasAny(text, ['doc', 'docs', 'document', 'readme', 'changelog', 'typo'])) return 'docs'
+  if (hasAny(text, ['chore', 'format', 'lint', 'linting', 'linter'])) return 'chore'
   if (hasAny(text, ['add', 'agrega', 'crear', 'implement', 'implementa', 'feature', 'mejora'])) {
     return 'feature'
   }
@@ -203,8 +226,22 @@ function extractScopeHints(description: string): string[] {
   return [...new Set(terms)].slice(0, 8)
 }
 
+/**
+ * Word-aware term matching. Bare `includes` classified "docker" as docs (via
+ * `doc`) and "author" as security (via `auth`) — and the resulting H0/H3
+ * levels now DRIVE the orchestration directive (model tier, ceremony), so a
+ * mid-word false positive strips tests off a real code task. Rules:
+ *  - terms >=5 chars match at a word START (`implement` → "implementation")
+ *  - shorter terms must match a WHOLE word (`doc` ≠ "docker", `fix` ≠ "fixture")
+ *  - multi-word terms (e.g. 'no se') keep plain substring semantics
+ */
 function hasAny(text: string, terms: string[]): boolean {
-  return terms.some((term) => text.includes(term))
+  return terms.some((term) => {
+    if (term.includes(' ')) return text.includes(term)
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const pattern = term.length >= 5 ? `\\b${escaped}` : `\\b${escaped}\\b`
+    return new RegExp(pattern).test(text)
+  })
 }
 
 function observedEvidenceFromFiles(files: string[]): string[] {
