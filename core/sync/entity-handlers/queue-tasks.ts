@@ -12,10 +12,17 @@ import type { EntityHandler } from './types'
 
 export const queueTasksHandler: EntityHandler = {
   async upsert(projectId, data) {
+    // A queue task with no description is unusable by every consumer — and
+    // persisting `|| ''` here is exactly what polluted the legacy blob with
+    // 6,046 empty rows (of 6,105 total on the reference project): wire events
+    // lacking `description` each landed as an empty backlog task. Skip them.
+    const description = (data.description as string) || ''
+    if (!description.trim()) return
+
     const id = (data.id as string) || ''
     if (!id) {
       await queueStorage.addTask(projectId, {
-        description: (data.description as string) || '',
+        description,
         priority: (data.priority as Priority) || 'medium',
         type: (data.type as TaskType) || 'feature',
         section: (data.section as TaskSection) || 'backlog',
@@ -23,20 +30,12 @@ export const queueTasksHandler: EntityHandler = {
       return
     }
 
-    await queueStorage.update(projectId, (queue) => {
-      const existingIdx = queue.tasks.findIndex((t) => t.id === id)
-      const next = {
-        id,
-        description: (data.description as string) || '',
-        priority: (data.priority as Priority) || 'medium',
-        type: (data.type as TaskType) || 'feature',
-        section: (data.section as TaskSection) || 'backlog',
-      } as (typeof queue.tasks)[number]
-      const tasks =
-        existingIdx >= 0
-          ? queue.tasks.map((t, i) => (i === existingIdx ? { ...t, ...next } : t))
-          : [...queue.tasks, next]
-      return { ...queue, tasks }
+    await queueStorage.upsertTask(projectId, {
+      id,
+      description,
+      priority: (data.priority as Priority) || 'medium',
+      type: (data.type as TaskType) || 'feature',
+      section: (data.section as TaskSection) || 'backlog',
     })
   },
 

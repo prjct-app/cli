@@ -46,20 +46,15 @@ export const tasksHandler: EntityHandler = {
       return
     }
 
-    await queueStorage.update(projectId, (queue) => {
-      const existingIdx = queue.tasks.findIndex((t) => t.id === id)
-      const next = {
-        id,
-        description: data.description as string,
-        priority: (data.priority as Priority) || 'medium',
-        type: (data.type as TaskType) || 'feature',
-        section: 'backlog' as TaskSection,
-      } as (typeof queue.tasks)[number]
-      const tasks =
-        existingIdx >= 0
-          ? queue.tasks.map((t, i) => (i === existingIdx ? { ...t, ...next } : t))
-          : [...queue.tasks, next]
-      return { ...queue, tasks }
+    // Same guard as queue-tasks handler: an empty description is garbage in —
+    // the class of wire event that grew the legacy blob to 6k empty rows.
+    if (!((data.description as string) || '').trim()) return
+    await queueStorage.upsertTask(projectId, {
+      id,
+      description: data.description as string,
+      priority: (data.priority as Priority) || 'medium',
+      type: (data.type as TaskType) || 'feature',
+      section: 'backlog' as TaskSection,
     })
   },
 
