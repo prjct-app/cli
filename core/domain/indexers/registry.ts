@@ -15,7 +15,7 @@
  * sum in file-ranker stays straightforward.
  */
 
-import { loadIndex as loadBm25Index, queryFiles } from '../bm25'
+import { hasIndex as bm25HasIndex, queryFiles } from '../bm25'
 import { scoreFromSeeds as cochangeScoreFromSeeds, loadMatrix } from '../git-cochange'
 import { scoreFromSeeds as importScoreFromSeeds, loadGraph } from '../import-graph'
 
@@ -58,7 +58,7 @@ export const indexerRegistry: Indexer[] = [
     name: 'bm25',
     kind: 'query',
     defaultWeight: 0.5,
-    hasIndex: (projectId) => loadBm25Index(projectId) !== null,
+    hasIndex: (projectId) => bm25HasIndex(projectId),
     scoreFromQuery: (projectId, query, topN) => normalize(queryFiles(projectId, query, topN)),
   },
   {
