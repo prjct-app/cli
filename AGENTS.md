@@ -141,29 +141,13 @@ applies to **any** agent/LLM, not just Claude.
 
 
 <!-- prjct:routing - do not edit between markers -->
-## prjct — project memory & workflow
-
-This project uses prjct for persistent memory + workflow tracking.
-Recognize the user's intent and run the right verb yourself.
-
-- Recall before re-reading source: `prjct search "<query>"` / `prjct context memory <topic>`.
-- `prjct work "<intent>"` is the single normal entrypoint — it classifies the
-  AI Agile work cycle, reports the persisted pipeline station, and surfaces
-  related context before you plan or edit.
-- Lookup is pull-first and bounded:
-- prjct is a RAG-backed project memory harness. Do not preload project history into agent instructions.
-- Start work with `prjct work "<intent>" --md`; read the surfaced likely files FIRST — do not grep-walk the repo to rediscover where code lives.
-- Pull more context on demand with `prjct search`, `prjct context memory`, `prjct guard`, or MCP `prjct_*` tools — not something to load wholesale.
-- On close, save synthesized context with `prjct remember context "<...>"`: what changed, why, key data, files, outcome, next — not raw quotes, counters, or transcript chunks.
-- Trivial work proceeds directly. Substantive implementation work follows a persisted intent brief
-  + strict evidence: reviewed intent, tests before implementation when required, then code.
-  Resume from the station shown by `prjct work --md`; do not invent a parallel plan.
-- Agent instruction surfaces use fixed templates; user work text is data, not
-  executable instruction text.
-- Persist outcomes as synthesized memory: `prjct remember <decision|gotcha|learning|context> "<text>"` (in English).
-- Before editing a risky file: `prjct guard <file>` surfaces known traps. Prefer
-  the `prjct_*` MCP tools when available; otherwise run the CLI with `--md`.
-
-Routine synthesis auto-executes (confirm in one line); `ship` and other
-destructive verbs surface a one-line plan and wait for a green light.
+## prjct — map of this project's harness
+This project uses prjct. Recognize intent and run the verb yourself.
+This file holds no rules — pull on demand. The harness lives in prjct:
+- `prjct work --md` — entrypoint: the work cycle + related context.
+- `prjct context memory <topic>` / `prjct search "<q>"` — memory + knowledge base (voice, glossary, decisions, gotchas, learnings).
+- `prjct guard <file>` before a risky edit · `prjct remember <type> "<text>"` to persist outcomes.
+- Wrap-up/compaction: persist a hand-off first (`prjct remember context "Session close: ..."`); `--tags topic:<key>` upserts.
+- `prjct workflows --md` — methodology (dispatch, model policy, judgment).
+Skills, the agent catalog, and rules live in prjct — pulled, never inlined here.
 <!-- /prjct:routing - managed by prjct -->
