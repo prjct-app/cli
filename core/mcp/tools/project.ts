@@ -383,17 +383,17 @@ export function registerProjectTools(server: McpServer) {
       const projectId = await resolveProjectId(args.projectPath)
       const { projectMemory } = await import('../../memory/project-memory')
       const { buildDeveloperProfile } = await import('../../services/developer-profile')
+      const { renderDeveloperEvolution } = await import('../../services/developer-evolution')
       const entries = projectMemory.allEntriesForIndex(projectId)
       const body = buildDeveloperProfile(entries)
+      // Weekly typed snapshots: how the profile + delivery velocity have
+      // evolved over time (developer_profile_snapshots).
+      const evolution = renderDeveloperEvolution(projectId)
+      const text =
+        [body, evolution].filter(Boolean).join('\n\n') ||
+        'No developer profile yet — capture `feedback` memories as preferences emerge.'
       return {
-        content: [
-          {
-            type: 'text',
-            text:
-              body ??
-              'No developer profile yet — capture `feedback` memories as preferences emerge.',
-          },
-        ],
+        content: [{ type: 'text', text }],
       }
     })
   )

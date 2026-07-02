@@ -70,6 +70,18 @@ export async function recordSyncMetrics(
     log.debug('Failed to record sync metrics', { error: getErrorMessage(error) })
   }
 
+  // Delivery velocity (weekly sprints from tasks+ships) and the weekly
+  // developer-evolution snapshot. Both typed, both idempotent, both
+  // best-effort — a failure never degrades the sync itself.
+  try {
+    const { velocityStorage } = await import('../../storage/velocity-storage')
+    await velocityStorage.recompute(projectId)
+    const { captureDeveloperSnapshot } = await import('../developer-evolution')
+    await captureDeveloperSnapshot(projectId)
+  } catch (error) {
+    log.debug('Failed to update velocity/dev-evolution', { error: getErrorMessage(error) })
+  }
+
   const indexes: NonNullable<SyncMetrics['indexes']> = {}
   try {
     const bm25 = loadBm25Index(projectId)
