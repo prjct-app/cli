@@ -353,7 +353,11 @@ export const projectMemory = {
         // content fingerprint (for dedup) + project_id — not a synthetic value.
         content_hash: contentHash,
         ...(projectId ? { project_id: projectId } : {}),
-      }
+      },
+      undefined,
+      // Explicit target: same value path-resolution yields for normal
+      // captures; the global KB pseudo-project for --global ones.
+      projectId ? { projectId } : undefined
     )
     if (logResult?.projectId && !projectId) projectId = logResult.projectId
 

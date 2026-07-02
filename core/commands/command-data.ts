@@ -212,7 +212,9 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     surface: 'ai-agile',
     routing: { group: 'primitives', method: 'remember' },
-    optionSchema: { strings: ['tags'] },
+    optionSchema: { strings: ['tags'], booleans: ['force', 'global'] },
+    // requiresProject relaxed: the command self-gates for project captures;
+    // `--global` writes to the cross-project KB from any directory.
     description: 'Capture a project memory entry (fact, decision, learning, gotcha, …)',
     usage: {
       claude: 'p. remember learning "message"',
@@ -221,7 +223,7 @@ export const COMMANDS: CommandMeta[] = [
     params: '<type> "<content>" [--tags k:v,...]',
     implemented: true,
     hasTemplate: false,
-    requiresProject: true,
+    requiresProject: false,
     features: [
       'Types: fact, decision, learning, gotcha, pattern, anti-pattern, shipped, inbox, todo, idea, insight, question, source, person — plus user-defined',
       'Grows the project memory consumable via `prjct context memory`',
@@ -776,14 +778,14 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     surface: 'ai-agile',
     routing: { group: 'context', method: 'search' },
-    optionSchema: {},
+    optionSchema: { booleans: ['global'] },
     description:
       'Search project memory (decisions, learnings, gotchas, ships…) — BM25 + semantic + recall',
     usage: { claude: 'p. search "<query>"', terminal: 'prjct search "<query>" [--md]' },
     params: '<query>',
     implemented: true,
     hasTemplate: false,
-    requiresProject: true,
+    requiresProject: false,
     features: [
       'Blended retrieval: FTS5 BM25 + opt-in semantic + recency recall',
       'Reranks by proven usefulness, expands one hop of the memory graph',
@@ -882,6 +884,22 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'changelog',
+    group: 'changelog',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'changelog', method: 'changelog' },
+    optionSchema: {},
+    description:
+      'Release notes from the typed delivery record: what shipped (by version) + completed work cycles in the window. Zero LLM — pure data-plane render.',
+    usage: {
+      claude: 'p. changelog 14',
+      terminal: 'prjct changelog [days]',
+    },
+  },
+  {
     name: 'workflows',
     group: 'workflowsReference',
     surface: 'ai-agile',
@@ -918,14 +936,16 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     surface: 'ai-agile',
     routing: { group: 'guard', method: 'guard' },
-    optionSchema: { numbers: ['limit'] },
+    optionSchema: { numbers: ['limit'], strings: ['diff'], booleans: ['strict'] },
     description:
       'Surface preventive memory (gotchas, anti-patterns, recurring-bugs) recorded against a file BEFORE you edit it — anticipation, provider-agnostic.',
     usage: {
       claude: 'p. guard <file>',
-      terminal: 'prjct guard <file>',
+      terminal: 'prjct guard <file> | prjct guard --diff <range> [--strict]',
     },
-    params: '<file>',
+    // Optional at the dispatcher: the command itself errors helpfully when
+    // neither a file nor --diff is given (PR mode has no positional arg).
+    params: '[file]',
     implemented: true,
     hasTemplate: false,
     requiresProject: true,

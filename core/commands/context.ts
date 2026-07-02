@@ -127,9 +127,12 @@ export class ContextCommands {
   async search(
     query: string | null = null,
     projectPath: string = process.cwd(),
-    options: MdOption = {}
+    options: MdOption & { global?: boolean } = {}
   ): Promise<CommandResult> {
-    const projectId = await configManager.getProjectId(projectPath)
+    // --global searches the cross-project knowledge base ('global-kb'):
+    // personal gotchas/facts captured with `prjct remember --global`,
+    // available from any directory.
+    const projectId = options.global ? 'global-kb' : await configManager.getProjectId(projectPath)
     if (!projectId) {
       return { success: false, message: 'No prjct project. Run `prjct init` first.' }
     }

@@ -41,10 +41,10 @@ export async function runContextTool(
   try {
     switch (toolName) {
       case 'memory':
-        return await runMemoryTool(toolArgs, projectPath, { kind: 'memory' })
+        return await runMemoryTool(toolArgs, projectPath, { kind: 'memory', projectId })
 
       case 'learnings':
-        return await runMemoryTool(toolArgs, projectPath, { kind: 'learnings' })
+        return await runMemoryTool(toolArgs, projectPath, { kind: 'learnings', projectId })
 
       case 'skills': {
         // Index of paths, not summaries — refresh + render the skill catalog
@@ -89,9 +89,11 @@ export async function runContextTool(
 async function runMemoryTool(
   args: string[],
   projectPath: string,
-  opts: { kind: 'memory' | 'learnings' }
+  opts: { kind: 'memory' | 'learnings'; projectId?: string }
 ): Promise<ContextToolOutput> {
-  const projectId = await configManager.getProjectId(projectPath)
+  // Caller-resolved id wins (e.g. the 'global-kb' cross-project KB, which has
+  // no path to resolve from); otherwise resolve from the path as before.
+  const projectId = opts.projectId ?? (await configManager.getProjectId(projectPath))
   if (!projectId) {
     return {
       tool: 'error',

@@ -71,6 +71,7 @@ export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = 
   workflowsReference: lazy(
     async () => new (await import('./workflows-reference')).WorkflowsReferenceCommands()
   ),
+  changelog: lazy(async () => new (await import('./changelog')).ChangelogCommands()),
   lean: lazy(async () => new (await import('./lean')).LeanCommands()),
   cloud: lazy(async () => new (await import('./cloud')).CloudCommands()),
   tdd: lazy(async () => new (await import('./tdd')).TddCommands()),

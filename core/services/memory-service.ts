@@ -18,10 +18,19 @@ class MemoryService {
     projectPath: string,
     action: string,
     data: Record<string, unknown>,
-    author?: string
+    author?: string,
+    opts?: {
+      /**
+       * Explicit target project — bypasses path→config resolution. Existing
+       * callers that preload the id pass the SAME value resolution would
+       * yield; the global knowledge base ('global-kb') uses it to write
+       * outside any repo.
+       */
+      projectId?: string
+    }
   ): Promise<{ eventId: number | null; projectId: string } | null> {
     try {
-      const projectId = await configManager.getProjectId(projectPath)
+      const projectId = opts?.projectId ?? (await configManager.getProjectId(projectPath))
       if (!projectId) return null
 
       const eventId = prjctDb.appendEvent(projectId, `memory.${action}`, { ...data, author })

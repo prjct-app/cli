@@ -35,7 +35,8 @@
     "format:check": "biome format .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "test:e2e": "bun test core/__tests__/e2e/"
+    "test:e2e": "bun test core/__tests__/e2e/",
+    "bench:ab": "bun scripts/bench-ab.ts"
   },
   "keywords": [
     "claude-code",

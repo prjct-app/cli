@@ -268,6 +268,16 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
   const llmBoundary = opts?.boundary === 'llm'
   const compact = opts?.compact === true
 
+  // Staleness lifecycle: knowledge older than ~6 months gets a visible
+  // verify-before-trusting cue. Recall still surfaces it (old ≠ wrong), but
+  // the agent is told to confirm against the current code before acting —
+  // the cheap alternative to silently trusting rotted facts.
+  const STALE_MS = 180 * 24 * 60 * 60 * 1000
+  const staleCue = (e: MemoryEntry): string => {
+    const t = Date.parse(e.rememberedAt)
+    return Number.isFinite(t) && Date.now() - t > STALE_MS ? ' ⚠stale>6mo — verify' : ''
+  }
+
   // Compact list emits ONE data-boundary header for the whole block instead
   // of wrapping every row — the rows carry only a truncated cue, never
   // command-like full bodies, so a single signal is enough and stays lean.
@@ -287,7 +297,7 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
         const prov = PROV_PREFIX[e.provenance]
         const flat = flatDetail(e.content, COMPACT_CONTENT_MAX)
         const cue = llmBoundary ? escapeMarkdownInline(flat) : flat
-        lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}`)
+        lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${staleCue(e)}`)
         continue
       }
       // Vault output hides machine-bookkeeping tags (source=, touches=,
