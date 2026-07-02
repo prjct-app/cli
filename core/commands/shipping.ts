@@ -278,6 +278,23 @@ export class ShippingCommands extends PrjctCommandsBase {
         // (getByVersion finds the row we just wrote → skip)
       }
 
+      // Stamp the shipped work cycle in the typed `tasks` table. `prjct
+      // product` counts shipped cycles via `shipped_at IS NOT NULL` — nothing
+      // ever wrote that column, so the count sat at 0 forever. Best-effort:
+      // a ship without an active cycle simply has no row to stamp.
+      if (currentTask) {
+        try {
+          prjctDb.run(
+            projectId,
+            'UPDATE tasks SET shipped_at = ? WHERE id = ?',
+            dateHelper.getTimestamp(),
+            currentTask.id
+          )
+        } catch {
+          /* mirror column only — never block a ship */
+        }
+      }
+
       await this.logToMemory(projectPath, 'feature_shipped', {
         feature: featureName,
         version: newVersion,
