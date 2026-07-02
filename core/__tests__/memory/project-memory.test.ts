@@ -804,3 +804,70 @@ describe('projectMemory.remember — topic-key UPSERT (write-side supersession)'
     expect(active[0].content).toBe('updated trap description')
   })
 })
+
+describe('topic supersession — edge-case hardening (cleanup sweep)', () => {
+  beforeEach(async () => {
+    await fs.mkdir(path.join(tmpRoot, '.prjct'), { recursive: true })
+    await fs.writeFile(
+      path.join(tmpRoot, '.prjct', 'prjct.config.json'),
+      JSON.stringify({ projectId })
+    )
+  })
+
+  it('dedup-hit with a topic tag FOLDS the topic into the existing entry and supersedes others', async () => {
+    // Older revision of the topic.
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'runtime: node',
+      tags: { topic: 'runtime' },
+      projectId,
+    })
+    // Untagged capture (no topic identity yet).
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'runtime: bun',
+      projectId,
+    })
+    await new Promise((r) => setTimeout(r, 5))
+    // Re-capture of the SAME content, now claiming the topic → dedup hits,
+    // but the fold-in must stamp topic_key and supersede the 'node' revision.
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'runtime: bun',
+      tags: { topic: 'runtime' },
+      projectId,
+    })
+
+    const active = prjctDb.query<{ content: string; topic_key: string | null }>(
+      projectId,
+      "SELECT content, topic_key FROM memory_entries WHERE type = 'decision' AND deleted_at IS NULL"
+    )
+    expect(active).toHaveLength(1)
+    expect(active[0].content).toBe('runtime: bun')
+    expect(active[0].topic_key).toBe('runtime')
+  })
+
+  it('a failed event write must NOT tombstone the topic (supersession gated on eventId)', async () => {
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'the only active revision',
+      tags: { topic: 'fragile' },
+      projectId,
+    })
+    // Simulate the log failure path: call supersession the way remember()
+    // GATES it — with no successful event, applyTopicSupersession is never
+    // invoked. Assert the gate exists by verifying the entry survives a
+    // remember() whose write path is broken (unwritable config → log fails).
+    await projectMemory.remember('/nonexistent/path/xyz', {
+      type: 'decision',
+      content: 'new revision that never lands',
+      tags: { topic: 'fragile' },
+      projectId,
+    })
+    const active = prjctDb.get<{ c: number }>(
+      projectId,
+      "SELECT COUNT(*) AS c FROM memory_entries WHERE topic_key = 'fragile' AND deleted_at IS NULL"
+    )
+    expect(active?.c).toBe(1) // the old revision was NOT tombstoned
+  })
+})

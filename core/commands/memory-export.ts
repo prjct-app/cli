@@ -73,9 +73,12 @@ export class MemoryExportCommands extends PrjctCommandsBase {
        FROM memory_entries WHERE deleted_at IS NULL ORDER BY created_at ASC`
     )
     const entries: ExportedEntry[] = rows.map((r) => {
+      // User tags plus the topic/key identity tags: 'key' is machine-classified
+      // by the trigger, but dropping it breaks topic lineage on the importing
+      // machine (future captures would not supersede the imported revision).
       const tagRows = prjctDb.query<{ key: string; value: string }>(
         projectId,
-        'SELECT key, value FROM memory_entry_tags WHERE entry_id = ? AND is_machine = 0',
+        "SELECT key, value FROM memory_entry_tags WHERE entry_id = ? AND (is_machine = 0 OR key IN ('topic', 'key'))",
         r.id
       )
       const tags: Record<string, string> = {}
@@ -134,17 +137,25 @@ export class MemoryExportCommands extends PrjctCommandsBase {
           continue // one corrupt line must not sink the import
         }
         if (!e.type || !e.content || !e.content_hash) continue
-        // Dedup BEFORE writing: the ux_mem_hash unique index would ignore the
-        // row anyway, but skipping here avoids appending a redundant event.
+        // Dedup BEFORE writing — TYPE-AWARE and active-only, matching the
+        // ux_mem_hash index (project, hash, type): the same content under two
+        // types is legal, and a hash-only check silently dropped the second.
         const dup = prjctDb.get<{ id: string }>(
           projectId,
-          'SELECT id FROM memory_entries WHERE content_hash = ? LIMIT 1',
-          e.content_hash
+          'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
+          e.content_hash,
+          e.type
         )
         if (dup) {
           skipped++
           continue
         }
+        // Origin time: tolerate a missing/garbage created_at on a hand-edited
+        // line (one bad line must not sink the import) — fall back to now.
+        const createdMs = Number(e.created_at)
+        const createdIso = Number.isFinite(createdMs)
+          ? new Date(createdMs).toISOString()
+          : new Date().toISOString()
         // Replay through the normal event path — the memory_entries trigger
         // populates the typed row + tags; created_at preserves origin time.
         prjctDb.appendEvent(projectId, `memory.remember.${e.type}`, {
@@ -153,8 +164,21 @@ export class MemoryExportCommands extends PrjctCommandsBase {
           provenance: e.provenance || 'declared',
           content_hash: e.content_hash,
           project_id: projectId,
-          created_at: new Date(e.created_at).toISOString(),
+          created_at: createdIso,
         })
+        // Topic lineage survives the machine hop: stamp the typed topic_key
+        // (the event replay bypasses remember(), which normally does this).
+        if (e.topic_key) {
+          prjctDb.run(
+            projectId,
+            `UPDATE memory_entries SET topic_key = ?
+             WHERE project_id = ? AND type = ? AND content_hash = ? AND deleted_at IS NULL`,
+            e.topic_key,
+            projectId,
+            e.type,
+            e.content_hash
+          )
+        }
         imported++
       }
     }

@@ -218,6 +218,63 @@ function recallEntriesFromV2(
 
 export const projectMemory = {
   /**
+   * Store-level topic supersession (write-side upsert): stamp `topic_key` +
+   * revision lineage on the topic's CURRENT entry (matched by content_hash)
+   * and soft-delete the topic's other active revisions of the same type.
+   * Shared by the fresh-capture path and the dedup-hit fold-in path.
+   * Best-effort — never blocks a capture.
+   */
+  applyTopicSupersession(
+    projectId: string,
+    type: string,
+    contentHash: string,
+    topicKey: string
+  ): void {
+    try {
+      const priorRevisions =
+        prjctDb.get<{ c: number }>(
+          projectId,
+          `SELECT COUNT(*) AS c FROM memory_entries
+           WHERE project_id = ? AND type = ? AND content_hash != ?
+             AND (topic_key = ? OR id IN (
+               SELECT entry_id FROM memory_entry_tags WHERE key IN ('topic', 'key') AND value = ?
+             ))`,
+          projectId,
+          type,
+          contentHash,
+          topicKey,
+          topicKey
+        )?.c ?? 0
+      prjctDb.run(
+        projectId,
+        `UPDATE memory_entries SET topic_key = ?, revision_count = ?
+         WHERE project_id = ? AND type = ? AND content_hash = ? AND deleted_at IS NULL`,
+        topicKey,
+        priorRevisions,
+        projectId,
+        type,
+        contentHash
+      )
+      prjctDb.run(
+        projectId,
+        `UPDATE memory_entries SET deleted_at = ?
+         WHERE project_id = ? AND type = ? AND deleted_at IS NULL AND content_hash != ?
+           AND (topic_key = ? OR id IN (
+             SELECT entry_id FROM memory_entry_tags WHERE key IN ('topic', 'key') AND value = ?
+           ))`,
+        Date.now(),
+        projectId,
+        type,
+        contentHash,
+        topicKey,
+        topicKey
+      )
+    } catch {
+      /* supersession is best-effort — never block a capture */
+    }
+  },
+
+  /**
    * Store an entry. Thin wrapper over memoryService so callers don't need
    * to know the event-type prefix convention.
    */
@@ -259,6 +316,7 @@ export const projectMemory = {
     // so a single detector re-firing each session can't spam the
     // store. Best-effort: any lookup failure falls through to a normal write —
     // a dedup miss is cheaper than a dropped capture.
+    const dedupTopicKey = tags.topic ?? tags.key
     if (projectId) {
       try {
         const dup = prjctDb.get<{ id: string }>(
@@ -267,7 +325,17 @@ export const projectMemory = {
           contentHash,
           args.type
         )
-        if (dup) return
+        if (dup) {
+          // Same content re-captured WITH a topic tag: don't create a row, but
+          // DO fold the topic identity into the existing entry and supersede
+          // the topic's other revisions — otherwise "adopt this entry into
+          // topic X" is a silent no-op and stale revisions keep burning
+          // recall slots (the exact failure the write-side upsert prevents).
+          if (dedupTopicKey) {
+            this.applyTopicSupersession(projectId, args.type, contentHash, dedupTopicKey)
+          }
+          return
+        }
       } catch {
         /* fall through — never block a capture on the dedup check */
       }
@@ -298,53 +366,12 @@ export const projectMemory = {
     // accumulating alongside them. The event log stays append-only (audit +
     // sync intact); supersession is a store-level soft-delete of the older
     // active entries for the same (type, topic), and the new entry gets the
-    // typed `topic_key` column + a revision_count lineage. This moves the
-    // existing read-side latest-winner dedupe to the WRITE side: stale
-    // versions stop burning recall slots and FTS hits at the source.
-    const topicKey = tags.topic ?? tags.key
-    if (projectId && topicKey) {
-      try {
-        const priorRevisions =
-          prjctDb.get<{ c: number }>(
-            projectId,
-            `SELECT COUNT(*) AS c FROM memory_entries
-             WHERE project_id = ? AND type = ? AND content_hash != ?
-               AND (topic_key = ? OR id IN (
-                 SELECT entry_id FROM memory_entry_tags WHERE key IN ('topic', 'key') AND value = ?
-               ))`,
-            projectId,
-            args.type,
-            contentHash,
-            topicKey,
-            topicKey
-          )?.c ?? 0
-        prjctDb.run(
-          projectId,
-          `UPDATE memory_entries SET topic_key = ?, revision_count = ?
-           WHERE project_id = ? AND type = ? AND content_hash = ? AND deleted_at IS NULL`,
-          topicKey,
-          priorRevisions,
-          projectId,
-          args.type,
-          contentHash
-        )
-        prjctDb.run(
-          projectId,
-          `UPDATE memory_entries SET deleted_at = ?
-           WHERE project_id = ? AND type = ? AND deleted_at IS NULL AND content_hash != ?
-             AND (topic_key = ? OR id IN (
-               SELECT entry_id FROM memory_entry_tags WHERE key IN ('topic', 'key') AND value = ?
-             ))`,
-          Date.now(),
-          projectId,
-          args.type,
-          contentHash,
-          topicKey,
-          topicKey
-        )
-      } catch {
-        /* supersession is best-effort — never block a capture */
-      }
+    // typed `topic_key` column + a revision_count lineage. GATED on the event
+    // write actually succeeding (logResult.eventId): if `log()` swallowed a
+    // transient failure, no new row exists — superseding the old revisions
+    // then would silently erase the topic's only active knowledge.
+    if (projectId && dedupTopicKey && logResult?.eventId != null) {
+      this.applyTopicSupersession(projectId, args.type, contentHash, dedupTopicKey)
     }
 
     // Reinforcement loop: credit the entries this new one references — they
@@ -653,9 +680,14 @@ export const projectMemory = {
    */
   countByType(projectId: string, type: string): number {
     try {
+      // project_id predicate lets SQLite SEARCH ix_mem_recall(project_id,
+      // type, ...) instead of scanning the whole index — this runs per prompt.
+      // 'local' is the trigger's fallback stamp for legacy/id-less events in
+      // this same per-project DB; excluding it would silently uncount them.
       const row = prjctDb.get<{ n: number }>(
         projectId,
-        'SELECT COUNT(*) AS n FROM memory_entries WHERE type = ? AND deleted_at IS NULL',
+        "SELECT COUNT(*) AS n FROM memory_entries WHERE project_id IN (?, 'local') AND type = ? AND deleted_at IS NULL",
+        projectId,
         type
       )
       return row?.n ?? 0
