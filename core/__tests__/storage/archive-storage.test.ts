@@ -300,47 +300,43 @@ describe('Archive Storage', () => {
 
   describe('queue cleanup', () => {
     it('should remove completed tasks older than 7 days', async () => {
-      await queueStorage.write(testProjectId, {
-        tasks: [
-          {
-            id: 'active',
-            description: 'Active',
-            type: 'feature',
-            priority: 'medium',
-            section: 'active',
-            createdAt: daysAgoISO(1),
-            completed: false,
-          },
-          {
-            id: 'recent-done',
-            description: 'Recent done',
-            type: 'feature',
-            priority: 'medium',
-            section: 'active',
-            createdAt: daysAgoISO(5),
-            completed: true,
-            completedAt: daysAgoISO(2),
-          },
-          {
-            id: 'old-done',
-            description: 'Old done',
-            type: 'feature',
-            priority: 'low',
-            section: 'active',
-            createdAt: daysAgoISO(30),
-            completed: true,
-            completedAt: daysAgoISO(10),
-          },
-        ],
-        lastUpdated: getTimestamp(),
+      // Seed typed queue rows: one active, one recently-completed, one stale.
+      await queueStorage.upsertTask(testProjectId, {
+        id: 'active',
+        description: 'Active',
+        type: 'feature',
+        priority: 'medium',
+        section: 'active',
+        createdAt: daysAgoISO(1),
+        completed: false,
+      })
+      await queueStorage.upsertTask(testProjectId, {
+        id: 'recent-done',
+        description: 'Recent done',
+        type: 'feature',
+        priority: 'medium',
+        section: 'active',
+        createdAt: daysAgoISO(5),
+        completed: true,
+        completedAt: daysAgoISO(2),
+      })
+      await queueStorage.upsertTask(testProjectId, {
+        id: 'old-done',
+        description: 'Old done',
+        type: 'feature',
+        priority: 'low',
+        section: 'active',
+        createdAt: daysAgoISO(30),
+        completed: true,
+        completedAt: daysAgoISO(10),
       })
 
       const removed = await queueStorage.removeStaleCompleted(testProjectId)
       expect(removed).toBe(1)
 
-      const data = await queueStorage.read(testProjectId)
-      expect(data.tasks).toHaveLength(2)
-      expect(data.tasks.map((t) => t.id).sort()).toEqual(['active', 'recent-done'])
+      const remaining = await queueStorage.getTasks(testProjectId)
+      expect(remaining).toHaveLength(2)
+      expect(remaining.map((t) => t.id).sort()).toEqual(['active', 'recent-done'])
 
       // Archive should have the old completed task
       const records = archiveStorage.getArchived(testProjectId, 'queue_task')

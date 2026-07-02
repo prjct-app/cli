@@ -2231,6 +2231,72 @@ export const migrations: Migration[] = [
       db.run("DELETE FROM kv_store WHERE key = 'metrics'")
     },
   },
+  {
+    version: 53,
+    name: 'queue-typed-store',
+    up: (db: SqliteDatabase) => {
+      // Schema v2: the GTD queue lived in the `kv_store['queue']` JSON blob —
+      // parsed WHOLE on every prompt (hooks/prompt.ts reads active tasks per
+      // UserPromptSubmit; the blob measured 1.08MB on the reference project)
+      // and rewritten whole on every mutation — while the typed `queue_tasks`
+      // table sat empty. This makes the typed table the single store.
+      // Columns for QueueTask fields the original table lacked:
+      for (const col of ['body TEXT', 'agent TEXT', 'group_name TEXT', 'group_id TEXT']) {
+        try {
+          db.run(`ALTER TABLE queue_tasks ADD COLUMN ${col}`)
+        } catch {
+          /* column already exists */
+        }
+      }
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_queue_section ON queue_tasks(section, completed, created_at)'
+      )
+      const blob = db.prepare("SELECT data FROM kv_store WHERE key = 'queue'").get() as
+        | { data?: string }
+        | undefined
+      if (blob?.data) {
+        let tasks: Array<Record<string, unknown>> = []
+        try {
+          const parsed = JSON.parse(blob.data) as { tasks?: unknown }
+          if (Array.isArray(parsed?.tasks)) tasks = parsed.tasks as Array<Record<string, unknown>>
+        } catch {
+          tasks = [] // malformed blob must not brick startup
+        }
+        const insert = db.prepare(
+          `INSERT OR IGNORE INTO queue_tasks
+             (id, description, type, priority, section, created_at, completed, completed_at,
+              feature_id, feature_name, body, agent, group_name, group_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const t of tasks) {
+          const id = t.id as string | undefined
+          const description = t.description as string | undefined
+          // Deliberate: skip empty-description rows. On the reference project
+          // 6,046 of 6,105 blob entries were EMPTY tasks accreted by the sync
+          // handler's `description || ''` (now guarded at the handler) — junk
+          // no consumer can use; only the real tasks migrate.
+          if (!id || !description) continue
+          insert.run(
+            id,
+            description,
+            (t.type as string) ?? null,
+            (t.priority as string) ?? null,
+            (t.section as string) ?? 'backlog',
+            (t.createdAt as string) ?? '1970-01-01T00:00:00.000Z',
+            t.completed ? 1 : 0,
+            (t.completedAt as string) ?? null,
+            (t.featureId as string) ?? null,
+            (t.originFeature as string) ?? null,
+            (t.body as string) ?? null,
+            (t.agent as string) ?? null,
+            (t.groupName as string) ?? null,
+            (t.groupId as string) ?? null
+          )
+        }
+      }
+      db.run("DELETE FROM kv_store WHERE key = 'queue'")
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
