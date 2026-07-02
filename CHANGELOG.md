@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.24.0] - 2026-07-02
+
+### Features
+
+- session tracker on typed tables + token-budget default — storage backlog closed (#513)
+
+
 ## [3.23.0] - 2026-07-02
 
 ### Features
