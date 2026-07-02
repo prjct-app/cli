@@ -38,6 +38,30 @@ export class PlanningCommands extends PrjctCommandsBase {
    * @param options.idea - Initial idea for architect mode
    * @param projectPath - Project directory path
    */
+  /**
+   * Team-memory discoverability: a cloned repo may carry a committed
+   * `.prjct/memory-export/` (prjct memory export). Surface it at init so the
+   * import loop actually closes — a shared brain nobody knows about is dead
+   * weight.
+   */
+  private async _hintCommittedMemoryExport(projectPath: string): Promise<void> {
+    try {
+      const fs = await import('node:fs/promises')
+      const path = await import('node:path')
+      const manifestPath = path.join(projectPath, '.prjct', 'memory-export', 'manifest.json')
+      const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as {
+        entries?: number
+      }
+      if (manifest?.entries && manifest.entries > 0) {
+        out.info(
+          `📦 This repo ships ${manifest.entries} team memories (.prjct/memory-export/). Load them: prjct memory import`
+        )
+      }
+    } catch {
+      /* no export committed — silent */
+    }
+  }
+
   async init(
     options: InitOptions | string | null = {},
     projectPath: string = process.cwd()
@@ -132,6 +156,7 @@ export class PlanningCommands extends PrjctCommandsBase {
           }).catch(() => null)
 
           out.done('initialized')
+          await this._hintCommittedMemoryExport(projectPath)
           this._printNextSteps(wizardResult, surfaces ?? undefined)
           return { success: true, mode: 'existing', projectId, wizard: wizardResult }
         }

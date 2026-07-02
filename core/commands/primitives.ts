@@ -197,11 +197,16 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   async remember(
     args: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean; tags?: string; force?: boolean } = {}
+    options: { md?: boolean; tags?: string; force?: boolean; global?: boolean } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
+      // Global knowledge base: personal, cross-project facts (e.g. "zsh does
+      // not word-split unquoted vars") live in the 'global-kb' pseudo-project
+      // — capturable from ANY directory, no project init required.
+      if (!options.global) {
+        const initResult = await this.ensureProjectInit(projectPath)
+        if (!initResult.success) return initResult
+      }
 
       if (!args) {
         out.info(
@@ -234,6 +239,19 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       }
 
       const tags = parseFlagTags(options.tags)
+
+      if (options.global) {
+        await projectMemory.remember(projectPath, {
+          type,
+          content,
+          tags,
+          projectId: 'global-kb',
+        })
+        const msg = `remembered ${type} (GLOBAL — cross-project): ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`
+        if (options.md) console.log(`✓ ${msg}`)
+        else out.done(msg)
+        return { success: true, type, scope: 'global' }
+      }
 
       const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
