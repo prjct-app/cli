@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.17.0] - 2026-07-02
+
+### Features
+
+- queue in typed queue_tasks — retire the 1.08MB per-prompt blob (Schema v2) (#503)
+
+
 ## [3.16.0] - 2026-07-02
 
 ### Features
