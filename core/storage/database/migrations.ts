@@ -2385,6 +2385,66 @@ export const migrations: Migration[] = [
       db.run("DELETE FROM kv_store WHERE key LIKE 'analysis:derived-rules:%'")
     },
   },
+  {
+    version: 56,
+    name: 'task-history-typed',
+    up: (db: SqliteDatabase) => {
+      // Schema v2 (C4, history slice): completed-task history lived as a
+      // FIFO-capped list inside the `kv_store['state']` blob. History reads
+      // now come from the typed `tasks` table (completion writes it via
+      // mirrorHistoryEntry). Backfill the blob's entries, then strip
+      // `taskHistory` from the blob — the live state machine
+      // (currentTask/pausedTasks/activeTasks) stays there for now.
+      const blob = db.prepare("SELECT data FROM kv_store WHERE key = 'state'").get() as
+        | { data?: string }
+        | undefined
+      if (!blob?.data) return
+      let state: Record<string, unknown> = {}
+      try {
+        state = JSON.parse(blob.data)
+      } catch {
+        return // malformed blob must not brick startup
+      }
+      const history = Array.isArray(state.taskHistory)
+        ? (state.taskHistory as Array<Record<string, unknown>>)
+        : []
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO tasks
+           (id, description, type, status, branch, linear_id, pr_url, started_at, completed_at, tokens_in, tokens_out, data)
+         VALUES (?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      for (const h of history) {
+        const taskId = h.taskId as string | undefined
+        const title = h.title as string | undefined
+        if (!taskId || !title) continue
+        insert.run(
+          taskId,
+          title,
+          (h.classification as string) ?? 'improvement',
+          h.branchName === 'unknown' ? null : ((h.branchName as string) ?? null),
+          (h.linearId as string) ?? null,
+          (h.prUrl as string) ?? null,
+          (h.startedAt as string) ?? '1970-01-01T00:00:00.000Z',
+          (h.completedAt as string) ?? '1970-01-01T00:00:00.000Z',
+          Number(h.tokensIn) || 0,
+          Number(h.tokensOut) || 0,
+          JSON.stringify({
+            title,
+            outcome: h.outcome,
+            subtaskCount: h.subtaskCount ?? 0,
+            subtaskSummaries: h.subtaskSummaries ?? [],
+            feedback: h.feedback,
+            harness: h.harness,
+            linearUuid: h.linearUuid,
+          })
+        )
+      }
+      if (history.length > 0 || 'taskHistory' in state) {
+        const { taskHistory: _dropped, ...rest } = state
+        db.prepare("UPDATE kv_store SET data = ? WHERE key = 'state'").run(JSON.stringify(rest))
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

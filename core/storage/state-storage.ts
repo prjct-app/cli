@@ -231,6 +231,58 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Schema v2 (C4): persist a completed task's FULL history entry into the
+   * typed `tasks` row — hot fields as columns, the history-only extras
+   * (outcome, subtask summaries, feedback, harness) on the cold `data`
+   * column. History queries (`getTaskHistory` et al.) read this, not the
+   * state blob. Upsert by task id so ordering vs `mirrorTaskRow` never
+   * matters. Best-effort: history must never block a completion.
+   */
+  private mirrorHistoryEntry(projectId: string, entry: TaskHistoryEntry): void {
+    try {
+      const cold = JSON.stringify({
+        title: entry.title,
+        outcome: entry.outcome,
+        subtaskCount: entry.subtaskCount,
+        subtaskSummaries: entry.subtaskSummaries,
+        feedback: entry.feedback,
+        harness: entry.harness,
+        linearUuid: entry.linearUuid,
+      })
+      prjctDb.run(
+        projectId,
+        `INSERT INTO tasks (id, description, type, status, branch, linear_id, pr_url, started_at, completed_at, tokens_in, tokens_out, data)
+         VALUES (?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           description = excluded.description,
+           type = excluded.type,
+           status = 'completed',
+           branch = COALESCE(excluded.branch, tasks.branch),
+           linear_id = COALESCE(excluded.linear_id, tasks.linear_id),
+           started_at = COALESCE(excluded.started_at, tasks.started_at),
+           completed_at = excluded.completed_at,
+           pr_url = COALESCE(excluded.pr_url, tasks.pr_url),
+           tokens_in = excluded.tokens_in,
+           tokens_out = excluded.tokens_out,
+           data = excluded.data`,
+        entry.taskId,
+        entry.title,
+        entry.classification,
+        entry.branchName === 'unknown' ? null : entry.branchName,
+        entry.linearId ?? null,
+        entry.prUrl ?? null,
+        entry.startedAt,
+        entry.completedAt,
+        entry.tokensIn ?? 0,
+        entry.tokensOut ?? 0,
+        cold
+      )
+    } catch {
+      /* best-effort history mirror */
+    }
+  }
+
+  /**
    * Update fields on the current task (partial update)
    */
   async updateCurrentTask(
@@ -253,7 +305,8 @@ class StateStorage extends StorageManager<StateJson> {
 
   /**
    * Complete current task
-   * Creates a TaskHistoryEntry and adds it to taskHistory with FIFO eviction
+   * Persists the TaskHistoryEntry into the typed `tasks` table (Schema v2 C4 —
+   * history reads come from there; the state blob no longer carries history).
    * Optionally accepts structured feedback for the task-to-analysis feedback loop (PRJ-272)
    */
   async completeTask(projectId: string, feedback?: TaskFeedback): Promise<CurrentTask | null> {
@@ -263,20 +316,10 @@ class StateStorage extends StorageManager<StateJson> {
       if (!state.currentTask) return state
       this.validateTransition(state, 'done')
       resultRef.completedTask = state.currentTask
-      const historyEntry = this.createTaskHistoryEntry(
-        resultRef.completedTask,
-        completedAt,
-        feedback
-      )
-      const taskHistory = [historyEntry, ...this.getTaskHistoryFromState(state)].slice(
-        0,
-        this.maxTaskHistory
-      )
       return {
         ...state,
         currentTask: null,
         previousTask: null,
-        taskHistory,
         lastUpdated: completedAt,
       }
     })
@@ -284,8 +327,14 @@ class StateStorage extends StorageManager<StateJson> {
     if (!resultRef.completedTask) return null
     const completedTask = resultRef.completedTask
 
-    // Schema v2 (C4): mark the typed mirror completed.
+    // Schema v2 (C4): mark the typed mirror completed, then persist the full
+    // history entry (classification/outcome/feedback/harness/tokens) so
+    // history queries read the typed table instead of a blob list.
     this.mirrorTaskRow(projectId, completedTask, 'completed', { completedAt })
+    this.mirrorHistoryEntry(
+      projectId,
+      this.createTaskHistoryEntry(completedTask, completedAt, feedback)
+    )
 
     // Publish incremental event
     await this.publishEvent(projectId, 'task.completed', {
@@ -349,9 +398,6 @@ class StateStorage extends StorageManager<StateJson> {
   /** Max number of paused tasks (configurable) */
   private maxPausedTasks = 5
 
-  /** Max number of task history entries (configurable) */
-  private maxTaskHistory = 20
-
   /** Staleness threshold in days */
   private stalenessThresholdDays = 30
 
@@ -405,14 +451,6 @@ class StateStorage extends StorageManager<StateJson> {
     return []
   }
 
-  /**
-   * Get task history from state with backward compatibility
-   * Ensures taskHistory is always an array (never undefined)
-   */
-  private getTaskHistoryFromState(state: StateJson): TaskHistoryEntry[] {
-    return state.taskHistory || []
-  }
-
   async getStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
     return lifecycle.getStalePausedTasks(this.lifecycleBackend(), projectId)
   }
@@ -428,7 +466,6 @@ class StateStorage extends StorageManager<StateJson> {
       read: this.read.bind(this),
       update: this.update.bind(this),
       getPausedTasksFromState: this.getPausedTasksFromState.bind(this),
-      getTaskHistoryFromState: this.getTaskHistoryFromState.bind(this),
     }
   }
 
@@ -475,8 +512,7 @@ class StateStorage extends StorageManager<StateJson> {
       update: this.update.bind(this),
       publish: this.publishEvent.bind(this),
       createTaskHistoryEntry: this.createTaskHistoryEntry.bind(this),
-      getTaskHistoryFromState: this.getTaskHistoryFromState.bind(this),
-      maxTaskHistory: this.maxTaskHistory,
+      persistHistoryEntry: this.mirrorHistoryEntry.bind(this),
     }
   }
 

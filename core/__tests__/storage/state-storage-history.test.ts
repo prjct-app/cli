@@ -75,11 +75,15 @@ afterEach(async () => {
 /**
  * Create a mock task for testing
  */
+let mockTaskSeq = 0
 function createMockTask(
   overrides: Partial<CurrentTask> & Record<string, unknown> = {}
 ): CurrentTask {
+  // Unique per call: Date.now() alone collides in a fast loop, and the typed
+  // history store upserts by id (real tasks use UUIDs).
+  mockTaskSeq++
   return {
-    id: `task-${Date.now()}`,
+    id: `task-${Date.now()}-${mockTaskSeq}`,
     description: 'Test task',
     startedAt: new Date().toISOString(),
     sessionId: `session-${Date.now()}`,
@@ -88,7 +92,8 @@ function createMockTask(
 }
 
 /**
- * Complete a task and return the state
+ * Complete a task and return the state, with `taskHistory` sourced from the
+ * typed `tasks` table (Schema v2 C4 — the blob no longer carries history).
  */
 async function completeTaskAndGetState(projectId: string, task: CurrentTask): Promise<StateJson> {
   // Start the task
@@ -97,8 +102,8 @@ async function completeTaskAndGetState(projectId: string, task: CurrentTask): Pr
   // Complete the task
   await stateStorage.completeTask(projectId)
 
-  // Return the state
-  return await stateStorage.read(projectId)
+  const state = await stateStorage.read(projectId)
+  return { ...state, taskHistory: await stateStorage.getTaskHistory(projectId) }
 }
 
 // Tests: Task History Push on Completion
@@ -184,7 +189,7 @@ describe('Task History - Push on Completion', () => {
       await completeTaskAndGetState(testProjectId, task)
     }
 
-    const state = await stateStorage.read(testProjectId)
+    const state = { taskHistory: await stateStorage.getTaskHistory(testProjectId) }
 
     expect(state.taskHistory?.length).toBe(3)
     expect(state.taskHistory![0].title).toBe('Task 3') // Newest first
@@ -205,7 +210,9 @@ describe('Task History - FIFO Eviction', () => {
       await completeTaskAndGetState(testProjectId, task)
     }
 
-    const state = await stateStorage.read(testProjectId)
+    // The typed store keeps the FULL history; the read surface stays capped
+    // at 20 for parity with the legacy FIFO list.
+    const state = { taskHistory: await stateStorage.getTaskHistory(testProjectId) }
 
     expect(state.taskHistory?.length).toBe(20) // Max 20
   })
@@ -219,7 +226,7 @@ describe('Task History - FIFO Eviction', () => {
       await completeTaskAndGetState(testProjectId, task)
     }
 
-    const state = await stateStorage.read(testProjectId)
+    const state = { taskHistory: await stateStorage.getTaskHistory(testProjectId) }
 
     expect(state.taskHistory?.length).toBe(20)
     expect(state.taskHistory![0].title).toBe('Task 22') // Newest
