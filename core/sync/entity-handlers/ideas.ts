@@ -14,29 +14,17 @@ export const ideasHandler: EntityHandler = {
     const id = (data.id as string) || ''
     if (!id) return
     const text = (data.title as string) || (data.text as string) || ''
+    // Same guard as the queue handlers: an empty text is garbage in.
+    if (!text.trim()) return
     const priority = (data.priority as IdeaPriority) || 'medium'
     const status = (data.status as string) || 'active'
 
-    await ideasStorage.update(projectId, (ideas) => {
-      const existingIdx = ideas.ideas.findIndex((i) => i.id === id)
-      const desiredStatus = status === 'archived' ? ('archived' as const) : ('pending' as const)
-      const next = {
-        id,
-        text,
-        priority,
-        status: desiredStatus,
-        addedAt:
-          ideas.ideas[existingIdx]?.addedAt ??
-          (data.created_at as string) ??
-          (data.addedAt as string) ??
-          new Date().toISOString(),
-        tags: ideas.ideas[existingIdx]?.tags ?? [],
-      } as (typeof ideas.ideas)[number]
-      const list =
-        existingIdx >= 0
-          ? ideas.ideas.map((i, idx) => (idx === existingIdx ? { ...i, ...next } : i))
-          : [...ideas.ideas, next]
-      return { ...ideas, ideas: list }
+    await ideasStorage.upsertIdea(projectId, {
+      id,
+      text,
+      priority,
+      status: status === 'archived' ? 'archived' : 'pending',
+      addedAt: (data.created_at as string) ?? (data.addedAt as string) ?? new Date().toISOString(),
     })
   },
 

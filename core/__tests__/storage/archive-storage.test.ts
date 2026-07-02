@@ -211,50 +211,37 @@ describe('Archive Storage', () => {
 
   describe('ideas dormancy', () => {
     it('should mark pending ideas older than 180 days as dormant', async () => {
-      await ideasStorage.write(testProjectId, {
-        ideas: [
-          {
-            id: 'new',
-            text: 'New idea',
-            status: 'pending',
-            priority: 'medium',
-            tags: [],
-            addedAt: daysAgoISO(10),
-          },
-          {
-            id: 'stale',
-            text: 'Stale idea',
-            status: 'pending',
-            priority: 'low',
-            tags: [],
-            addedAt: daysAgoISO(200),
-          },
-          {
-            id: 'converted',
-            text: 'Converted',
-            status: 'converted',
-            priority: 'high',
-            tags: [],
-            addedAt: daysAgoISO(300),
-          },
-        ],
-        lastUpdated: getTimestamp(),
+      // Seed typed idea rows: fresh pending, stale pending, converted.
+      await ideasStorage.upsertIdea(testProjectId, {
+        id: 'new',
+        text: 'New idea',
+        status: 'pending',
+        priority: 'medium',
+        addedAt: daysAgoISO(10),
+      })
+      await ideasStorage.upsertIdea(testProjectId, {
+        id: 'stale',
+        text: 'Stale idea',
+        status: 'pending',
+        priority: 'low',
+        addedAt: daysAgoISO(200),
+      })
+      await ideasStorage.upsertIdea(testProjectId, {
+        id: 'converted',
+        text: 'Converted',
+        status: 'converted',
+        priority: 'high',
+        addedAt: daysAgoISO(300),
       })
 
       const dormant = await ideasStorage.markDormantIdeas(testProjectId)
       expect(dormant).toBe(1)
 
-      const data = await ideasStorage.read(testProjectId)
-      const stale = data.ideas.find((i) => i.id === 'stale')
-      expect(stale?.status).toBe('dormant')
-
+      expect((await ideasStorage.getById(testProjectId, 'stale'))?.status).toBe('dormant')
       // New idea should remain pending
-      const fresh = data.ideas.find((i) => i.id === 'new')
-      expect(fresh?.status).toBe('pending')
-
+      expect((await ideasStorage.getById(testProjectId, 'new'))?.status).toBe('pending')
       // Converted should remain converted
-      const conv = data.ideas.find((i) => i.id === 'converted')
-      expect(conv?.status).toBe('converted')
+      expect((await ideasStorage.getById(testProjectId, 'converted'))?.status).toBe('converted')
 
       // Archive table should have the dormant idea
       const records = archiveStorage.getArchived(testProjectId, 'idea')
@@ -262,32 +249,25 @@ describe('Archive Storage', () => {
     })
 
     it('should track dormant status in SQLite', async () => {
-      await ideasStorage.write(testProjectId, {
-        ideas: [
-          {
-            id: 'active',
-            text: 'Active idea',
-            status: 'pending',
-            priority: 'medium',
-            tags: [],
-            addedAt: daysAgoISO(5),
-          },
-          {
-            id: 'dormant',
-            text: 'Dormant idea',
-            status: 'dormant',
-            priority: 'low',
-            tags: [],
-            addedAt: daysAgoISO(200),
-          },
-        ],
-        lastUpdated: getTimestamp(),
+      await ideasStorage.upsertIdea(testProjectId, {
+        id: 'active',
+        text: 'Active idea',
+        status: 'pending',
+        priority: 'medium',
+        addedAt: daysAgoISO(5),
+      })
+      await ideasStorage.upsertIdea(testProjectId, {
+        id: 'dormant',
+        text: 'Dormant idea',
+        status: 'dormant',
+        priority: 'low',
+        addedAt: daysAgoISO(200),
       })
 
       // Read back from storage — dormant ideas preserved in SQLite
-      const data = await ideasStorage.read(testProjectId)
-      const active = data.ideas.filter((i) => i.status === 'pending')
-      const dormant = data.ideas.filter((i) => i.status === 'dormant')
+      const all = await ideasStorage.getAll(testProjectId)
+      const active = all.filter((i) => i.status === 'pending')
+      const dormant = all.filter((i) => i.status === 'dormant')
 
       expect(active).toHaveLength(1)
       expect(active[0].text).toBe('Active idea')

@@ -1,5 +1,4 @@
 import path from 'node:path'
-import { prjctDb } from '../storage/database'
 import type {
   ExtractedAntiPattern,
   ExtractedPattern,
@@ -69,16 +68,10 @@ class PatternExtractor {
     const patterns = dedupePatterns([...context7Patterns, ...feedbackPatterns])
     const antiPatterns = dedupeAntiPatterns([...feedbackAntiPatterns])
 
-    const key = `analysis:derived-rules:${hash}`
-    prjctDb.setDoc(input.projectId, key, {
-      projectId: input.projectId,
-      repoPathHash: hash,
-      patterns,
-      antiPatterns,
-      updatedAt: new Date().toISOString(),
-      version: 1,
-    })
-
+    // No kv persistence: the extracted rules flow through the RETURN into the
+    // analysis draft (sync/persistence.ts → analysisStorage.saveDraft). The
+    // old `analysis:derived-rules:<hash>` setDoc here was write-only — zero
+    // readers, one orphan row per repo-path hash; migration 55 swept them.
     return { patterns, antiPatterns, repoPathHash: hash }
   }
 }
