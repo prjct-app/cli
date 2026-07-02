@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.18.0] - 2026-07-02
+
+### Features
+
+- restore velocity from typed delivery data + developer-evolution weekly snapshots (#504)
+
+
 ## [3.17.0] - 2026-07-02
 
 ### Features
