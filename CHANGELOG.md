@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.15.1] - 2026-07-02
+
+### Bug Fixes
+
+- harden session ships — sync ping-pong, node 22.5–22.12 fallback, classifier false positives (#501)
+
+
 ## [3.15.0] - 2026-07-01
 
 ### Features
