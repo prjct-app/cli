@@ -82,10 +82,10 @@ export async function stats(
       // Use fallback
     }
 
-    // Determine first sync date
-    const metricsData = await metricsStorage.read(projectId)
-    const firstSyncDate = metricsData.firstSync
-      ? new Date(metricsData.firstSync).toLocaleDateString('en-US', {
+    // Determine first sync date (MIN(date) over the typed metrics_daily rows)
+    const firstSync = await metricsStorage.getFirstSyncDate(projectId)
+    const firstSyncDate = firstSync
+      ? new Date(firstSync).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',

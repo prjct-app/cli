@@ -1,44 +1,52 @@
 /**
  * Metrics Storage
  *
- * Manages value dashboard metrics via storage/metrics.json
- * Generates context/metrics.md for Claude
+ * Schema v2: sync metrics live in typed tables —
+ *   - `metrics_daily`       one row per day (date PK): tokens saved, syncs,
+ *                           weighted compression rate, total duration
+ *   - `metrics_agent_usage` per-agent counters
  *
- * Tracks:
- * - Token savings (compression)
- * - Sync performance
- * - Agent usage
- * - Daily trends for visualization
+ * Totals are SQL aggregates over `metrics_daily` (lifetime numbers preserved
+ * by migration 52's synthetic pre-history row), so writers and readers can
+ * never drift the way the legacy `kv_store['metrics']` blob did — that blob
+ * kept running totals nothing else could see, while `prjct product` SUMmed
+ * the never-written typed table and reported 0 forever.
+ *
+ * Tracks: token savings (compression), sync performance, agent usage, daily
+ * trends for visualization.
  */
 
-import {
-  type AgentUsage,
-  type DailyStats,
-  DEFAULT_METRICS,
-  estimateCostSaved,
-  type MetricsJson,
-  MetricsJsonSchema,
-} from '../schemas/metrics'
-import { getTimestamp } from '../utils/date-helper'
-import { StorageManager } from './storage-manager'
+import { type AgentUsage, type DailyStats, estimateCostSaved } from '../schemas/metrics'
+import { prjctDb } from './database'
 
-class MetricsStorage extends StorageManager<MetricsJson> {
-  constructor() {
-    super('metrics.json', MetricsJsonSchema)
-  }
+interface DailyRow {
+  date: string
+  tokens_saved: number
+  syncs: number
+  avg_compression_rate: number
+  total_duration: number
+}
 
-  protected getDefault(): MetricsJson {
-    return { ...DEFAULT_METRICS }
-  }
+const rowToDaily = (r: DailyRow): DailyStats => ({
+  date: r.date,
+  tokensSaved: r.tokens_saved,
+  syncs: r.syncs,
+  avgCompressionRate: r.avg_compression_rate,
+  totalDuration: r.total_duration,
+})
 
-  protected getEventType(action: 'update' | 'create' | 'delete'): string {
-    return `metrics.${action}d`
-  }
+const dayCutoff = (daysAgo: number): string => {
+  const d = new Date()
+  d.setDate(d.getDate() - daysAgo)
+  return d.toISOString().split('T')[0]
+}
 
+class MetricsStorage {
   // =========== Domain Methods ===========
 
   /**
-   * Record a sync event with metrics
+   * Record a sync event: upsert today's `metrics_daily` row (weighted-average
+   * merge for the compression rate) and bump per-agent counters.
    */
   async recordSync(
     projectId: string,
@@ -46,96 +54,50 @@ class MetricsStorage extends StorageManager<MetricsJson> {
       originalSize: number // Tokens before compression
       filteredSize: number // Tokens after compression
       duration: number // Sync duration in ms
-      isWatch?: boolean // From watch mode?
+      isWatch?: boolean // Accepted for API compat; not stored — zero readers
       agents?: string[] // Agents used
     }
   ): Promise<void> {
     const tokensSaved = Math.max(0, metrics.originalSize - metrics.filteredSize)
     const compressionRate = metrics.originalSize > 0 ? tokensSaved / metrics.originalSize : 0
-
     const today = new Date().toISOString().split('T')[0]
 
-    await this.update(projectId, (data) => {
-      // Update totals
-      const newSyncCount = data.syncCount + 1
-      const newTotalTokensSaved = data.totalTokensSaved + tokensSaved
-      const newTotalDuration = data.totalSyncDuration + metrics.duration
+    prjctDb.run(
+      projectId,
+      `INSERT INTO metrics_daily (date, tokens_saved, syncs, avg_compression_rate, total_duration)
+       VALUES (?, ?, 1, ?, ?)
+       ON CONFLICT(date) DO UPDATE SET
+         tokens_saved = metrics_daily.tokens_saved + excluded.tokens_saved,
+         avg_compression_rate =
+           (metrics_daily.avg_compression_rate * metrics_daily.syncs + excluded.avg_compression_rate)
+             / (metrics_daily.syncs + 1),
+         syncs = metrics_daily.syncs + 1,
+         total_duration = metrics_daily.total_duration + excluded.total_duration`,
+      today,
+      tokensSaved,
+      compressionRate,
+      metrics.duration
+    )
 
-      // Running average for compression rate
-      const newAvgCompression =
-        data.syncCount === 0
-          ? compressionRate
-          : (data.avgCompressionRate * data.syncCount + compressionRate) / newSyncCount
-
-      // Update daily stats
-      const dailyStats = [...data.dailyStats]
-      const todayIndex = dailyStats.findIndex((d) => d.date === today)
-
-      if (todayIndex >= 0) {
-        const existing = dailyStats[todayIndex]
-        dailyStats[todayIndex] = {
-          ...existing,
-          tokensSaved: existing.tokensSaved + tokensSaved,
-          syncs: existing.syncs + 1,
-          avgCompressionRate:
-            (existing.avgCompressionRate * existing.syncs + compressionRate) / (existing.syncs + 1),
-          totalDuration: existing.totalDuration + metrics.duration,
-        }
-      } else {
-        dailyStats.push({
-          date: today,
-          tokensSaved,
-          syncs: 1,
-          avgCompressionRate: compressionRate,
-          totalDuration: metrics.duration,
-        })
+    if (metrics.agents?.length) {
+      const perAgent = Math.floor(tokensSaved / metrics.agents.length)
+      for (const agentName of metrics.agents) {
+        prjctDb.run(
+          projectId,
+          `INSERT INTO metrics_agent_usage (agent_name, usage_count, tokens_saved)
+           VALUES (?, 1, ?)
+           ON CONFLICT(agent_name) DO UPDATE SET
+             usage_count = metrics_agent_usage.usage_count + 1,
+             tokens_saved = metrics_agent_usage.tokens_saved + excluded.tokens_saved`,
+          agentName,
+          perAgent
+        )
       }
-
-      // Keep only last 90 days
-      const cutoff = new Date()
-      cutoff.setDate(cutoff.getDate() - 90)
-      const cutoffStr = cutoff.toISOString().split('T')[0]
-      const trimmedStats = dailyStats.filter((d) => d.date >= cutoffStr)
-
-      // Update agent usage
-      const agentUsage = [...data.agentUsage]
-      if (metrics.agents) {
-        for (const agentName of metrics.agents) {
-          const idx = agentUsage.findIndex((a) => a.agentName === agentName)
-          if (idx >= 0) {
-            agentUsage[idx] = {
-              ...agentUsage[idx],
-              usageCount: agentUsage[idx].usageCount + 1,
-              tokensSaved:
-                agentUsage[idx].tokensSaved + Math.floor(tokensSaved / metrics.agents.length),
-            }
-          } else {
-            agentUsage.push({
-              agentName,
-              usageCount: 1,
-              tokensSaved: Math.floor(tokensSaved / metrics.agents.length),
-            })
-          }
-        }
-      }
-
-      return {
-        totalTokensSaved: newTotalTokensSaved,
-        avgCompressionRate: newAvgCompression,
-        syncCount: newSyncCount,
-        watchTriggers: data.watchTriggers + (metrics.isWatch ? 1 : 0),
-        avgSyncDuration: newTotalDuration / newSyncCount,
-        totalSyncDuration: newTotalDuration,
-        agentUsage,
-        dailyStats: trimmedStats,
-        firstSync: data.firstSync || getTimestamp(),
-        lastUpdated: getTimestamp(),
-      }
-    })
+    }
   }
 
   /**
-   * Get metrics summary for dashboard
+   * Metrics summary for the dashboard — pure SQL aggregates.
    */
   async getSummary(projectId: string): Promise<{
     totalTokensSaved: number
@@ -147,59 +109,80 @@ class MetricsStorage extends StorageManager<MetricsJson> {
     last30DaysTokens: number
     trend: number // Percentage change vs previous 30 days
   }> {
-    const data = await this.read(projectId)
+    const totals = prjctDb.get<{
+      tokens: number
+      syncs: number
+      duration: number
+      weighted_rate: number
+    }>(
+      projectId,
+      `SELECT COALESCE(SUM(tokens_saved), 0) AS tokens,
+              COALESCE(SUM(syncs), 0) AS syncs,
+              COALESCE(SUM(total_duration), 0) AS duration,
+              COALESCE(SUM(avg_compression_rate * syncs), 0) AS weighted_rate
+       FROM metrics_daily`
+    )
+    const syncCount = totals?.syncs ?? 0
+    const totalTokensSaved = totals?.tokens ?? 0
 
-    const last30 = this.getLast30Days(data.dailyStats)
-    const prev30 = this.getPrev30Days(data.dailyStats)
+    const rangeTokens = (from: string, to?: string): number =>
+      prjctDb.get<{ t: number }>(
+        projectId,
+        to
+          ? 'SELECT COALESCE(SUM(tokens_saved), 0) AS t FROM metrics_daily WHERE date >= ? AND date < ?'
+          : 'SELECT COALESCE(SUM(tokens_saved), 0) AS t FROM metrics_daily WHERE date >= ?',
+        ...(to ? [from, to] : [from])
+      )?.t ?? 0
 
-    const last30Tokens = last30.reduce((sum, d) => sum + d.tokensSaved, 0)
-    const prev30Tokens = prev30.reduce((sum, d) => sum + d.tokensSaved, 0)
-
+    const last30Tokens = rangeTokens(dayCutoff(30))
+    const prev30Tokens = rangeTokens(dayCutoff(60), dayCutoff(30))
     const trend = prev30Tokens > 0 ? ((last30Tokens - prev30Tokens) / prev30Tokens) * 100 : 0
 
+    const topAgents = prjctDb
+      .query<{ agent_name: string; usage_count: number; tokens_saved: number }>(
+        projectId,
+        'SELECT * FROM metrics_agent_usage ORDER BY usage_count DESC LIMIT 5'
+      )
+      .map((a) => ({
+        agentName: a.agent_name,
+        usageCount: a.usage_count,
+        tokensSaved: a.tokens_saved,
+      }))
+
     return {
-      totalTokensSaved: data.totalTokensSaved,
-      estimatedCostSaved: estimateCostSaved(data.totalTokensSaved),
-      compressionRate: data.avgCompressionRate,
-      syncCount: data.syncCount,
-      avgSyncDuration: data.avgSyncDuration,
-      topAgents: [...data.agentUsage].sort((a, b) => b.usageCount - a.usageCount).slice(0, 5),
+      totalTokensSaved,
+      estimatedCostSaved: estimateCostSaved(totalTokensSaved),
+      compressionRate: syncCount > 0 ? (totals?.weighted_rate ?? 0) / syncCount : 0,
+      syncCount,
+      avgSyncDuration: syncCount > 0 ? (totals?.duration ?? 0) / syncCount : 0,
+      topAgents,
       last30DaysTokens: last30Tokens,
       trend,
     }
   }
 
   /**
-   * Get daily stats for a period
+   * Daily stats for a period, oldest → newest.
    */
   async getDailyStats(projectId: string, days: number = 30): Promise<DailyStats[]> {
-    const data = await this.read(projectId)
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - days)
-    const cutoffStr = cutoff.toISOString().split('T')[0]
-
-    return data.dailyStats
-      .filter((d) => d.date >= cutoffStr)
-      .sort((a, b) => a.date.localeCompare(b.date))
+    return prjctDb
+      .query<DailyRow>(
+        projectId,
+        'SELECT * FROM metrics_daily WHERE date >= ? ORDER BY date ASC',
+        dayCutoff(days)
+      )
+      .map(rowToDaily)
   }
 
-  private getLast30Days(dailyStats: DailyStats[]): DailyStats[] {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 30)
-    const cutoffStr = cutoff.toISOString().split('T')[0]
-    return dailyStats.filter((d) => d.date >= cutoffStr)
-  }
-
-  private getPrev30Days(dailyStats: DailyStats[]): DailyStats[] {
-    const end = new Date()
-    end.setDate(end.getDate() - 30)
-    const start = new Date()
-    start.setDate(start.getDate() - 60)
-
-    const startStr = start.toISOString().split('T')[0]
-    const endStr = end.toISOString().split('T')[0]
-
-    return dailyStats.filter((d) => d.date >= startStr && d.date < endStr)
+  /**
+   * First tracked day (was the blob's `firstSync`) — MIN(date) over the typed
+   * rows; empty string when nothing has been tracked yet.
+   */
+  async getFirstSyncDate(projectId: string): Promise<string> {
+    return (
+      prjctDb.get<{ d: string | null }>(projectId, 'SELECT MIN(date) AS d FROM metrics_daily')?.d ??
+      ''
+    )
   }
 }
 

@@ -2143,6 +2143,94 @@ export const migrations: Migration[] = [
       db.run("DELETE FROM kv_store WHERE key = 'shipped'")
     },
   },
+  {
+    version: 52,
+    name: 'metrics-typed-store',
+    up: (db: SqliteDatabase) => {
+      // Schema v2: sync metrics lived in the `kv_store['metrics']` JSON blob
+      // while the typed `metrics_daily` table — already SUMmed by `prjct
+      // product` for the value score — was never written, so those stats read
+      // 0 forever. This makes the typed tables the single store:
+      //   - metrics_daily       daily rows (existing table; now the only store)
+      //   - metrics_agent_usage per-agent counters (agentUsage[] normalized)
+      // Derivable totals (totalTokensSaved/syncCount/averages/firstSync) become
+      // SQL aggregates; `watchTriggers` had zero readers and is dropped.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS metrics_agent_usage (
+           agent_name   TEXT PRIMARY KEY,
+           usage_count  INTEGER NOT NULL DEFAULT 0,
+           tokens_saved INTEGER NOT NULL DEFAULT 0
+         )`
+      )
+      const blob = db.prepare("SELECT data FROM kv_store WHERE key = 'metrics'").get() as
+        | { data?: string }
+        | undefined
+      if (blob?.data) {
+        let parsed: {
+          dailyStats?: Array<Record<string, unknown>>
+          agentUsage?: Array<Record<string, unknown>>
+          totalTokensSaved?: number
+          syncCount?: number
+          totalSyncDuration?: number
+          avgCompressionRate?: number
+          firstSync?: string
+        } = {}
+        try {
+          parsed = JSON.parse(blob.data)
+        } catch {
+          parsed = {} // malformed blob must not brick startup
+        }
+        const daily = Array.isArray(parsed.dailyStats) ? parsed.dailyStats : []
+        const insertDay = db.prepare(
+          `INSERT OR IGNORE INTO metrics_daily
+             (date, tokens_saved, syncs, avg_compression_rate, total_duration)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        let dailyTokens = 0
+        let dailySyncs = 0
+        let dailyDuration = 0
+        for (const d of daily) {
+          const date = d.date as string | undefined
+          if (!date) continue
+          const tokens = Number(d.tokensSaved) || 0
+          const syncs = Number(d.syncs) || 0
+          const duration = Number(d.totalDuration) || 0
+          insertDay.run(date, tokens, syncs, Number(d.avgCompressionRate) || 0, duration)
+          dailyTokens += tokens
+          dailySyncs += syncs
+          dailyDuration += duration
+        }
+        // The blob kept RUNNING totals but trimmed dailyStats to 90 days, so
+        // lifetime totals can exceed the daily sum. Preserve the difference in
+        // one synthetic "pre-history" row dated at firstSync (or epoch) so SQL
+        // aggregates still reproduce the true lifetime numbers.
+        const remTokens = Math.max(0, (Number(parsed.totalTokensSaved) || 0) - dailyTokens)
+        const remSyncs = Math.max(0, (Number(parsed.syncCount) || 0) - dailySyncs)
+        const remDuration = Math.max(0, (Number(parsed.totalSyncDuration) || 0) - dailyDuration)
+        if (remTokens > 0 || remSyncs > 0) {
+          const preDate = (parsed.firstSync || '1970-01-01T00:00:00.000Z').split('T')[0]
+          insertDay.run(
+            preDate,
+            remTokens,
+            remSyncs,
+            Number(parsed.avgCompressionRate) || 0,
+            remDuration
+          )
+        }
+        const agents = Array.isArray(parsed.agentUsage) ? parsed.agentUsage : []
+        const insertAgent = db.prepare(
+          `INSERT OR IGNORE INTO metrics_agent_usage (agent_name, usage_count, tokens_saved)
+           VALUES (?, ?, ?)`
+        )
+        for (const a of agents) {
+          const name = a.agentName as string | undefined
+          if (!name) continue
+          insertAgent.run(name, Number(a.usageCount) || 0, Number(a.tokensSaved) || 0)
+        }
+      }
+      db.run("DELETE FROM kv_store WHERE key = 'metrics'")
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
