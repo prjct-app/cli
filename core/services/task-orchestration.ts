@@ -39,6 +39,12 @@ export interface OrchestrationPlan {
   spec: SpecCeremony
   tests: TestCeremony
   fanout: FanOut
+  /**
+   * Size estimate in points (1/2/5/8 by harness level). Stored on the task at
+   * start and compared against the ACTUAL diff at completion — the estimation
+   * loop that teaches velocity the dev's estimation bias.
+   */
+  expectedPoints: number
   /** Agent-facing one-block directive — how to run THIS task efficiently. */
   directive: string
 }
@@ -67,6 +73,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: 'none',
         tests: 'none',
         fanout: 'direct',
+        expectedPoints: 1,
         directive: '',
       }
     case 'H1':
@@ -77,6 +84,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: 'none',
         tests: code ? 'after' : 'none',
         fanout: 'direct',
+        expectedPoints: 2,
         directive: '',
       }
     case 'H2':
@@ -88,6 +96,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: code ? 'frame' : 'none',
         tests: code ? 'first' : 'none',
         fanout: 'parallel',
+        expectedPoints: 5,
         directive: '',
       }
     default:
@@ -98,6 +107,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: code ? 'reviewed' : 'none',
         tests: code ? 'first' : 'none',
         fanout: 'crew',
+        expectedPoints: 8,
         directive: '',
       }
   }
@@ -160,6 +170,17 @@ function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: Orchestra
   }
   const forecast = level === 'H2' || level === 'H3' ? ` ${FORECAST_TEXT}` : ''
   return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}.${forecast}`
+}
+
+/**
+ * Actual size in points from the completed diff's changed-line count — the
+ * same scale expectedPoints uses, so accuracy is a like-for-like comparison.
+ */
+export function pointsFromDiffLines(changedLines: number): number {
+  if (changedLines < 50) return 1
+  if (changedLines < 150) return 2
+  if (changedLines < 400) return 5
+  return 8
 }
 
 /**

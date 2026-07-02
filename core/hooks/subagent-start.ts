@@ -10,6 +10,8 @@
  * Same rules: describe WHAT, never HOW.
  */
 
+import configManager from '../infrastructure/config-manager'
+import { prjctDb } from '../storage/database'
 import { type HookIo, runHook } from './_runner'
 import { buildSubagentDigest } from './session-start'
 
@@ -22,6 +24,22 @@ export function runSubagentStartHook(
       event: 'SubagentStart',
       projectPath,
       build: (_input, p) => buildSubagentDigest(p),
+      afterEmit: async (_input, p) => {
+        // Fan-out telemetry: one event per spawn, attributed to the active
+        // cycle, so `prjct performance` can show how many subagents a cycle
+        // cost (was the crew worth it?). Best-effort, silent.
+        try {
+          const config = await configManager.readConfig(p)
+          if (!config?.projectId) return
+          const { collectActiveTasks } = await import('../services/task-overview')
+          const overview = await collectActiveTasks(config.projectId, p)
+          prjctDb.appendEvent(config.projectId, 'subagent.spawned', {
+            taskId: overview.current?.id ?? null,
+          })
+        } catch {
+          /* telemetry only */
+        }
+      },
     },
     io
   )

@@ -79,6 +79,8 @@ export interface WorkCostSnapshot {
   commandMs: number
   avgStartupMs: number | null
   mostExpensive: WorkCostTask[]
+  /** Per-model token spend in the window (from token_usage.model_id rows). */
+  byModel: Array<{ model: string; tokensIn: number; tokensOut: number }>
   historicalRescue: HistoricalRescue
   gaps: string[]
 }
@@ -348,6 +350,26 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
     )
   }
 
+  // Per-model spend: the claude-transcript:<model> rows written per turn.
+  // model_id IS NOT NULL keeps the un-attributed totals row out of the split.
+  let byModel: WorkCostSnapshot['byModel'] = []
+  try {
+    byModel = prjctDb
+      .query<{ model: string; t_in: number; t_out: number }>(
+        projectId,
+        `SELECT COALESCE(model_id, 'unknown') AS model,
+              SUM(input_tokens) AS t_in, SUM(output_tokens) AS t_out
+       FROM token_usage
+       WHERE model_id IS NOT NULL AND measured_at >= ?
+       GROUP BY COALESCE(model_id, 'unknown')
+       ORDER BY t_in + t_out DESC`,
+        Date.parse(since)
+      )
+      .map((r) => ({ model: r.model, tokensIn: r.t_in, tokensOut: r.t_out }))
+  } catch {
+    /* additive telemetry — absent on older schemas */
+  }
+
   return {
     id: `work-cost-${days}d`,
     windowDays: days,
@@ -368,6 +390,7 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
     commandMs: Math.round(command.total ?? 0),
     avgStartupMs: startup.average === null ? null : Math.round(startup.average),
     mostExpensive: measuredTasks.slice(0, 8),
+    byModel,
     historicalRescue: {
       inferredWorkCycles,
       taskTableCycles: taskRows.length,

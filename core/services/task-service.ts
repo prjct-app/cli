@@ -270,6 +270,21 @@ export async function startTask(
     )
   }
 
+  // Estimation loop (write side): store the triage's size estimate on the
+  // typed row; completion compares it against the ACTUAL diff so velocity can
+  // learn the dev's estimation bias per classification. Best-effort.
+  try {
+    const { prjctDb } = await import('../storage/database')
+    prjctDb.run(
+      projectId,
+      'UPDATE tasks SET expected_value = ? WHERE id = ?',
+      String(orchestration.expectedPoints),
+      taskId
+    )
+  } catch {
+    /* estimate is advisory telemetry */
+  }
+
   const pipelineDecision = decideTaskPipeline(description, linkedSpecId)
   const pipelineState = upsertTaskPipelineState(projectId, {
     taskId,
@@ -485,6 +500,7 @@ export async function setTaskStatus(
         harnessWarnings: verification.warnings,
       })
       await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
+      await recordEstimationOutcome(projectId, wsTask.id, verification.diffSize)
       return {
         ok: true,
         taskId: wsTask.id,
@@ -529,7 +545,7 @@ export async function setTaskStatus(
   const verification =
     normalized === 'done' || normalized === 'completed'
       ? await evaluateHarnessCompletion(projectPath, active)
-      : { warnings: [] }
+      : { warnings: [], diffSize: 0 }
 
   await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
     taskId: active.id,
@@ -545,6 +561,7 @@ export async function setTaskStatus(
   try {
     if (normalized === 'done' || normalized === 'completed') {
       await stateStorage.completeTask(projectId)
+      await recordEstimationOutcome(projectId, active.id, verification.diffSize)
     } else if (normalized === 'paused' || normalized === 'pause') {
       await stateStorage.pauseTask(projectId)
     } else if (resumeIntent) {
@@ -587,6 +604,41 @@ export async function resolveActiveTask(
  * (main) or per-workspace (child) completion so ship/done isolate correctly.
  * Returns the completed task, or null when nothing was active.
  */
+/**
+ * Estimation loop (close side): fold expected vs ACTUAL size into the
+ * completed task's cold data. Runs AFTER the state-storage completion (whose
+ * history mirror rewrites `data`), so json_set survives. Best-effort.
+ */
+async function recordEstimationOutcome(
+  projectId: string,
+  taskId: string,
+  diffSize: number
+): Promise<void> {
+  try {
+    const { prjctDb } = await import('../storage/database')
+    const { pointsFromDiffLines } = await import('./task-orchestration')
+    const row = prjctDb.get<{ expected_value: string | null }>(
+      projectId,
+      'SELECT expected_value FROM tasks WHERE id = ?',
+      taskId
+    )
+    const expected = Number(row?.expected_value)
+    if (!Number.isFinite(expected) || expected <= 0) return
+    prjctDb.run(
+      projectId,
+      `UPDATE tasks SET data = json_set(COALESCE(data, '{}'),
+         '$.expectedPoints', ?, '$.actualPoints', ?, '$.diffLines', ?)
+       WHERE id = ?`,
+      expected,
+      pointsFromDiffLines(diffSize),
+      diffSize,
+      taskId
+    )
+  } catch {
+    /* estimation telemetry only */
+  }
+}
+
 export async function completeActiveTask(
   projectId: string,
   projectPath: string,

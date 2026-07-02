@@ -100,3 +100,34 @@ describe('velocity — computed weekly sprints from typed delivery data', () => 
     expect(md).toContain('Week digest')
   })
 })
+
+describe('estimation loop — expected vs actual points', () => {
+  it('computes accuracy + under-estimation patterns from completed tasks', async () => {
+    // Accurate: expected 2, actual 2 (same step).
+    prjctDb.run(
+      pid,
+      `INSERT INTO tasks (id, description, status, started_at, completed_at, data)
+       VALUES ('e1', 'small fix', 'completed', ?, ?, json('{"expectedPoints":2,"actualPoints":2,"diffLines":80}'))`,
+      iso(2),
+      iso(1)
+    )
+    // Badly under-estimated: expected 2 (step 1), actual 8 (step 3) — drift 2.
+    prjctDb.run(
+      pid,
+      `INSERT INTO tasks (id, description, type, status, started_at, completed_at, data)
+       VALUES ('e2', 'runaway refactor', 'refactor', 'completed', ?, ?, json('{"expectedPoints":2,"actualPoints":8,"diffLines":900}'))`,
+      iso(2),
+      iso(1)
+    )
+
+    const m = await velocityStorage.getMetrics(pid).catch(() => null)
+    // getMetrics needs at least one sprint row — recompute from the tasks.
+    await velocityStorage.recompute(pid)
+    const metrics = await velocityStorage.getMetrics(pid)
+    expect(metrics.estimationAccuracy).toBe(50) // 1 of 2 within ±1 step
+    expect(metrics.underEstimated).toHaveLength(1)
+    expect(metrics.underEstimated[0].category).toBe('refactor')
+    expect(metrics.underEstimated[0].avgVariance).toBeGreaterThan(0) // actual > expected
+    void m
+  })
+})

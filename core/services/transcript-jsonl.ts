@@ -95,3 +95,33 @@ export function sumTranscriptUsage(lines: TranscriptJsonlLine[]): TranscriptUsag
   }
   return { tokensIn: tokensIn + maxCacheRead, tokensOut }
 }
+
+/**
+ * Per-model usage sums — same semantics as sumTranscriptUsage (cache_read is
+ * cumulative → take each model's max single report, not the sum). Model id
+ * comes from the assistant line's `message.model`; usage lines with no model
+ * attribution are grouped under 'unknown'. Powers the per-model cost
+ * breakdown that PROVES whether orchestration's model routing saves money.
+ */
+export function sumTranscriptUsageByModel(
+  lines: TranscriptJsonlLine[]
+): Map<string, TranscriptUsage> {
+  const acc = new Map<string, { tokensIn: number; tokensOut: number; maxCacheRead: number }>()
+  for (const line of lines) {
+    const message = asRecord(line.message)
+    const usage = asRecord(message?.usage) ?? asRecord(line.usage) ?? asRecord(line.usageMetadata)
+    if (!usage) continue
+    const model = typeof message?.model === 'string' && message.model ? message.model : 'unknown'
+    const pair = usagePairFrom(usage)
+    const cur = acc.get(model) ?? { tokensIn: 0, tokensOut: 0, maxCacheRead: 0 }
+    cur.tokensIn += pair.tokensIn
+    cur.tokensOut += pair.tokensOut
+    if (pair.cacheRead > cur.maxCacheRead) cur.maxCacheRead = pair.cacheRead
+    acc.set(model, cur)
+  }
+  const out = new Map<string, TranscriptUsage>()
+  for (const [model, v] of acc) {
+    out.set(model, { tokensIn: v.tokensIn + v.maxCacheRead, tokensOut: v.tokensOut })
+  }
+  return out
+}
