@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.16.0] - 2026-07-02
+
+### Features
+
+- metrics in typed tables + stamp tasks.shipped_at — two more dual-store bugs fixed (#502)
+
+
 ## [3.15.1] - 2026-07-02
 
 ### Bug Fixes
