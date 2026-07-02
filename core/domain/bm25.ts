@@ -497,9 +497,14 @@ function loadIndexFromPerFileTables(
   stored: StoredBm25Index | null
 ): BM25Index | null {
   try {
-    const docs = prjctDb.query<{ path: string; tokens: string; length: number }>(
+    // tokens column deliberately NOT selected: scoring needs only lengths +
+    // the inverted index, and parsing every doc's token JSON (477KB on the
+    // reference repo) dominated the load. removeDocument's empty-tokens
+    // fallback covers the incremental path; changed files are re-tokenized
+    // fresh before their rows are rewritten.
+    const docs = prjctDb.query<{ path: string; length: number }>(
       projectId,
-      'SELECT path, tokens, length FROM bm25_documents ORDER BY path'
+      'SELECT path, length FROM bm25_documents ORDER BY path'
     )
     if (docs.length === 0) {
       if (stored?.totalDocs === 0) {
@@ -520,8 +525,7 @@ function loadIndexFromPerFileTables(
     const invertedIndex: BM25Index['invertedIndex'] = emptyInvertedIndex()
     let totalLength = 0
     for (const doc of docs) {
-      const tokens = JSON.parse(doc.tokens) as string[]
-      documents[doc.path] = { tokens, length: doc.length }
+      documents[doc.path] = { tokens: [], length: doc.length }
       totalLength += doc.length
     }
 
@@ -546,6 +550,25 @@ function loadIndexFromPerFileTables(
     return index
   } catch {
     return null
+  }
+}
+
+/**
+ * Cheap existence check: the kv meta row is written on every save, so its
+ * presence answers "is there an index?" without deserializing the corpus
+ * (the registry's hasIndex used to trigger a FULL load for this).
+ */
+export function hasIndex(projectId: string): boolean {
+  try {
+    return (
+      prjctDb.get<{ k: string }>(
+        projectId,
+        'SELECT key AS k FROM kv_store WHERE key = ? LIMIT 1',
+        INDEX_KEY
+      ) != null
+    )
+  } catch {
+    return false
   }
 }
 

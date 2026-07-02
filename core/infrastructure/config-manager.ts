@@ -42,19 +42,44 @@ function parseJsonc<T>(content: string): T {
   return result
 }
 
+/**
+ * mtime-keyed config cache. The hooks read prjct.config.json up to 4× per
+ * EDIT (pre-edit ×2, post-edit + memoryService.getProjectId) and 1-2× per
+ * prompt/stop — each a disk read + jsonc scanner parse (~5-10× slower than
+ * JSON.parse). The daemon keeps this map warm across hook invocations; the
+ * mtime check keeps it correct when the user (or prjct itself) edits the
+ * file. Bounded like the git-snapshot cache: hooks only ever see a handful
+ * of cwds per daemon.
+ */
+const configCache = new Map<string, { mtimeMs: number; config: LocalConfig | null }>()
+
 class ConfigManager {
   /**
    * Read the project configuration file
    * Supports both .json and .jsonc formats (with comments)
    */
   async readConfig(projectPath: string): Promise<LocalConfig | null> {
+    const configPath = pathManager.getLocalConfigPath(projectPath)
+    let mtimeMs = -1
     try {
-      const configPath = pathManager.getLocalConfigPath(projectPath)
+      mtimeMs = (await fs.stat(configPath)).mtimeMs
+    } catch {
+      configCache.delete(configPath)
+      return null // no file — same result the read would produce
+    }
+    const cached = configCache.get(configPath)
+    if (cached && cached.mtimeMs === mtimeMs) return cached.config
+
+    try {
       const content = await fs.readFile(configPath, 'utf-8')
-      return parseJsonc<LocalConfig>(content)
+      const config = parseJsonc<LocalConfig>(content)
+      if (configCache.size > 32) configCache.clear()
+      configCache.set(configPath, { mtimeMs, config })
+      return config
     } catch (error) {
-      // File not found is expected - return null
+      // File vanished between stat and read is expected - return null
       if (isNotFoundError(error)) {
+        configCache.delete(configPath)
         return null
       }
       // JSON parse errors or other issues - log and return null
@@ -69,6 +94,9 @@ class ConfigManager {
   async writeConfig(projectPath: string, config: LocalConfig): Promise<void> {
     const configPath = pathManager.getLocalConfigPath(projectPath)
     await writeJson(configPath, config)
+    // Drop rather than update: the next read re-stats and re-caches, keeping
+    // one authority (the file + its mtime) for what the cache holds.
+    configCache.delete(configPath)
   }
 
   /**

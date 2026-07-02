@@ -40,6 +40,27 @@ interface HookInput {
   session_id?: string
 }
 
+/**
+ * Per-project cooldown for the EXPENSIVE, non-turn-critical Stop steps.
+ * Claude fires Stop after EVERY assistant turn, but pattern detection
+ * (2 git forks, ~110ms), session cleanup (inbox recall + archive prune) and
+ * the embeddings backfill are session-cadence work — running them per turn
+ * made the Stop hook do O(session) duplicated work all day. Daemon-resident
+ * map: the warm daemon (the hot case) honors the cooldown; a cold one-shot
+ * CLI stop simply runs the work — correct either way, since every step is
+ * idempotent.
+ */
+const HEAVY_STEP_COOLDOWN_MS = 10 * 60 * 1000
+const heavyStepLastRun = new Map<string, number>()
+
+function heavyStepsDue(projectId: string): boolean {
+  const last = heavyStepLastRun.get(projectId) ?? 0
+  if (Date.now() - last < HEAVY_STEP_COOLDOWN_MS) return false
+  if (heavyStepLastRun.size > 32) heavyStepLastRun.clear()
+  heavyStepLastRun.set(projectId, Date.now())
+  return true
+}
+
 export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): Promise<void> {
   return runHook<HookInput>(
     {
@@ -121,32 +142,39 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           }
         }
 
+        // Session-cadence work behind the cooldown (see heavyStepsDue): these
+        // steps are idempotent and their signal changes on the minutes scale,
+        // not per turn.
+        const runHeavySteps = heavyStepsDue(config.projectId)
+
         // M2: detect durable patterns (hot files for now) and persist them
         // as learning memory entries. Lookup-first protocol means Claude
         // finds them on next session start without inflating context.
-        try {
-          await detectAndPersistPatterns(p, config)
-        } catch {
-          // Git failure / non-repo → swallow; nothing to do here.
-        }
+        if (runHeavySteps) {
+          try {
+            await detectAndPersistPatterns(p, config)
+          } catch {
+            // Git failure / non-repo → swallow; nothing to do here.
+          }
 
-        // Lean-debt growth (opt-in via config.lean.mode): flag when `lean:`
-        // simplification markers accumulate. No-op when lean mode is off.
-        try {
-          await detectAndPersistLeanDebt(p, config)
-        } catch {
-          // Same contract — git failure / non-repo → swallow.
-        }
+          // Lean-debt growth (opt-in via config.lean.mode): flag when `lean:`
+          // simplification markers accumulate. No-op when lean mode is off.
+          try {
+            await detectAndPersistLeanDebt(p, config)
+          } catch {
+            // Same contract — git failure / non-repo → swallow.
+          }
 
-        // Session-end housekeeping (Phase A): age-out inbox, prune archives
-        // and old checkpoints, rotate stale on-disk caches. Best-effort —
-        // each step internally swallows its own failures, so the rest of
-        // the cleanup still runs even if one step trips.
-        try {
-          const cleanup = await runSessionCleanup(config.projectId)
-          await recordCleanupReport(config.projectId, cleanup)
-        } catch {
-          /* never block session end on cleanup */
+          // Session-end housekeeping (Phase A): age-out inbox, prune archives
+          // and old checkpoints, rotate stale on-disk caches. Best-effort —
+          // each step internally swallows its own failures, so the rest of
+          // the cleanup still runs even if one step trips.
+          try {
+            const cleanup = await runSessionCleanup(config.projectId)
+            await recordCleanupReport(config.projectId, cleanup)
+          } catch {
+            /* never block session end on cleanup */
+          }
         }
 
         // Session-end friction capture (Phase B): scan the transcript for
@@ -205,14 +233,16 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // every project; a configured HTTP endpoint transparently takes over.
         // Best-effort, idempotent (only un-embedded entries are touched), and
         // must never block session end.
-        try {
-          // First arg is the projectId, NOT the path: passing `p` here keyed
-          // every query to path.join(projectsDir, <abs path>) — a phantom DB
-          // under ~/.prjct-cli/projects/Users/... that made the session-end
-          // backfill a silent no-op (ghost dirs confirmed on disk).
-          await embeddingService.backfill(config.projectId, config, new Date().toISOString())
-        } catch {
-          /* never block session end on index maintenance */
+        if (runHeavySteps) {
+          try {
+            // First arg is the projectId, NOT the path: passing `p` here keyed
+            // every query to path.join(projectsDir, <abs path>) — a phantom DB
+            // under ~/.prjct-cli/projects/Users/... that made the session-end
+            // backfill a silent no-op (ghost dirs confirmed on disk).
+            await embeddingService.backfill(config.projectId, config, new Date().toISOString())
+          } catch {
+            /* never block session end on index maintenance */
+          }
         }
 
         // Cloud sync (opt-in): flush this project's pending queue at session
