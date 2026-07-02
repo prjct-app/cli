@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.20.0] - 2026-07-02
+
+### Features
+
+- task history in typed tasks table — state blob −94% (Schema v2 C4, history slice) (#506)
+
+
 ## [3.19.0] - 2026-07-02
 
 ### Features
