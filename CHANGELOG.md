@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.21.1] - 2026-07-02
+
+### Bug Fixes
+
+- cleanup sweep — dead code, edge cases in recent ships, hot-path perf (#508)
+
+
 ## [3.21.0] - 2026-07-02
 
 ### Features
