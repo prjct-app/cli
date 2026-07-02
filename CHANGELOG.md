@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.21.0] - 2026-07-02
+
+### Features
+
+- gentle-ai learnings — ALL 8 mechanisms (#507)
+
+
 ## [3.20.0] - 2026-07-02
 
 ### Features
