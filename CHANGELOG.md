@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.23.0] - 2026-07-02
+
+### Features
+
+- tier-2 package — guard PR mode, global KB, memory lifecycle, changelog, bench, import hint (#512)
+
+
 ## [3.22.0] - 2026-07-02
 
 ### Features
