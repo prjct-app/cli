@@ -105,9 +105,3 @@ export async function fetchLatestVersion(): Promise<string | null> {
     return null
   }
 }
-
-export const _internal = {
-  statusPath,
-  FETCH_THROTTLE_MS,
-  NPM_REGISTRY,
-}

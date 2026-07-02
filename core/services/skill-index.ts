@@ -33,15 +33,33 @@ function skillRoots(projectPath: string): Array<{ dir: string; scope: 'project' 
   ]
 }
 
-/** Minimal frontmatter parse: `name:` (fallback: dir name) + `description:`. */
+/**
+ * Minimal frontmatter parse: `name:` (fallback: dir name) + `description:`.
+ * Tolerates BOM + CRLF (a Windows-authored skill must not lose its declared
+ * name and collide under the directory-name fallback) and YAML folded blocks
+ * (`description: >` / `>-` / `|`) — the folded value is the following
+ * indented lines joined, not the literal fold marker.
+ */
 function parseFrontmatter(raw: string): { name?: string; description?: string } {
-  const m = raw.match(/^---\n([\s\S]*?)\n---/)
+  const normalized = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n')
+  const m = normalized.match(/^---\n([\s\S]*?)\n---/)
   if (!m) return {}
   const out: { name?: string; description?: string } = {}
-  for (const line of m[1].split('\n')) {
-    const kv = line.match(/^(name|description):\s*(.+)$/)
+  const lines = m[1].split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const kv = lines[i].match(/^(name|description):\s*(.*)$/)
     if (!kv) continue
-    out[kv[1] as 'name' | 'description'] = kv[2].trim().replace(/^["']|["']$/g, '')
+    const field = kv[1] as 'name' | 'description'
+    let value = kv[2].trim()
+    if (/^[>|][+-]?$/.test(value)) {
+      // Folded/literal block: collect the following indented lines.
+      const parts: string[] = []
+      while (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) {
+        parts.push(lines[++i].trim())
+      }
+      value = parts.join(' ')
+    }
+    if (value) out[field] = value.replace(/^["']|["']$/g, '')
   }
   return out
 }

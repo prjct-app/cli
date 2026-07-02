@@ -23,9 +23,16 @@ import { StorageManager } from './storage-manager'
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
-/** Stable cross-machine sprint number: whole weeks since the Unix epoch. */
-export function epochWeek(dateIso: string): number {
-  return Math.floor(new Date(dateIso).getTime() / WEEK_MS)
+/**
+ * Stable cross-machine sprint number: whole weeks since the Unix epoch.
+ * Returns null for unparseable timestamps — sync-pulled rows can carry '' or
+ * garbage, and a single NaN week key used to throw in weekStartIso and kill
+ * BOTH velocity and the weekly dev snapshot on every sync thereafter.
+ */
+export function epochWeek(dateIso: string): number | null {
+  const t = new Date(dateIso).getTime()
+  if (!Number.isFinite(t)) return null
+  return Math.floor(t / WEEK_MS)
 }
 
 function weekStartIso(week: number): string {
@@ -87,12 +94,14 @@ class VelocityStorage extends StorageManager<VelocityStoreData> {
     const byWeek = new Map<number, { tasks: number; ships: number }>()
     for (const r of taskRows) {
       const w = epochWeek(r.completed_at)
+      if (w === null) continue // malformed timestamp — skip the row, not the sprint rebuild
       const cur = byWeek.get(w) ?? { tasks: 0, ships: 0 }
       cur.tasks++
       byWeek.set(w, cur)
     }
     for (const r of shipRows) {
       const w = epochWeek(r.shipped_at)
+      if (w === null) continue
       const cur = byWeek.get(w) ?? { tasks: 0, ships: 0 }
       cur.ships++
       byWeek.set(w, cur)
@@ -156,7 +165,9 @@ class VelocityStorage extends StorageManager<VelocityStoreData> {
     const last3 = rows.slice(0, 3).reduce((s, r) => s + r.points_completed, 0)
     const prev3 = rows.slice(3, 6).reduce((s, r) => s + r.points_completed, 0)
     let velocityTrend: VelocityTrend = 'stable'
-    if (rows.length >= 4) {
+    // Balanced windows only: with 4-5 sprints, last-3 vs prev-1/2 compared a
+    // 3-week sum against a smaller one and reported flat delivery "improving".
+    if (rows.length >= 6) {
       if (last3 > prev3 * 1.15) velocityTrend = 'improving'
       else if (last3 < prev3 * 0.85) velocityTrend = 'declining'
     }

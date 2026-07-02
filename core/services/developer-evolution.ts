@@ -89,6 +89,7 @@ function buildSummary(s: Omit<DeveloperSnapshot, 'summary' | 'week' | 'capturedA
 export async function captureDeveloperSnapshot(projectId: string): Promise<boolean> {
   const now = new Date().toISOString()
   const week = epochWeek(now)
+  if (week === null) return false // unreachable for a fresh ISO stamp; satisfies the guard
   const since = Date.now() - 7 * 24 * 60 * 60 * 1000
   const sinceIso = new Date(since).toISOString()
 

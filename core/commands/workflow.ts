@@ -242,7 +242,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
     let delegationTrigger: string | null = null
     try {
       const { execFileAsync } = await import('../utils/exec')
-      const r = await execFileAsync('git', ['diff', '--name-only', 'HEAD'], {
+      // status --porcelain covers modified AND untracked (diff HEAD misses
+      // brand-new files — often the bulk of a multi-file change). This counts
+      // current working-tree surface, an honest proxy for "this cycle" on
+      // rigs without edit hooks; committed-as-you-go work under-counts.
+      const r = await execFileAsync('git', ['status', '--porcelain'], {
         cwd: projectPath,
         timeout: 2000,
       })

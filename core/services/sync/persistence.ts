@@ -37,11 +37,15 @@ export async function recordSyncMetrics(
   duration: number
 ): Promise<SyncMetrics> {
   // Real original size from BM25 index (actual tokens indexed from source files).
+  // Loaded ONCE and reused by the index-stats block below — the second load
+  // used to hit right after the sync invalidated the cache, paying a full
+  // corpus deserialize twice per sync.
+  let bm25Index: ReturnType<typeof loadBm25Index> = null
   let originalSize = 0
   try {
-    const bm25 = loadBm25Index(projectId)
-    if (bm25) {
-      for (const doc of Object.values(bm25.documents)) {
+    bm25Index = loadBm25Index(projectId)
+    if (bm25Index) {
+      for (const doc of Object.values(bm25Index.documents)) {
         originalSize += doc.length
       }
     }
@@ -73,18 +77,25 @@ export async function recordSyncMetrics(
   // Delivery velocity (weekly sprints from tasks+ships) and the weekly
   // developer-evolution snapshot. Both typed, both idempotent, both
   // best-effort — a failure never degrades the sync itself.
+  // Isolated try/catch per rollup: a failure in one must not silently skip
+  // the others (a shared block once let a single bad timestamp starve BOTH
+  // velocity and the weekly snapshot on every sync).
   try {
     const { velocityStorage } = await import('../../storage/velocity-storage')
     await velocityStorage.recompute(projectId)
+  } catch (error) {
+    log.debug('Failed to recompute velocity', { error: getErrorMessage(error) })
+  }
+  try {
     const { captureDeveloperSnapshot } = await import('../developer-evolution')
     await captureDeveloperSnapshot(projectId)
   } catch (error) {
-    log.debug('Failed to update velocity/dev-evolution', { error: getErrorMessage(error) })
+    log.debug('Failed to capture dev snapshot', { error: getErrorMessage(error) })
   }
 
   const indexes: NonNullable<SyncMetrics['indexes']> = {}
   try {
-    const bm25 = loadBm25Index(projectId)
+    const bm25 = bm25Index
     if (bm25) {
       indexes.bm25Files = bm25.totalDocs
       indexes.bm25AvgTokens = Math.round(bm25.avgDocLength)

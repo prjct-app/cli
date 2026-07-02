@@ -192,7 +192,14 @@ class QueueStorage extends StorageManager<QueueJson> {
   ): Promise<void> {
     const existing = await this.getTask(projectId, task.id)
     if (existing) {
-      const merged = { ...existing, ...task }
+      // Field-presence merge: only keys the caller EXPLICITLY sent overwrite
+      // local values. Spreading fabricated defaults here once let a cloud
+      // echo of a minimal payload reset a local 'active/high' task to
+      // 'backlog/medium' — vanishing it from the per-prompt active read.
+      const merged = { ...existing }
+      for (const k of ['description', 'type', 'priority', 'section'] as const) {
+        if (task[k] !== undefined) (merged as Record<string, unknown>)[k] = task[k]
+      }
       prjctDb.run(
         projectId,
         `UPDATE queue_tasks SET description = ?, type = ?, priority = ?, section = ?

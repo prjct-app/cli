@@ -34,46 +34,10 @@ export const AgentUsageSchema = z.object({
 /**
  * Main metrics JSON structure
  */
-export const MetricsJsonSchema = z.object({
-  // Token metrics
-  totalTokensSaved: z.number(),
-  avgCompressionRate: z.number(), // 0-1 (e.g., 0.63 = 63% reduction)
-
-  // Sync metrics
-  syncCount: z.number(),
-  watchTriggers: z.number(), // Auto-syncs from watch mode
-  avgSyncDuration: z.number(), // Average in ms
-  totalSyncDuration: z.number(), // Total in ms
-
-  // Agent usage
-  agentUsage: z.array(AgentUsageSchema),
-
-  // Time series for trends
-  dailyStats: z.array(DailyStatsSchema),
-
-  // Metadata
-  firstSync: z.string(), // ISO8601 - when tracking started
-  lastUpdated: z.string(), // ISO8601
-})
-
 // Inferred Types
 
 export type DailyStats = z.infer<typeof DailyStatsSchema>
 export type AgentUsage = z.infer<typeof AgentUsageSchema>
-export type MetricsJson = z.infer<typeof MetricsJsonSchema>
-
-export const DEFAULT_METRICS: MetricsJson = {
-  totalTokensSaved: 0,
-  avgCompressionRate: 0,
-  syncCount: 0,
-  watchTriggers: 0,
-  avgSyncDuration: 0,
-  totalSyncDuration: 0,
-  agentUsage: [],
-  dailyStats: [],
-  firstSync: '',
-  lastUpdated: '',
-}
 
 // Cost Calculation Constants (January 2026 Pricing)
 

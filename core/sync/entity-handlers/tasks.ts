@@ -11,7 +11,7 @@
  *   - other status → upsert into queue by id.
  */
 
-import type { Priority, TaskSection, TaskType } from '../../schemas/state'
+import type { Priority, TaskType } from '../../schemas/state'
 import { queueStorage } from '../../storage/queue-storage'
 import { stateStorage } from '../../storage/state-storage'
 import type { EntityHandler } from './types'
@@ -52,9 +52,10 @@ export const tasksHandler: EntityHandler = {
     await queueStorage.upsertTask(projectId, {
       id,
       description: data.description as string,
-      priority: (data.priority as Priority) || 'medium',
-      type: (data.type as TaskType) || 'feature',
-      section: 'backlog' as TaskSection,
+      ...(data.priority ? { priority: data.priority as Priority } : {}),
+      ...(data.type ? { type: data.type as TaskType } : {}),
+      // section only defaults on INSERT (inside upsertTask) — an update must
+      // not demote a locally-activated task back to backlog.
     })
   },
 

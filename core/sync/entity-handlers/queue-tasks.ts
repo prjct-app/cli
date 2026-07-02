@@ -30,12 +30,14 @@ export const queueTasksHandler: EntityHandler = {
       return
     }
 
+    // Pass ONLY fields the wire actually carried — fabricated defaults on an
+    // UPDATE clobber local state (upsertTask supplies defaults on INSERT).
     await queueStorage.upsertTask(projectId, {
       id,
       description,
-      priority: (data.priority as Priority) || 'medium',
-      type: (data.type as TaskType) || 'feature',
-      section: (data.section as TaskSection) || 'backlog',
+      ...(data.priority ? { priority: data.priority as Priority } : {}),
+      ...(data.type ? { type: data.type as TaskType } : {}),
+      ...(data.section ? { section: data.section as TaskSection } : {}),
     })
   },
 
