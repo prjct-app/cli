@@ -257,3 +257,66 @@ describe('migration 55 — kv ideas blob → typed table + orphan-key sweep', ()
     db.close()
   })
 })
+
+describe('migration 56 — task history: blob → typed tasks rows', () => {
+  it('backfills history entries and strips taskHistory from the state blob', () => {
+    const db = openDatabase(':memory:')
+    db.run(
+      `CREATE TABLE tasks (
+         id TEXT PRIMARY KEY, description TEXT NOT NULL, type TEXT, status TEXT NOT NULL,
+         branch TEXT, linear_id TEXT, pr_url TEXT, started_at TEXT NOT NULL, completed_at TEXT,
+         tokens_in INTEGER DEFAULT 0, tokens_out INTEGER DEFAULT 0, data TEXT )`
+    )
+    db.run(
+      'CREATE TABLE kv_store (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'
+    )
+    const state = {
+      currentTask: { id: 'live', description: 'still running' },
+      pausedTasks: [],
+      taskHistory: [
+        {
+          taskId: 'h1',
+          title: 'shipped the thing',
+          classification: 'feature',
+          startedAt: '2026-06-01T00:00:00.000Z',
+          completedAt: '2026-06-01T02:00:00.000Z',
+          subtaskCount: 2,
+          subtaskSummaries: [],
+          outcome: 'done well',
+          branchName: 'feat/x',
+          linearId: 'PRJ-9',
+          feedback: { patternsDiscovered: ['p1'] },
+          tokensIn: 100,
+          tokensOut: 50,
+        },
+        { title: 'no taskId — skipped' },
+      ],
+      lastUpdated: 'x',
+    }
+    db.prepare('INSERT INTO kv_store (key, data, updated_at) VALUES (?, ?, ?)').run(
+      'state',
+      JSON.stringify(state),
+      'x'
+    )
+
+    const m56 = migrations.find((m) => m.version === 56)
+    expect(m56).toBeTruthy()
+    m56?.up(db)
+
+    const row = db.prepare("SELECT * FROM tasks WHERE id = 'h1'").get() as Record<string, unknown>
+    expect(row.status).toBe('completed')
+    expect(row.type).toBe('feature')
+    expect(row.linear_id).toBe('PRJ-9')
+    expect(row.tokens_in).toBe(100)
+    const cold = JSON.parse(row.data as string)
+    expect(cold.outcome).toBe('done well')
+    expect(cold.feedback.patternsDiscovered).toEqual(['p1'])
+    // Blob keeps the LIVE state machine but loses taskHistory.
+    const blob = JSON.parse(
+      (db.prepare("SELECT data FROM kv_store WHERE key = 'state'").get() as { data: string }).data
+    )
+    expect(blob.currentTask.id).toBe('live')
+    expect('taskHistory' in blob).toBe(false)
+    db.close()
+  })
+})

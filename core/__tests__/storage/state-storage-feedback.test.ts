@@ -86,7 +86,9 @@ async function startAndCompleteWithFeedback(
 ): Promise<StateJson> {
   await stateStorage.startTask(projectId, task)
   await stateStorage.completeTask(projectId, feedback)
-  return await stateStorage.read(projectId)
+  // Schema v2 (C4): history lives in the typed tasks table, not the blob.
+  const state = await stateStorage.read(projectId)
+  return { ...state, taskHistory: await stateStorage.getTaskHistory(projectId) }
 }
 
 // Tests: TaskFeedback Schema Validation
@@ -184,7 +186,7 @@ describe('Feedback Persistence', () => {
       patternsDiscovered: ['Pattern from task 2'],
     })
 
-    const state = await stateStorage.read(testProjectId)
+    const state = { taskHistory: await stateStorage.getTaskHistory(testProjectId) }
     expect(state.taskHistory!.length).toBe(2)
     // Most recent first (FIFO)
     expect(state.taskHistory![0].feedback?.patternsDiscovered).toEqual(['Pattern from task 2'])

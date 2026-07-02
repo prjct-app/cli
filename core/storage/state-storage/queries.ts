@@ -1,16 +1,84 @@
 /**
  * Read-only query helpers + clear/has on StateStorage. Extracted to
  * keep the facade focused on lifecycle mutations.
+ *
+ * Schema v2 (C4): task HISTORY reads come from the typed `tasks` table
+ * (completed rows + their cold `data` extras), not the state blob — the blob
+ * only carries the live state machine (currentTask/pausedTasks/activeTasks).
  */
 
 import type { PreviousTask, StateJson, TaskHistoryEntry } from '../../schemas/state'
 import { getTimestamp } from '../../utils/date-helper'
+import { prjctDb } from '../database'
 
 export interface QueryBackend {
   read(projectId: string): Promise<StateJson>
   update(projectId: string, fn: (s: StateJson) => StateJson): Promise<StateJson>
   getPausedTasksFromState(state: StateJson): PreviousTask[]
-  getTaskHistoryFromState(state: StateJson): TaskHistoryEntry[]
+}
+
+/** Parity with the legacy blob list, which was FIFO-capped at 20 entries. */
+const HISTORY_LIMIT = 20
+
+interface HistoryRow {
+  id: string
+  description: string
+  type: string | null
+  branch: string | null
+  linear_id: string | null
+  pr_url: string | null
+  started_at: string
+  completed_at: string
+  tokens_in: number | null
+  tokens_out: number | null
+  data: string | null
+}
+
+function rowToHistoryEntry(r: HistoryRow): TaskHistoryEntry {
+  let cold: Partial<TaskHistoryEntry> & { title?: string } = {}
+  if (r.data) {
+    try {
+      cold = JSON.parse(r.data)
+    } catch {
+      cold = {}
+    }
+  }
+  const entry: TaskHistoryEntry = {
+    taskId: r.id,
+    title: cold.title ?? r.description,
+    classification: (r.type ?? 'improvement') as TaskHistoryEntry['classification'],
+    startedAt: r.started_at,
+    completedAt: r.completed_at,
+    subtaskCount: cold.subtaskCount ?? 0,
+    subtaskSummaries: cold.subtaskSummaries ?? [],
+    outcome: cold.outcome ?? 'Task completed',
+    branchName: r.branch ?? 'unknown',
+  }
+  if (r.linear_id != null) entry.linearId = r.linear_id
+  if (cold.linearUuid != null) entry.linearUuid = cold.linearUuid
+  if (r.pr_url != null) entry.prUrl = r.pr_url
+  if (cold.feedback) entry.feedback = cold.feedback
+  if (cold.harness) entry.harness = cold.harness
+  if (r.tokens_in) entry.tokensIn = r.tokens_in
+  if (r.tokens_out) entry.tokensOut = r.tokens_out
+  return entry
+}
+
+function queryHistory(projectId: string, extraWhere = '', ...params: string[]): TaskHistoryEntry[] {
+  try {
+    return prjctDb
+      .query<HistoryRow>(
+        projectId,
+        `SELECT id, description, type, branch, linear_id, pr_url, started_at, completed_at, tokens_in, tokens_out, data
+         FROM tasks
+         WHERE status = 'completed' AND completed_at IS NOT NULL ${extraWhere}
+         ORDER BY completed_at DESC, rowid DESC LIMIT ${HISTORY_LIMIT}`,
+        ...params
+      )
+      .map(rowToHistoryEntry)
+  } catch {
+    return [] // history is best-effort context — never break a caller
+  }
 }
 
 export async function clearTask(backend: QueryBackend, projectId: string): Promise<void> {
@@ -47,30 +115,25 @@ export async function getAllPausedTasks(
 }
 
 export async function getTaskHistory(
-  backend: QueryBackend,
+  _backend: QueryBackend,
   projectId: string
 ): Promise<TaskHistoryEntry[]> {
-  const state = await backend.read(projectId)
-  return backend.getTaskHistoryFromState(state)
+  return queryHistory(projectId)
 }
 
 export async function getMostRecentTask(
-  backend: QueryBackend,
+  _backend: QueryBackend,
   projectId: string
 ): Promise<TaskHistoryEntry | null> {
-  const state = await backend.read(projectId)
-  const history = backend.getTaskHistoryFromState(state)
-  return history[0] || null
+  return queryHistory(projectId)[0] || null
 }
 
 export async function getTaskHistoryByType(
-  backend: QueryBackend,
+  _backend: QueryBackend,
   projectId: string,
   classification: TaskHistoryEntry['classification']
 ): Promise<TaskHistoryEntry[]> {
-  const state = await backend.read(projectId)
-  const history = backend.getTaskHistoryFromState(state)
-  return history.filter((t) => t.classification === classification)
+  return queryHistory(projectId, 'AND type = ?', classification)
 }
 
 /**

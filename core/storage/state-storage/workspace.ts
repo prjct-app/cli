@@ -19,8 +19,8 @@ export interface WorkspaceBackend {
     completedAt: string,
     feedback?: TaskFeedback
   ): TaskHistoryEntry
-  getTaskHistoryFromState(state: StateJson): TaskHistoryEntry[]
-  maxTaskHistory: number
+  /** Persist a completed task's history entry into the typed `tasks` table. */
+  persistHistoryEntry(projectId: string, entry: TaskHistoryEntry): void
 }
 
 export async function startTaskInWorkspace(
@@ -82,23 +82,22 @@ export async function completeTaskInWorkspace(
 
   const completedAt = getTimestamp()
 
-  // Build the history entry + trimmed history INSIDE the CAS updater so a
-  // concurrent completion's retry re-applies against the freshest history
-  // (closing over an outer-read history would clobber the other completer).
+  // Capture the FRESH task inside the CAS updater (a concurrent update may
+  // have mutated it since the outer read), then persist the history entry to
+  // the typed `tasks` table (Schema v2 C4) — the blob no longer carries it.
+  let fresh: WorkspaceTask = task
   await backend.update(projectId, (s) => {
-    const fresh = (s.activeTasks || []).find((t) => t.workspaceId === workspaceId) ?? task
-    const historyEntry = backend.createTaskHistoryEntry(fresh, completedAt, feedback)
-    const taskHistory = [historyEntry, ...backend.getTaskHistoryFromState(s)].slice(
-      0,
-      backend.maxTaskHistory
-    )
+    fresh = (s.activeTasks || []).find((t) => t.workspaceId === workspaceId) ?? task
     return {
       ...s,
       activeTasks: (s.activeTasks || []).filter((t) => t.workspaceId !== workspaceId),
-      taskHistory,
       lastUpdated: completedAt,
     }
   })
+  backend.persistHistoryEntry(
+    projectId,
+    backend.createTaskHistoryEntry(fresh, completedAt, feedback)
+  )
 
   await backend.publish(projectId, 'task.completed', {
     taskId: task.id,
