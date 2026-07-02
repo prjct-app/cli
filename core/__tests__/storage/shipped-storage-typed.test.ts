@@ -52,6 +52,28 @@ describe('shipped-storage — typed table (Schema v2 C5)', () => {
     expect(await shippedStorage.getCount(pid)).toBe(1)
   })
 
+  it('re-applying a pulled ship publishes NO new sync event (kills the ping-pong loop)', async () => {
+    const at = iso(2)
+    const pending = () =>
+      prjctDb.get<{ c: number }>(pid, 'SELECT COUNT(*) AS c FROM sync_pending')?.c ?? 0
+
+    const first = await shippedStorage.addShipped(pid, { name: 'sync echo', version: '1.0.0' }, at)
+    const afterFirst = pending()
+    expect(afterFirst).toBeGreaterThan(0) // genuine new ship → event published
+
+    // A sync pull re-applies the same ship (same natural key, as the
+    // entity-handler does). It must return the EXISTING row and publish
+    // nothing — publishing a fresh id per re-apply is the feedback loop that
+    // grew the legacy blob to 33k rows.
+    const reapplied = await shippedStorage.addShipped(
+      pid,
+      { name: 'sync echo', version: '1.0.0' },
+      at
+    )
+    expect(reapplied.id).toBe(first.id) // existing row, not a fresh UUID
+    expect(pending()).toBe(afterFirst) // zero new events
+  })
+
   it('distinct ships (same name, different version/time) are kept', async () => {
     await shippedStorage.addShipped(pid, { name: 'auth', version: '1.0.0' }, iso(3))
     await shippedStorage.addShipped(pid, { name: 'auth', version: '2.0.0' }, iso(2))

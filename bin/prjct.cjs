@@ -285,30 +285,46 @@ function runWithNode(args) {
  * Fastest path: run the bundled entry IN-PROCESS under the node that already
  * booted to run this launcher — NO second runtime boot. The historical design
  * spawned a fresh bun/node process solely to inject `--experimental-sqlite`;
- * but node:sqlite is available WITHOUT that flag on node >=22.5 (the supported
- * minimum), so the second process is pure overhead (~40ms). The bundled
- * `dist/bin/prjct.mjs` is a thin cold-entry (daemon client) that reads
- * process.argv directly — identical argv in-process vs spawned — and calls
- * process.exit() itself, so once imported it OWNS the process.
+ * when node:sqlite loads WITHOUT that flag (node >=22.13 / >=23.4), the second
+ * process is pure overhead (~40ms). The bundled `dist/bin/prjct.mjs` is a thin
+ * cold-entry (daemon client) that reads process.argv directly — identical argv
+ * in-process vs spawned — and calls process.exit() itself, so once imported it
+ * OWNS the process.
  *
  * Returns true once the entry has started (caller must NOT fall through to a
  * spawn, or the command would run twice). Returns false only when in-process
- * load is not viable (old node, missing bundle, Windows) or the module fails
- * to load — then the caller falls back to the spawn path.
+ * load is not viable (old node, missing bundle, Windows, flagged sqlite) or
+ * the module fails to load — then the caller falls back to the spawn path.
  */
 async function runInProcess() {
   // Windows keeps the well-tested spawn path (shim/pathext nuances).
   if (process.platform === 'win32') return false
   const distBin = path.join(ROOT_DIR, 'dist', 'bin', 'prjct.mjs')
   if (!fs.existsSync(distBin) || !nodeVersionOk()) return false
-  // node:sqlite is experimental on node 22.x → suppress the cosmetic
-  // ExperimentalWarning so stderr stays clean for `--md` consumers (the
-  // module is functionally available without the flag).
+  // node:sqlite still emits a one-time ExperimentalWarning on some versions →
+  // suppress ONLY that warning class so stderr stays clean for `--md`
+  // consumers without muting genuine sqlite-related warnings. Installed BEFORE
+  // the probe below, which would otherwise trip the warning itself.
   const origEmit = process.emitWarning.bind(process)
   process.emitWarning = (warning, ...rest) => {
     const msg = typeof warning === 'string' ? warning : warning?.message || ''
-    if (typeof msg === 'string' && /sqlite/i.test(msg)) return
+    const name =
+      (typeof warning === 'object' && warning?.name) ||
+      (typeof rest[0] === 'string' ? rest[0] : rest[0]?.type) ||
+      ''
+    if (name === 'ExperimentalWarning' && typeof msg === 'string' && /sqlite/i.test(msg)) return
     return origEmit(warning, ...rest)
+  }
+  // In-process cannot inject NODE_OPTIONS, so node:sqlite must be loadable
+  // WITHOUT --experimental-sqlite. That's node >=22.13 / >=23.4; on 22.5–22.12
+  // the flag is still required. Probe instead of hardcoding version ranges —
+  // if the un-flagged require throws, fall back to the spawn path (which
+  // injects the flag) so those versions keep working.
+  try {
+    require('node:sqlite')
+  } catch {
+    process.emitWarning = origEmit
+    return false
   }
   try {
     // Resolves when the entry's top-level finishes; the entry keeps the event

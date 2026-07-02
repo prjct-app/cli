@@ -51,16 +51,22 @@ describe('portable CJS launcher — in-process fast start', () => {
     expect(src).toContain('async function main()')
   })
 
-  test('suppresses the cosmetic node:sqlite ExperimentalWarning (clean stderr)', () => {
+  test('suppresses ONLY the node:sqlite ExperimentalWarning (not all sqlite warnings)', () => {
     const src = source()
     expect(src).toContain('process.emitWarning =')
+    expect(src).toContain("name === 'ExperimentalWarning'")
     expect(src).toContain('/sqlite/i')
   })
 
-  test('gates in-process on node >=22.5 and a present bundle; Windows keeps spawn', () => {
+  test('gates in-process on an UNFLAGGED node:sqlite probe (22.5–22.12 needs the flag → spawn)', () => {
     const src = source()
     expect(src).toContain('if (!fs.existsSync(distBin) || !nodeVersionOk()) return false')
     expect(src).toContain("if (process.platform === 'win32') return false")
+    // In-process cannot inject --experimental-sqlite; the probe must decide.
+    const probeIdx = src.indexOf("require('node:sqlite')")
+    const importIdx = src.indexOf('await import(url.pathToFileURL(distBin).href)')
+    expect(probeIdx).toBeGreaterThan(0)
+    expect(probeIdx).toBeLessThan(importIdx) // probe BEFORE committing in-process
   })
 
   // Runtime proof — only when a build exists (skipped in unbuilt checkouts so

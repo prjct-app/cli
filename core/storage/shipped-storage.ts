@@ -140,7 +140,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       shippedAt: shippedAt || getTimestamp(),
     }
 
-    prjctDb.run(
+    const result = prjctDb.run(
       projectId,
       `INSERT OR IGNORE INTO shipped_features
          (id, name, shipped_at, version, description, type, duration, data)
@@ -154,6 +154,23 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       shipped.duration ?? null,
       JSON.stringify(shipped)
     )
+
+    // Natural-key collision (the row already exists — typically a sync pull
+    // re-applying a ship we already have): return the EXISTING row and publish
+    // NOTHING. Publishing here minted a fresh event id per re-apply, so every
+    // pull echoed a "new" ship back to the cloud and other devices re-pulled
+    // it — the unbounded ping-pong that grew the legacy blob to 33k rows.
+    if (result.changes === 0) {
+      const existing = prjctDb.get<ShippedFeatureRow>(
+        projectId,
+        'SELECT * FROM shipped_features WHERE name = ? AND version = ? AND shipped_at = ?',
+        shipped.name,
+        shipped.version ?? '',
+        shipped.shippedAt
+      )
+      if (existing) return rowToFeature(existing)
+      return shipped
+    }
 
     // Publish a canonical `shipped_item` event for cloud sync (unchanged wire).
     await this.publishEvent(projectId, 'shipped_item.created', {
