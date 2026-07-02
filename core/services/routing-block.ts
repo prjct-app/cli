@@ -32,6 +32,8 @@ This file holds no rules — pull on demand. The harness lives in prjct:
 - \`prjct work --md\` — entrypoint: the work cycle + related context.
 - \`prjct context memory <topic>\` / \`prjct search "<q>"\` — memory + knowledge base (voice, glossary, decisions, gotchas, learnings).
 - \`prjct guard <file>\` before a risky edit · \`prjct remember <type> "<text>"\` to persist outcomes.
+- Wrap-up/compaction: persist a hand-off first (\`prjct remember context "Session close: ..."\`); \`--tags topic:<key>\` upserts.
+- \`prjct workflows --md\` — methodology (dispatch, model policy, judgment).
 Skills, the agent catalog, and rules live in prjct — pulled, never inlined here.`
 
 export interface RoutingWriteResult {

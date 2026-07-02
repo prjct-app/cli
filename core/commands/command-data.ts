@@ -882,6 +882,22 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'workflows',
+    group: 'workflowsReference',
+    surface: 'ai-agile',
+    requiresProject: false,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workflowsReference', method: 'workflows' },
+    optionSchema: {},
+    description:
+      'Print the quality methodology reference (subagent dispatch, model policy, review/judgment/security workflows) — the rig-agnostic pull of what Claude reads as workflows.md.',
+    usage: {
+      claude: 'p. workflows',
+      terminal: 'prjct workflows --md',
+    },
+  },
+  {
     name: 'memory',
     group: 'memoryExport',
     surface: 'ai-agile',

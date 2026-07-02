@@ -415,4 +415,26 @@ export function registerProjectTools(server: McpServer) {
       }
     })
   )
+
+  // Cross-rig skill discovery ("index of paths, not summaries"): agents on
+  // MCP-only rigs (Cursor, Windsurf, ...) resolve the catalog here and pass
+  // EXACT SKILL.md paths to their subagents — never a generated digest.
+  s.tool(
+    'prjct_skills',
+    'Skill index: every available agent skill (project + global roots) with name, description, and the EXACT SKILL.md path. Resolve once, pass paths to subagents — they read the originals.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_skills', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const { refreshSkillIndex, renderSkillIndex } = await import('../../services/skill-index')
+      await refreshSkillIndex(projectId, args.projectPath)
+      const body = renderSkillIndex(projectId)
+      return {
+        content: [
+          { type: 'text', text: body ?? 'No skills found in project or global skill roots.' },
+        ],
+      }
+    })
+  )
 }

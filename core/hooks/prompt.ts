@@ -27,6 +27,7 @@ import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { buildIndexedFileCue } from '../services/file-cue'
 import { loopGuardVerdict } from '../services/loop-guard'
+import { renderDelegationTrigger } from '../services/task-orchestration'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { prjctDb } from '../storage/database'
@@ -130,15 +131,8 @@ export async function buildProjectState(
                FROM events WHERE type = 'memory.post_edit' AND timestamp >= ?`,
               startedIso
             )?.c ?? 0
-          if (touched >= 8) {
-            lines.push(
-              `  ⚠ Delegation trigger: ${touched} files edited this cycle. This is no longer one change — split the remainder into its own cycle/PR and run a FRESH-context review of what's already written before \`prjct status done\`.`
-            )
-          } else if (touched >= 4) {
-            lines.push(
-              `  ↳ Delegation trigger: ${touched} files edited this cycle. Keep ONE writer thread; before closing, review the full diff with fresh eyes (subagent or re-read) — multi-file changes hide cross-file breaks.`
-            )
-          }
+          const trigger = renderDelegationTrigger(touched)
+          if (trigger) lines.push(`  ${trigger}`)
         }
       } catch {
         /* best-effort — the trigger is advisory context, never a blocker */

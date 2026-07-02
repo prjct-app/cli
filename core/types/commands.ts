@@ -333,6 +333,7 @@ export type CommandRoutingGroup =
   | 'planning'
   | 'shipping'
   | 'memoryExport'
+  | 'workflowsReference'
   | 'analysis'
   | 'setup'
   | 'context'

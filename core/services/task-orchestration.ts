@@ -163,6 +163,22 @@ function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: Orchestra
 }
 
 /**
+ * Delegation trigger — the multi-file write rule as a one-liner, shared by
+ * the Claude per-turn hook (event-counted) and the rig-agnostic
+ * `prjct work`/`status` surfaces (git-counted): same thresholds, same words,
+ * regardless of how the rig learned the count. Returns null under threshold.
+ */
+export function renderDelegationTrigger(filesTouched: number): string | null {
+  if (filesTouched >= 8) {
+    return `⚠ Delegation trigger: ${filesTouched} files edited this cycle. This is no longer one change — split the remainder into its own cycle/PR and run a FRESH-context review of what's already written before \`prjct status done\`.`
+  }
+  if (filesTouched >= 4) {
+    return `↳ Delegation trigger: ${filesTouched} files edited this cycle. Keep ONE writer thread; before closing, review the full diff with fresh eyes (subagent or re-read) — multi-file changes hide cross-file breaks.`
+  }
+  return null
+}
+
+/**
  * The public entrypoint: given the triage harness and the project's SDD/TDD
  * modes, produce the orchestration plan + its agent-facing directive.
  */
