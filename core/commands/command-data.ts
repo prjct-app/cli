@@ -882,6 +882,38 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'workflows',
+    group: 'workflowsReference',
+    surface: 'ai-agile',
+    requiresProject: false,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workflowsReference', method: 'workflows' },
+    optionSchema: {},
+    description:
+      'Print the quality methodology reference (subagent dispatch, model policy, review/judgment/security workflows) — the rig-agnostic pull of what Claude reads as workflows.md.',
+    usage: {
+      claude: 'p. workflows',
+      terminal: 'prjct workflows --md',
+    },
+  },
+  {
+    name: 'memory',
+    group: 'memoryExport',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'memoryExport', method: 'memory' },
+    optionSchema: {},
+    description:
+      'Git-shareable project memory: `export` writes chunked JSONL to .prjct/memory-export/ (commit it); `import` replays a committed export with content-hash dedup — zero-server team onboarding.',
+    usage: {
+      claude: 'p. memory export',
+      terminal: 'prjct memory export | prjct memory import',
+    },
+  },
+  {
     name: 'guard',
     group: 'core',
     surface: 'ai-agile',

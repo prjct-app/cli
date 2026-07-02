@@ -332,6 +332,8 @@ export type CommandRoutingGroup =
   | 'workflow'
   | 'planning'
   | 'shipping'
+  | 'memoryExport'
+  | 'workflowsReference'
   | 'analysis'
   | 'setup'
   | 'context'

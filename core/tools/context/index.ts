@@ -46,6 +46,18 @@ export async function runContextTool(
       case 'learnings':
         return await runMemoryTool(toolArgs, projectPath, { kind: 'learnings' })
 
+      case 'skills': {
+        // Index of paths, not summaries — refresh + render the skill catalog
+        // so an orchestrator can pass exact SKILL.md paths to subagents.
+        const { refreshSkillIndex, renderSkillIndex } = await import('../../services/skill-index')
+        await refreshSkillIndex(projectId, projectPath)
+        const md = renderSkillIndex(projectId)
+        return {
+          tool: 'skills',
+          result: { markdown: md ?? 'No skills found in project or global skill roots.' },
+        }
+      }
+
       case 'help':
         return {
           tool: 'error',

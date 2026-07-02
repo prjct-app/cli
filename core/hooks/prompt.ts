@@ -27,8 +27,10 @@ import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { buildIndexedFileCue } from '../services/file-cue'
 import { loopGuardVerdict } from '../services/loop-guard'
+import { renderDelegationTrigger } from '../services/task-orchestration'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
+import { prjctDb } from '../storage/database'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
@@ -114,6 +116,27 @@ export async function buildProjectState(
         )
       }
       hasContent = true
+
+      // Delegation trigger — the multi-file write rule, ENFORCED by counting
+      // (not just stated in a skill): when this cycle has edited 4+ distinct
+      // files, say so with the concrete move. Uses the post_edit event trail
+      // the PostToolUse hook already records; fires once per threshold band.
+      try {
+        const startedIso = overview.current.startedAt
+        if (startedIso) {
+          const touched =
+            prjctDb.get<{ c: number }>(
+              config.projectId,
+              `SELECT COUNT(DISTINCT json_extract(data, '$.file')) AS c
+               FROM events WHERE type = 'memory.post_edit' AND timestamp >= ?`,
+              startedIso
+            )?.c ?? 0
+          const trigger = renderDelegationTrigger(touched)
+          if (trigger) lines.push(`  ${trigger}`)
+        }
+      } catch {
+        /* best-effort — the trigger is advisory context, never a blocker */
+      }
     }
     const others = overview.all.filter((v) => !v.isCurrent)
     if (others.length > 0) {

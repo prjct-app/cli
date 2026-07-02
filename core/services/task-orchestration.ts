@@ -142,6 +142,15 @@ const MODEL_HINT: Record<ModelTier, string> = {
   frontier: 'frontier model (e.g. opus)',
 }
 
+/**
+ * Review-workload forecast: reviewability is a PRE-implementation constraint,
+ * not a post-hoc apology. Substantial work must estimate its diff size and
+ * pick a delivery strategy BEFORE writing code (the harness separately warns
+ * when an actual diff crosses 400 changed lines).
+ */
+const FORECAST_TEXT =
+  'Before implementing, forecast the diff size: if it will exceed ~400 changed lines, decide the delivery strategy NOW (split into stacked PRs / ship a first slice) instead of producing one unreviewable diff.'
+
 /** Compose the agent-facing directive block from the resolved plan. */
 function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: OrchestrationPlan): string {
   const effortNote =
@@ -149,7 +158,24 @@ function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: Orchestra
   if (level === 'H0') {
     return `Orchestrate (${level} ${kind}): trivial — do it directly on a ${MODEL_HINT[plan.model]}${effortNote}. ${SPEC_TEXT[plan.spec]}, ${TEST_TEXT[plan.tests]}, ${FANOUT_TEXT[plan.fanout]}. Don’t burn frontier tokens on this.`
   }
-  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}.`
+  const forecast = level === 'H2' || level === 'H3' ? ` ${FORECAST_TEXT}` : ''
+  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}.${forecast}`
+}
+
+/**
+ * Delegation trigger — the multi-file write rule as a one-liner, shared by
+ * the Claude per-turn hook (event-counted) and the rig-agnostic
+ * `prjct work`/`status` surfaces (git-counted): same thresholds, same words,
+ * regardless of how the rig learned the count. Returns null under threshold.
+ */
+export function renderDelegationTrigger(filesTouched: number): string | null {
+  if (filesTouched >= 8) {
+    return `⚠ Delegation trigger: ${filesTouched} files edited this cycle. This is no longer one change — split the remainder into its own cycle/PR and run a FRESH-context review of what's already written before \`prjct status done\`.`
+  }
+  if (filesTouched >= 4) {
+    return `↳ Delegation trigger: ${filesTouched} files edited this cycle. Keep ONE writer thread; before closing, review the full diff with fresh eyes (subagent or re-read) — multi-file changes hide cross-file breaks.`
+  }
+  return null
 }
 
 /**

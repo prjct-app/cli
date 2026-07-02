@@ -146,13 +146,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
           pipeline
             ? mdSection(
                 'Task Pipeline',
-                mdList([
-                  `Classification: \`${pipeline.classification}\``,
-                  `Station: \`${pipeline.station}\``,
-                  `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
-                  `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
-                  `Next action: ${pipeline.nextAction}`,
-                ])
+                [
+                  '> AUTHORITATIVE: this station state is computed from persisted pipeline data — follow `Next action` over your own phase inference.',
+                  mdList([
+                    `Classification: \`${pipeline.classification}\``,
+                    `Station: \`${pipeline.station}\``,
+                    `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
+                    `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
+                    `Next action: ${pipeline.nextAction}`,
+                  ]),
+                ].join('\n')
               )
             : null,
           beforeInstructions.length > 0
@@ -232,6 +235,24 @@ export class WorkflowCommands extends PrjctCommandsBase {
     const active = overview.current
     const others = overview.all.filter((v) => !v.isCurrent)
 
+    // Rig-agnostic delegation trigger: rigs without per-turn hooks (Codex,
+    // Gemini, Cursor, ...) poll `prjct work`/`status` — count the working
+    // tree's touched files via git (no hook events needed) and surface the
+    // same trigger the Claude hook fires. Best-effort: no git → no trigger.
+    let delegationTrigger: string | null = null
+    try {
+      const { execFileAsync } = await import('../utils/exec')
+      const r = await execFileAsync('git', ['diff', '--name-only', 'HEAD'], {
+        cwd: projectPath,
+        timeout: 2000,
+      })
+      const touched = r.stdout.split('\n').filter(Boolean).length
+      const { renderDelegationTrigger } = await import('../services/task-orchestration')
+      delegationTrigger = renderDelegationTrigger(touched)
+    } catch {
+      /* no git / detached env — trigger is advisory only */
+    }
+
     if (!active) {
       // Nothing in THIS worktree — but sibling worktrees may be busy.
       const base = 'no active work cycle. `prjct work "<intent>"` to start one.'
@@ -263,6 +284,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 active.harness
                   ? `Harness: ${active.harness.level} ${active.harness.kind}/${active.harness.risk}`
                   : null,
+                delegationTrigger,
                 others.length > 0 ? `Other active workspaces: ${others.length}` : null,
               ].filter((s): s is string => s !== null)
             )

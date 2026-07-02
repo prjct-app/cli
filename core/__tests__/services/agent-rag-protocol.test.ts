@@ -79,11 +79,14 @@ describe('compact RAG-first agent protocol', () => {
   // fails loudly if a future edit lets them creep back toward history-carrier
   // bloat. Raise deliberately, never by accident.
   it('keeps the always-loaded routing blocks under their byte budget', () => {
-    // DELIBERATE raise (400 → 720): the block is now a MAP of the harness
+    // DELIBERATE raises (400 → 720 → 900): the block is a MAP of the harness
     // organs (memory/KB, skills, agents, guardrails) + the one pull command for
-    // each — token-optimized so the model knows WHERE to look. Still no rules
-    // inline; any creep back toward inline rules/RAG protocol is the failure.
-    expect(Buffer.byteLength(agentsRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(720)
-    expect(Buffer.byteLength(claudeRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(720)
+    // each — token-optimized so the model knows WHERE to look. The 900 step
+    // paid for two new organs: the session-boundary hand-off (close/compaction
+    // capture + topic-key upsert) and the `prjct workflows` methodology pull
+    // (gentle-ai learnings, cross-rig). Still no rules inline; any creep back
+    // toward inline rules/RAG protocol is the failure.
+    expect(Buffer.byteLength(agentsRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(900)
+    expect(Buffer.byteLength(claudeRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(900)
   })
 })

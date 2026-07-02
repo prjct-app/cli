@@ -2445,6 +2445,25 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 57,
+    name: 'skill-registry',
+    up: (db: SqliteDatabase) => {
+      // Skill index ("index of paths, not summaries"): the catalog of
+      // available agent skills (project + global roots), refreshed on sync.
+      // Orchestrators resolve it once and pass EXACT SKILL.md paths to
+      // subagents so the author's intent is never distorted by a digest.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS skill_registry (
+           name        TEXT PRIMARY KEY,
+           description TEXT NOT NULL DEFAULT '',
+           path        TEXT NOT NULL,
+           scope       TEXT NOT NULL DEFAULT 'global',  -- project|global (project wins)
+           indexed_at  INTEGER NOT NULL
+         )`
+      )
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
