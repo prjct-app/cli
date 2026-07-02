@@ -2464,6 +2464,45 @@ export const migrations: Migration[] = [
       )
     },
   },
+  {
+    version: 58,
+    name: 'cli-sessions-typed-and-dead-sessions-drop',
+    up: (db: SqliteDatabase) => {
+      // Schema v2: the CLI session tracker lived in kv_store['session-tracker']
+      // — read-modify-written (whole command history included) up to 3x per
+      // CLI command. Typed replacement: cli_sessions + append-only
+      // cli_session_commands. The blob held only the CURRENT ~30-min session
+      // (ephemeral); no backfill needed — retire the key.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS cli_sessions (
+           id            TEXT PRIMARY KEY,
+           status        TEXT NOT NULL DEFAULT 'active',
+           created_at    TEXT NOT NULL,
+           last_activity TEXT NOT NULL
+         )`
+      )
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_cli_sessions_active ON cli_sessions(status, last_activity DESC)'
+      )
+      db.run(
+        `CREATE TABLE IF NOT EXISTS cli_session_commands (
+           session_id  TEXT NOT NULL,
+           command     TEXT NOT NULL,
+           timestamp   TEXT NOT NULL,
+           duration_ms INTEGER NOT NULL DEFAULT 0
+         )`
+      )
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_cli_session_commands ON cli_session_commands(session_id, timestamp)'
+      )
+      db.run("DELETE FROM kv_store WHERE key = 'session-tracker'")
+
+      // The v7-era `sessions` table (task-lifecycle sessions) has ZERO readers
+      // and writers — grep-verified dead schema, superseded by the typed
+      // `tasks` history. Drop it.
+      db.run('DROP TABLE IF EXISTS sessions')
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

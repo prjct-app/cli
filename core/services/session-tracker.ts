@@ -1,59 +1,66 @@
 /**
  * SessionTracker - Lightweight session state tracking for multi-command workflows
  *
- * Tracks command sequences and file access across CLI invocations.
- * Sessions auto-create on first command and expire after 30 min idle.
+ * Tracks command sequences across CLI invocations. Sessions auto-create on
+ * first command and expire after 30 min idle.
  *
- * Storage: ~/.prjct-cli/projects/{projectId}/storage/session.json
+ * Schema v2: typed tables (`cli_sessions` + `cli_session_commands`) replace
+ * the `kv_store['session-tracker']` blob, which was read-modify-written up to
+ * 3× per CLI command with the whole command history inside. Typed writes are
+ * append-only INSERTs + a one-column touch — strictly cheaper AND queryable.
+ *
+ * File tracking (`trackFile`) was removed: zero callers (dead API); the
+ * SessionInfo fields it fed report 0.
  *
  * @see PRJ-109
  */
 
 import { SESSION_IDLE_TIMEOUT_MS } from '../constants/timings'
 import { prjctDb } from '../storage/database'
-import type { SessionData, SessionFile, SessionInfo } from '../types/services.js'
+import type { SessionData, SessionInfo } from '../types/services.js'
 import { isExpired as isTTLExpired } from '../utils/cache'
 import { formatDuration, getTimestamp } from '../utils/date-helper'
 
 const MAX_COMMAND_HISTORY = 50
-const MAX_FILE_HISTORY = 200
+
+interface SessionRow {
+  id: string
+  status: string
+  created_at: string
+  last_activity: string
+}
 
 // SESSION TRACKER
 
 class SessionTracker {
-  /**
-   * Read session data from SQLite
-   */
-  private async read(projectId: string): Promise<SessionFile> {
+  /** The current (most recent, active-status) session row, if any. */
+  private currentRow(projectId: string): SessionRow | null {
     try {
-      const doc = prjctDb.getDoc<SessionFile>(projectId, 'session-tracker')
-      return doc ?? this.getDefault()
+      return (
+        prjctDb.get<SessionRow>(
+          projectId,
+          "SELECT * FROM cli_sessions WHERE status = 'active' ORDER BY last_activity DESC LIMIT 1"
+        ) ?? null
+      )
     } catch {
-      return this.getDefault()
+      return null
     }
   }
 
-  /**
-   * Write session data to SQLite
-   */
-  private async write(projectId: string, data: SessionFile): Promise<void> {
-    prjctDb.setDoc(projectId, 'session-tracker', data)
+  private isExpired(lastActivity: string): boolean {
+    return isTTLExpired(lastActivity, SESSION_IDLE_TIMEOUT_MS)
   }
 
-  private getDefault(): SessionFile {
+  private toSessionData(projectId: string, row: SessionRow): SessionData {
     return {
-      current: null,
-      config: {
-        idleTimeoutMs: SESSION_IDLE_TIMEOUT_MS,
-      },
+      id: row.id,
+      projectId,
+      status: row.status as SessionData['status'],
+      createdAt: row.created_at,
+      lastActivity: row.last_activity,
+      commands: [],
+      files: [],
     }
-  }
-
-  /**
-   * Check if a session has expired based on idle timeout
-   */
-  private isExpired(session: SessionData, timeoutMs: number): boolean {
-    return isTTLExpired(session.lastActivity, timeoutMs)
   }
 
   /**
@@ -62,85 +69,72 @@ class SessionTracker {
    * Returns the active session.
    */
   async touch(projectId: string): Promise<SessionData> {
-    const file = await this.read(projectId)
     const now = getTimestamp()
-
-    // If active session exists and not expired, resume it
-    if (file.current && !this.isExpired(file.current, file.config.idleTimeoutMs)) {
-      file.current.lastActivity = now
-      await this.write(projectId, file)
-      return file.current
+    const current = this.currentRow(projectId)
+    if (current && !this.isExpired(current.last_activity)) {
+      prjctDb.run(
+        projectId,
+        'UPDATE cli_sessions SET last_activity = ? WHERE id = ?',
+        now,
+        current.id
+      )
+      return this.toSessionData(projectId, { ...current, last_activity: now })
     }
 
-    // Create new session (old one expired or doesn't exist)
-    const session: SessionData = {
-      id: crypto.randomUUID(),
+    if (current) {
+      // Stale — close it before opening a fresh one.
+      prjctDb.run(projectId, "UPDATE cli_sessions SET status = 'expired' WHERE id = ?", current.id)
+    }
+    const id = crypto.randomUUID()
+    prjctDb.run(
       projectId,
+      "INSERT INTO cli_sessions (id, status, created_at, last_activity) VALUES (?, 'active', ?, ?)",
+      id,
+      now,
+      now
+    )
+    return this.toSessionData(projectId, {
+      id,
       status: 'active',
-      createdAt: now,
-      lastActivity: now,
-      commands: [],
-      files: [],
-    }
-
-    file.current = session
-    await this.write(projectId, file)
-    return session
+      created_at: now,
+      last_activity: now,
+    })
   }
 
   /**
-   * Record a command execution in the current session
+   * Record a command execution in the current session — one append-only
+   * INSERT (the blob used to rewrite its whole command history here).
    */
   async trackCommand(projectId: string, command: string, durationMs: number): Promise<void> {
-    const file = await this.read(projectId)
-    if (!file.current) return
-
+    const current = this.currentRow(projectId)
+    if (!current) return
     const now = getTimestamp()
-    file.current.lastActivity = now
-    file.current.commands.push({
-      command,
-      timestamp: now,
-      durationMs,
-    })
-
-    // Trim old commands if over limit
-    if (file.current.commands.length > MAX_COMMAND_HISTORY) {
-      file.current.commands = file.current.commands.slice(-MAX_COMMAND_HISTORY)
+    try {
+      prjctDb.run(
+        projectId,
+        'INSERT INTO cli_session_commands (session_id, command, timestamp, duration_ms) VALUES (?, ?, ?, ?)',
+        current.id,
+        command,
+        now,
+        Math.round(durationMs)
+      )
+      prjctDb.run(
+        projectId,
+        'UPDATE cli_sessions SET last_activity = ? WHERE id = ?',
+        now,
+        current.id
+      )
+    } catch {
+      /* session telemetry only */
     }
-
-    await this.write(projectId, file)
-  }
-
-  /**
-   * Record a file access in the current session
-   */
-  async trackFile(projectId: string, filePath: string, operation: 'read' | 'write'): Promise<void> {
-    const file = await this.read(projectId)
-    if (!file.current) return
-
-    const now = getTimestamp()
-    file.current.lastActivity = now
-    file.current.files.push({
-      path: filePath,
-      operation,
-      timestamp: now,
-    })
-
-    // Trim old file records if over limit
-    if (file.current.files.length > MAX_FILE_HISTORY) {
-      file.current.files = file.current.files.slice(-MAX_FILE_HISTORY)
-    }
-
-    await this.write(projectId, file)
   }
 
   /**
    * Get session info for display (used by `prjct status`)
    */
   async getInfo(projectId: string): Promise<SessionInfo> {
-    const file = await this.read(projectId)
-
-    if (!file.current || this.isExpired(file.current, file.config.idleTimeoutMs)) {
+    const current = this.currentRow(projectId)
+    if (!current || this.isExpired(current.last_activity)) {
       return {
         active: false,
         id: null,
@@ -155,33 +149,31 @@ class SessionTracker {
       }
     }
 
-    const session = file.current
     const now = Date.now()
-    const createdAt = new Date(session.createdAt).getTime()
-    const lastActivity = new Date(session.lastActivity).getTime()
+    const createdAt = new Date(current.created_at).getTime()
+    const lastActivity = new Date(current.last_activity).getTime()
     const idleMs = now - lastActivity
-    const timeoutMs = file.config.idleTimeoutMs
-    const expiresInMs = Math.max(0, timeoutMs - idleMs)
+    const expiresInMs = Math.max(0, SESSION_IDLE_TIMEOUT_MS - idleMs)
 
-    const uniqueCommands = session.commands.map((c) => c.command)
-    const filesRead = new Set(
-      session.files.filter((f) => f.operation === 'read').map((f) => f.path)
-    ).size
-    const filesWritten = new Set(
-      session.files.filter((f) => f.operation === 'write').map((f) => f.path)
-    ).size
+    const commandRows = prjctDb.query<{ command: string }>(
+      projectId,
+      'SELECT command FROM cli_session_commands WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?',
+      current.id,
+      MAX_COMMAND_HISTORY
+    )
 
     return {
       active: true,
-      id: session.id,
+      id: current.id,
       duration: formatDuration(now - createdAt),
-      idleSince: session.lastActivity,
+      idleSince: current.last_activity,
       idleMs,
       expiresIn: formatDuration(expiresInMs),
-      commandCount: session.commands.length,
-      commands: uniqueCommands,
-      filesRead,
-      filesWritten,
+      commandCount: commandRows.length,
+      commands: commandRows.map((c) => c.command).reverse(),
+      // File tracking was a dead API (zero writers) — honest zeros.
+      filesRead: 0,
+      filesWritten: 0,
     }
   }
 
@@ -189,11 +181,10 @@ class SessionTracker {
    * Expire the current session (cleanup)
    */
   async expire(projectId: string): Promise<void> {
-    const file = await this.read(projectId)
-    if (file.current) {
-      file.current.status = 'expired'
-      file.current = null
-      await this.write(projectId, file)
+    try {
+      prjctDb.run(projectId, "UPDATE cli_sessions SET status = 'expired' WHERE status = 'active'")
+    } catch {
+      /* best-effort */
     }
   }
 
@@ -203,10 +194,9 @@ class SessionTracker {
    * Returns true if a session was expired.
    */
   async expireIfStale(projectId: string): Promise<boolean> {
-    const file = await this.read(projectId)
-    if (file.current && this.isExpired(file.current, file.config.idleTimeoutMs)) {
-      file.current = null
-      await this.write(projectId, file)
+    const current = this.currentRow(projectId)
+    if (current && this.isExpired(current.last_activity)) {
+      prjctDb.run(projectId, "UPDATE cli_sessions SET status = 'expired' WHERE id = ?", current.id)
       return true
     }
     return false
