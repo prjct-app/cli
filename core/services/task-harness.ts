@@ -49,6 +49,8 @@ export interface HarnessCompletionEvaluation {
   changedFiles: string[]
   observedEvidence: string[]
   warnings: string[]
+  /** Changed-line count of the completion diff (estimation-loop input). */
+  diffSize: number
 }
 
 export function buildTaskHarness(description: string): TaskHarness {
@@ -96,7 +98,7 @@ export async function evaluateHarnessCompletion(
 ): Promise<HarnessCompletionEvaluation> {
   const harness = task.harness
   if (!harness || harness.level === 'H0') {
-    return { changedFiles: [], observedEvidence: [], warnings: [] }
+    return { changedFiles: [], observedEvidence: [], warnings: [], diffSize: 0 }
   }
 
   const changedFiles = await readChangedFiles(projectPath)
@@ -123,7 +125,7 @@ export async function evaluateHarnessCompletion(
     warnings.push(`Diff is ${diffSize} changed lines; consider splitting or justify the scope.`)
   }
 
-  return { changedFiles, observedEvidence, warnings }
+  return { changedFiles, observedEvidence, warnings, diffSize }
 }
 
 function detectKind(text: string): HarnessKind {

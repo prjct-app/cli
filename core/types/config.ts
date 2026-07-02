@@ -105,6 +105,12 @@ export interface LocalConfig {
    */
   maxTurnsPerCycle?: number
   /**
+   * Soft token budget per work cycle. When set, the per-turn state block
+   * warns at 80% and calls for a split/check-in at 100% — measurement-backed
+   * loop discipline (tokens, not just turns). Advisory: never blocks edits.
+   */
+  maxTokensPerCycle?: number
+  /**
    * Desktop notifications. **Default ON** (absent / `on`) — prjct pings you
    * when Claude is waiting for input and when a subagent finishes, so a wait
    * never hangs silently. `off` (via `prjct notify off`) silences the OS

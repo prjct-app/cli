@@ -115,6 +115,8 @@ interface PerformanceCycle {
   tokensTotal: number | null
   model: string
   runtime: string
+  /** Subagent spawns attributed to this cycle (fan-out cost). */
+  subagents: number
   promptSynthesis: string
   outcome: string
 }
@@ -556,6 +558,23 @@ async function buildReliabilitySnapshot(
   }
 }
 
+/** Subagent spawns per task id (from the subagent.spawned telemetry trail). */
+function subagentCounts(projectId: string, sinceIsoTs: string): Map<string, number> {
+  try {
+    const rows = prjctDb.query<{ task_id: string; c: number }>(
+      projectId,
+      `SELECT json_extract(data, '$.taskId') AS task_id, COUNT(*) AS c
+       FROM events
+       WHERE type = 'subagent.spawned' AND timestamp >= ? AND json_extract(data, '$.taskId') IS NOT NULL
+       GROUP BY task_id`,
+      sinceIsoTs
+    )
+    return new Map(rows.map((r) => [r.task_id, r.c]))
+  } catch {
+    return new Map()
+  }
+}
+
 function buildPerformanceCycles(projectId: string, days: number): PerformanceCycle[] {
   const since = sinceIso(days)
   const rows = query<PerformanceRow>(
@@ -583,6 +602,7 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
         tokensIn === null && tokensOut === null ? null : (tokensIn ?? 0) + (tokensOut ?? 0),
       model: 'unknown',
       runtime: 'unknown',
+      subagents: 0,
       promptSynthesis: synthesizePrompt(row.description),
       outcome: row.shipped_at ? 'shipped' : row.completed_at ? 'completed' : row.status,
     }
@@ -592,7 +612,11 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
   const measuredEventCycles = buildWorkCostSnapshot(projectId, days)
     .mostExpensive.filter((task) => !seen.has(task.id))
     .map(costTaskToPerformanceCycle)
-  return [...cycles, ...measuredEventCycles].slice(0, 20)
+  const merged = [...cycles, ...measuredEventCycles].slice(0, 20)
+  // Fan-out attribution: how many subagents each cycle spawned.
+  const spawns = subagentCounts(projectId, sinceIso(days))
+  for (const c of merged) c.subagents = spawns.get(c.id) ?? c.subagents ?? 0
+  return merged
 }
 
 function costTaskToPerformanceCycle(task: WorkCostTask): PerformanceCycle {
@@ -606,6 +630,7 @@ function costTaskToPerformanceCycle(task: WorkCostTask): PerformanceCycle {
     tokensTotal: task.tokensTotal,
     model: 'unknown',
     runtime: 'unknown',
+    subagents: 0,
     promptSynthesis: synthesizePrompt(task.description),
     outcome: task.status,
   }
@@ -996,11 +1021,13 @@ function formatPerformanceMd(days: number, cycles: PerformanceCycle[]): string {
     )
     return lines.join('\n')
   }
-  lines.push('| Work cycle | Outcome | Time | Tokens | Model | Runtime | Prompt synthesis |')
-  lines.push('|---|---|---:|---:|---|---|---|')
+  lines.push(
+    '| Work cycle | Outcome | Time | Tokens | Subagents | Model | Runtime | Prompt synthesis |'
+  )
+  lines.push('|---|---|---:|---:|---:|---|---|---|')
   for (const cycle of cycles) {
     lines.push(
-      `| ${escapeCell(cycle.description)} | ${cycle.outcome} | ${cycle.minutes ?? 'unknown'} | ${cycle.tokensTotal ?? 'unknown'} | ${cycle.model} | ${cycle.runtime} | ${escapeCell(cycle.promptSynthesis)} |`
+      `| ${escapeCell(cycle.description)} | ${cycle.outcome} | ${cycle.minutes ?? 'unknown'} | ${cycle.tokensTotal ?? 'unknown'} | ${cycle.subagents} | ${cycle.model} | ${cycle.runtime} | ${escapeCell(cycle.promptSynthesis)} |`
     )
   }
   lines.push(
@@ -1060,6 +1087,15 @@ function formatCostMd(snapshot: WorkCostSnapshot): string {
   lines.push(`| Total tokens | ${snapshot.tokensTotal.toLocaleString()} |`)
   lines.push(`| Agent sessions | ${snapshot.measuredSessions} |`)
   lines.push('')
+  if (snapshot.byModel.length > 0) {
+    lines.push('## By Model', '', '| Model | Input | Output | Total |', '|---|---:|---:|---:|')
+    for (const m of snapshot.byModel) {
+      lines.push(
+        `| ${m.model} | ${m.tokensIn.toLocaleString()} | ${m.tokensOut.toLocaleString()} | ${(m.tokensIn + m.tokensOut).toLocaleString()} |`
+      )
+    }
+    lines.push('')
+  }
   lines.push(...formatNetSavingsMd(snapshot))
   lines.push('## Historical Rescue', '', '| Signal | Value |', '|---|---:|')
   lines.push(`| Inferred work cycles | ${snapshot.historicalRescue.inferredWorkCycles} |`)
@@ -1125,6 +1161,9 @@ function formatCostText(snapshot: WorkCostSnapshot): string {
     `tokens: ${snapshot.tokensTotal.toLocaleString()} total across ${snapshot.knownTokenCycles}/${snapshot.workCycles} measured cycle(s)`,
     `declared historical tokens: ${snapshot.historicalRescue.declaredTokensTotal.toLocaleString()} across ${snapshot.historicalRescue.declaredTokenMentions} mention(s)`,
     `context: ${snapshot.surfacedContext} surfaced, ${snapshot.usefulContext} proven useful`,
+    ...snapshot.byModel.map(
+      (m) => `  ${m.model}: ${(m.tokensIn + m.tokensOut).toLocaleString()} tokens`
+    ),
     snapshot.gaps.length === 0 ? 'gaps: none' : `gaps: ${snapshot.gaps.length}`,
   ].join('\n')
 }

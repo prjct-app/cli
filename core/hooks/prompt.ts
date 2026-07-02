@@ -117,6 +117,28 @@ export async function buildProjectState(
       }
       hasContent = true
 
+      // Token budget (opt-in via config.maxTokensPerCycle): the tokens-side
+      // twin of the turn budget. The Stop hook writes cumulative usage onto
+      // the active task every turn, so this reads a fresh total for free.
+      try {
+        const budget = config.maxTokensPerCycle ?? 0
+        if (budget > 0) {
+          const task = await stateStorage.getCurrentTask(config.projectId)
+          const spent = (task?.tokensIn ?? 0) + (task?.tokensOut ?? 0)
+          if (spent >= budget) {
+            lines.push(
+              `  ⚠ Token budget: ${spent.toLocaleString()} of ${budget.toLocaleString()} spent on this cycle. STOP growing it — ship the working slice, split the remainder into a new cycle, or check in with the user.`
+            )
+          } else if (spent >= budget * 0.8) {
+            lines.push(
+              `  ↳ Token budget: ${spent.toLocaleString()} of ${budget.toLocaleString()} (${Math.round((spent / budget) * 100)}%). Plan the close: prefer finishing over expanding scope.`
+            )
+          }
+        }
+      } catch {
+        /* budget is advisory — never block the state block */
+      }
+
       // Delegation trigger — the multi-file write rule, ENFORCED by counting
       // (not just stated in a skill): when this cycle has edited 4+ distinct
       // files, say so with the concrete move. Uses the post_edit event trail

@@ -110,6 +110,23 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
                     source: 'claude-transcript',
                   }
                 )
+                // Per-model breakdown: one token_usage row per model this
+                // session touched (event_key = task:source, so a per-model
+                // source keeps rows distinct + upsert-idempotent). This is
+                // the data that PROVES whether model routing saves money.
+                try {
+                  const { sumTranscriptUsageByModel } = await import('../services/transcript-jsonl')
+                  for (const [model, u] of sumTranscriptUsageByModel(transcriptLines)) {
+                    if (u.tokensIn + u.tokensOut <= 0) continue
+                    recordTaskTokenUsage(config.projectId, activeTaskId, u.tokensIn, u.tokensOut, {
+                      model,
+                      agent: 'claude',
+                      source: `claude-transcript:${model}`,
+                    })
+                  }
+                } catch {
+                  /* per-model breakdown is additive telemetry — never blocks */
+                }
               }
             }
           } catch {
