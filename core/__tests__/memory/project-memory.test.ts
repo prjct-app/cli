@@ -707,3 +707,100 @@ describe('predictive risk briefing — recallRisksForFiles (planning-time)', () 
     ).toEqual([])
   })
 })
+
+describe('projectMemory.remember — topic-key UPSERT (write-side supersession)', () => {
+  // remember() resolves the project from the path's config — give tmpRoot one.
+  beforeEach(async () => {
+    await fs.mkdir(path.join(tmpRoot, '.prjct'), { recursive: true })
+    await fs.writeFile(
+      path.join(tmpRoot, '.prjct', 'prjct.config.json'),
+      JSON.stringify({ projectId })
+    )
+  })
+
+  it('a re-capture with the same topic tag supersedes the old entry at the STORE level', async () => {
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'auth model v1: sessions in cookies',
+      tags: { topic: 'architecture/auth-model' },
+      projectId,
+    })
+    await new Promise((r) => setTimeout(r, 5))
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'auth model v2: JWT + refresh rotation',
+      tags: { topic: 'architecture/auth-model' },
+      projectId,
+    })
+
+    // Old version is soft-deleted in the store (not just hidden at read time).
+    const active = prjctDb.query<{ content: string; topic_key: string; revision_count: number }>(
+      projectId,
+      "SELECT content, topic_key, revision_count FROM memory_entries WHERE type = 'decision' AND deleted_at IS NULL"
+    )
+    expect(active).toHaveLength(1)
+    expect(active[0].content).toContain('v2')
+    expect(active[0].topic_key).toBe('architecture/auth-model')
+    expect(active[0].revision_count).toBe(1) // lineage: one prior version
+    const superseded = prjctDb.get<{ c: number }>(
+      projectId,
+      "SELECT COUNT(*) AS c FROM memory_entries WHERE type = 'decision' AND deleted_at IS NOT NULL"
+    )
+    expect(superseded?.c).toBe(1)
+  })
+
+  it('different topics never supersede each other; untagged captures still accumulate', async () => {
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'topic A decision',
+      tags: { topic: 'a' },
+      projectId,
+    })
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'topic B decision',
+      tags: { topic: 'b' },
+      projectId,
+    })
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'untagged decision one',
+      projectId,
+    })
+    await projectMemory.remember(tmpRoot, {
+      type: 'decision',
+      content: 'untagged decision two',
+      projectId,
+    })
+
+    const active = prjctDb.get<{ c: number }>(
+      projectId,
+      "SELECT COUNT(*) AS c FROM memory_entries WHERE type = 'decision' AND deleted_at IS NULL"
+    )
+    expect(active?.c).toBe(4) // nothing superseded
+  })
+
+  it('legacy `key`-tagged entries are superseded by a new capture with the same key', async () => {
+    // Legacy entry captured before topic_key existed (tag row only).
+    await projectMemory.remember(tmpRoot, {
+      type: 'gotcha',
+      content: 'old trap description',
+      tags: { key: 'daemon-restart' },
+      projectId,
+    })
+    await new Promise((r) => setTimeout(r, 5))
+    await projectMemory.remember(tmpRoot, {
+      type: 'gotcha',
+      content: 'updated trap description',
+      tags: { key: 'daemon-restart' },
+      projectId,
+    })
+
+    const active = prjctDb.query<{ content: string }>(
+      projectId,
+      "SELECT content FROM memory_entries WHERE type = 'gotcha' AND deleted_at IS NULL"
+    )
+    expect(active).toHaveLength(1)
+    expect(active[0].content).toBe('updated trap description')
+  })
+})

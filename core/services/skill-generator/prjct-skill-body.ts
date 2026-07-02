@@ -134,6 +134,8 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     `**Living context synthesis.** Work start surfaces related context. On close: ${LIVING_CONTEXT_SYNTHESIS_GUIDANCE} Store via \`prjct remember context "<...>"\`; prjct anchors commit, author, and files.`,
     '',
+    '**Session boundaries.** On wrap-up, persist a hand-off first: `prjct remember context "Session close: goal · done · decisions · open threads · next"` — an unsaved session is a lost session. After a context compaction, capture what only the compacted summary knows before continuing. Evolving topics: tag `--tags topic:<key>` — prjct upserts by topic key, superseding the old version.',
+    '',
     '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, no matter the user language. Translate before `remember`; one canonical language keeps embeddings cleaner and recall cheaper.',
     '',
     '## Verb intent map — you run the verb, the user never types it',

@@ -404,7 +404,12 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
         makeRichContext()
       )
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(countTokens(content)).toBeLessThanOrEqual(2600)
+      // 2700 (was 2600): a deliberate +~75-token spend for the session-boundary
+      // protocol (close hand-off, post-compaction capture, topic-key upsert) —
+      // the highest-leverage cross-session continuity mechanism from the
+      // gentle-ai competitive analysis. Any further additions must pay their
+      // way the same explicit way, not creep.
+      expect(countTokens(content)).toBeLessThanOrEqual(2700)
     })
 
     it('declares the subagent dispatch section with general-purpose type', async () => {

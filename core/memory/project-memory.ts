@@ -293,6 +293,60 @@ export const projectMemory = {
     // memory_entries_from_events trigger on the events insert above — covers
     // every writer uniformly. No `memories` mirror anymore.
 
+    // Topic-key UPSERT semantics: a capture tagged `topic:` (or `key:`) is an
+    // EVOLVING topic — the new entry supersedes prior versions instead of
+    // accumulating alongside them. The event log stays append-only (audit +
+    // sync intact); supersession is a store-level soft-delete of the older
+    // active entries for the same (type, topic), and the new entry gets the
+    // typed `topic_key` column + a revision_count lineage. This moves the
+    // existing read-side latest-winner dedupe to the WRITE side: stale
+    // versions stop burning recall slots and FTS hits at the source.
+    const topicKey = tags.topic ?? tags.key
+    if (projectId && topicKey) {
+      try {
+        const priorRevisions =
+          prjctDb.get<{ c: number }>(
+            projectId,
+            `SELECT COUNT(*) AS c FROM memory_entries
+             WHERE project_id = ? AND type = ? AND content_hash != ?
+               AND (topic_key = ? OR id IN (
+                 SELECT entry_id FROM memory_entry_tags WHERE key IN ('topic', 'key') AND value = ?
+               ))`,
+            projectId,
+            args.type,
+            contentHash,
+            topicKey,
+            topicKey
+          )?.c ?? 0
+        prjctDb.run(
+          projectId,
+          `UPDATE memory_entries SET topic_key = ?, revision_count = ?
+           WHERE project_id = ? AND type = ? AND content_hash = ? AND deleted_at IS NULL`,
+          topicKey,
+          priorRevisions,
+          projectId,
+          args.type,
+          contentHash
+        )
+        prjctDb.run(
+          projectId,
+          `UPDATE memory_entries SET deleted_at = ?
+           WHERE project_id = ? AND type = ? AND deleted_at IS NULL AND content_hash != ?
+             AND (topic_key = ? OR id IN (
+               SELECT entry_id FROM memory_entry_tags WHERE key IN ('topic', 'key') AND value = ?
+             ))`,
+          Date.now(),
+          projectId,
+          args.type,
+          contentHash,
+          topicKey,
+          topicKey
+        )
+      } catch {
+        /* supersession is best-effort — never block a capture */
+      }
+    }
+
     // Reinforcement loop: credit the entries this new one references — they
     // just proved load-bearing (the project is building on them). Feeds the
     // usefulness ranking so proven knowledge surfaces first over time.

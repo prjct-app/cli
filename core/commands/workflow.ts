@@ -146,13 +146,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
           pipeline
             ? mdSection(
                 'Task Pipeline',
-                mdList([
-                  `Classification: \`${pipeline.classification}\``,
-                  `Station: \`${pipeline.station}\``,
-                  `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
-                  `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
-                  `Next action: ${pipeline.nextAction}`,
-                ])
+                [
+                  '> AUTHORITATIVE: this station state is computed from persisted pipeline data — follow `Next action` over your own phase inference.',
+                  mdList([
+                    `Classification: \`${pipeline.classification}\``,
+                    `Station: \`${pipeline.station}\``,
+                    `Requires spec: ${pipeline.requiresSpec ? 'yes' : 'no'}`,
+                    `Tests first: ${pipeline.requiresTestsFirst ? 'yes' : 'no'}`,
+                    `Next action: ${pipeline.nextAction}`,
+                  ]),
+                ].join('\n')
               )
             : null,
           beforeInstructions.length > 0

@@ -29,6 +29,7 @@ import { buildIndexedFileCue } from '../services/file-cue'
 import { loopGuardVerdict } from '../services/loop-guard'
 import { collectActiveTasks } from '../services/task-overview'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
+import { prjctDb } from '../storage/database'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
@@ -114,6 +115,34 @@ export async function buildProjectState(
         )
       }
       hasContent = true
+
+      // Delegation trigger — the multi-file write rule, ENFORCED by counting
+      // (not just stated in a skill): when this cycle has edited 4+ distinct
+      // files, say so with the concrete move. Uses the post_edit event trail
+      // the PostToolUse hook already records; fires once per threshold band.
+      try {
+        const startedIso = overview.current.startedAt
+        if (startedIso) {
+          const touched =
+            prjctDb.get<{ c: number }>(
+              config.projectId,
+              `SELECT COUNT(DISTINCT json_extract(data, '$.file')) AS c
+               FROM events WHERE type = 'memory.post_edit' AND timestamp >= ?`,
+              startedIso
+            )?.c ?? 0
+          if (touched >= 8) {
+            lines.push(
+              `  ⚠ Delegation trigger: ${touched} files edited this cycle. This is no longer one change — split the remainder into its own cycle/PR and run a FRESH-context review of what's already written before \`prjct status done\`.`
+            )
+          } else if (touched >= 4) {
+            lines.push(
+              `  ↳ Delegation trigger: ${touched} files edited this cycle. Keep ONE writer thread; before closing, review the full diff with fresh eyes (subagent or re-read) — multi-file changes hide cross-file breaks.`
+            )
+          }
+        }
+      } catch {
+        /* best-effort — the trigger is advisory context, never a blocker */
+      }
     }
     const others = overview.all.filter((v) => !v.isCurrent)
     if (others.length > 0) {
