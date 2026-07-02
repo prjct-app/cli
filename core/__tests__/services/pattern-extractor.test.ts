@@ -48,16 +48,11 @@ describe('patternExtractor', () => {
     expect(result.patterns.some((p) => p.source === 'feedback')).toBe(true)
     expect(result.antiPatterns.some((a) => a.source === 'feedback')).toBe(true)
 
-    const saved = prjctDb.getDoc<{
-      repoPathHash: string
-      patterns: Array<{ source: string }>
-      antiPatterns: Array<{ source: string }>
-    }>(projectId, `analysis:derived-rules:${result.repoPathHash}`)
-
-    expect(saved).not.toBeNull()
-    expect(saved?.repoPathHash).toBe(result.repoPathHash)
-    expect(saved?.patterns.length).toBeGreaterThan(0)
-    expect(saved?.antiPatterns.length).toBeGreaterThan(0)
+    // The rules flow through the RETURN into the analysis draft; the old
+    // write-only `analysis:derived-rules:<hash>` kv row must NOT come back
+    // (zero readers — migration 55 swept the accumulated ones).
+    const saved = prjctDb.getDoc(projectId, `analysis:derived-rules:${result.repoPathHash}`)
+    expect(saved).toBeNull()
   })
 
   it('returns empty patterns when no feedback or context7', async () => {

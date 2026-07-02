@@ -204,3 +204,56 @@ describe('migration 53 — kv queue blob → typed table', () => {
     db.close()
   })
 })
+
+describe('migration 55 — kv ideas blob → typed table + orphan-key sweep', () => {
+  it('backfills ideas (tags + extras on cold columns) and sweeps orphan keys', () => {
+    const db = openDatabase(':memory:')
+    db.run(
+      `CREATE TABLE ideas (
+         id TEXT PRIMARY KEY, text TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+         priority TEXT NOT NULL DEFAULT 'medium', tags TEXT, added_at TEXT NOT NULL,
+         converted_to TEXT, details TEXT, data TEXT )`
+    )
+    db.run(
+      'CREATE TABLE kv_store (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'
+    )
+    const ins = db.prepare('INSERT INTO kv_store (key, data, updated_at) VALUES (?, ?, ?)')
+    ins.run(
+      'ideas',
+      JSON.stringify({
+        ideas: [
+          {
+            id: 'i1',
+            text: 'great idea',
+            status: 'pending',
+            priority: 'high',
+            tags: ['ux'],
+            addedAt: '2026-06-01T00:00:00.000Z',
+            painPoints: ['slow'],
+          },
+          { id: 'i2', text: '', addedAt: '2026-06-01T00:00:00.000Z' }, // empty text → skipped
+        ],
+        lastUpdated: 'x',
+      }),
+      'x'
+    )
+    ins.run('memory:patterns', '{}', 'x')
+    ins.run('analysis:derived-rules:abc123', '{}', 'x')
+    ins.run('project', '{}', 'x') // unrelated key must survive
+
+    const m55 = migrations.find((m) => m.version === 55)
+    expect(m55).toBeTruthy()
+    m55?.up(db)
+
+    const rows = db.prepare('SELECT * FROM ideas').all() as Array<Record<string, unknown>>
+    expect(rows).toHaveLength(1)
+    expect(rows[0].priority).toBe('high')
+    expect(JSON.parse(rows[0].tags as string)).toEqual(['ux'])
+    expect(JSON.parse(rows[0].data as string).painPoints).toEqual(['slow'])
+    const keys = (
+      db.prepare('SELECT key FROM kv_store ORDER BY key').all() as Array<{ key: string }>
+    ).map((k) => k.key)
+    expect(keys).toEqual(['project']) // ideas + orphans swept, unrelated survives
+    db.close()
+  })
+})

@@ -2331,6 +2331,60 @@ export const migrations: Migration[] = [
       )
     },
   },
+  {
+    version: 55,
+    name: 'ideas-typed-store-and-orphan-cleanup',
+    up: (db: SqliteDatabase) => {
+      // Schema v2: ideas lived in the `kv_store['ideas']` blob while the
+      // typed `ideas` table sat empty. Backfill (INSERT OR IGNORE on the id
+      // PK) and retire the key. Extended fields ride the cold columns.
+      const blob = db.prepare("SELECT data FROM kv_store WHERE key = 'ideas'").get() as
+        | { data?: string }
+        | undefined
+      if (blob?.data) {
+        let ideas: Array<Record<string, unknown>> = []
+        try {
+          const parsed = JSON.parse(blob.data) as { ideas?: unknown }
+          if (Array.isArray(parsed?.ideas)) ideas = parsed.ideas as Array<Record<string, unknown>>
+        } catch {
+          ideas = [] // malformed blob must not brick startup
+        }
+        const insert = db.prepare(
+          `INSERT OR IGNORE INTO ideas
+             (id, text, status, priority, tags, added_at, converted_to, details, data)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const i of ideas) {
+          const id = i.id as string | undefined
+          const text = i.text as string | undefined
+          if (!id || !text) continue
+          const extras: Record<string, unknown> = {}
+          for (const k of ['painPoints', 'solutions', 'filesAffected', 'impactEffort']) {
+            if (i[k] !== undefined) extras[k] = i[k]
+          }
+          insert.run(
+            id,
+            text,
+            (i.status as string) ?? 'pending',
+            (i.priority as string) ?? 'medium',
+            Array.isArray(i.tags) && i.tags.length ? JSON.stringify(i.tags) : null,
+            (i.addedAt as string) ?? '1970-01-01T00:00:00.000Z',
+            (i.convertedTo as string) ?? null,
+            (i.details as string) ?? null,
+            Object.keys(extras).length ? JSON.stringify(extras) : null
+          )
+        }
+      }
+      db.run("DELETE FROM kv_store WHERE key = 'ideas'")
+
+      // Orphan kv keys with zero readers (grep-verified):
+      //  - 'memory:patterns'          — exists in real DBs, zero code refs
+      //  - 'analysis:derived-rules:*' — write-only rows nobody reads; sweep
+      //    the accumulated ones (one per repo-path hash).
+      db.run("DELETE FROM kv_store WHERE key = 'memory:patterns'")
+      db.run("DELETE FROM kv_store WHERE key LIKE 'analysis:derived-rules:%'")
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
