@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [3.22.0] - 2026-07-02
+
+### Features
+
+- the measured harness — token budget, per-model cost, subagent telemetry, estimation loop (#511)
+
+### Maintenance
+
+- refresh AGENTS.md routing block (v3.21.2 dogfood) (#510)
+
+
 ## [3.21.2] - 2026-07-02
 
 ### Performance
