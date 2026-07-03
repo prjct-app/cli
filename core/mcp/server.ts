@@ -44,18 +44,39 @@ Use when the user describes work, asks for project memory, or wants to improve d
 - Saving a secret-looking string is refused by default. Re-save with a scrubbed version.
 - Synthesize what happened and why. Raw transcript fragments are input, not final project context.`
 
+/**
+ * Tiered tool loading (Task Master's pattern, harness research 2026-07):
+ * every registered tool costs schema tokens in EVERY session of every agent
+ * connected to the server. PRJCT_MCP_TOOLS picks the surface:
+ *
+ *   core     — memory + project (recall, save, work-cycle state): the verbs
+ *              an agent needs on nearly every turn
+ *   standard — + files + code-intel (guard, relevant files, impact)
+ *   all      — + workflows + specs (default; full surface)
+ */
+type ToolTier = 'core' | 'standard' | 'all'
+
+function resolveTier(): ToolTier {
+  const raw = (process.env.PRJCT_MCP_TOOLS ?? 'all').toLowerCase()
+  return raw === 'core' || raw === 'standard' ? raw : 'all'
+}
+
 export function createServer(): McpServer {
   const server = new McpServer(
     { name: 'prjct', version: '1.0.0' },
     { instructions: PRJCT_INSTRUCTIONS }
   )
 
+  const tier = resolveTier()
   registerMemoryTools(server)
   registerProjectTools(server)
-  registerFileTools(server)
-  registerWorkflowTools(server)
-  registerCodeIntelTools(server)
-  registerSpecTools(server)
+  if (tier === 'core') return server
 
+  registerFileTools(server)
+  registerCodeIntelTools(server)
+  if (tier === 'standard') return server
+
+  registerWorkflowTools(server)
+  registerSpecTools(server)
   return server
 }
