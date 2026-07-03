@@ -2541,6 +2541,33 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 60,
+    name: 'task-journal-and-briefs',
+    up: (db: SqliteDatabase) => {
+      // Tier 2 (harness research): the append-only per-task implementation
+      // journal (Task Master's update-subtask — "what did the last agent
+      // try") and the compiled context brief (BMAD's story-context — a
+      // curated, persisted artifact instead of ad-hoc retrieval).
+      db.run(
+        `CREATE TABLE IF NOT EXISTS task_log (
+           id         INTEGER PRIMARY KEY AUTOINCREMENT,
+           task_id    TEXT NOT NULL,
+           session_id TEXT,
+           content    TEXT NOT NULL,
+           created_at TEXT NOT NULL
+         )`
+      )
+      db.run('CREATE INDEX IF NOT EXISTS ix_task_log ON task_log(task_id, id DESC)')
+      db.run(
+        `CREATE TABLE IF NOT EXISTS task_briefs (
+           task_id    TEXT PRIMARY KEY,
+           content    TEXT NOT NULL,
+           created_at TEXT NOT NULL
+         )`
+      )
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
