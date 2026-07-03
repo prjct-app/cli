@@ -171,13 +171,21 @@ export class WorkGraphCommands extends PrjctCommandsBase {
         'Items in the SAME phase have no dependency path between them — safe to fan out in parallel.',
         '',
       ]
+      // Working-set bound (beads learned this at ~25k tokens): cap the render,
+      // never the computation — the full plan is in the JSON result.
+      const PER_PHASE_RENDER_CAP = 12
       for (const p of plan) {
         lines.push(`## Phase ${p.phase} — ${p.items.length} item(s), parallelizable`)
-        for (const i of p.items) {
+        for (const i of p.items.slice(0, PER_PHASE_RENDER_CAP)) {
           const harness = buildTaskHarness(i.description)
           const o = orchestrationFor(harness)
           lines.push(
             `- \`${i.id.slice(0, 8)}\` ${i.description.slice(0, 80)} _(${o.model}/${o.effort}, ~${o.expectedPoints} pt)_`
+          )
+        }
+        if (p.items.length > PER_PHASE_RENDER_CAP) {
+          lines.push(
+            `- _…and ${p.items.length - PER_PHASE_RENDER_CAP} more (full list in --json / prjct ready)_`
           )
         }
         lines.push('')
