@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.25.0] - 2026-07-03
+
+### Features
+
+- time-window token attribution + historical backfill from transcripts (#517)
+
+
 ## [3.24.3] - 2026-07-03
 
 ### Bug Fixes
