@@ -45,36 +45,49 @@ describe('velocity — computed weekly sprints from typed delivery data', () => 
   })
 
   it('recompute derives sprints from ships + completed tasks and persists typed rows', async () => {
-    // Two ships this week, one three weeks ago.
-    await shippedStorage.addShipped(pid, { name: 'a', version: '1.0.0' }, iso(1))
-    await shippedStorage.addShipped(pid, { name: 'b', version: '1.1.0' }, iso(2))
-    await shippedStorage.addShipped(pid, { name: 'old', version: '0.9.0' }, iso(21))
+    // Anchor timestamps INSIDE one epoch week: relative offsets like
+    // "1/2 days ago" straddle the fixed Thursday-UTC week boundary and made
+    // this flake on CI (2 points landing one week, 1 in another).
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+    const weekStart = Math.floor(Date.now() / WEEK_MS) * WEEK_MS
+    const inWeek = (h: number) => new Date(weekStart + h * 3600000).toISOString()
+
+    // Two ships this week, one three weeks back.
+    await shippedStorage.addShipped(pid, { name: 'a', version: '1.0.0' }, inWeek(2))
+    await shippedStorage.addShipped(pid, { name: 'b', version: '1.1.0' }, inWeek(4))
+    await shippedStorage.addShipped(
+      pid,
+      { name: 'old', version: '0.9.0' },
+      new Date(weekStart - 3 * WEEK_MS + 3600000).toISOString()
+    )
     // One completed work cycle this week (typed tasks mirror).
     prjctDb.run(
       pid,
       "INSERT INTO tasks (id, description, status, started_at, completed_at) VALUES ('t1', 'done thing', 'completed', ?, ?)",
-      iso(2),
-      iso(1)
+      inWeek(1),
+      inWeek(6)
     )
 
     await velocityStorage.recompute(pid)
 
     const m = await velocityStorage.getMetrics(pid)
     expect(m.sprints.length).toBeGreaterThanOrEqual(2)
-    const thisWeek = m.sprints.find((s) => s.sprintNumber === epochWeek(iso(1)))
+    const thisWeek = m.sprints.find((s) => s.sprintNumber === epochWeek(inWeek(2)))
     expect(thisWeek?.pointsCompleted).toBe(3) // 2 ships + 1 task
     expect(thisWeek?.tasksCompleted).toBe(1)
     expect(m.averageVelocity).toBeGreaterThan(0)
   })
 
   it('recompute is idempotent (upsert per sprint week)', async () => {
-    await shippedStorage.addShipped(pid, { name: 'x', version: '1.0.0' }, iso(1))
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+    const at = new Date(Math.floor(Date.now() / WEEK_MS) * WEEK_MS + 3600000).toISOString()
+    await shippedStorage.addShipped(pid, { name: 'x', version: '1.0.0' }, at)
     await velocityStorage.recompute(pid)
     await velocityStorage.recompute(pid)
     const rows = prjctDb.get<{ c: number }>(
       pid,
       'SELECT COUNT(*) AS c FROM velocity_sprints WHERE sprint_number = ?',
-      epochWeek(iso(1))
+      epochWeek(at)
     )
     expect(rows?.c).toBe(1)
   })
