@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, it, test } from 'bun:test'
 import type { HarnessKind, HarnessLevel, HarnessRisk } from '../../schemas/state'
 import { orchestrationFor } from '../../services/task-orchestration'
 
