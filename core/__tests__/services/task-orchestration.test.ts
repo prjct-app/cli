@@ -86,3 +86,21 @@ describe('orchestrationFor — determinism', () => {
     expect(a).toEqual(b)
   })
 })
+
+describe('research tasks fan out', () => {
+  it('classifies investigation work as research → parallel', async () => {
+    const { buildTaskHarness } = await import('../../services/task-harness')
+    const { orchestrationFor } = await import('../../services/task-orchestration')
+    const harness = buildTaskHarness('analiza este repo y compara con los 3 mejores harnesses')
+    expect(harness.kind).toBe('research')
+    const plan = orchestrationFor(harness)
+    expect(plan.fanout).toBe('parallel')
+    expect(plan.tests).toBe('none') // read-only work leaves no regression test
+  })
+
+  it('does not shadow bug/security classification', async () => {
+    const { buildTaskHarness } = await import('../../services/task-harness')
+    expect(buildTaskHarness('fix the broken analysis parser').kind).toBe('bug')
+    expect(buildTaskHarness('security review of auth flow').kind).toBe('security')
+  })
+})

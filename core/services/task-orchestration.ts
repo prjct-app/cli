@@ -64,6 +64,22 @@ function isCodeKind(kind: HarnessKind): boolean {
 /** Risk-based defaults per harness level (before SDD/TDD mode floors). */
 function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): OrchestrationPlan {
   const code = isCodeKind(kind)
+  // Research is the parallel case regardless of level: independent sweep
+  // angles (per source/subsystem/competitor) are exactly what subagent
+  // fan-out is for — one context reading everything serially wastes both
+  // wall-clock and quality. Meta-finding from the 2026-07 harness research:
+  // our own triage classified a 3-way competitive investigation as 'direct'.
+  if (kind === 'research') {
+    return {
+      model: 'balanced',
+      effort: 'medium',
+      spec: 'none',
+      tests: 'none',
+      fanout: 'parallel',
+      expectedPoints: 2,
+      directive: '',
+    }
+  }
   switch (level) {
     case 'H0':
       // Trivial (docs/chore). Do NOT spend a frontier model on this.
