@@ -15,7 +15,6 @@ describe('REMOVED_VERBS', () => {
       'pause',
       'resume',
       'reopen',
-      'next',
       'dash',
       'bug',
       'idea',
@@ -24,6 +23,8 @@ describe('REMOVED_VERBS', () => {
       'tokens',
       'velocity',
       'plan',
+      // 'next' left this list in v3.26: it returned as the work-graph
+      // frontier selector (prjct next) — a live verb again.
       // Removed later, with the vault/wiki feature deletion — must get the
       // same clean-error treatment, not silently auto-route to `capture`.
       'vault',

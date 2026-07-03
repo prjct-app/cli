@@ -335,6 +335,7 @@ export type CommandRoutingGroup =
   | 'memoryExport'
   | 'workflowsReference'
   | 'changelog'
+  | 'workGraph'
   | 'analysis'
   | 'setup'
   | 'context'

@@ -2503,6 +2503,44 @@ export const migrations: Migration[] = [
       db.run('DROP TABLE IF EXISTS sessions')
     },
   },
+  {
+    version: 59,
+    name: 'work-graph',
+    up: (db: SqliteDatabase) => {
+      // The work graph (harness research 2026-07: beads + Task Master + BMAD
+      // all converge on this organ): typed edges between work items, a
+      // ready-frontier computed structurally instead of re-read from prose,
+      // atomic claiming for multi-agent fan-out, and a persisted
+      // complexity/decomposition record written at triage time.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS work_dependencies (
+           from_id    TEXT NOT NULL,
+           to_id      TEXT NOT NULL,
+           dep_type   TEXT NOT NULL DEFAULT 'blocks'
+                      CHECK (dep_type IN ('blocks', 'parent', 'related', 'discovered-from')),
+           created_at TEXT NOT NULL,
+           PRIMARY KEY (from_id, to_id, dep_type)
+         )`
+      )
+      db.run('CREATE INDEX IF NOT EXISTS ix_workdeps_to ON work_dependencies(to_id)')
+      db.run(
+        `CREATE TABLE IF NOT EXISTS task_complexity (
+           task_id              TEXT PRIMARY KEY,
+           score                INTEGER NOT NULL,
+           recommended_subtasks INTEGER NOT NULL DEFAULT 0,
+           expansion_prompt     TEXT,
+           reasoning            TEXT,
+           created_at           TEXT NOT NULL
+         )`
+      )
+      try {
+        db.run('ALTER TABLE queue_tasks ADD COLUMN claimed_by TEXT')
+        db.run('ALTER TABLE queue_tasks ADD COLUMN claimed_at TEXT')
+      } catch {
+        /* re-run safety */
+      }
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0
