@@ -123,8 +123,19 @@ export function recordTaskTokenUsage(
   }
 ): void {
   if (!taskId || tokensIn + tokensOut <= 0) return
-  const ti = Math.round(tokensIn)
-  const to = Math.round(tokensOut)
+  // Two failure shapes above the CHECK bound, two policies:
+  //  - PLAUSIBLE overage (a marathon session's input+cache can pass 10M):
+  //    CLAMP to the bound and mark estimated — a dropped row read as "no
+  //    usage at all" and kept token coverage at 0% for exactly the sessions
+  //    that cost the most.
+  //  - IMPLAUSIBLE values (corrupted parse, e.g. 999,999,999): reject, as the
+  //    CHECK always intended — clamping corruption would launder it.
+  const PLAUSIBLE_MAX = 50_000_000
+  if (tokensIn > PLAUSIBLE_MAX || tokensOut > PLAUSIBLE_MAX) return
+  const clamped = tokensIn > TOKEN_COUNT_MAX || tokensOut > TOKEN_COUNT_MAX
+  const ti = Math.min(Math.round(tokensIn), TOKEN_COUNT_MAX)
+  const to = Math.min(Math.round(tokensOut), TOKEN_COUNT_MAX)
+  if (clamped) meta = { ...meta, isEstimated: true }
   try {
     prjctDb.appendEvent(
       projectId,

@@ -350,3 +350,21 @@ describe('insights cost', () => {
     }
   })
 })
+
+describe('recordTaskTokenUsage — oversized counts clamp instead of vanishing', () => {
+  it('clamps to the CHECK bound and marks the row estimated', async () => {
+    const { recordTaskTokenUsage } = await import('../../services/work-cost-service')
+    const { prjctDb } = await import('../../storage/database')
+    // Marathon-session shape: input+cache beyond the 10M CHECK bound used to
+    // be silently REJECTED by the constraint — token coverage read 0 forever.
+    recordTaskTokenUsage(projectId, 'clamp-task', 25_000_000, 4_000_000, {
+      source: 'claude-transcript',
+    })
+    const row = prjctDb.get<{ input_tokens: number; is_estimated: number }>(
+      projectId,
+      "SELECT input_tokens, is_estimated FROM token_usage WHERE work_cycle_id = 'clamp-task'"
+    )
+    expect(row?.input_tokens).toBe(10_000_000) // clamped, not dropped
+    expect(row?.is_estimated).toBe(1) // honesty flag
+  })
+})
