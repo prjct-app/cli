@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [3.28.1] - 2026-07-03
+
+### Bug Fixes
+
+- import 'it' in task-orchestration test (#522)
+- research classifies as its own kind → parallel fan-out (#521)
+
+
 ## [3.28.0] - 2026-07-03
 
 ### Features
