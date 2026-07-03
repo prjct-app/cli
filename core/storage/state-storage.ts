@@ -236,7 +236,10 @@ class StateStorage extends StorageManager<StateJson> {
    * (outcome, subtask summaries, feedback, harness) on the cold `data`
    * column. History queries (`getTaskHistory` et al.) read this, not the
    * state blob. Upsert by task id so ordering vs `mirrorTaskRow` never
-   * matters. Best-effort: history must never block a completion.
+   * matters. Best-effort: history must never block a completion. Token
+   * columns are keep-if-zero: the history entry carries tokens only from the
+   * kv task's addTokens trail, while the Stop hook writes transcript totals
+   * straight onto the row — a 0 here must not clobber a measured total.
    */
   private mirrorHistoryEntry(projectId: string, entry: TaskHistoryEntry): void {
     try {
@@ -262,8 +265,8 @@ class StateStorage extends StorageManager<StateJson> {
            started_at = COALESCE(excluded.started_at, tasks.started_at),
            completed_at = excluded.completed_at,
            pr_url = COALESCE(excluded.pr_url, tasks.pr_url),
-           tokens_in = excluded.tokens_in,
-           tokens_out = excluded.tokens_out,
+           tokens_in = CASE WHEN excluded.tokens_in > 0 THEN excluded.tokens_in ELSE tasks.tokens_in END,
+           tokens_out = CASE WHEN excluded.tokens_out > 0 THEN excluded.tokens_out ELSE tasks.tokens_out END,
            data = excluded.data`,
         entry.taskId,
         entry.title,
