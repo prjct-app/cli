@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.26.0] - 2026-07-03
+
+### Features
+
+- the work graph — deps, ready frontier, atomic claim, phases, decompose loop (Tier 1) (#518)
+
+
 ## [3.25.0] - 2026-07-03
 
 ### Features
