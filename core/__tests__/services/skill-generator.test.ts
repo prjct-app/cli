@@ -404,12 +404,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
         makeRichContext()
       )
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // 2700 (was 2600): a deliberate +~75-token spend for the session-boundary
-      // protocol (close hand-off, post-compaction capture, topic-key upsert) —
-      // the highest-leverage cross-session continuity mechanism from the
-      // gentle-ai competitive analysis. Any further additions must pay their
-      // way the same explicit way, not creep.
-      expect(countTokens(content)).toBeLessThanOrEqual(2700)
+      // 2900 (was 2700, was 2600): a deliberate +~150-token spend for the
+      // work-graph + ceremony verb rows (next/ready/claim/phases/depend/
+      // expand/log/brief/replan/prime/land) — the v3.26-v3.28 organ from the
+      // beads/Task Master/BMAD research. A verb an agent cannot discover in
+      // the always-loaded surface effectively does not exist; discovery of
+      // the frontier selector is exactly what this budget is FOR. Any
+      // further additions must pay their way the same explicit way, not creep.
+      expect(countTokens(content)).toBeLessThanOrEqual(2900)
     })
 
     it('declares the subagent dispatch section with general-purpose type', async () => {
