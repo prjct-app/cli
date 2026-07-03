@@ -23,6 +23,7 @@ export const HarnessKindSchema = z.enum([
   'docs',
   'chore',
   'security',
+  'research',
   'unknown',
 ])
 export const HarnessRiskSchema = z.enum(['low', 'medium', 'high'])

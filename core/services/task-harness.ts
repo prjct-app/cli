@@ -156,6 +156,28 @@ function detectKind(text: string): HarnessKind {
   ) {
     return 'bug'
   }
+  // Research/investigation BEFORE feature: "analiza/investiga/compara X" is
+  // read-only sweep work — the meta-finding from the 2026-07 harness research
+  // was our own triage classifying a 3-way competitive investigation as
+  // "do it yourself — no subagents".
+  if (
+    hasAny(text, [
+      'research',
+      'investiga',
+      'investigate',
+      'analiza',
+      'analyze',
+      'analysis',
+      'análisis',
+      'compare',
+      'compara',
+      'survey',
+      'explore',
+      'explora',
+    ])
+  ) {
+    return 'research'
+  }
   if (hasAny(text, ['refactor', 'cleanup', 'split', 'restructure'])) return 'refactor'
   if (hasAny(text, ['doc', 'docs', 'document', 'readme', 'changelog', 'typo'])) return 'docs'
   if (hasAny(text, ['chore', 'format', 'lint', 'linting', 'linter'])) return 'chore'
@@ -168,6 +190,9 @@ function detectKind(text: string): HarnessKind {
 function detectLevel(kind: HarnessKind, text: string, highRisk: boolean): HarnessLevel {
   if (kind === 'docs' || kind === 'chore') return 'H0'
   if (kind === 'security') return 'H3'
+  // Research is H1 execution risk (read-only, no prod code) but its
+  // orchestration is special-cased to parallel fan-out (see orchestrationFor).
+  if (kind === 'research') return 'H1'
   if (
     highRisk &&
     hasAny(text, ['migration', 'sqlite', 'database', 'architecture', 'arquitectura'])
