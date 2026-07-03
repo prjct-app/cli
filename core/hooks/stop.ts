@@ -87,18 +87,26 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
         // `prjct performance` can prove prjct's net token savings. Best-effort.
         if (transcriptLines && transcriptLines.length > 0) {
           try {
+            // Session total (for the agent-session record below) is unwindowed;
+            // the TASK attribution is windowed to the cycle's start — a task
+            // active for 5 minutes of a 10M-token session must not be billed
+            // the whole session.
             transcriptUsage = sumTranscriptUsage(transcriptLines)
             if (transcriptUsage.tokensIn + transcriptUsage.tokensOut > 0) {
               const { collectActiveTasks } = await import('../services/task-overview')
               const overview = await collectActiveTasks(config.projectId, p)
               activeTaskId = overview.current?.id
               activeTaskDescription = overview.current?.description
-              if (activeTaskId) {
+              const taskWindow = overview.current?.startedAt
+                ? { sinceIso: overview.current.startedAt }
+                : undefined
+              const taskUsage = sumTranscriptUsage(transcriptLines, taskWindow)
+              if (activeTaskId && taskUsage.tokensIn + taskUsage.tokensOut > 0) {
                 recordTaskTokenUsage(
                   config.projectId,
                   activeTaskId,
-                  transcriptUsage.tokensIn,
-                  transcriptUsage.tokensOut,
+                  taskUsage.tokensIn,
+                  taskUsage.tokensOut,
                   {
                     description: activeTaskDescription,
                     agent: 'claude',
@@ -116,7 +124,7 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
                 // the data that PROVES whether model routing saves money.
                 try {
                   const { sumTranscriptUsageByModel } = await import('../services/transcript-jsonl')
-                  for (const [model, u] of sumTranscriptUsageByModel(transcriptLines)) {
+                  for (const [model, u] of sumTranscriptUsageByModel(transcriptLines, taskWindow)) {
                     if (u.tokensIn + u.tokensOut <= 0) continue
                     recordTaskTokenUsage(config.projectId, activeTaskId, u.tokensIn, u.tokensOut, {
                       model,

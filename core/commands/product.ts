@@ -21,6 +21,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execFileAsync } from '../utils/exec'
 import { failHard } from '../utils/md-aware'
+import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
 
@@ -176,6 +177,8 @@ export class ProductCommands extends PrjctCommandsBase {
       case 'tokens':
       case 'usage':
         return this.cost(forwarded, projectPath, options)
+      case 'backfill':
+        return this.backfill(projectPath, options)
       default:
         return failHard(
           `Unknown insights view '${sub}'. Use value, quality, reliability, cost, report, continue, or guardrails.`,
@@ -309,6 +312,26 @@ export class ProductCommands extends PrjctCommandsBase {
       const snapshot = buildWorkCostSnapshot(guard.value, days)
       console.log(options.md ? formatCostMd(snapshot) : formatCostText(snapshot))
       return { success: true, ...snapshot }
+    } catch (error) {
+      return failHard(getErrorMessage(error), options)
+    }
+  }
+
+  /**
+   * `prjct insights backfill` — recover historical per-task token usage from
+   * the Claude Code transcripts on disk (windowed by each completed task's
+   * start/completion). Idempotent; only touches tasks with zero tokens.
+   */
+  async backfill(projectPath: string = process.cwd(), options: ProductOptions = {}) {
+    try {
+      const guard = await requireProject(projectPath, options)
+      if (!guard.ok) return guard.result
+      const { backfillTaskTokens } = await import('../services/token-backfill')
+      const r = await backfillTaskTokens(guard.value, projectPath)
+      const msg = `backfilled ${r.tasksBackfilled} task(s) with ${r.tokensRecovered.toLocaleString()} tokens from ${r.transcriptsScanned} transcript(s) (${r.tasksSkipped} had no usage in window)`
+      if (options.md) console.log(`✓ ${msg}`)
+      else out.done(msg)
+      return { success: true, ...r }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
     }
