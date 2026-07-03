@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.29.0] - 2026-07-03
+
+### Features
+
+- surface work-graph + ceremony verbs in the verb map (#523)
+
+
 ## [3.28.1] - 2026-07-03
 
 ### Bug Fixes
