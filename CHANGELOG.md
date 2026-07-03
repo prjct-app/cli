@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.27.0] - 2026-07-03
+
+### Features
+
+- Tier-2 ceremonies — journal, compiled briefs, replan, prime/land, adversarial review (#519)
+
+
 ## [3.26.0] - 2026-07-03
 
 ### Features
