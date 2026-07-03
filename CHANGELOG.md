@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.24.2] - 2026-07-03
+
+### Bug Fixes
+
+- clamp plausible token overages — per-task tokens finally populate (#515)
+
+
 ## [3.24.1] - 2026-07-03
 
 ### Bug Fixes
