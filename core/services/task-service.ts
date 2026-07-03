@@ -281,6 +281,16 @@ export async function startTask(
       String(orchestration.expectedPoints),
       taskId
     )
+    // Decomposition record (Task Master's complexity report, written by the
+    // triage prjct already runs): score + recommended breakdown, consumed by
+    // `prjct expand` and later calibrated against real token telemetry.
+    const { workGraph } = await import('./work-graph')
+    workGraph.recordComplexity(projectId, taskId, {
+      score: orchestration.expectedPoints,
+      recommendedSubtasks:
+        orchestration.expectedPoints >= 5 ? Math.min(orchestration.expectedPoints, 6) : 0,
+      reasoning: `Triage: ${harness.level} · ${orchestration.model}/${orchestration.effort} · fan-out ${orchestration.fanout}`,
+    })
   } catch {
     /* estimate is advisory telemetry */
   }

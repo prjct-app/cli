@@ -39,10 +39,8 @@ export const REMOVED_VERBS: Readonly<Record<string, RemovedVerb>> = {
     replacement: 'prjct status active',
     note: 'Reopen a completed task by setting status back to active.',
   },
-  next: {
-    replacement: 'prjct status',
-    note: 'Queue view is not part of v2. Use status for the active task.',
-  },
+  // 'next' was a v1 removed verb (queue view); it returned in v3.26 as the
+  // work-graph frontier selector — a real verb again, so no tombstone.
   dash: {
     replacement: 'prjct status',
     note: 'The dash command was removed. Use status, or open the web dashboard.',

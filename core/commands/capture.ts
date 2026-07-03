@@ -37,7 +37,7 @@ export class CaptureCommands extends PrjctCommandsBase {
   async capture(
     content: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean; tags?: string; force?: boolean } = {}
+    options: { md?: boolean; tags?: string; force?: boolean; fromCurrent?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       if (!content || !content.trim()) {
@@ -67,6 +67,38 @@ export class CaptureCommands extends PrjctCommandsBase {
 
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
+
+      // Provenance capture (beads' discovered-from): work found WHILE working
+      // becomes a workable backlog item linked to the active cycle — the
+      // scope-discovery trail agents otherwise disavow under context pressure.
+      // It also feeds velocity's scope-creep signal.
+      if (options.fromCurrent) {
+        const { requireProject } = await import('./guards')
+        const pid = await requireProject(projectPath)
+        if (!pid.ok) return pid.result
+        const { queueStorage } = await import('../storage/queue-storage')
+        const { workGraph } = await import('../services/work-graph')
+        const item = await queueStorage.addTask(pid.value, {
+          description: text,
+          section: 'active',
+          type: 'feature',
+          priority: 'medium',
+        })
+        try {
+          const { collectActiveTasks } = await import('../services/task-overview')
+          const overview = await collectActiveTasks(pid.value, projectPath)
+          if (overview.current?.id) {
+            workGraph.addDependency(pid.value, item.id, overview.current.id, 'discovered-from')
+          }
+        } catch {
+          /* no active cycle → item stands alone; the capture still succeeds */
+        }
+        const previewD = text.length > 60 ? `${text.slice(0, 57)}…` : text
+        if (options.md)
+          console.log(`✓ captured as backlog item (discovered-from current): ${previewD}`)
+        else out.done(`captured as backlog item: ${previewD}`)
+        return { success: true, type: 'discovered', id: item.id, content: text }
+      }
 
       await projectMemory.remember(projectPath, {
         type: 'inbox',
