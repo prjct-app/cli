@@ -73,6 +73,7 @@ export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = 
   ),
   changelog: lazy(async () => new (await import('./changelog')).ChangelogCommands()),
   workGraph: lazy(async () => new (await import('./work-graph')).WorkGraphCommands()),
+  ceremonies: lazy(async () => new (await import('./ceremonies')).CeremonyCommands()),
   lean: lazy(async () => new (await import('./lean')).LeanCommands()),
   cloud: lazy(async () => new (await import('./cloud')).CloudCommands()),
   tdd: lazy(async () => new (await import('./tdd')).TddCommands()),

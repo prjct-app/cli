@@ -336,6 +336,7 @@ export type CommandRoutingGroup =
   | 'workflowsReference'
   | 'changelog'
   | 'workGraph'
+  | 'ceremonies'
   | 'analysis'
   | 'setup'
   | 'context'
