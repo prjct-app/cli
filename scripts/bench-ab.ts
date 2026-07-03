@@ -19,11 +19,20 @@ import path from 'node:path'
 const REPO = path.resolve(import.meta.dir, '..')
 const REPS = Number(process.env.BENCH_REPS ?? 15)
 
-function fetchVersion(version: string): string {
+function fetchVersion(version: string): { bin: string; runner: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bench-${version}-`))
   execFileSync('npm', ['pack', `prjct-cli@${version}`], { cwd: dir, stdio: 'ignore' })
   execFileSync('tar', ['-xzf', `prjct-cli-${version}.tgz`], { cwd: dir })
-  return path.join(dir, 'package', 'bin', 'prjct.ts')
+  const pkgDir = path.join(dir, 'package')
+  // Published tarballs ship dist/ + the portable launcher, NOT core/ sources —
+  // a packed version must run exactly as users run it: node bin/prjct.cjs,
+  // WITH its runtime deps installed (dist keeps e.g. zod external).
+  // --ignore-scripts: benchmarking must never execute a package's hooks.
+  execFileSync('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
+    cwd: pkgDir,
+    stdio: 'ignore',
+  })
+  return { bin: path.join(pkgDir, 'bin', 'prjct.cjs'), runner: 'node' }
 }
 
 interface Side {
@@ -98,11 +107,13 @@ if (!a) {
 }
 
 console.log(`Fetching baseline prjct-cli@${a}…`)
-const baseline = makeSide(`v${a}`, 'bun', fetchVersion(a))
+const baseFetched = fetchVersion(a)
+const baseline = makeSide(`v${a}`, baseFetched.runner, baseFetched.bin)
 let candidate: Side
 if (b) {
   console.log(`Fetching candidate prjct-cli@${b}…`)
-  candidate = makeSide(`v${b}`, 'bun', fetchVersion(b))
+  const candFetched = fetchVersion(b)
+  candidate = makeSide(`v${b}`, candFetched.runner, candFetched.bin)
 } else {
   candidate = makeSide('dev', 'bun', path.join(REPO, 'bin', 'prjct.ts'))
 }
