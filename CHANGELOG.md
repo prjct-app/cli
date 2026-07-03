@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.24.3] - 2026-07-03
+
+### Bug Fixes
+
+- completion no longer clobbers measured task tokens with zero (#516)
+
+
 ## [3.24.2] - 2026-07-03
 
 ### Bug Fixes
