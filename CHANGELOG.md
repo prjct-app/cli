@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.24.1] - 2026-07-03
+
+### Bug Fixes
+
+- run packed versions via the production launcher with installed deps (#514)
+
+
 ## [3.24.0] - 2026-07-02
 
 ### Features
