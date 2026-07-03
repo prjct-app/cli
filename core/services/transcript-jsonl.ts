@@ -76,13 +76,37 @@ function usagePairFrom(usage: Record<string, unknown>): TranscriptUsage & { cach
  * Non-Claude agents that don't write a readable transcript report tokens
  * instead via the `prjct_task_set_status` MCP tool / `prjct status` CLI.
  */
-export function sumTranscriptUsage(lines: TranscriptJsonlLine[]): TranscriptUsage {
+/**
+ * Time-window filter for usage attribution: a line participates when its
+ * `timestamp` falls inside [sinceIso, untilIso). Lines with no parseable
+ * timestamp are INCLUDED only when no window was requested — with a window,
+ * unattributable usage must not leak into a task's bill.
+ */
+export interface UsageWindow {
+  sinceIso?: string
+  untilIso?: string
+}
+
+function inWindow(line: TranscriptJsonlLine, window?: UsageWindow): boolean {
+  if (!window?.sinceIso && !window?.untilIso) return true
+  const t = typeof line.timestamp === 'string' ? Date.parse(line.timestamp) : Number.NaN
+  if (!Number.isFinite(t)) return false
+  if (window.sinceIso && t < Date.parse(window.sinceIso)) return false
+  if (window.untilIso && t >= Date.parse(window.untilIso)) return false
+  return true
+}
+
+export function sumTranscriptUsage(
+  lines: TranscriptJsonlLine[],
+  window?: UsageWindow
+): TranscriptUsage {
   let tokensIn = 0
   let tokensOut = 0
   // cache_read is cumulative (re-reported each turn) — take the largest single
   // report, not the sum, so a long session doesn't inflate input quadratically.
   let maxCacheRead = 0
   for (const line of lines) {
+    if (!inWindow(line, window)) continue
     const usage =
       asRecord(asRecord(line.message)?.usage) ??
       asRecord(line.usage) ??
@@ -104,10 +128,12 @@ export function sumTranscriptUsage(lines: TranscriptJsonlLine[]): TranscriptUsag
  * breakdown that PROVES whether orchestration's model routing saves money.
  */
 export function sumTranscriptUsageByModel(
-  lines: TranscriptJsonlLine[]
+  lines: TranscriptJsonlLine[],
+  window?: UsageWindow
 ): Map<string, TranscriptUsage> {
   const acc = new Map<string, { tokensIn: number; tokensOut: number; maxCacheRead: number }>()
   for (const line of lines) {
+    if (!inWindow(line, window)) continue
     const message = asRecord(line.message)
     const usage = asRecord(message?.usage) ?? asRecord(line.usage) ?? asRecord(line.usageMetadata)
     if (!usage) continue
