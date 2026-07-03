@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.28.0] - 2026-07-03
+
+### Features
+
+- Tier-3 hygiene — tiered MCP loading + bounded working-set renders (#520)
+
+
 ## [3.27.0] - 2026-07-03
 
 ### Features
