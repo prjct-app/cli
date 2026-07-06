@@ -27,6 +27,8 @@ class MemoryService {
        * outside any repo.
        */
       projectId?: string
+      /** Treat this write as required and rethrow failures to the caller. */
+      required?: boolean
     }
   ): Promise<{ eventId: number | null; projectId: string } | null> {
     try {
@@ -36,8 +38,12 @@ class MemoryService {
       const eventId = prjctDb.appendEvent(projectId, `memory.${action}`, { ...data, author })
       return { eventId, projectId }
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (opts?.required) {
+        throw new Error(message)
+      }
       // Non-critical - don't fail the command
-      console.error(`Memory log error: ${error instanceof Error ? error.message : String(error)}`)
+      console.error(`Memory log error: ${message}`)
       return null
     }
   }
