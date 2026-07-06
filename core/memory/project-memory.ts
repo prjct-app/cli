@@ -291,6 +291,8 @@ export const projectMemory = {
        *  Stop-hook detectors fire several remembers per turn and each used
        *  to re-read + re-parse prjct.config.json. */
       projectId?: string
+      /** For user-facing remember commands, the event write is the operation. */
+      requireWrite?: boolean
     }
   ): Promise<void> {
     const tags = args.tags ?? {}
@@ -357,7 +359,9 @@ export const projectMemory = {
       undefined,
       // Explicit target: same value path-resolution yields for normal
       // captures; the global KB pseudo-project for --global ones.
-      projectId ? { projectId } : undefined
+      projectId || args.requireWrite
+        ? { ...(projectId ? { projectId } : {}), required: args.requireWrite }
+        : undefined
     )
     if (logResult?.projectId && !projectId) projectId = logResult.projectId
 

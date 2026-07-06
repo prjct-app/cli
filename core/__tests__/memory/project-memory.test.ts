@@ -8,7 +8,7 @@
  * accumulates.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -869,5 +869,23 @@ describe('topic supersession — edge-case hardening (cleanup sweep)', () => {
       "SELECT COUNT(*) AS c FROM memory_entries WHERE topic_key = 'fragile' AND deleted_at IS NULL"
     )
     expect(active?.c).toBe(1) // the old revision was NOT tombstoned
+  })
+
+  it('throws when a required remember event write fails', async () => {
+    const appendSpy = spyOn(prjctDb, 'appendEvent').mockImplementation(() => {
+      throw new Error('attempt to write a readonly database')
+    })
+    try {
+      await expect(
+        projectMemory.remember(tmpRoot, {
+          type: 'decision',
+          content: 'required memory must not report success',
+          projectId,
+          requireWrite: true,
+        })
+      ).rejects.toThrow('attempt to write a readonly database')
+    } finally {
+      appendSpy.mockRestore()
+    }
   })
 })

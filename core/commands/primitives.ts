@@ -246,6 +246,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
           content,
           tags,
           projectId: 'global-kb',
+          requireWrite: true,
         })
         const msg = `remembered ${type} (GLOBAL — cross-project): ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`
         if (options.md) console.log(`✓ ${msg}`)
@@ -291,6 +292,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         content,
         tags: finalTags,
         source: active?.id,
+        requireWrite: true,
       })
 
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)
