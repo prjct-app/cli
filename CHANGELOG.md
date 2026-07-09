@@ -5,6 +5,13 @@
 ### Added
 - xAI Grok Build CLI compatibility (agent-runtime-registry)
 
+## [3.32.0] - 2026-07-09
+
+### Features
+
+- passive capture v2, land auto-synthesis, weak-vs-frontier demo (#528)
+
+
 ## [3.31.0] - 2026-07-09
 
 ### Features
