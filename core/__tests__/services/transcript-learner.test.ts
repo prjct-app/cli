@@ -11,7 +11,13 @@
 import { describe, expect, test } from 'bun:test'
 import { _internal } from '../../services/transcript-learner'
 
-const { parseTranscript, extractCandidates, hashContent, PHRASE_TYPE_MAP } = _internal
+const {
+  parseTranscript,
+  extractCandidates,
+  hashContent,
+  PHRASE_TYPE_MAP,
+  classifyCaptureParagraph,
+} = _internal
 
 function transcriptLine(role: string, text: string): string {
   return JSON.stringify({ role, content: text })
@@ -139,6 +145,38 @@ describe('transcript-learner — extractCandidates', () => {
     expect(out).toHaveLength(1)
   })
 
+  test('v2: label-prefix Decision: classifies without conversational phrase', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        text: `Decision: keep the daemon warm and route cold path only on miss — this preserves p50 latency under concurrent agents without rewriting the dispatcher.`,
+      },
+    ]
+    const out = extractCandidates(messages)
+    expect(out).toHaveLength(1)
+    expect(out[0].type).toBe('decision')
+    expect(out[0].matchedPhrase).toBe('label:decision')
+  })
+
+  test('v2: markdown bullet labels in a dense list split per line', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        text: [
+          '- Learning: the Stop hook must parse the transcript once and share lines across detectors to avoid multi-hundred-KB re-reads.',
+          '- Gotcha: Node 20 cannot install npm@12 — pin Node 22 + npm@11 in the Release job.',
+          '- Fact: project data always lives under ~/.prjct-cli/projects/{id}/ never the repo root.',
+        ].join('\n'),
+      },
+    ]
+    const out = extractCandidates(messages)
+    expect(out.map((c) => c.type).sort()).toEqual(['fact', 'gotcha', 'learning'])
+  })
+
+  test('v2: classifyCaptureParagraph rejects short noise', () => {
+    expect(classifyCaptureParagraph('Decision: short')).toBeNull()
+  })
+
   test('caps at MAX_CANDIDATES_PER_SESSION', () => {
     const decisions: { role: 'assistant'; text: string }[] = []
     for (let i = 0; i < 50; i++) {
@@ -168,7 +206,14 @@ describe('transcript-learner — hashContent', () => {
 
 describe('transcript-learner — PHRASE_TYPE_MAP', () => {
   test('every phrase maps to one of the known memory types', () => {
-    const validTypes = new Set(['decision', 'learning', 'gotcha', 'fact'])
+    const validTypes = new Set([
+      'decision',
+      'learning',
+      'gotcha',
+      'fact',
+      'pattern',
+      'anti-pattern',
+    ])
     for (const entry of PHRASE_TYPE_MAP) {
       expect(validTypes.has(entry.type)).toBe(true)
     }
