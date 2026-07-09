@@ -73,10 +73,11 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
     suggestedTags: {
       domain: ['auth', 'api', 'frontend', 'infra', 'data'],
     },
-    // Ship-grade defaults: intent + tests first, hard loop ceiling.
+    // Raise the floor without blocking init→work. Opt into full gates with
+    // `prjct sdd strict` / `prjct tdd strict`.
     configDefaults: {
-      sdd: 'strict',
-      tdd: 'strict',
+      sdd: 'advisory',
+      tdd: 'assist',
       maxTurnsPerCycle: 25,
     },
   },

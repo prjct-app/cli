@@ -79,8 +79,8 @@ describe('pack-manager', () => {
   test('code pack applies sdd/tdd/loop defaults on first activation only', async () => {
     await activatePacks(projectPath, ['code'])
     const config = await configManager.readConfig(projectPath)
-    expect(config?.sdd?.mode).toBe('strict')
-    expect(config?.tdd?.mode).toBe('strict')
+    expect(config?.sdd?.mode).toBe('advisory')
+    expect(config?.tdd?.mode).toBe('assist')
     expect(config?.maxTurnsPerCycle).toBe(25)
 
     await configManager.writeConfig(projectPath, {
