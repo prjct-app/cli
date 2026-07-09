@@ -48,4 +48,11 @@ describe('prjct harness command', () => {
     expect(logged()).toContain('induction')
     await fs.rm(dir, { recursive: true, force: true })
   })
+
+  it('score reports a done grade', async () => {
+    const r = await cmd.score(process.cwd(), { md: true })
+    expect(r.success).toBe(true)
+    expect(r.programDone).toBe(true)
+    expect(logged()).toContain('Harness score')
+  })
 })

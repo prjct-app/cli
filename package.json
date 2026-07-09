@@ -36,7 +36,8 @@
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "test:e2e": "bun test core/__tests__/e2e/",
-    "bench:ab": "bun scripts/bench-ab.ts"
+    "bench:ab": "bun scripts/bench-ab.ts",
+    "harness:score": "bun bin/prjct.ts harness score --md"
   },
   "keywords": [
     "claude-code",

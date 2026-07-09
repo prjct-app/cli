@@ -598,6 +598,47 @@ function subagentCounts(projectId: string, sinceIsoTs: string): Map<string, numb
   }
 }
 
+function runtimeFromSource(source: string | null | undefined): string {
+  if (!source || source === 'unknown') return 'unknown'
+  if (source.startsWith('claude-transcript')) return 'claude'
+  if (source.includes('gemini')) return 'gemini'
+  if (source.includes('codex') || source.includes('openai')) return 'codex'
+  if (source.includes('grok') || source.includes('xai')) return 'grok'
+  return source.split(':')[0] || 'unknown'
+}
+
+/** Prefer rows with model_id; first hit wins (ordered by measured_at DESC). */
+function modelRuntimeByCycle(
+  projectId: string,
+  sinceIsoTs: string
+): Map<string, { model: string; runtime: string }> {
+  const out = new Map<string, { model: string; runtime: string }>()
+  try {
+    const rows = prjctDb.query<{
+      work_cycle_id: string
+      model_id: string | null
+      source: string | null
+    }>(
+      projectId,
+      `SELECT work_cycle_id, model_id, source
+       FROM token_usage
+       WHERE measured_at >= ? AND work_cycle_id IS NOT NULL
+       ORDER BY (model_id IS NOT NULL) DESC, measured_at DESC`,
+      sinceIsoTs
+    )
+    for (const r of rows) {
+      if (!r.work_cycle_id || out.has(r.work_cycle_id)) continue
+      out.set(r.work_cycle_id, {
+        model: r.model_id?.length ? r.model_id : 'unknown',
+        runtime: runtimeFromSource(r.source),
+      })
+    }
+  } catch {
+    // fresh DBs may lack rows
+  }
+  return out
+}
+
 function buildPerformanceCycles(projectId: string, days: number): PerformanceCycle[] {
   const since = sinceIso(days)
   const rows = query<PerformanceRow>(
@@ -611,9 +652,11 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
     since
   )
 
+  const attribution = modelRuntimeByCycle(projectId, since)
   const cycles = rows.map((row) => {
     const tokensIn = nullableNumber(row.tokens_in)
     const tokensOut = nullableNumber(row.tokens_out)
+    const attr = attribution.get(row.id)
     return {
       id: row.id,
       description: row.description,
@@ -623,8 +666,8 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
       tokensOut,
       tokensTotal:
         tokensIn === null && tokensOut === null ? null : (tokensIn ?? 0) + (tokensOut ?? 0),
-      model: 'unknown',
-      runtime: 'unknown',
+      model: attr?.model ?? 'unknown',
+      runtime: attr?.runtime ?? 'unknown',
       subagents: 0,
       promptSynthesis: synthesizePrompt(row.description),
       outcome: row.shipped_at ? 'shipped' : row.completed_at ? 'completed' : row.status,
@@ -634,15 +677,17 @@ function buildPerformanceCycles(projectId: string, days: number): PerformanceCyc
   const seen = new Set(cycles.map((cycle) => cycle.id))
   const measuredEventCycles = buildWorkCostSnapshot(projectId, days)
     .mostExpensive.filter((task) => !seen.has(task.id))
-    .map(costTaskToPerformanceCycle)
-  const merged = [...cycles, ...measuredEventCycles].slice(0, 20)
-  // Fan-out attribution: how many subagents each cycle spawned.
+    .map((task) => costTaskToPerformanceCycle(task, attribution.get(task.id)))
+  const merged = [...cycles, ...measuredEventCycles].slice(0, 12)
   const spawns = subagentCounts(projectId, sinceIso(days))
   for (const c of merged) c.subagents = spawns.get(c.id) ?? c.subagents ?? 0
   return merged
 }
 
-function costTaskToPerformanceCycle(task: WorkCostTask): PerformanceCycle {
+function costTaskToPerformanceCycle(
+  task: WorkCostTask,
+  attr?: { model: string; runtime: string }
+): PerformanceCycle {
   return {
     id: task.id,
     description: task.description,
@@ -651,8 +696,8 @@ function costTaskToPerformanceCycle(task: WorkCostTask): PerformanceCycle {
     tokensIn: task.tokensIn,
     tokensOut: task.tokensOut,
     tokensTotal: task.tokensTotal,
-    model: 'unknown',
-    runtime: 'unknown',
+    model: attr?.model ?? 'unknown',
+    runtime: attr?.runtime ?? 'unknown',
     subagents: 0,
     promptSynthesis: synthesizePrompt(task.description),
     outcome: task.status,

@@ -73,20 +73,8 @@ describe('compact RAG-first agent protocol', () => {
     }
   })
 
-  // These routing blocks are loaded EVERY session (CLAUDE.md / AGENTS.md), so
-  // their byte cost is recurring. The budget locks in the progressive-
-  // disclosure trim (full protocol lives in SKILL.md, pulled on demand) and
-  // fails loudly if a future edit lets them creep back toward history-carrier
-  // bloat. Raise deliberately, never by accident.
   it('keeps the always-loaded routing blocks under their byte budget', () => {
-    // DELIBERATE raises (400 → 720 → 900): the block is a MAP of the harness
-    // organs (memory/KB, skills, agents, guardrails) + the one pull command for
-    // each — token-optimized so the model knows WHERE to look. The 900 step
-    // paid for two new organs: the session-boundary hand-off (close/compaction
-    // capture + topic-key upsert) and the `prjct workflows` methodology pull
-    // (gentle-ai learnings, cross-rig). Still no rules inline; any creep back
-    // toward inline rules/RAG protocol is the failure.
-    expect(Buffer.byteLength(agentsRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(900)
-    expect(Buffer.byteLength(claudeRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(900)
+    expect(Buffer.byteLength(agentsRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(560)
+    expect(Buffer.byteLength(claudeRouting.FULL_BLOCK, 'utf-8')).toBeLessThanOrEqual(560)
   })
 })

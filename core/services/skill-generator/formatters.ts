@@ -10,29 +10,23 @@ import type { ProjectCommands } from '../../types/project-sync'
 import type { SkillContext } from './types'
 
 export function formatProjectHeader(ctx: SkillContext): string {
-  // Empty projectName = baseline template (no project initialized in cwd).
-  // The shipped skill uses this until `prjct sync` regenerates with real data.
   if (!ctx.projectName) {
-    return [
-      'This is the baseline `prjct` skill installed by the CLI on every invocation.',
-      '',
-      'No project has been initialized in this cwd yet (`.prjct/` missing). When the user',
-      'shows intent (start a task, capture a thought, ship), suggest `prjct init` ONCE',
-      "in one line, then run the verb. Don't gate routine captures on init.",
-      '',
-      'After `prjct sync` runs in an initialized project, this file is regenerated with',
-      'project-specific context (name, stack, velocity, active task, recent shipped,',
-      'known gotchas). The verb intent map below applies in both states.',
-    ].join('\n')
+    return 'Baseline skill (no project in cwd). On first real intent, suggest `prjct init` once — then run the verb. `prjct sync` regenerates this with project context.'
   }
   return `# ${ctx.projectName}
 ${ctx.stack} | ${ctx.fileCount} files | v${ctx.version} | Branch: ${ctx.branch}`
 }
 
+/** Caps for always-on skill context (pull the rest). */
+const ALWAYS_ON_PATTERN_CAP = 2
+const ALWAYS_ON_ANTI_CAP = 2
+const ALWAYS_ON_GOTCHA_CAP = 2
+const ALWAYS_ON_SHIPPED_CAP = 2
+
 export function formatPatterns(ctx: SkillContext): string {
   if (ctx.patterns.length === 0) return ''
   const items = ctx.patterns
-    .slice(0, 6)
+    .slice(0, ALWAYS_ON_PATTERN_CAP)
     .map((p) => `- **${p.name}**: ${p.description}${p.location ? ` (${p.location})` : ''}`)
     .join('\n')
   return `\n## Patterns\n${items}\n`
@@ -42,7 +36,7 @@ export function formatAntiPatterns(ctx: SkillContext): string {
   if (ctx.antiPatterns.length === 0) return ''
   const severityIcon: Record<string, string> = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }
   const items = ctx.antiPatterns
-    .slice(0, 6)
+    .slice(0, ALWAYS_ON_ANTI_CAP)
     .map(
       (a) =>
         `- ${severityIcon[a.severity] || 'MEDIUM'}: ${a.issue} in \`${a.file}\` — ${a.suggestion}`
@@ -54,7 +48,7 @@ export function formatAntiPatterns(ctx: SkillContext): string {
 export function formatGotchas(ctx: SkillContext): string {
   if (ctx.knownGotchas.length === 0) return ''
   const items = ctx.knownGotchas
-    .slice(0, 5)
+    .slice(0, ALWAYS_ON_GOTCHA_CAP)
     .map((g) => `- ${g}`)
     .join('\n')
   return `\n## Known Gotchas\n${items}\n`
@@ -63,7 +57,7 @@ export function formatGotchas(ctx: SkillContext): string {
 export function formatRecentShipped(ctx: SkillContext): string {
   if (ctx.recentShipped.length === 0) return ''
   const items = ctx.recentShipped
-    .slice(0, 5)
+    .slice(0, ALWAYS_ON_SHIPPED_CAP)
     .map((s) => {
       const parts = [`"${s.name}"`, s.type]
       if (s.duration) parts.push(s.duration)
@@ -121,7 +115,7 @@ export function formatState(ctx: SkillContext): string {
 export function formatUserPatterns(ctx: SkillContext): string {
   if (ctx.userPatterns.length === 0) return ''
   const items = ctx.userPatterns
-    .slice(0, 8)
+    .slice(0, 3)
     .map((p) => `- ${p}`)
     .join('\n')
   return `\n## User Patterns\n${items}\n`

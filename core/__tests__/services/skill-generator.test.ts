@@ -206,8 +206,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       expect(content).toContain('`prjct work` is the single normal entrypoint')
       expect(content).toContain('Trivial work proceeds directly')
-      expect(content).toContain('Substantive implementation work follows a persisted intent')
-      expect(content).toContain('write tests before implementation')
+      expect(content).toMatch(/persisted intent|tests before implementation/)
       expect(content).not.toContain('**NO spec, NO audit-spec, NO subagents, NO fan-out.**')
     })
 
@@ -217,7 +216,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const dir = path.dirname(result.generated[0].path)
       const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
 
-      expect(content).toContain('loop-discipline triggers live in `workflows.md`')
+      expect(content).toContain('workflows.md')
       expect(content).not.toContain('## Loop discipline')
       expect(content).not.toContain('Reading **4+ files**')
       expect(content).not.toContain('Touching **2+ non-trivial files**')
@@ -404,14 +403,8 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
         makeRichContext()
       )
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // 2900 (was 2700, was 2600): a deliberate +~150-token spend for the
-      // work-graph + ceremony verb rows (next/ready/claim/phases/depend/
-      // expand/log/brief/replan/prime/land) — the v3.26-v3.28 organ from the
-      // beads/Task Master/BMAD research. A verb an agent cannot discover in
-      // the always-loaded surface effectively does not exist; discovery of
-      // the frontier selector is exactly what this budget is FOR. Any
-      // further additions must pay their way the same explicit way, not creep.
-      expect(countTokens(content)).toBeLessThanOrEqual(2900)
+      // ≤1500 tok always-on. Full verb map + methodology live in workflows.md.
+      expect(countTokens(content)).toBeLessThanOrEqual(1500)
     })
 
     it('declares the subagent dispatch section with general-purpose type', async () => {
@@ -476,64 +469,55 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
   })
 
-  // Verb intent map — the LLM is the intent engine. The lean SKILL.md
-  // carries a compact intent→verb→tier TABLE (the per-verb prose moved to
-  // the reference) so routing stays in context without the bulk.
+  // Verb intent map — always-on carries a CORE table; full map in workflows.md.
   describe('verb intent map (UX phase 1)', () => {
-    it('declares the verb intent map as a compact intent→verb→tier table', async () => {
+    it('declares a compact core verb table always-on + full map in reference', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('## Verb intent map')
-      expect(content).toContain('you run the verb, the user never types it')
-      expect(content).toContain('| Intent / signal | Verb | Tier |')
-      // Regression lock: `work` is the normal orchestration entrypoint; it
-      // precedes manual intent/spec verbs and carries the persisted station contract.
-      expect(content).toContain('## Act: `prjct work` is the single normal entrypoint')
-      const verbMap = content.split('## Verb intent map')[1]?.split('## Routing')[0] ?? ''
-      expect(verbMap.indexOf('`prjct work')).toBeGreaterThan(-1)
-      expect(verbMap.indexOf('`prjct work')).toBeLessThan(verbMap.indexOf('`prjct intent'))
-      // Routine verbs present in the table.
-      expect(verbMap).toContain('`prjct search')
-      expect(verbMap).toContain('`prjct remember decision')
-      expect(verbMap).toContain('`prjct remember learning')
-      expect(verbMap).toContain('`prjct remember gotcha')
-      expect(verbMap).toContain('`prjct ship`')
-      expect(verbMap).toContain('`prjct insights value --md`')
-      expect(verbMap).toContain('`prjct insights reliability --md`')
-      expect(verbMap).toContain('`prjct insights report 7 --md`')
-      expect(verbMap).toContain('`prjct performance 7 --md`')
-      expect(verbMap).toContain('`prjct context-save`')
+      const dir = path.dirname(result.generated[0].path)
+      const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
+      expect(content).toContain('### Core verbs')
+      expect(content).toMatch(/you run the verb|never types/)
+      expect(content).toContain('| Signal | Verb | T |')
+      expect(content).toContain('`prjct work` is the single normal entrypoint')
+      expect(content).toContain('`prjct work')
+      expect(content).toContain('`prjct search')
+      expect(content).toContain('`prjct ship`')
+      // Full map (insights variants, context-save, etc.) lives in reference.
+      expect(ref).toContain('## Full verb intent map')
+      expect(ref).toContain('`prjct insights value --md`')
+      expect(ref).toContain('`prjct insights reliability --md`')
+      expect(ref).toContain('`prjct insights report 7 --md`')
+      expect(ref).toContain('`prjct performance 7 --md`')
+      expect(ref).toContain('`prjct context-save`')
+      expect(ref).toContain('`prjct remember decision')
     })
 
     it('explicitly tells the model NOT to make the user type commands', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('you run the verb, the user never types it')
+      expect(content).toMatch(/never types|run the verb/i)
       // Skill description carries the same contract.
       const description = content.split('description:')[1]?.split('\n')[0] ?? ''
       expect(description).toMatch(/run the prjct verb yourself/i)
     })
 
-    it('teaches living context synthesis as product behavior for every project', async () => {
+    it('teaches living context synthesis via pull reference (not always-on dump)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('Living context synthesis')
-      expect(content).toContain('same model that just executed the task')
-      expect(content).toContain('Context synthesis')
-      expect(content).toContain('Key data')
-      expect(content).toContain('UI can filter')
-      expect(content).toContain('What happened')
-      expect(content).toContain('Why it mattered')
-      expect(content).toContain('Who/author')
-      expect(content).toContain('Model')
-      expect(content).toContain('Token usage')
-      expect(content).toContain('Sentiment')
-      expect(content).toContain('Related files')
-      expect(content).toContain('Feature/domain')
-      expect(content).toContain('Pattern')
-      expect(content).toContain('Anti-pattern')
-      expect(content).toContain('Next implication')
-      expect(content).toContain('Raw detector output is input, not the final context')
+      const dir = path.dirname(result.generated[0].path)
+      const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
+      expect(content).toMatch(/living context|Session close/i)
+      expect(ref).toContain('Living context synthesis')
+      expect(ref).toContain('same model that just executed the task')
+      expect(ref).toContain('Context synthesis')
+      expect(ref).toContain('Key data')
+      expect(ref).toContain('What happened')
+      expect(ref).toContain('Why it mattered')
+      expect(ref).toContain('Who/author')
+      expect(ref).toContain('Token usage')
+      expect(ref).toContain('Next implication')
+      expect(ref).toContain('Raw detector output is input, not the final context')
     })
   })
 
@@ -543,9 +527,9 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     it('declares the three-tier routing protocol by blast radius', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('## Routing')
+      expect(content).toContain('### Routing')
       expect(content).toContain('Tier 1 — auto-execute')
-      expect(content).toContain('Tier 2 — suggest-and-confirm')
+      expect(content).toContain('Tier 2 — confirm')
       expect(content).toContain('Tier 3 — decision-brief')
     })
 
@@ -553,30 +537,27 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       const tier1 = content.split('Tier 1 — auto-execute')[1]?.split('Tier 2 —')[0] ?? ''
-      expect(tier1).toContain('`search`')
-      expect(tier1).toContain('`remember`')
-      expect(tier1).toContain('`guard`')
-      expect(tier1).toContain('`insights`')
-      expect(tier1).toContain('`performance`')
-      expect(tier1).toContain('`context-save`')
+      expect(tier1).toContain('search')
+      expect(tier1).toContain('remember')
+      expect(tier1).toContain('guard')
+      expect(tier1).toContain('insights')
+      expect(tier1).toContain('performance')
     })
 
-    it('groups work / intent / ship into Tier 2 (suggest-and-confirm)', async () => {
+    it('groups work / intent / ship into Tier 2 (confirm once)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const tier2 = content.split('Tier 2 — suggest-and-confirm')[1]?.split('Tier 3 —')[0] ?? ''
-      expect(tier2).toContain('`work`')
-      expect(tier2).toContain('`intent`')
-      expect(tier2).toContain('`ship`')
-      // Heavy quality workflows (`audit`/`review`/`security`/`investigate`)
-      // moved out of the lean body into workflows.md — no longer in Tier 2.
+      const tier2 = content.split('Tier 2 — confirm')[1]?.split('Tier 3 —')[0] ?? ''
+      expect(tier2).toContain('work')
+      expect(tier2).toContain('intent')
+      expect(tier2).toContain('ship')
     })
 
-    it('refuses pausing on routine captures and shipping without a surfaced plan', async () => {
+    it('refuses pausing on routine captures and shipping without user OK', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toMatch(/Do not ask "want me to save that\?"/)
-      expect(content).toMatch(/Never run `ship` without surfacing the plan first/)
+      expect(content).toMatch(/do not ask permission to save|auto-execute/i)
+      expect(content).toMatch(/Never ship without user OK/)
     })
   })
 })

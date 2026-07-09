@@ -1,13 +1,9 @@
 /**
- * `prjct harness` — the two ways to create the Body (Phase C).
+ * `prjct harness` — scorecard + Body creation.
  *
- *   prjct harness learn-from   INDUCTION: synthesize repeatable organs from a
- *                              flow you just did by hand.
- *   prjct harness list         list the rigs you can steal as a base.
- *   prjct harness use <name>   STEAL-A-RIG: adopt a rig's organs into prjct.
+ *   score · learn-from · list · use <rig>
  *
- * Anti-harness contract: prjct DESCRIBES (emits the dispatch + names the verbs);
- * the host runs the LLM work and persists the organs through prjct verbs.
+ * prjct describes; the host runs LLM work and persists via prjct verbs.
  */
 
 import { existsSync } from 'node:fs'
@@ -20,6 +16,7 @@ import {
   renderRigAdoption,
   renderRigList,
 } from '../services/harness-rigs'
+import { computeHarnessScore, renderHarnessScoreMd } from '../services/harness-score'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -27,6 +24,33 @@ import { getErrorMessage } from '../types/fs'
 import { PrjctCommandsBase } from './base'
 
 export class HarnessCommands extends PrjctCommandsBase {
+  async score(
+    _projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    try {
+      const report = computeHarnessScore()
+      if (options.md) {
+        console.log(renderHarnessScoreMd(report))
+      } else {
+        console.log(`Harness grade: ${report.grade}/5${report.programDone ? ' (done)' : ''}`)
+        console.log(report.summary)
+        for (const c of report.criteria) {
+          const mark = c.status === 'green' ? '✓' : c.status === 'amber' ? '△' : '✗'
+          console.log(`  ${mark} ${c.name}: ${c.score} — ${c.measured}`)
+        }
+      }
+      return {
+        success: true,
+        grade: report.grade,
+        programDone: report.programDone,
+        criteria: report.criteria,
+      }
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
   /** `prjct harness learn-from` — induction from the just-performed flow. */
   async learnFrom(
     projectPath: string = process.cwd(),

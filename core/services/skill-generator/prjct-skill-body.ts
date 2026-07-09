@@ -1,28 +1,13 @@
 /**
- * Body of the canonical `prjct` workflow skill.
+ * Canonical `prjct` skill body.
  *
- * Anti-harness shape: `Use when` + `What's here` + `Gotchas` — zero
- * numbered steps, zero "first X then Y", zero "pre-flight BLOCKING"
- * language. prjct describes state; Claude decides HOW.
- *
- * CONTEXT BUDGET: the SKILL.md body stays in the host model's context for
- * the whole session (Anthropic: "every line is a recurring token cost").
- * So this file is the LEAN core — routing + verb map + gotchas — and the
- * heavy methodology (quality workflows, subagent dispatch, decision-brief,
- * prefs, builder ethos) lives in `buildPrjctSkillReference()`, written next
- * to SKILL.md as `workflows.md` and PULLED on demand. Same pull-not-push
- * rule the rest of the runtime follows.
+ * Shape: Use when · What's here · Gotchas. Always-on budget ≤1500 tokens;
+ * methodology and full verb map live in workflows.md (pull on demand).
  */
 
-import { LIVING_CONTEXT_SYNTHESIS_GUIDANCE } from '../living-context-contract'
 import { formatProjectHeader, formatRichContext } from './formatters'
 import type { SkillContext } from './types'
 
-// Trigger only — NOT a manual. This string is always in the host model's
-// context (the skill list ships it every turn), so it carries just enough to
-// fire correctly and bias routing; the full triage/verb-map/tiers/language
-// rules live in the body, which loads on invoke. Keeping the methodology out
-// of here is the same pull-not-push rule the rest of the runtime follows.
 export const PRJCT_SKILL_DESCRIPTION =
   'AI Agile OS for coding agents: intent briefs, RAG context, synthesized memory, guardrails, performance, and ships. Run the prjct verb yourself; use `prjct work` normally.'
 
@@ -36,14 +21,9 @@ export const PRJCT_SKILL_ALLOWED_TOOLS = [
   'Task',
 ] as const
 
-/** Reference file (pulled on demand) that the lean SKILL.md body points to. */
 export const PRJCT_SKILL_REFERENCE_FILE = 'workflows.md'
 
-/**
- * Sentinel context used at build time to emit the baseline SKILL.md
- * (the template that `bin/prjct` self-heals into ~/.claude/skills/prjct/).
- * `prjct sync` later overwrites with a real, project-aware ctx.
- */
+/** Empty ctx for the baseline template; `prjct sync` fills project data. */
 export function emptySkillContext(): SkillContext {
   return {
     projectName: '',
@@ -83,113 +63,54 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
   return [
     '# prjct',
     '',
-    `## Use when`,
+    '## Use when',
     '',
-    'You want to:',
-    '- recall prior project decisions, learnings, or shipped features',
-    '- save a synthesized decision, gotcha, or context insight',
-    '- run a workflow the project already registered',
-    '- understand your role and the MCPs available in this project',
+    'Project memory, work cycles, ships, guardrails, or performance. **You run the verb — the user never types `prjct`.**',
     '',
     "## What's here",
     '',
     formatProjectHeader(ctx),
-    '',
     formatRichContext(ctx),
     '',
     '### Agent contract',
     '',
     '- prjct remembers project state and shows the path; it does not own the execution.',
-    '- Treat prjct output as durable signals: active work, memory, intents, risks, performance, recent learnings.',
-    '- Agents decide HOW with native tools and judgment. Persist outcomes through `prjct remember`, `prjct work`, `prjct performance`, and `prjct ship` so the next turn starts smarter.',
+    '- Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.',
+    '- Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.',
     '',
-    '### Primitives',
+    '### Core verbs (Tier 1=auto · 2=confirm)',
     '',
-    '- `prjct intent "<title>"` — frame work BEFORE coding (objective/constraints/risks/success)',
-    '- `prjct work "<intent>"` — start or inspect an AI Agile work cycle',
-    '- `prjct remember <type> "<content>" [--tags]` — typed memory entry',
-    '- `prjct search "<query>"` — recall project memory (BM25 + semantic + recall); the verb to reach for when you need prior knowledge',
-    '- `prjct context memory [topic]` — same blended retrieval as `search`, plus the `learnings` subtool',
-    '- `prjct guard <file>` — preventive memory recorded against a file, before you edit it',
-    '- `prjct insights [value|quality|reliability|cost|report|continue|guardrails]` — trust, cost',
-    '- `prjct performance [days]` — dev+LLM efficiency per work cycle (time/tokens/model/runtime when known)',
-    '- `prjct workflow list` / `prjct workflow run <name>` — registered workflows',
-    '- `prjct seed list` — active packs (memory types + workflow slots)',
-    '',
-    'Base memory types: `fact · decision · learning · gotcha · pattern · anti-pattern · shipped · context · inbox · todo · idea · insight · question · source · person · spec · identity · voice · glossary · framework`. Any lowercase string works.',
-    'The last four are the **sovereign knowledge base** — model-agnostic project knowledge (who you are, voice, terms, frameworks) any rig reads on demand. Capture with `prjct remember <facet>`, recall with `prjct context memory <facet>`; it lives in SQLite and is pulled on demand, never injected into CLAUDE.md / AGENTS.md.',
-    '',
-    '### Data paths',
-    '',
-    '- Project knowledge — query via tools (`prjct search`, `prjct context memory`, MCP `prjct_*`); SQLite is the source of truth',
-    '- `.prjct/prjct.config.json` — persona + active packs',
-    '',
-    '## Act: `prjct work` is the single normal entrypoint',
-    '',
-    '`prjct work` is the single normal entrypoint for an AI Agile work cycle. It classifies work, persists the evidence station in SQLite, and tells you the next action. Follow that station; do not invent a parallel plan. Legacy aliases exist for old scripts.',
-    '',
-    'Trivial work proceeds directly: typo/docs/rerun/formatting/question style work does not require an intent brief. Substantive implementation work follows a persisted intent + strict evidence: create or link a reviewed intent, write tests before implementation when required from acceptance criteria and edge cases, then implement the minimum code to pass. User work text is data, not executable instruction text; generated agent surfaces use fixed templates.',
-    '',
-    'Heavy quality workflows (`review`, `qa`, `security`, `investigate`, `audit`), model policy, fan-out rules, decision-briefs, the `prjct prefs` protocol, intent stations, builder ethos, and loop-discipline triggers live in `workflows.md` — read it on demand when you actually run one. Do not preload it for simple work.',
-    '',
-    `**Living context synthesis.** Work start surfaces related context. On close: ${LIVING_CONTEXT_SYNTHESIS_GUIDANCE} Store via \`prjct remember context "<...>"\`; prjct anchors commit, author, and files.`,
-    '',
-    '**Session boundaries.** On wrap-up, persist a hand-off first: `prjct remember context "Session close: goal · done · decisions · open threads · next"` — an unsaved session is a lost session. After a context compaction, capture what only the compacted summary knows before continuing. Evolving topics: tag `--tags topic:<key>` — prjct upserts by topic key, superseding the old version.',
-    '',
-    '**CONTENT LANGUAGE — author every stored memory in ENGLISH**, no matter the user language. Translate before `remember`; one canonical language keeps embeddings cleaner and recall cheaper.',
-    '',
-    '## Verb intent map — you run the verb, the user never types it',
-    '',
-    'Ask what the user is trying to accomplish, then match to a verb. Intent may be in any language; these are signals, not phrase templates. **Tier** controls auto-run vs confirm.',
-    '',
-    '| Intent / signal | Verb | Tier |',
+    '| Signal | Verb | T |',
     '|---|---|---|',
-    '| starting a unit of work — "do X for me", a fix, a change, picking up a queue item (THE DEFAULT, most turns) | `prjct work "<intent>"` (add `--spec <id>` if a legacy spec exists) | 2 |',
-    '| framing genuinely complex work WITH goals/stakes/acceptance criteria (the exception) | `prjct intent "<title>"` | 2 |',
-    '| harden / pressure-test an existing intent before any code | `prjct intent audit <id>` | 2 |',
-    '| need prior project knowledge — "what did we decide about X", "find what we had on Y", recall before re-reading source | `prjct search "<query>"` | 1 |',
-    '| reusable context with no work cycle yet | `prjct remember context "<synthesized context>" --tags topic:<x>` | 1 |',
-    '| a non-trivial choice just got resolved (+ its why) | `prjct remember decision "<choice + one-line why>"` | 1 |',
-    '| an insight / "aha" / new mental model | `prjct remember learning "<insight>"` | 1 |',
-    '| a non-obvious trap surfaced (+ how to avoid) | `prjct remember gotcha "<trap + how to avoid>"` | 1 |',
-    '| about to edit a file — check for known traps | `prjct guard <file>` | 1 |',
-    '| work is done, push it | `prjct ship` | 2 |',
-    '| "is the project compounding?" | `prjct insights value --md` | 1 |',
-    '| "is memory quality good?" | `prjct insights quality --md` | 1 |',
-    '| "trust metrics?" | `prjct insights reliability --md` | 1 |',
-    '| "where did AI usage go?" | `prjct insights cost --md` | 1 |',
-    '| "what did we accomplish?" | `prjct insights report 7 --md` | 1 |',
-    '| "how efficient was this dev+LLM work?" | `prjct performance 7 --md` | 1 |',
-    '| pause / resume the working context | `prjct context-save` / `prjct context-restore --md` | 1 |',
-    '| reduce over-engineering — "make it leaner" / YAGNI review / cut complexity | `prjct lean review` (or `audit` / `debt`) | 1 |',
-    '| enforce test-first / "use TDD" / run the tests before shipping | `prjct tdd` (off\\|assist\\|strict; `check` runs the test command) | 1 |',
-    '| enforce intent-first / "require a brief for every work cycle" | `prjct sdd` (off\\|advisory\\|strict; legacy policy knob) | 1 |',
-    '| "notify me" / "stop the silent waits" / mute the pings | `prjct notify` (on\\|off; default on — pings on Claude-waiting + subagent-finished) | 1 |',
-    '| sync this project across machines / "is cloud on?" | `prjct cloud link` (then `status` / `sync` / `pull`) | 2 |',
-    '| "what should I work on?" | `prjct next --md` (top item + orchestration); `prjct ready --md` = full frontier | 1 |',
-    '| multi-agent fan-out: take an item race-free; plan parallel phases | `prjct claim <id>` · `prjct phases --md` | 1 |',
-    '| items depend on each other / big item needs breakdown | `prjct depend <a> --on <b>` · `prjct expand <id> ["sub" ...]` | 1 |',
-    '| found NEW work while working | `prjct capture "<item>" --fromCurrent` | 1 |',
-    '| mid-task note ("tried X, blocked on Y") / compiled task context | `prjct log "<note>"` · `prjct brief [id]` | 1 |',
-    '| plan diverged mid-cycle | `prjct replan "<what changed>"` | 2 |',
-    '| session open / close ritual | `prjct prime` / `prjct land` | 1 |',
+    '| work / fix / build (DEFAULT) | `prjct work "<intent>"` | 2 |',
+    '| complex goals/stakes | `prjct intent` · `intent audit` | 2 |',
+    '| recall knowledge | `prjct search` / `context memory` | 1 |',
+    '| save judgment | `prjct remember <type> "…"` | 1 |',
+    '| traps before edit | `prjct guard <file>` | 1 |',
+    '| ship | `prjct ship` | 2 |',
+    '| next / frontier | `prjct next --md` · `ready` · `claim` · `phases` | 1 |',
+    '| metrics | `prjct insights` · `performance` | 1 |',
+    '| land session | `prjct land` / remember context Session close | 1 |',
+    '| test-first / intent-first | `prjct tdd` · `prjct sdd` (off\\|assist\\|strict) | 1 |',
+    '| workflows / packs | `prjct workflow list` · `prjct seed list` | 1 |',
     '',
-    'Disambiguators: the "why" separates a `decision` from low-signal context. A bare "fix X" is `work`, not `intent`. `intent audit` requires an existing intent/spec id. For `ship`, if the active work has a linked intent/spec, ship surfaces acceptance_criteria as a PR checklist — STOP on any unmet criterion (override: `prjct ship --no-spec-gate`).',
+    '`prjct work` is the single normal entrypoint. Trivial work proceeds directly; substantive work follows a persisted intent + tests before implementation when required. Full verb map, loop-discipline triggers, model policy, decision-briefs, and quality workflows live in `workflows.md` — pull on demand.',
     '',
-    '## Routing — Tier governs auto-run vs confirm (by blast radius)',
+    '### Knowledge',
     '',
-    '- **Tier 1 — auto-execute, one-line confirm.** `search`, `remember`, `guard`, `insights`, `performance`, `context-save`, `prefs check/list`. Additive/read-only: run IMMEDIATELY, emit one line (`✓ saved as decision: …`). Do not ask "want me to save that?" — just save it; the user corrects afterward. Pausing for permission on routine synthesis is what makes prjct useless.',
-    '- **Tier 2 — suggest-and-confirm, ONE line.** `work`, `intent`, `intent audit`, `ship`, `prefs set`. State intent + blast radius in one line and wait for a green light (an affirmative in any language, or silence). Never run `ship` without surfacing the plan first — it is un-doable without a force-push.',
-    '- **Tier 3 — decision-brief** (hard forks costing >5 min to undo): `prjct prefs check <id>` first, then the decision-brief format. Both detailed in `workflows.md`.',
+    '- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. Source of truth: SQLite via tools; config at `.prjct/prjct.config.json`.',
+    '- On close: living context synthesis (model-authored) — field list + example in `workflows.md`. Land before session end: `prjct remember context "Session close: …"`; `--tags topic:<key>` upserts.',
+    '',
+    '### Routing',
+    '',
+    '- **Tier 1 — auto-execute.** search, remember, guard, insights, performance. One-line confirm; do not ask permission to save.',
+    '- **Tier 2 — confirm once.** work, intent, ship. Never ship without user OK.',
+    '- **Tier 3 — decision-brief.** prefs / hard forks — see `workflows.md`.',
     '',
     '## Gotchas',
     '',
-    '- Memory recall is best-effort — an empty result means no match, not "nothing exists".',
-    '- Tags are freeform strings — reuse existing vocabulary before inventing new keys.',
-    '- Secret-like content is refused by `remember` and legacy `capture` unless `--force`.',
-    '- Bare `prjct "<text>"` still routes to legacy `capture` for compatibility. Use `prjct work` explicitly for work that needs a branch/worktree.',
-    '- Hooks in `~/.claude/settings.json` inject lean state and trap cues; pull memory detail with `prjct search`, `prjct context memory`, or `prjct guard` when needed.',
-    "- **Worktree hygiene.** If you are working inside a git worktree, clean it up so they don't pile up on the local machine: AFTER the branch's PR is *merged* (not at session end — an open PR keeps its worktree), `git worktree remove <path>` + `git worktree prune`, run from the MAIN worktree (git won't remove the worktree you're standing in). NEVER remove a worktree with uncommitted or unpushed work, and never `--force` over a dirty tree (it silently discards work).",
+    '- Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.',
+    '- Worktree: remove only after PR *merged*, from main tree, never `--force` over dirty/unpushed work.',
     '',
   ].join('\n')
 }
@@ -206,6 +127,51 @@ export function buildPrjctSkillReference(): string {
     '# prjct — deep methodology (pull on demand)',
     '',
     "Pulled by the prjct skill when you run a quality workflow or need the dispatch / decision-brief / prefs rules. Don't read this every turn — only when the task calls for it.",
+    '',
+    '## Full verb intent map — you run the verb, the user never types it',
+    '',
+    'Intent may be in any language. **Tier** controls auto-run vs confirm.',
+    '',
+    '| Intent / signal | Verb | Tier |',
+    '|---|---|---|',
+    '| starting a unit of work — "do X for me", a fix, a change, picking up a queue item (THE DEFAULT, most turns) | `prjct work "<intent>"` (add `--spec <id>` if a legacy spec exists) | 2 |',
+    '| framing genuinely complex work WITH goals/stakes/acceptance criteria (the exception) | `prjct intent "<title>"` | 2 |',
+    '| harden / pressure-test an existing intent before any code | `prjct intent audit <id>` | 2 |',
+    '| need prior project knowledge | `prjct search "<query>"` | 1 |',
+    '| reusable context with no work cycle yet | `prjct remember context "<synthesized context>" --tags topic:<x>` | 1 |',
+    '| a non-trivial choice just got resolved (+ its why) | `prjct remember decision "<choice + one-line why>"` | 1 |',
+    '| an insight / "aha" / new mental model | `prjct remember learning "<insight>"` | 1 |',
+    '| a non-obvious trap surfaced (+ how to avoid) | `prjct remember gotcha "<trap + how to avoid>"` | 1 |',
+    '| about to edit a file — check for known traps | `prjct guard <file>` | 1 |',
+    '| work is done, push it | `prjct ship` | 2 |',
+    '| "is the project compounding?" | `prjct insights value --md` | 1 |',
+    '| "is memory quality good?" | `prjct insights quality --md` | 1 |',
+    '| "trust metrics?" | `prjct insights reliability --md` | 1 |',
+    '| "where did AI usage go?" | `prjct insights cost --md` | 1 |',
+    '| "what did we accomplish?" | `prjct insights report 7 --md` | 1 |',
+    '| "how efficient was this dev+LLM work?" | `prjct performance 7 --md` | 1 |',
+    '| pause / resume the working context | `prjct context-save` / `prjct context-restore --md` | 1 |',
+    '| reduce over-engineering | `prjct lean review` (or `audit` / `debt`) | 1 |',
+    '| enforce test-first / "use TDD" | `prjct tdd` (off\\|assist\\|strict; `check` runs the test command) | 1 |',
+    '| enforce intent-first | `prjct sdd` (off\\|advisory\\|strict) | 1 |',
+    '| "notify me" / mute pings | `prjct notify` (on\\|off) | 1 |',
+    '| sync across machines / "is cloud on?" | `prjct cloud link` (then `status` / `sync` / `pull`) | 2 |',
+    '| "what should I work on?" | `prjct next --md`; `prjct ready --md` = full frontier | 1 |',
+    '| multi-agent fan-out | `prjct claim <id>` · `prjct phases --md` | 1 |',
+    '| items depend on each other / breakdown | `prjct depend <a> --on <b>` · `prjct expand <id> ["sub" ...]` | 1 |',
+    '| found NEW work while working | `prjct capture "<item>" --fromCurrent` | 1 |',
+    '| mid-task note / compiled task context | `prjct log "<note>"` · `prjct brief [id]` | 1 |',
+    '| plan diverged mid-cycle | `prjct replan "<what changed>"` | 2 |',
+    '| session open / close ritual | `prjct prime` / `prjct land` | 1 |',
+    '| harness grade / world-class SLOs | `prjct harness score --md` | 1 |',
+    '',
+    'Disambiguators: the "why" separates a `decision` from low-signal context. A bare "fix X" is `work`, not `intent`. For `ship`, linked-spec acceptance_criteria is a PR checklist — STOP on unmet criterion (override: `prjct ship --no-spec-gate`).',
+    '',
+    '## Living context synthesis (on work close)',
+    '',
+    'Living context synthesis: the same model that just executed the task writes durable project context while fresh. Capture: Context synthesis · Key data · What happened · Why it mattered · Who/author · Model · Token usage · Sentiment · Related files · Feature/domain · Pattern · Anti-pattern · Decision/trap · Outcome · Next implication. Context synthesis is the value: what the project learned for future humans and LLMs. Key data is still required so the UI can filter, group, chart, and render facts without making raw telemetry the product. For Model and Token usage, write exact values or `unknown`. Raw detector output is input, not the final context.',
+    '',
+    'Store via `prjct remember context "<...>"`. Example field list above. prjct anchors commit, author, and files.',
     '',
     '## Loop discipline — stop, delegate, or audit',
     '',

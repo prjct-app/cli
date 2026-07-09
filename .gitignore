@@ -62,6 +62,10 @@ tmp/
 .claude/agents/
 .claude/settings.local.json
 
+# Runtime lock file for the scheduled-task daemon (per-process sessionId/pid,
+# rewritten on every run) — was mistakenly tracked, churns every run.
+.claude/scheduled_tasks.lock
+
 # CLAUDE.md lives in ~/.claude/ (installed via prjct setup)
 # Template is at templates/global/CLAUDE.md
 CLAUDE.md

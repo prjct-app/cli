@@ -22,9 +22,10 @@ describe('tiered MCP tool loading (PRJCT_MCP_TOOLS)', () => {
     expect(all).toBeGreaterThan(standard)
   })
 
-  it('unset and garbage default to the full surface', async () => {
-    const all = await toolCount('all')
-    expect(await toolCount(undefined)).toBe(all)
-    expect(await toolCount('garbage')).toBe(all)
+  it('unset and garbage default to core; all remains opt-in', async () => {
+    const core = await toolCount('core')
+    expect(await toolCount(undefined)).toBe(core)
+    expect(await toolCount('garbage')).toBe(core)
+    expect(await toolCount('all')).toBeGreaterThan(core)
   })
 })

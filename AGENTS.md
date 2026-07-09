@@ -141,13 +141,10 @@ applies to **any** agent/LLM, not just Claude.
 
 
 <!-- prjct:routing - do not edit between markers -->
-## prjct — map of this project's harness
-This project uses prjct. Recognize intent and run the verb yourself.
-This file holds no rules — pull on demand. The harness lives in prjct:
-- `prjct work --md` — entrypoint: the work cycle + related context.
-- `prjct context memory <topic>` / `prjct search "<q>"` — memory + knowledge base (voice, glossary, decisions, gotchas, learnings).
-- `prjct guard <file>` before a risky edit · `prjct remember <type> "<text>"` to persist outcomes.
-- Wrap-up/compaction: persist a hand-off first (`prjct remember context "Session close: ..."`); `--tags topic:<key>` upserts.
-- `prjct workflows --md` — methodology (dispatch, model policy, judgment).
-Skills, the agent catalog, and rules live in prjct — pulled, never inlined here.
+## prjct
+pull on demand. This file holds no rules. You run the verb.
+- work: `prjct work --md`
+- memory: `prjct search` / `prjct context memory` / `prjct guard` / `prjct remember`
+- land: `prjct remember context "Session close: …"` · `--tags topic:k` upserts
+- deep: `prjct workflows --md` · grade: `prjct harness score --md`
 <!-- /prjct:routing - managed by prjct -->
