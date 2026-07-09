@@ -79,7 +79,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22: npm@11+ trusted publishing, and avoids GHA Node 20 deprecation.
+          node-version: '22'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -162,7 +163,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22: npm@11+ trusted publishing, and avoids GHA Node 20 deprecation.
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
@@ -433,7 +435,11 @@ jobs:
 
       - name: Upgrade npm (trusted publishing requires >=11.5.1)
         if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
-        run: npm install -g npm@latest
+        # Pin major 11 — `npm@latest` (12+) can require a newer Node than the
+        # runner has (v3.30.0 failed: npm@12 wants Node ^22.22.2 while setup
+        # was still on 20). Major 11 satisfies OIDC trusted publishing and
+        # stays compatible with Node 22 LTS.
+        run: npm install -g npm@11
 
       - name: Publish to npm (OIDC trusted publisher)
         if: ${{ !inputs.dry_run && steps.push.outputs.superseded != 'true' }}
