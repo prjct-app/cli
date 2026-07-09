@@ -53,6 +53,8 @@ export interface PackManifest {
     sdd?: 'off' | 'advisory' | 'strict'
     tdd?: 'off' | 'assist' | 'strict'
     maxTurnsPerCycle?: number
+    deliveryGeometry?: 'off' | 'advisory' | 'strict'
+    land?: 'off' | 'advisory' | 'strict'
   }
 }
 
@@ -73,18 +75,18 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
     suggestedTags: {
       domain: ['auth', 'api', 'frontend', 'infra', 'data'],
     },
-    // Raise the floor without blocking init→work. Full gates: seed add code-strict.
     configDefaults: {
       sdd: 'advisory',
       tdd: 'assist',
       maxTurnsPerCycle: 25,
+      deliveryGeometry: 'advisory',
+      land: 'advisory',
     },
   },
 
   'code-strict': {
     name: 'code-strict',
-    description:
-      'Ship-grade coding: SDD+TDD strict gates and a hard turn ceiling. Opt-in; use after code pack.',
+    description: 'Ship-grade coding: SDD+TDD strict, delivery-geometry gate, forced land. Opt-in.',
     suggestedPersona: {
       role: 'DEV',
       mcps: ['github'],
@@ -99,6 +101,8 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
       sdd: 'strict',
       tdd: 'strict',
       maxTurnsPerCycle: 25,
+      deliveryGeometry: 'strict',
+      land: 'strict',
     },
   },
 

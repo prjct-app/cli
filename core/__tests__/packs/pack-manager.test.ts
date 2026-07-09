@@ -82,6 +82,8 @@ describe('pack-manager', () => {
     expect(config?.sdd?.mode).toBe('advisory')
     expect(config?.tdd?.mode).toBe('assist')
     expect(config?.maxTurnsPerCycle).toBe(25)
+    expect(config?.deliveryGeometry?.mode).toBe('advisory')
+    expect(config?.land?.mode).toBe('advisory')
 
     await configManager.writeConfig(projectPath, {
       ...config!,
@@ -95,6 +97,15 @@ describe('pack-manager', () => {
     expect(again?.sdd?.mode).toBe('off')
     expect(again?.tdd?.mode).toBe('off')
     expect(again?.maxTurnsPerCycle).toBe(99)
+  })
+
+  test('code-strict pack applies hard gates on first activation', async () => {
+    await activatePacks(projectPath, ['code-strict'])
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.sdd?.mode).toBe('strict')
+    expect(config?.tdd?.mode).toBe('strict')
+    expect(config?.deliveryGeometry?.mode).toBe('strict')
+    expect(config?.land?.mode).toBe('strict')
   })
 
   test('activatePacks never overwrites an explicit persona role', async () => {

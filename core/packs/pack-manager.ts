@@ -121,6 +121,12 @@ function packConfigDefaults(existing: LocalConfig, activated: string[]): Partial
     ) {
       patch.maxTurnsPerCycle = defaults.maxTurnsPerCycle
     }
+    if (defaults.deliveryGeometry && !existing.deliveryGeometry) {
+      patch.deliveryGeometry = { mode: defaults.deliveryGeometry }
+    }
+    if (defaults.land && !existing.land) {
+      patch.land = { mode: defaults.land }
+    }
   }
   return patch
 }

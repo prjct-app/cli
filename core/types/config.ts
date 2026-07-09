@@ -111,6 +111,20 @@ export interface LocalConfig {
    */
   maxTokensPerCycle?: number
   /**
+   * Delivery-geometry gate at work start when the working tree is already large.
+   *   - off — never
+   *   - advisory — surface in work output (default for code pack)
+   *   - strict — block work start unless `--geometry split|single|direct`
+   */
+  deliveryGeometry?: { mode: 'off' | 'advisory' | 'strict'; locThreshold?: number }
+  /**
+   * Session-close land ritual.
+   *   - off — never inject
+   *   - advisory — SessionStart/Stop cue when a cycle is open (default)
+   *   - strict — same cue, stronger wording (code-strict)
+   */
+  land?: { mode: 'off' | 'advisory' | 'strict' }
+  /**
    * Desktop notifications. **Default ON** (absent / `on`) — prjct pings you
    * when Claude is waiting for input and when a subagent finishes, so a wait
    * never hangs silently. `off` (via `prjct notify off`) silences the OS

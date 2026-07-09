@@ -96,9 +96,17 @@ export async function buildSessionContext(
   // One-time heads-up for a project that had vault export switched on.
   const { vaultRetirementNotice } = await import('../services/vault-retire-notice')
   const vaultNotice = await vaultRetirementNotice(config, config.projectId)
+  // Session-close ritual cue when a cycle is still open.
+  let landCue: string | null = null
+  try {
+    const { buildLandCue } = await import('../services/land-cue')
+    landCue = await buildLandCue(config.projectId, projectPath, config)
+  } catch {
+    landCue = null
+  }
 
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness && !vaultNotice) return null
+  if (!persona && !digest && !staleness && !vaultNotice && !landCue) return null
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
@@ -122,6 +130,10 @@ export async function buildSessionContext(
   if (vaultNotice) {
     if (persona || digest || staleness) sections.push('')
     sections.push(vaultNotice)
+  }
+  if (landCue) {
+    if (persona || digest || staleness || vaultNotice) sections.push('')
+    sections.push(landCue)
   }
   return sections.join('\n')
 }
