@@ -82,8 +82,9 @@ export const COMMANDS: CommandMeta[] = [
     name: 'init',
     group: 'core',
     surface: 'support',
+    // Complex multi-flag signature — stays in dispatch.ts / index.ts (not
+    // optionSchema) so daemon cold-path parity tests stay clean.
     routing: { group: 'planning', method: 'init' },
-    optionSchema: { booleans: ['yes'], strings: ['pack', 'persona'] },
     description: 'Deep project analysis and initialization',
     usage: {
       claude: 'p. init "[idea]"',

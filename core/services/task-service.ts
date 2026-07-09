@@ -223,19 +223,24 @@ export async function startTask(
     const mode = cfg?.deliveryGeometry?.mode ?? 'off'
     if (mode === 'strict' || mode === 'advisory') {
       try {
-        const {
-          computeWorkingTreeChangeset,
-          geometryOf,
-          tierOf,
-          geometryBlockMessage,
-          NORMAL_MAX_LOC,
-        } = await import('./delivery-geometry')
-        const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
-        const cs = await computeWorkingTreeChangeset(projectPath)
-        if (cs && cs.loc >= threshold) {
-          const geometry = geometryOf(tierOf(cs))
-          if (mode === 'strict' && !options.geometry) {
-            return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
+        const { existsSync } = await import('node:fs')
+        const path = await import('node:path')
+        // Skip when there is no git dir (tests, non-repos) — never hang cold paths.
+        if (existsSync(path.join(projectPath, '.git'))) {
+          const {
+            computeWorkingTreeChangeset,
+            geometryOf,
+            tierOf,
+            geometryBlockMessage,
+            NORMAL_MAX_LOC,
+          } = await import('./delivery-geometry')
+          const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
+          const cs = await computeWorkingTreeChangeset(projectPath)
+          if (cs && cs.loc >= threshold) {
+            const geometry = geometryOf(tierOf(cs))
+            if (mode === 'strict' && !options.geometry) {
+              return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
+            }
           }
         }
       } catch {
