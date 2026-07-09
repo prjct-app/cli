@@ -2,10 +2,14 @@
 
 ## [Unreleased]
 
-## [3.30.0] - 2026-07-09
-
 ### Added
 - xAI Grok Build CLI compatibility (agent-runtime-registry)
+
+## [3.29.1] - 2026-07-06
+
+### Bug Fixes
+
+- fail remember on required write errors (#524)
 
 ## [3.29.0] - 2026-07-03
 
