@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.36.0] - 2026-07-09
+
+### Features
+
+- multi-runtime organic wire + weak A/B CI dominance gate (#533)
+
+
 ## [3.35.0] - 2026-07-09
 
 ### Features
