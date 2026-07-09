@@ -194,6 +194,33 @@ class SpecService {
     if (updated && reviewsGatePassedRelational(projectId, id)) {
       // All SELECTED lenses pass → auto-promote draft to reviewed.
       if (updated.status === 'draft') {
+        // Nyquist-lite: refuse silent promote when ACs are prose-only under
+        // TDD strict / SDD strict (code-strict pack). Soft warn otherwise.
+        const { assessAcceptanceCriteria } = await import('./nyquist-lite')
+        const acReport = assessAcceptanceCriteria(updated.content.acceptance_criteria ?? [])
+        if (!acReport.ok && acReport.message) {
+          const cfg = await configManager.readConfig(projectPath).catch(() => null)
+          const tddStrict = cfg?.tdd?.mode === 'strict'
+          const sddStrict = cfg?.sdd?.mode === 'strict'
+          if (tddStrict || sddStrict) {
+            throw new Error(
+              `NYQUIST_LITE_BLOCK: ${acReport.message}\nRewrite acceptance criteria with verifiable signals, then re-record the last review.`
+            )
+          }
+          // Advisory: attach a tag so agents see the gap without blocking.
+          try {
+            await projectMemory.remember(projectPath, {
+              type: 'improvement-signal',
+              content: acReport.message,
+              tags: { source: 'nyquist-lite', spec: id },
+              provenance: 'extracted',
+              projectId,
+            })
+          } catch {
+            /* best-effort */
+          }
+        }
+
         const promoted = specStorage.setStatus(projectId, id, 'reviewed')
         // Auto-breakdown: materialize acceptance_criteria as granular
         // queue tasks. Now made idempotent on spec_id via the

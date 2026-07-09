@@ -144,6 +144,25 @@ export async function buildProjectState(
         /* budget is advisory — never block the state block */
       }
 
+      // Context-pressure (GSD utilization guard, host-agnostic): turn/token
+      // ratio → land/prime discipline before the window rots.
+      try {
+        const { contextPressureVerdict } = await import('../services/context-pressure')
+        const task = await stateStorage.getCurrentTask(config.projectId)
+        const pressure = contextPressureVerdict(config, task)
+        if (pressure.level === 'critical') {
+          lines.push(
+            `  ⛔ Context pressure critical (~${Math.round(pressure.ratio * 100)}%). \`prjct land\` + fresh window + \`prjct prime\` — do not keep expanding this thread.`
+          )
+        } else if (pressure.level === 'warn') {
+          lines.push(
+            `  ⚠ Context pressure (~${Math.round(pressure.ratio * 100)}%). Prefer finishing + land over more exploration.`
+          )
+        }
+      } catch {
+        /* advisory */
+      }
+
       // Delegation trigger — the multi-file write rule, ENFORCED by counting
       // (not just stated in a skill): when this cycle has edited 4+ distinct
       // files, say so with the concrete move. Uses the post_edit event trail

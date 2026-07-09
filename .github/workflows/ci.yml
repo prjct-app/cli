@@ -47,6 +47,10 @@ jobs:
       - name: Knip (dead code detection)
         run: bun run knip --include files,duplicates,unlisted,binaries,unresolved
 
+      # Dominance P0d: absolute harness SLOs must stay green (beat GSD narrative).
+      - name: Harness scorecard (world-class SLOs)
+        run: bun test core/__tests__/services/harness-score.test.ts
+
   test:
     name: Tests (${{ matrix.shard }})
     runs-on: ubuntu-latest

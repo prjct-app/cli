@@ -187,34 +187,36 @@ export async function startTask(
 
   const cfg = await configManager.readConfig(projectPath).catch(() => null)
 
-  // SDD strict gate (opt-in via config.sdd.mode === 'strict'): a work cycle must
-  // link a REVIEWED intent/spec. Enforced here so CLI and MCP share
-  // it. `off`/`advisory` never block (advisory only nudges via the skill).
+  // Discuss-lock + SDD gate (dominance vs GSD discuss-before-plan):
+  //   - strict: every work cycle needs a REVIEWED intent/spec
+  //   - advisory: H2/H3 only (product lock without full ceremony on chores)
+  //   - off: never blocks
+  // Built from harness level so CLI + MCP share one path.
   {
     const { effectiveSddMode } = await import('../commands/sdd')
-    if (effectiveSddMode(cfg) === 'strict') {
-      if (!options.spec) {
-        return {
-          ok: false,
-          blocked:
-            'Strict SDD: an intent/spec is required before work. Run `prjct intent "<title>"`, pass `prjct audit-spec <id>`, then `prjct work --spec <id>`. (Relax with `prjct sdd advisory`.)',
-        }
-      }
+    const { discussLockVerdict } = await import('./discuss-lock')
+    const harnessPreview = buildTaskHarness(description)
+    let specStatus: string | null = null
+    if (options.spec) {
       try {
         const { specService } = await import('./spec-service')
         const spec = await specService.get(projectPath, options.spec)
         if (!spec) {
-          return { ok: false, blocked: `Strict SDD: spec ${options.spec} not found.` }
+          return { ok: false, blocked: `Spec ${options.spec} not found.` }
         }
-        if (spec.status === 'draft') {
-          return {
-            ok: false,
-            blocked: `Strict SDD: spec "${spec.title}" hasn't passed audit-spec yet (status: draft). Run \`prjct audit-spec ${options.spec}\` first.`,
-          }
-        }
+        specStatus = spec.status
       } catch {
-        // spec lookup failed internally — don't hard-block on our own error
+        /* lookup failure — discuss-lock treats as unknown status */
       }
+    }
+    const lock = discussLockVerdict({
+      sddMode: effectiveSddMode(cfg),
+      harnessLevel: harnessPreview.level,
+      hasSpecId: Boolean(options.spec),
+      specStatus,
+    })
+    if (lock.blocked) {
+      return { ok: false, blocked: lock.message }
     }
   }
 
