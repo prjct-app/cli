@@ -70,8 +70,6 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
   { phrase: 'best approach is', type: 'decision' },
   { phrase: 'we will use', type: 'decision' },
   { phrase: 'shipping with', type: 'decision' },
-  { phrase: 'decidimos', type: 'decision' },
-  { phrase: 'la decisión es', type: 'decision' },
   // Learnings
   { phrase: 'turns out that', type: 'learning' },
   { phrase: 'now i understand', type: 'learning' },
@@ -81,7 +79,6 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
   { phrase: 'root cause is', type: 'learning' },
   { phrase: 'root cause was', type: 'learning' },
   { phrase: 'the fix is', type: 'learning' },
-  { phrase: 'resulta que', type: 'learning' },
   // Gotchas
   { phrase: 'gotcha:', type: 'gotcha' },
   { phrase: 'bug:', type: 'gotcha' },
@@ -90,7 +87,6 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
   { phrase: 'be careful', type: 'gotcha' },
   { phrase: 'never do this', type: 'gotcha' },
   { phrase: 'trap:', type: 'gotcha' },
-  { phrase: 'cuidado:', type: 'gotcha' },
   // Facts / durable project truth
   { phrase: 'important:', type: 'fact' },
   { phrase: 'always use', type: 'fact' },
@@ -108,37 +104,37 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
  */
 const LABEL_TYPE_MAP: Array<{ re: RegExp; type: MemoryType; phrase: string }> = [
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(decision|decisión)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?decision(?:\*\*)?\s*[:—-]\s+/i,
     type: 'decision',
     phrase: 'label:decision',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(learning|aprendizaje|insight)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(learning|insight)(?:\*\*)?\s*[:—-]\s+/i,
     type: 'learning',
     phrase: 'label:learning',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(gotcha|trap|cuidado|warning)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(gotcha|trap|warning)(?:\*\*)?\s*[:—-]\s+/i,
     type: 'gotcha',
     phrase: 'label:gotcha',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(fact|dato|note)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(fact|note)(?:\*\*)?\s*[:—-]\s+/i,
     type: 'fact',
     phrase: 'label:fact',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(root\s*cause|causa\s*raíz)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?root\s*cause(?:\*\*)?\s*[:—-]\s+/i,
     type: 'learning',
     phrase: 'label:root-cause',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(pattern|patrón)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?pattern(?:\*\*)?\s*[:—-]\s+/i,
     type: 'pattern',
     phrase: 'label:pattern',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(anti[- ]?pattern|anti[- ]?patrón)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?anti[- ]?pattern(?:\*\*)?\s*[:—-]\s+/i,
     type: 'anti-pattern',
     phrase: 'label:anti-pattern',
   },
@@ -283,9 +279,7 @@ const USER_PREF_PATTERNS: Array<{ re: RegExp; phrase: string }> = [
   { re: /^(?:please\s+)?always\b/i, phrase: 'user:always' },
   { re: /^(?:please\s+)?never\b/i, phrase: 'user:never' },
   { re: /\bi (?:always|never|prefer)\b/i, phrase: 'user:i-prefer' },
-  { re: /^(?:rule|preference|preferencia)\s*[:—-]/i, phrase: 'user:rule' },
-  { re: /^(?:siempre|nunca)\b/i, phrase: 'user:siempre' },
-  { re: /\bprefiero\b/i, phrase: 'user:prefiero' },
+  { re: /^(?:rule|preference)\s*[:—-]/i, phrase: 'user:rule' },
   { re: /\bno more\s+(?:features?|feature\s+creep)\b/i, phrase: 'user:no-more-features' },
   { re: /\bdon'?t add (?:more )?(?:features?|surface)\b/i, phrase: 'user:dont-add-features' },
 ]

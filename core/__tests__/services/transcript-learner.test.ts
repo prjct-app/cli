@@ -210,16 +210,16 @@ describe('transcript-learner — extractUserPreferenceCandidates', () => {
     expect(out[1]!.matchedPhrase).toBe('user:never')
   })
 
-  test('captures Spanish prefiero / siempre', () => {
+  test('captures explicit preference: lines as feedback', () => {
     const out = extractUserPreferenceCandidates([
       {
         role: 'user',
-        text: 'Prefiero que profundices lo existente antes de inventar features nuevas.',
+        text: 'Preference: deepen existing loops before inventing new surface.',
       },
     ])
     expect(out).toHaveLength(1)
     expect(out[0]!.type).toBe('feedback')
-    expect(out[0]!.matchedPhrase).toBe('user:prefiero')
+    expect(out[0]!.matchedPhrase).toBe('user:rule')
   })
 
   test('ignores ordinary user chat without preference markers', () => {
