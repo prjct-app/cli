@@ -11,6 +11,13 @@
  * are used only transiently for classification/dedup and are NOT stored
  * in durable memory — context value is the reusable lesson, not the literal.
  *
+ * Quality (brutal apply-loop vs prompt-only harnesses): when the user
+ * names a concrete constraint ("run the tests first", "should be feat:"),
+ * distill that into the Lesson/Next action so developer-profile and
+ * SessionStart can *apply* it — not a generic "recalibrate" template.
+ * Identical pushback seen again (dedup hit) promotes a standing
+ * `feedback` preference so the rule survives as "said", not only "showed".
+ *
  * What counts as friction (precision-over-recall):
  *   - User negation directly after an assistant tool-use:
  *     "no", "stop", "cancel", "wait" → strong signal
@@ -30,8 +37,10 @@ import { projectMemory } from '../memory/project-memory'
 import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jsonl'
 
 const SOURCE_TAG = 'friction-detector'
+const PROMOTE_SOURCE = 'friction-promote'
 const MAX_SIGNALS_PER_SESSION = 5
 const MAX_EXCERPT_CHARS = 400
+const MAX_CONSTRAINT_CHARS = 160
 
 // Negation / correction markers (English). Matched against the START of a
 // user turn (after the assistant just acted) to avoid false positives in
@@ -109,6 +118,9 @@ export async function detectFriction(
     const dedupKey = hashSignal(signal.excerpt).slice(0, 12)
     if (existing.has(dedupKey)) {
       skipped++
+      // Same pushback again = standing law. Promote concrete constraints
+      // to feedback so SessionStart treats them as developer preference.
+      await maybePromoteStandingPreference(projectPath, projectId, signal).catch(() => {})
       continue
     }
     try {
@@ -125,6 +137,7 @@ export async function detectFriction(
         projectId,
       })
       recorded++
+      existing.add(dedupKey)
     } catch {
       skipped++
     }
@@ -203,15 +216,122 @@ function textOf(content: unknown): string {
 
 function formatSignal(signal: FrictionSignal): string {
   const template = lessonTemplate(signal.category)
+  const specific = extractSpecificConstraint(signal.excerpt)
+  const lesson = specific ? `Obey developer constraint: ${specific}` : template.lesson
+  const nextAction = specific ? `Always: ${specific}` : template.nextAction
   const lines = [
-    `[${signal.category}] Lesson: ${template.lesson}`,
+    `[${signal.category}] Lesson: ${lesson}`,
     'What happened: The user pushed back after the assistant response.',
     `Why it mattered: ${template.why}`,
     `Pattern: ${template.pattern}`,
     `Anti-pattern: ${template.antiPattern}`,
-    `Next action: ${template.nextAction}`,
+    `Next action: ${nextAction}`,
   ]
   return lines.join('\n')
+}
+
+/**
+ * Distill a reusable standing constraint from the user turn without storing
+ * the raw quote. High precision: only patterns that name a concrete rule.
+ * Returns null → fall back to category template (still better than silence).
+ */
+function extractSpecificConstraint(excerpt: string): string | null {
+  let t = excerpt.replace(/\s+/g, ' ').trim()
+  if (!t) return null
+
+  // Drop leading rejection particles so the remainder is the rule.
+  t = t.replace(/^\s*(?:nope|no|stop|wait|cancel)[,.!\s:—-]*/i, '').trim()
+
+  const shouldBe = t.match(/\bshould be\b\s+(.+?)$/i)
+  if (shouldBe?.[1]) return cleanConstraint(`Prefer ${shouldBe[1]}`)
+
+  const rather = t.match(/^(.+?)\s+rather than\s+(.+?)$/i)
+  if (rather?.[1] && rather[2]) {
+    return cleanConstraint(`Prefer ${rather[1].trim()} rather than ${rather[2].trim()}`)
+  }
+
+  const useInstead = t.match(
+    /\b(?:use|prefer|do|run|ship|write|keep)\s+(.+?)\s+instead(?:\s+of\s+(.+))?$/i
+  )
+  if (useInstead?.[1]) {
+    const of = useInstead[2] ? ` instead of ${useInstead[2].trim()}` : ' instead'
+    return cleanConstraint(`Use ${useInstead[1].trim()}${of}`)
+  }
+
+  const insteadOf = t.match(/\binstead of\b\s+(.+?)$/i)
+  if (insteadOf?.[1]) return cleanConstraint(`Avoid ${insteadOf[1].trim()}`)
+
+  const never = t.match(/\b(?:don'?t|do not|never)\s+(.+?)$/i)
+  if (never?.[1]) return cleanConstraint(`Never ${never[1].trim()}`)
+
+  const always = t.match(/\balways\s+(.+?)$/i)
+  if (always?.[1]) return cleanConstraint(`Always ${always[1].trim()}`)
+
+  // Imperative remainder after stripping "no," — "run the tests first".
+  if (
+    t.length >= 12 &&
+    t.length <= MAX_CONSTRAINT_CHARS &&
+    /^(?:run|use|do|ship|write|keep|add|fix|remove|prefer|test|check|verify|read|ask|stop|start)\b/i.test(
+      t
+    )
+  ) {
+    const rule = t.charAt(0).toUpperCase() + t.slice(1)
+    return cleanConstraint(rule.replace(/[.!?]+$/, ''))
+  }
+
+  return null
+}
+
+function cleanConstraint(raw: string): string | null {
+  const r = raw
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[-*•]\s+/, '')
+    .replace(/[.!?]+$/, '')
+    .slice(0, MAX_CONSTRAINT_CHARS)
+  if (r.length < 12) return null
+  // Never persist residual raw negation lead-ins.
+  if (/^(?:nope|no|stop|wait|cancel)\b/i.test(r)) return null
+  return r
+}
+
+/**
+ * Second identical pushback → standing `feedback` preference (apply-loop).
+ * Deduped by key so re-runs never spam preferences.
+ */
+async function maybePromoteStandingPreference(
+  projectPath: string,
+  projectId: string | undefined,
+  signal: FrictionSignal
+): Promise<void> {
+  if (!projectId) return
+  const specific = extractSpecificConstraint(signal.excerpt)
+  if (!specific) return
+  const rule = `Always: ${specific}`
+  const prefKey = `fp:${hashSignal(specific).slice(0, 12)}`
+  try {
+    const existing = projectMemory.recall(projectId, {
+      types: ['feedback'],
+      tags: { source: PROMOTE_SOURCE, key: prefKey },
+      limit: 1,
+      dedupeByKey: false,
+    })
+    if (existing.length > 0) return
+    await projectMemory.remember(projectPath, {
+      type: 'feedback',
+      content: rule,
+      tags: {
+        source: PROMOTE_SOURCE,
+        key: prefKey,
+        category: signal.category,
+        from: 'recurring-friction',
+      },
+      provenance: 'extracted',
+      projectId,
+    })
+  } catch {
+    // Best-effort: promotion must never fail Stop.
+  }
 }
 
 function lessonTemplate(category: FrictionSignal['category']): {
@@ -307,5 +427,7 @@ export const _internal = {
   hashSignal,
   textOf,
   formatSignal,
+  extractSpecificConstraint,
   MAX_SIGNALS_PER_SESSION,
+  PROMOTE_SOURCE,
 }
