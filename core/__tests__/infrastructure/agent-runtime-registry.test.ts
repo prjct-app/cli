@@ -24,6 +24,7 @@ describe('agent runtime registry', () => {
       'opencode',
       'qwen-code',
       'kimi-cli',
+      'grok',
       'goose',
       'aider',
       'cline',
@@ -51,6 +52,18 @@ describe('agent runtime registry', () => {
     expect(writable[0]?.pathHint).toContain('.kimi/mcp.json')
   })
 
+  it('registers xAI Grok Build as an AGENTS.md + MCP + skills capable CLI', () => {
+    const grok = getAgentRuntime('grok')
+
+    expect(grok.kind).toBe('cli')
+    expect(grok.supports.agentsMd).toBe(true)
+    expect(grok.supports.mcp).toBe(true)
+    expect(grok.supports.skills).toBe(true)
+    expect(grok.detectsBy?.commands).toContain('grok')
+    // MCP schema unconfirmed from xAI docs — target is informational only, not auto-written.
+    expect((grok.mcpTargets ?? []).every((target) => !target.writable)).toBe(true)
+  })
+
   it('separates runtime compatibility from model/provider names', () => {
     const qwen = getAgentRuntime('qwen-code')
 
@@ -74,6 +87,7 @@ describe('agent runtime registry', () => {
       expect(byId.get('cursor')?.supportLevel).toBe('good')
       expect(byId.get('aider')?.detectedSignals).toContain('.aider.conf.yml')
       expect(byId.get('aider')?.supportLevel).toBe('baseline')
+      expect(byId.get('grok')?.supportLevel).toBe('good')
     } finally {
       await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
     }

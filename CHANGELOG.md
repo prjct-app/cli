@@ -2,19 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+- xAI Grok Build CLI compatibility (agent-runtime-registry)
+
 ## [3.29.1] - 2026-07-06
 
 ### Bug Fixes
 
 - fail remember on required write errors (#524)
 
-
 ## [3.29.0] - 2026-07-03
 
 ### Features
 
 - surface work-graph + ceremony verbs in the verb map (#523)
-
 
 ## [3.28.1] - 2026-07-03
 
@@ -23,13 +24,11 @@
 - import 'it' in task-orchestration test (#522)
 - research classifies as its own kind → parallel fan-out (#521)
 
-
 ## [3.28.0] - 2026-07-03
 
 ### Features
 
 - Tier-3 hygiene — tiered MCP loading + bounded working-set renders (#520)
-
 
 ## [3.27.0] - 2026-07-03
 
@@ -37,13 +36,11 @@
 
 - Tier-2 ceremonies — journal, compiled briefs, replan, prime/land, adversarial review (#519)
 
-
 ## [3.26.0] - 2026-07-03
 
 ### Features
 
 - the work graph — deps, ready frontier, atomic claim, phases, decompose loop (Tier 1) (#518)
-
 
 ## [3.25.0] - 2026-07-03
 
@@ -51,13 +48,11 @@
 
 - time-window token attribution + historical backfill from transcripts (#517)
 
-
 ## [3.24.3] - 2026-07-03
 
 ### Bug Fixes
 
 - completion no longer clobbers measured task tokens with zero (#516)
-
 
 ## [3.24.2] - 2026-07-03
 
@@ -65,13 +60,11 @@
 
 - clamp plausible token overages — per-task tokens finally populate (#515)
 
-
 ## [3.24.1] - 2026-07-03
 
 ### Bug Fixes
 
 - run packed versions via the production launcher with installed deps (#514)
-
 
 ## [3.24.0] - 2026-07-02
 
@@ -79,13 +72,11 @@
 
 - session tracker on typed tables + token-budget default — storage backlog closed (#513)
 
-
 ## [3.23.0] - 2026-07-02
 
 ### Features
 
 - tier-2 package — guard PR mode, global KB, memory lifecycle, changelog, bench, import hint (#512)
-
 
 ## [3.22.0] - 2026-07-02
 
@@ -97,13 +88,11 @@
 
 - refresh AGENTS.md routing block (v3.21.2 dogfood) (#510)
 
-
 ## [3.21.2] - 2026-07-02
 
 ### Performance
 
 - hot-path follow-up — stop-hook throttle, BM25 query-path, config cache (#509)
-
 
 ## [3.21.1] - 2026-07-02
 
@@ -111,13 +100,11 @@
 
 - cleanup sweep — dead code, edge cases in recent ships, hot-path perf (#508)
 
-
 ## [3.21.0] - 2026-07-02
 
 ### Features
 
 - gentle-ai learnings — ALL 8 mechanisms (#507)
-
 
 ## [3.20.0] - 2026-07-02
 
@@ -125,13 +112,11 @@
 
 - task history in typed tasks table — state blob −94% (Schema v2 C4, history slice) (#506)
 
-
 ## [3.19.0] - 2026-07-02
 
 ### Features
 
 - ideas in typed table + orphan kv-key sweep (Schema v2) (#505)
-
 
 ## [3.18.0] - 2026-07-02
 
@@ -139,13 +124,11 @@
 
 - restore velocity from typed delivery data + developer-evolution weekly snapshots (#504)
 
-
 ## [3.17.0] - 2026-07-02
 
 ### Features
 
 - queue in typed queue_tasks — retire the 1.08MB per-prompt blob (Schema v2) (#503)
-
 
 ## [3.16.0] - 2026-07-02
 
@@ -153,20 +136,17 @@
 
 - metrics in typed tables + stamp tasks.shipped_at — two more dual-store bugs fixed (#502)
 
-
 ## [3.15.1] - 2026-07-02
 
 ### Bug Fixes
 
 - harden session ships — sync ping-pong, node 22.5–22.12 fallback, classifier false positives (#501)
 
-
 ## [3.15.0] - 2026-07-01
 
 ### Features
 
 - ships in typed shipped_features table — retire the 5.4MB kv_store blob (Schema v2 C5) (#500)
-
 
 ## [3.14.0] - 2026-07-01
 
@@ -178,13 +158,11 @@
 
 - run bundled entry in-process — 41% faster commands (#498)
 
-
 ## [3.13.0] - 2026-07-01
 
 ### Features
 
 - Schema v2 relational redesign + vault removal + legacy cleanup (#497)
-
 
 ## [3.12.2] - 2026-06-29
 
@@ -192,13 +170,11 @@
 
 - regenerate statusline body on upgrade so the version-check fix ships (#496)
 
-
 ## [3.12.1] - 2026-06-29
 
 ### Bug Fixes
 
 - statusline version check owned by daemon, not legacy files (#495)
-
 
 ## [3.12.0] - 2026-06-29
 
