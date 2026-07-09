@@ -19,7 +19,9 @@
  *                                    unfinished — BEFORE the context dies
  */
 
+import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { extractDeveloperRules } from '../services/developer-profile'
 import { buildTaskHarness } from '../services/task-harness'
 import { orchestrationFor } from '../services/task-orchestration'
 import { collectActiveTasks } from '../services/task-overview'
@@ -30,6 +32,10 @@ import type { CommandResult } from '../types/commands'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
+
+/** Cold-start apply-loop: enough rules for a fresh window to act as the dev. */
+const PRIME_DEV_RULES = 4
+const PRIME_TRAPS = 3
 
 interface CeremonyOptions {
   md?: boolean
@@ -212,7 +218,14 @@ export class CeremonyCommands extends PrjctCommandsBase {
     return { success: true, items: ready.length }
   }
 
-  /** Session-open bundle: one pull instead of four. */
+  /**
+   * Session-open bundle: one pull instead of four.
+   *
+   * Brutal bar vs fresh-context harnesses (e.g. GSD): a new window with
+   * `prjct prime` must already *be* this developer on this project — cycle +
+   * frontier + standing rules + top traps — not just a task list. Deeper
+   * recall stays on demand so tokens stay lean.
+   */
   async prime(
     _input: string | null = null,
     projectPath: string = process.cwd(),
@@ -238,6 +251,40 @@ export class CeremonyCommands extends PrjctCommandsBase {
       lines.push('', '**Ready frontier:**')
       for (const i of ready) lines.push(`- \`${i.id.slice(0, 8)}\` ${i.description.slice(0, 90)}`)
     }
+
+    // Apply-loop: push developer model + traps into every fresh window.
+    try {
+      const pool = projectMemory.recall(proj.value, {
+        types: ['feedback', 'improvement-signal'],
+        limit: 40,
+        dedupeByKey: false,
+      })
+      const rules = extractDeveloperRules(pool, PRIME_DEV_RULES)
+      if (rules.length > 0) {
+        lines.push('', '**Act as this developer:**')
+        for (const r of rules) {
+          const tag = r.kind === 'preference' ? 'said' : 'showed'
+          lines.push(`- ${r.rule.slice(0, 140)} _(${tag})_`)
+        }
+      }
+    } catch {
+      // Best-effort — prime never fails for missing memory.
+    }
+    try {
+      const traps = projectMemory.recall(proj.value, {
+        types: ['gotcha', 'anti-pattern'],
+        limit: PRIME_TRAPS,
+      })
+      if (traps.length > 0) {
+        lines.push('', '**Top traps (do not re-pay):**')
+        for (const t of traps) {
+          lines.push(`- ${deriveTitle(t).slice(0, 100)} \`${t.id}\``)
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     lines.push(
       '',
       'Pull deeper context on demand: `prjct brief` · `prjct search "<q>"` · `prjct guard <file>`.'
