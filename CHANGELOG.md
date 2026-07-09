@@ -5,6 +5,13 @@
 ### Added
 - xAI Grok Build CLI compatibility (agent-runtime-registry)
 
+## [3.30.0] - 2026-07-09
+
+### Features
+
+- xAI Grok Build CLI compatibility (#525)
+
+
 ## [3.29.1] - 2026-07-06
 
 ### Bug Fixes
