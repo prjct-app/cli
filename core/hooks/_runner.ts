@@ -27,7 +27,14 @@
  *     serialized request chain. Same build + same fail-soft contract.
  */
 
-import { buildDenyOutput, buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
+import {
+  adaptHookOutputForHost,
+  buildDenyOutput,
+  buildHookOutput,
+  emit,
+  readStdinSafe,
+  safeRun,
+} from './_shared'
 
 export interface RunHookOptions<I> {
   /** Claude Code event name (SessionStart, UserPromptSubmit, etc.). */
@@ -79,11 +86,13 @@ export async function runHook<I = Record<string, unknown>>(
       const input = io.input as I
       const decision = opts.decide ? await opts.decide(input, projectPath) : null
       if (decision) {
-        io.sink(`${JSON.stringify(buildDenyOutput(opts.event, decision.deny))}\n`)
+        const payload = adaptHookOutputForHost(buildDenyOutput(opts.event, decision.deny))
+        io.sink(`${JSON.stringify(payload)}\n`)
         return
       }
       const context = opts.build ? await opts.build(input, projectPath) : null
-      io.sink(`${JSON.stringify(buildHookOutput(opts.event, context))}\n`)
+      const payload = adaptHookOutputForHost(buildHookOutput(opts.event, context))
+      io.sink(`${JSON.stringify(payload)}\n`)
       if (opts.afterEmit) io.detachAfterEmit(() => opts.afterEmit!(input, projectPath))
     } catch {
       io.sink('{}\n')

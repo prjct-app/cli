@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { resetPackageRoot } from '../../utils/version'
+import { commandOnPath } from '../../utils/which'
 
 export type PkgManagerName = 'npm' | 'pnpm' | 'bun' | 'yarn'
 
@@ -90,19 +91,14 @@ export function isHomebrewInstall(): boolean {
   }
 }
 
-/** Whether `name` resolves to an executable in the current PATH. */
+/** Whether `name` resolves to an executable in the current PATH (all OS). */
 export function isOnPath(name: PkgManagerName): boolean {
-  try {
-    execFileSync('which', [name], { stdio: 'pipe' })
-    return true
-  } catch {
-    return false
-  }
+  return commandOnPath(name) || (process.platform === 'win32' && commandOnPath(`${name}.cmd`))
 }
 
 /**
  * Detect which package manager owns the running prjct binary by inspecting
- * its real path. Returns null if no signal is found.
+ * its real path. Works on macOS, Linux, and Windows path layouts.
  */
 export function detectInstallerFromRunningBinary(): PkgManagerName | null {
   const candidates = [process.argv[1], process.execPath].filter(Boolean) as string[]
@@ -113,10 +109,25 @@ export function detectInstallerFromRunningBinary(): PkgManagerName | null {
     } catch {
       // ignore
     }
-    if (real.includes('/.bun/install/global') || real.includes('/.bun/bin/')) return 'bun'
-    if (real.includes('/Library/pnpm/') || real.includes('/.pnpm/')) return 'pnpm'
-    if (real.includes('/.local/share/pnpm/')) return 'pnpm'
-    if (real.includes('/.yarn/') || real.includes('/yarn/global')) return 'yarn'
+    // Normalize so Windows backslashes match the same markers.
+    const p = real.replace(/\\/g, '/').toLowerCase()
+    if (p.includes('/.bun/install/global') || p.includes('/.bun/bin/')) return 'bun'
+    if (p.includes('/library/pnpm/') || p.includes('/.pnpm/')) return 'pnpm'
+    if (p.includes('/.local/share/pnpm/')) return 'pnpm'
+    // Windows pnpm store / shim layouts
+    if (p.includes('/pnpm/') && (p.includes('/global') || p.includes('/prjct'))) return 'pnpm'
+    if (p.includes('/.yarn/') || p.includes('/yarn/global') || p.includes('/yarn/berry')) {
+      return 'yarn'
+    }
+    // npm global: …/node_modules/prjct-cli or Windows %APPDATA%\npm\node_modules
+    if (
+      p.includes('/node_modules/prjct-cli') ||
+      p.includes('/npm/node_modules/') ||
+      p.endsWith('/npm/prjct.cmd') ||
+      p.endsWith('/npm/prjct')
+    ) {
+      return 'npm'
+    }
   }
   return null
 }

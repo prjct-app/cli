@@ -1,14 +1,16 @@
 /**
  * `prjct agents` — auditable compatibility matrix for coding-agent runtimes.
  *
- * The command is intentionally derived from `agent-runtime-registry.ts`; copy
- * and docs should describe the same support levels this command reports.
+ * The command is intentionally derived from `agent-runtime-registry.ts` plus
+ * `harness-surfaces.ts` (benchmark-tier hooks/MCP/skills integration map).
  */
 
 import {
   type AgentRuntimeStatus,
   detectAgentRuntimes,
 } from '../infrastructure/agent-runtime-registry'
+import { formatHarnessSurfacesMarkdown } from '../infrastructure/harness-surfaces'
+import { probeHarnessCoverage, renderHarnessCoverageMd } from '../services/harness-coverage'
 import { writeProjectAgentSurfaces } from '../services/project-agent-surfaces'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -33,23 +35,45 @@ export class AgentsCommands extends PrjctCommandsBase {
     projectPath: string = process.cwd(),
     options: AgentsOptions = {}
   ): Promise<CommandResult> {
-    const sub = (input ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)[0] ?? 'doctor'
-    if (sub !== 'doctor' && sub !== 'status' && sub !== 'list') {
-      return failHard('Unknown agents subcommand. Use: prjct agents doctor', options)
+    const parts = (input ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
+    const sub = parts[0] ?? 'doctor'
+    if (sub !== 'doctor' && sub !== 'status' && sub !== 'list' && sub !== 'surfaces') {
+      return failHard(
+        'Unknown agents subcommand. Use: prjct agents doctor | surfaces [--detail]',
+        options
+      )
     }
 
     try {
+      if (sub === 'surfaces') {
+        const detail = parts.includes('--detail') || parts.includes('detail') || options.md
+        const body = formatHarnessSurfacesMarkdown({ detail: Boolean(detail) })
+        console.log(options.md ? body : body.replace(/^## /gm, '').replace(/^### /gm, ''))
+        return { success: true, surfaces: true }
+      }
+
       const fixes = options.fix ? await repairAgentSurfaces(projectPath, options) : null
       if (fixes && !isAgentRepairResult(fixes)) return fixes
 
       const statuses = await detectAgentRuntimes(projectPath)
-      if (options.md) console.log(formatMarkdown(statuses, fixes))
-      else console.log(formatText(statuses, fixes))
+      const coverage = await probeHarnessCoverage(projectPath)
+      if (options.md) {
+        console.log(
+          [formatMarkdown(statuses, fixes), '', renderHarnessCoverageMd(coverage)].join('\n')
+        )
+      } else {
+        console.log(formatText(statuses, fixes))
+        console.log(
+          `organic: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%) — ${coverage.summary}`
+        )
+      }
       return {
         success: true,
         runtimes: statuses.length,
         detected: statuses.filter((status) => status.detected).length,
         fixed: Boolean(fixes),
+        organicPct: coverage.organicPct,
+        liveRuntimes: coverage.liveCount,
       }
     } catch (error) {
       return failHard(getErrorMessage(error), options)
@@ -122,10 +146,21 @@ function formatMarkdown(
   lines.push(
     '',
     'Support levels:',
-    '- `full`: prjct-maintained native hooks plus MCP/skills or equivalent deep integration.',
+    '- `full`: benchmark-tier investment (Claude/Codex/Gemini/OpenCode/Cursor/Cline/Grok).',
     '- `good`: AGENTS.md plus MCP-capable runtime.',
     '- `baseline`: repo instructions only; agents can still run `prjct --md`.',
-    '- `hosted`: repo instructions are the portable layer; external platform config may be manual.'
+    '- `hosted`: repo instructions are the portable layer; external platform config may be manual.',
+    '- `manual` / legacy: residual support only (e.g. Windsurf).',
+    '',
+    formatHarnessSurfacesMarkdown({
+      only: statuses
+        .filter((s) => s.detected && s.supportLevel === 'full')
+        .map((s) => s.runtime.id),
+      detail: false,
+    }),
+    '',
+    'Deep surface map (hooks events, MCP paths, wire status): `prjct agents surfaces --md`',
+    'Grok Build inherits Claude Code hooks/MCP/skills — `prjct install` covers Grok without a second adapter.'
   )
 
   return lines.join('\n')

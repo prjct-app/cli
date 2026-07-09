@@ -25,48 +25,58 @@ export type AgentCapabilityClass = 'frontier' | 'balanced' | 'fast'
 /**
  * Per-provider model for each capability class, ordered best→fallback for
  * in-provider graceful degradation. THE single source for which models a rig
- * has. Multi-model IDEs (cursor/windsurf/antigravity) pick the model in-app, so
- * they have no fixed map (resolves to model = null / supported = []).
+ * has. Multi-model IDEs (cursor/antigravity; windsurf = legacy residual) pick
+ * the model in-app, so they have no fixed map (model = null / supported = []).
+ *
+ * Capability chains ordered best→fallback for 2026-07 agent CLIs:
+ * Claude Code, Codex CLI (TB leader), Gemini CLI, Grok Build, Kimi CLI.
+ * Open multi-provider agents (OpenCode/Cline/Aider) use empty chains.
  */
 export const PROVIDER_CAPABILITY_MODELS: Record<
   string,
   Record<AgentCapabilityClass, readonly string[]>
 > = {
   claude: {
+    // Claude Code still uses short aliases in Agent tool dispatches.
     frontier: ['opus', 'sonnet', 'haiku'],
     balanced: ['sonnet', 'haiku', 'opus'],
     fast: ['haiku', 'sonnet', 'opus'],
   },
   gemini: {
-    frontier: ['2.5-pro', '2.5-flash', '2.0-flash'],
-    balanced: ['2.5-flash', '2.0-flash', '2.5-pro'],
-    fast: ['2.0-flash', '2.5-flash', '2.5-pro'],
+    frontier: ['3.1-pro', '2.5-pro', '2.5-flash', '2.0-flash'],
+    balanced: ['2.5-flash', '3.1-pro', '2.5-pro', '2.0-flash'],
+    fast: ['2.0-flash', '2.5-flash', '2.5-pro', '3.1-pro'],
   },
   openai: {
-    frontier: ['o3', 'gpt-4.1', 'gpt-4o'],
-    balanced: ['gpt-4.1', 'gpt-4o', 'gpt-4.1-mini'],
-    fast: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o'],
+    frontier: ['gpt-5.5', 'o3', 'gpt-4.1', 'gpt-4o'],
+    balanced: ['gpt-4.1', 'gpt-5.5', 'gpt-4o', 'gpt-4.1-mini'],
+    fast: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o', 'gpt-4.1'],
   },
   codex: {
-    frontier: ['o3', 'gpt-4.1', 'gpt-4o'],
-    balanced: ['gpt-4.1', 'gpt-4o', 'gpt-4.1-mini'],
-    fast: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o'],
+    // Codex CLI default brain tracks OpenAI coding models (TB 2.1 leader).
+    frontier: ['gpt-5.5', 'o3', 'gpt-4.1', 'gpt-4o'],
+    balanced: ['gpt-4.1', 'gpt-5.5', 'gpt-4o', 'gpt-4.1-mini'],
+    fast: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o', 'gpt-4.1'],
   },
   xai: {
-    frontier: ['grok-3', 'grok-2', 'grok-2-mini'],
-    balanced: ['grok-2', 'grok-2-mini', 'grok-3'],
-    fast: ['grok-2-mini', 'grok-2', 'grok-3'],
+    frontier: ['grok-4', 'grok-3', 'grok-2', 'grok-2-mini'],
+    balanced: ['grok-3', 'grok-4', 'grok-2', 'grok-2-mini'],
+    fast: ['grok-2-mini', 'grok-2', 'grok-3', 'grok-4'],
   },
   grok: {
-    frontier: ['grok-3', 'grok-2', 'grok-2-mini'],
-    balanced: ['grok-2', 'grok-2-mini', 'grok-3'],
-    fast: ['grok-2-mini', 'grok-2', 'grok-3'],
+    frontier: ['grok-4', 'grok-3', 'grok-2', 'grok-2-mini'],
+    balanced: ['grok-3', 'grok-4', 'grok-2', 'grok-2-mini'],
+    fast: ['grok-2-mini', 'grok-2', 'grok-3', 'grok-4'],
   },
   kimi: {
     frontier: ['kimi-k2', 'kimi-latest', 'moonshot-v1-128k'],
     balanced: ['kimi-latest', 'moonshot-v1-128k', 'moonshot-v1-32k'],
     fast: ['moonshot-v1-32k', 'moonshot-v1-128k', 'kimi-latest'],
   },
+  // Multi-provider open agents pick models in-app (empty = any model valid).
+  opencode: { frontier: [], balanced: [], fast: [] },
+  cline: { frontier: [], balanced: [], fast: [] },
+  aider: { frontier: [], balanced: [], fast: [] },
 }
 
 const MIN_CLI_VERSIONS: Record<string, string> = {

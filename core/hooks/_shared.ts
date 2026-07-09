@@ -65,6 +65,125 @@ export function buildDenyOutput(event: string, reason: string): DenyOutput {
   }
 }
 
+/** Host that invoked the hook (Claude default; others remap output). */
+export type HookHost = 'claude' | 'gemini' | 'codex' | 'cursor'
+
+export function currentHookHost(): HookHost {
+  const raw = (process.env.PRJCT_HOOK_HOST ?? 'claude').toLowerCase()
+  if (raw === 'gemini' || raw === 'codex' || raw === 'cursor') return raw
+  return 'claude'
+}
+
+/**
+ * Host-specific rewrite of Claude-shaped hook payloads.
+ * - gemini: BeforeTool/decision deny (geminicli.com/docs/hooks)
+ * - cursor: camelCase events + snake_case additional_context (community 2026)
+ * - codex: Claude-compatible shapes (hooks.json mirrors Claude)
+ */
+export function adaptHookOutputForHost(
+  output: HookOutput | DenyOutput | Record<string, never>,
+  host: HookHost = currentHookHost()
+): Record<string, unknown> {
+  if (host === 'claude' || host === 'codex') return output as Record<string, unknown>
+  if (!output || Object.keys(output).length === 0) return output as Record<string, unknown>
+
+  if (host === 'gemini') return adaptForGemini(output)
+  if (host === 'cursor') return adaptForCursor(output)
+  return output as Record<string, unknown>
+}
+
+function adaptForGemini(
+  output: HookOutput | DenyOutput | Record<string, never>
+): Record<string, unknown> {
+  const deny = output as DenyOutput
+  if (deny.hookSpecificOutput?.permissionDecision === 'deny') {
+    return {
+      decision: 'deny',
+      reason: deny.hookSpecificOutput.permissionDecisionReason ?? 'blocked by prjct',
+    }
+  }
+  const out = output as HookOutput
+  const hso = out.hookSpecificOutput
+  if (hso?.additionalContext) {
+    return {
+      hookSpecificOutput: {
+        hookEventName: mapClaudeEventToGemini(hso.hookEventName),
+        additionalContext: hso.additionalContext,
+      },
+    }
+  }
+  if (out.systemMessage) return { systemMessage: out.systemMessage }
+  return output as Record<string, unknown>
+}
+
+function adaptForCursor(
+  output: HookOutput | DenyOutput | Record<string, never>
+): Record<string, unknown> {
+  const deny = output as DenyOutput
+  if (deny.hookSpecificOutput?.permissionDecision === 'deny') {
+    // Cursor preToolUse commonly accepts permissionDecision or decision.
+    return {
+      decision: 'deny',
+      reason: deny.hookSpecificOutput.permissionDecisionReason ?? 'blocked by prjct',
+      permissionDecision: 'deny',
+      permissionDecisionReason:
+        deny.hookSpecificOutput.permissionDecisionReason ?? 'blocked by prjct',
+    }
+  }
+  const out = output as HookOutput
+  const hso = out.hookSpecificOutput
+  if (hso?.additionalContext) {
+    const event = mapClaudeEventToCursor(hso.hookEventName)
+    // Forum reports: additional_context (snake) is what Cursor logs/surfaces.
+    return {
+      hookSpecificOutput: {
+        hookEventName: event,
+        additionalContext: hso.additionalContext,
+        additional_context: hso.additionalContext,
+      },
+      additional_context: hso.additionalContext,
+    }
+  }
+  if (out.systemMessage) return { systemMessage: out.systemMessage }
+  return output as Record<string, unknown>
+}
+
+function mapClaudeEventToGemini(event: string): string {
+  switch (event) {
+    case 'UserPromptSubmit':
+      return 'BeforeAgent'
+    case 'PreToolUse':
+      return 'BeforeTool'
+    case 'PostToolUse':
+      return 'AfterTool'
+    case 'Stop':
+      return 'AfterAgent'
+    default:
+      return event
+  }
+}
+
+function mapClaudeEventToCursor(event: string): string {
+  switch (event) {
+    case 'SessionStart':
+      return 'sessionStart'
+    case 'UserPromptSubmit':
+      return 'beforeSubmitPrompt'
+    case 'PreToolUse':
+      return 'preToolUse'
+    case 'PostToolUse':
+      return 'postToolUse'
+    case 'Stop':
+      return 'stop'
+    case 'SubagentStart':
+      return 'subagentStart'
+    case 'SubagentStop':
+      return 'subagentStop'
+    default:
+      return event.charAt(0).toLowerCase() + event.slice(1)
+  }
+}
+
 export async function readStdinSafe<T = Record<string, unknown>>(): Promise<T> {
   if (process.stdin.isTTY) return {} as T
   return new Promise((resolve) => {
@@ -90,7 +209,8 @@ export async function readStdinSafe<T = Record<string, unknown>>(): Promise<T> {
  * so the host parser is happy.
  */
 export function emit(output: HookOutput | DenyOutput | Record<string, never>): void {
-  process.stdout.write(`${JSON.stringify(output)}\n`)
+  const adapted = adaptHookOutputForHost(output)
+  process.stdout.write(`${JSON.stringify(adapted)}\n`)
 }
 
 function emitEmpty(): void {

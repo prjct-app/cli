@@ -89,7 +89,14 @@ function countDefaultTools(): number {
   }
 }
 
-export function computeHarnessScore(options: { skillCtx?: SkillContext } = {}): HarnessScoreReport {
+export function computeHarnessScore(
+  options: {
+    skillCtx?: SkillContext
+    /** Live multi-runtime organic grade from probeHarnessCoverage (0–5). */
+    multiRuntimeOrganicGrade?: number
+    multiRuntimeOrganicMeasured?: string
+  } = {}
+): HarnessScoreReport {
   const skill = buildPrjctSkill(options.skillCtx ?? emptySkillContext())
   const skillTokens = countTokens(skill)
   const routingBytes = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
@@ -166,6 +173,20 @@ export function computeHarnessScore(options: { skillCtx?: SkillContext } = {}): 
     ),
   ]
 
+  // Optional: live organic multi-runtime board (probed by harness score / install).
+  // Structural tests omit this so CI stays deterministic without real CLI installs.
+  if (options.multiRuntimeOrganicGrade !== undefined) {
+    criteria.push(
+      criterion(
+        'multi-runtime-organic',
+        'Multi-runtime organic board',
+        options.multiRuntimeOrganicGrade,
+        '≥2 live full/inherited on detected CLIs (4+ = dominance)',
+        options.multiRuntimeOrganicMeasured ?? `${options.multiRuntimeOrganicGrade}/5`
+      )
+    )
+  }
+
   const grade =
     Math.round((criteria.reduce((sum, c) => sum + c.score, 0) / criteria.length) * 10) / 10
   const programDone =
@@ -211,14 +232,19 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Token economics | unmeasured thrash | high (fresh windows × agents) | **telemetry + skill/MCP diet** |',
     '| Discuss before code | organic SDD | discuss-phase command | **discuss-lock H2+ (code)** |',
     '| Install surface | curl/brew binary | npx multi-runtime | npm/pnpm/brew + upgrade consolidate |',
+    '| Multi-runtime wire | single ecosystem | Claude-centric phases | **Claude+Codex+Gemini+Cursor+Grok inherit, one install** |',
+    '| Organic feel | install prompts | ceremony `/plan` | **passive hooks + SQLite; agent never re-learns the OS** |',
     `| Structural grade | n/a | n/a | **${report.grade}/5 ${grade}** |`,
     '',
-    '_Rule: never clone their skill count or `.planning/` OS. Crush on compound judgment, cost, and enforcement._',
+    '_Rule: never clone their skill count or `.planning/` OS. Crush on compound judgment, cost, enforcement, and multi-surface organic wire._',
     '',
   ].join('\n')
 }
 
-export function renderHarnessScoreMd(report: HarnessScoreReport): string {
+export function renderHarnessScoreMd(
+  report: HarnessScoreReport,
+  options: { coverageMd?: string } = {}
+): string {
   const rows = report.criteria.map(
     (c) => `| ${c.name} | ${c.score} | ${c.status} | ${c.slo} | ${c.measured} |`
   )
@@ -240,6 +266,7 @@ export function renderHarnessScoreMd(report: HarnessScoreReport): string {
     `- Routing body: ${report.defaults.routingBytes} bytes`,
     `- Providers: ${report.defaults.providerCount}`,
     '',
+    options.coverageMd ?? '',
     renderCompetitiveDustMd(report),
   ].join('\n')
 }

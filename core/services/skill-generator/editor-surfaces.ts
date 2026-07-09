@@ -110,9 +110,10 @@ export const buildGeminiConfig = (): string => buildGlobalConfig('Gemini')
 export const buildAntigravityConfig = (): string => buildGlobalConfig('Antigravity')
 
 /**
- * IDE rule pointers (Cursor `.mdc`, Windsurf `.md`). Clean-repo doctrine: these
- * carry the SAME minimal pointer as AGENTS.md/CLAUDE.md (MINIMAL_ROUTING_BODY,
- * one source) — never a ruleset. Only the per-rig frontmatter differs.
+ * IDE rule pointers (Cursor `.mdc`; Windsurf `.md` = legacy residual only).
+ * Clean-repo doctrine: these carry the SAME minimal pointer as AGENTS.md/
+ * CLAUDE.md (MINIMAL_ROUTING_BODY, one source) — never a ruleset. Only the
+ * per-rig frontmatter differs. Do not expand Windsurf-specific surfaces.
  */
 function buildIdePointer(frontmatter: string): string {
   return `${[

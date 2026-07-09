@@ -20,7 +20,7 @@ describe('resolveProviderModel — model is intercambiable', () => {
     expect(resolveProviderModel('orchestrator', 'claude').model).toBe('haiku')
     expect(resolveProviderModel('review', 'claude').model).toBe('sonnet')
 
-    expect(resolveProviderModel('implementer', 'gemini').model).toBe('2.5-pro')
+    expect(resolveProviderModel('implementer', 'gemini').model).toBe('3.1-pro')
     expect(resolveProviderModel('orchestrator', 'gemini').model).toBe('2.0-flash')
     expect(resolveProviderModel('review', 'gemini').model).toBe('2.5-flash')
   })
@@ -51,7 +51,7 @@ describe('resolveProviderModel — model is intercambiable', () => {
 
 describe('renderModelDirectiveForProvider — provider-aware dispatch prose', () => {
   it('emits the concrete model id for a fixed-model provider', () => {
-    expect(renderModelDirectiveForProvider('implementer', 'gemini')).toContain('model "2.5-pro"')
+    expect(renderModelDirectiveForProvider('implementer', 'gemini')).toContain('model "3.1-pro"')
     expect(renderModelDirectiveForProvider('implementer', 'gemini')).toContain('frontier')
   })
 

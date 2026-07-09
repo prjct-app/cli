@@ -26,7 +26,7 @@ describe('emulated crew protocol', () => {
       expect(proto).toContain(lens)
     }
     // Per-role rig models resolved from the policy via the bridge.
-    expect(proto).toContain('2.5-pro') // implementer → frontier
+    expect(proto).toContain('3.1-pro') // implementer → frontier
     expect(proto).toContain('2.0-flash') // leader → fast
     expect(proto).toContain('2.5-flash') // reviewer → balanced
     expect(proto).toContain('Tests must pass') // checkpoints embedded

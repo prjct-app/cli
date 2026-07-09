@@ -89,3 +89,100 @@ describe('hook fail-soft contract (safeRun)', () => {
     expect(out).toContain('HELLO_CTX')
   })
 })
+
+describe('hooks stay non-blocking (passive inject only)', () => {
+  const PASSIVE_EVENTS = [
+    'SessionStart',
+    'UserPromptSubmit',
+    'PostToolUse',
+    'Stop',
+    'SubagentStart',
+    'CwdChanged',
+  ] as const
+
+  for (const event of PASSIVE_EVENTS) {
+    test(`${event} without decide never emits permissionDecision deny`, async () => {
+      const out = await captureStdout(async () => {
+        await runHook({
+          event,
+          projectPath: process.cwd(),
+          build: async () => `ctx-for-${event}`,
+        })
+      })
+      expect(out).not.toContain('permissionDecision')
+      expect(out).not.toContain('"deny"')
+      // Context may land as additionalContext or systemMessage depending on event schema.
+      expect(out.length).toBeGreaterThan(0)
+    })
+  }
+
+  test('decide throw fails open — no deny, no crash', async () => {
+    let rejected = false
+    const out = await captureStdout(async () => {
+      try {
+        await runHook({
+          event: 'PreToolUse',
+          projectPath: process.cwd(),
+          decide: async () => {
+            throw new Error('loop guard blew up')
+          },
+          build: async () => 'SHOULD_NOT_MATTER',
+        })
+      } catch {
+        rejected = true
+      }
+    })
+    expect(rejected).toBe(false)
+    expect(out).not.toContain('permissionDecision')
+    expect(out).toContain('{}')
+  })
+
+  test('explicit decide deny is allowed only when decide returns {deny}', async () => {
+    const out = await captureStdout(async () => {
+      await runHook({
+        event: 'PreToolUse',
+        projectPath: process.cwd(),
+        decide: async () => ({ deny: 'turn budget exceeded' }),
+        build: async () => 'must-not-emit-when-denied',
+      })
+    })
+    expect(out).toContain('permissionDecision')
+    expect(out).toContain('deny')
+    expect(out).toContain('turn budget exceeded')
+    expect(out).not.toContain('must-not-emit-when-denied')
+  })
+
+  test('daemon mode detaches afterEmit so it never blocks the response', async () => {
+    const chunks: string[] = []
+    let detachedFn: (() => Promise<void>) | null = null
+    let afterEmitRan = false
+
+    await runHook(
+      {
+        event: 'UserPromptSubmit',
+        projectPath: process.cwd(),
+        build: async () => 'DAEMON_CTX',
+        afterEmit: async () => {
+          afterEmitRan = true
+        },
+      },
+      {
+        input: {},
+        sink: (c) => {
+          chunks.push(c)
+        },
+        detachAfterEmit: (fn) => {
+          detachedFn = fn
+        },
+      }
+    )
+
+    // Response already contains context; afterEmit not yet run.
+    expect(chunks.join('')).toContain('DAEMON_CTX')
+    expect(chunks.join('')).not.toContain('permissionDecision')
+    expect(afterEmitRan).toBe(false)
+    expect(detachedFn).not.toBeNull()
+    await detachedFn!()
+    expect(afterEmitRan).toBe(true)
+  })
+})

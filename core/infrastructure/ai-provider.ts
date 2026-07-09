@@ -4,17 +4,20 @@
  * Supports multiple AI coding agents with a unified abstraction layer:
  * - Claude Code (CLI): ~/.claude/, CLAUDE.md, .md commands
  * - Gemini CLI (CLI): ~/.gemini/, GEMINI.md, .toml commands
+ * - OpenAI Codex (CLI): ~/.codex/, AGENTS.md
  * - Cursor IDE (GUI): .cursor/ (project-level), .mdc rules
- * - Windsurf IDE (GUI): .windsurf/ (project-level), .md rules with YAML frontmatter
+ * - Windsurf IDE (GUI, LEGACY): .windsurf/ residual support only — do not expand
  *
  * Key differences:
- * - CLI providers (Claude/Gemini) have global config directories
- * - Cursor/Windsurf have project-level config only (no ~/.cursor/ or ~/.windsurf/)
+ * - CLI providers (Claude/Gemini/Codex) have global config directories
+ * - Cursor (and legacy Windsurf) are project-level only
+ *
+ * Benchmark focus (2026-07): Claude Code, Codex CLI, Gemini CLI, OpenCode,
+ * Cursor, Cline, Grok Build — not Windsurf.
  *
  * @see https://geminicli.com/docs/cli/gemini-md/
  * @see https://geminicli.com/docs/cli/skills/
  * @see https://cursor.com/docs/context/rules
- * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 
 import path from 'node:path'
@@ -31,6 +34,7 @@ import type {
 import { execAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
+import { whichAsync } from '../utils/which'
 import { resolveUserPath } from './user-home'
 
 // Provider Configurations
@@ -166,20 +170,13 @@ export const CursorProvider: AIProviderConfig = {
 }
 
 /**
- * Windsurf IDE provider configuration
- *
- * Key differences from Cursor:
- * - Uses .md files (not .mdc) with YAML frontmatter
- * - Uses "workflows" instead of "commands"
- * - Frontmatter uses `trigger: always_on` instead of `alwaysApply: true`
- * - Character limits: 6000 per file, 12000 total
- *
- * @see https://docs.windsurf.com/windsurf/cascade/memories
- * @see https://docs.windsurf.com/windsurf/cascade/workflows
+ * Windsurf IDE — LEGACY residual support (product no longer a focus, 2026-07).
+ * Keep install paths working for existing users; do not add new Windsurf-only
+ * surfaces. Prefer Cursor / Claude Code / Codex / Gemini CLI / OpenCode / Cline.
  */
 const WindsurfProvider: AIProviderConfig = {
   name: 'windsurf',
-  displayName: 'Windsurf IDE',
+  displayName: 'Windsurf IDE (legacy)',
   cliCommand: null, // Not a CLI - GUI app
   configDir: null, // No global config directory
   contextFile: 'prjct.md', // Uses .md format (not .mdc)
@@ -252,15 +249,15 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
 // Provider Detection
 
 /**
- * Check if a CLI command is available
+ * Check if a CLI command is available (macOS / Linux / Windows).
  */
 async function whichCommand(command: string): Promise<string | null> {
-  try {
-    const { stdout } = await execAsync(`which ${command}`, { timeout: PROVIDER_SPAWN_TIMEOUT_MS })
-    return stdout.trim()
-  } catch {
-    return null
+  const found = await whichAsync(command)
+  if (found) return found
+  if (process.platform === 'win32') {
+    return whichAsync(`${command}.cmd`)
   }
+  return null
 }
 
 /**
