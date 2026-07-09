@@ -27,11 +27,11 @@ import { PrjctCommandsBase } from './base'
 export class HarnessCommands extends PrjctCommandsBase {
   async score(projectPath: string = process.cwd(), options: MdOption = {}): Promise<CommandResult> {
     try {
+      // Structural grade is machine-independent (CI/release). Live organic board
+      // is advisory: laptop install state must not tank programDone. Adapter
+      // presence is gated by weak-model-bench, not ~/.claude probes on runners.
       const coverage = await probeHarnessCoverage(projectPath)
-      const report = computeHarnessScore({
-        multiRuntimeOrganicGrade: coverage.grade,
-        multiRuntimeOrganicMeasured: `${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`,
-      })
+      const report = computeHarnessScore()
       if (options.md) {
         console.log(renderHarnessScoreMd(report, { coverageMd: renderHarnessCoverageMd(coverage) }))
       } else {
@@ -42,7 +42,7 @@ export class HarnessCommands extends PrjctCommandsBase {
           console.log(`  ${mark} ${c.name}: ${c.score} — ${c.measured}`)
         }
         console.log(
-          `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`
+          `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%) — advisory`
         )
       }
       return {

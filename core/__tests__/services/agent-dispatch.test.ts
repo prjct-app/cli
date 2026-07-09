@@ -21,7 +21,7 @@ describe('resolveDispatchMechanism', () => {
     expect(m.native).toBe(false)
     expect(m.runLine(3)).toContain('EMULATE the fan-out')
     expect(m.runLine(1)).toContain('no native subagent tool')
-    expect(m.modelDirective('implementer')).toContain('2.5-pro')
+    expect(m.modelDirective('implementer')).toContain('3.1-pro')
   })
 
   it('defers model selection to a multi-model rig', async () => {
