@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.35.0] - 2026-07-09
+
+### Features
+
+- dominance P0–P2 vs gentle-ai + open-GSD (#532)
+
+
 ## [3.34.0] - 2026-07-09
 
 ### Features
