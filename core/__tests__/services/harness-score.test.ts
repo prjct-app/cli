@@ -48,4 +48,13 @@ describe('harness score', () => {
     expect(md).toContain('Always-on skill tokens')
     expect(md).toMatch(/done|in progress/)
   })
+
+  it('renders competitive dust table vs gentle-ai and open-GSD', () => {
+    const md = renderHarnessScoreMd(computeHarnessScore())
+    expect(md).toContain('Competitive dust')
+    expect(md).toContain('gentle-ai')
+    expect(md).toContain('open-GSD')
+    expect(md).toContain('discuss-lock')
+    expect(md).toContain('SQLite')
+  })
 })

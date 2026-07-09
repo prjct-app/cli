@@ -104,11 +104,11 @@ export class ShippingCommands extends PrjctCommandsBase {
       // SDD strict gate (opt-in via config.sdd.mode === 'strict'): refuse to
       // ship work with no linked spec — the pipeline is mandatory in strict.
       // advisory/off never block here. `--no-spec-gate` is the override.
+      const shipConfig = await configManager.readConfig(projectPath).catch(() => null)
       if (!options.noSpecGate && !linkedSpecId) {
         try {
-          const sddConfig = await configManager.readConfig(projectPath).catch(() => null)
           const { effectiveSddMode } = await import('./sdd')
-          if (effectiveSddMode(sddConfig) === 'strict') {
+          if (effectiveSddMode(shipConfig) === 'strict') {
             return {
               success: false,
               error:
@@ -118,6 +118,38 @@ export class ShippingCommands extends PrjctCommandsBase {
         } catch {
           // best-effort — never crash ship on the gate lookup
         }
+      }
+
+      // Package legitimacy (GSD slopcheck steal): new deps vs HEAD.
+      try {
+        const { checkPackageLegitimacy } = await import('../services/package-legitimacy')
+        const pkg = await checkPackageLegitimacy(projectPath)
+        if (pkg.risky && pkg.message) {
+          const hard =
+            shipConfig?.sdd?.mode === 'strict' ||
+            shipConfig?.tdd?.mode === 'strict' ||
+            shipConfig?.deliveryGeometry?.mode === 'strict'
+          if (hard && !options.noSpecGate) {
+            return {
+              success: false,
+              error: `${pkg.message}\nOverride only with explicit consent: verify packages, then \`prjct ship --no-spec-gate\`.`,
+            }
+          }
+          console.log(`⚠️  ${pkg.message}`)
+        }
+      } catch {
+        /* package check is best-effort */
+      }
+
+      // Dual-blind judgment default on ship-grade packs (code-strict).
+      if (
+        shipConfig?.sdd?.mode === 'strict' &&
+        shipConfig?.tdd?.mode === 'strict' &&
+        !options.noSpecGate
+      ) {
+        console.log(
+          '⚖️  code-strict ship: run dual-blind `judgment` (two independent reviewers, confirmed-only fixes, re-judge) before merge — `prjct workflows` → judgment.'
+        )
       }
 
       // SDD acceptance gate: surface the linked spec's acceptance_criteria

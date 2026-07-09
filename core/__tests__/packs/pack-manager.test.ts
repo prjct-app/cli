@@ -83,7 +83,8 @@ describe('pack-manager', () => {
     expect(config?.tdd?.mode).toBe('assist')
     expect(config?.maxTurnsPerCycle).toBe(25)
     expect(config?.deliveryGeometry?.mode).toBe('advisory')
-    expect(config?.land?.mode).toBe('advisory')
+    // Dominance P2: code pack forces land (session-close not optional).
+    expect(config?.land?.mode).toBe('strict')
 
     await configManager.writeConfig(projectPath, {
       ...config!,

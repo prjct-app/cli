@@ -178,7 +178,15 @@ function detectKind(text: string): HarnessKind {
   ) {
     return 'research'
   }
-  if (hasAny(text, ['refactor', 'cleanup', 'split', 'restructure'])) return 'refactor'
+  // `split` as a refactor verb only when free-token (not hyphen-compound).
+  // JS `\b` treats `-` as a boundary, so `\bsplit\b` matches "split-home"
+  // and discuss-lock blocked e2e smokes (dominance false-positive class).
+  if (
+    hasAny(text, ['refactor', 'cleanup', 'restructure']) ||
+    /(?:^|[^a-z0-9_-])split(?:[^a-z0-9_-]|$)/.test(text)
+  ) {
+    return 'refactor'
+  }
   if (hasAny(text, ['doc', 'docs', 'document', 'readme', 'changelog', 'typo'])) return 'docs'
   if (hasAny(text, ['chore', 'format', 'lint', 'linting', 'linter'])) return 'chore'
   if (hasAny(text, ['add', 'agrega', 'crear', 'implement', 'implementa', 'feature', 'mejora'])) {

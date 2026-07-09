@@ -70,6 +70,21 @@ function sourceRoot(): string {
  * winner, the dev checkout, or anything whose ownership can't be proven
  * (getAllInstalledLocations already verifies `prjct-cli/package.json`).
  */
+/** True when this install root owns the PATH-winning binary realpath. */
+function locationOwnsWinner(
+  installRoot: string | null | undefined,
+  winnerReal: string | null
+): boolean {
+  if (!installRoot || !winnerReal) return false
+  try {
+    const root = realpathSync(installRoot)
+    const win = realpathSync(winnerReal)
+    return win === root || win.startsWith(root + path.sep)
+  } catch {
+    return winnerReal.includes(installRoot)
+  }
+}
+
 export function planCleanup(): CleanupPlan {
   const winnerReal = pathWinnerReal()
   const winnerPm = detectInstallerFromRunningBinary()
@@ -88,17 +103,41 @@ export function planCleanup(): CleanupPlan {
     }
   }
 
-  const brewWinner = winnerReal?.includes('/Cellar/') || winnerReal?.includes('/homebrew/')
-  const winner: CleanupPlan['winner'] = brewWinner ? 'brew' : winnerPm
+  const brewWinner =
+    !!winnerReal &&
+    (winnerReal.includes('/Cellar/') ||
+      winnerReal.includes('/homebrew/') ||
+      winnerReal.includes('/opt/homebrew/bin/prjct') ||
+      winnerReal.includes('/opt/homebrew/lib/node_modules/prjct-cli'))
+  // Prefer the PM that owns the winning *binary path* over a mis-detected
+  // installer string (fixes multi-install footgun that deleted the active copy).
+  let winner: CleanupPlan['winner'] = brewWinner ? 'brew' : winnerPm
+  if (!brewWinner && winnerReal) {
+    for (const loc of getAllInstalledLocations()) {
+      const root = loc.pm.getInstallRoot()
+      if (
+        locationOwnsWinner(root, winnerReal) ||
+        locationOwnsWinner(path.join(root ?? '', 'prjct-cli'), winnerReal)
+      ) {
+        winner = loc.pm.name
+        break
+      }
+    }
+  }
 
   const removable: CleanupPlan['removable'] = []
   for (const loc of getAllInstalledLocations()) {
-    if (loc.pm.name === winnerPm) {
-      skipped.push({ pm: loc.pm.name, reason: 'PATH winner — kept' })
+    const root = loc.pm.getInstallRoot()
+    const owns =
+      loc.pm.name === winner ||
+      loc.pm.name === winnerPm ||
+      locationOwnsWinner(root, winnerReal) ||
+      locationOwnsWinner(root ? path.join(root, 'prjct-cli') : null, winnerReal)
+    if (owns) {
+      skipped.push({ pm: loc.pm.name, reason: 'PATH winner (or owns winning binary) — kept' })
       continue
     }
     // Gate: never remove the dev source tree (npm/bun link).
-    const root = loc.pm.getInstallRoot()
     if (root && src) {
       let resolved = path.join(root, 'prjct-cli')
       try {
@@ -115,10 +154,22 @@ export function planCleanup(): CleanupPlan {
   }
 
   // Brew: only if a brew copy exists AND it is not the winner.
-  if (isHomebrewInstall() && !brewWinner) {
+  if (isHomebrewInstall() && !brewWinner && winner !== 'brew') {
     removable.push({ pm: 'brew', version: '(homebrew)' })
-  } else if (isHomebrewInstall() && brewWinner) {
+  } else if (isHomebrewInstall() && (brewWinner || winner === 'brew')) {
     skipped.push({ pm: 'brew', reason: 'PATH winner — kept' })
+  }
+
+  // Safety: never propose removals when we still cannot name a winner.
+  if (winner === null) {
+    return {
+      winner: null,
+      removable: [],
+      skipped: [
+        ...skipped,
+        { pm: '(all)', reason: 'no definitive winner — refusing to remove any copy' },
+      ],
+    }
   }
 
   return { winner, removable, skipped }

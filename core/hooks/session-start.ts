@@ -157,7 +157,24 @@ async function buildStalenessNotice(
     if (!status.isStale || status.commitsSinceSync <= 0) return null
     const warning = checker.getWarning(status)
     if (!warning) return null
-    return `**Understanding may be stale:** ${warning} — the architecture/risks map was built at the last sync; refresh before trusting it for big calls.`
+    // Continuous understanding: detach a lightweight sync so the map
+    // refreshes without GSD-style full map-codebase thrash every phase.
+    try {
+      const path = await import('node:path')
+      const os = await import('node:os')
+      const { maybeDetachDriftRefresh } = await import('../services/drift-refresh')
+      const cliHome = process.env.PRJCT_CLI_HOME
+        ? path.resolve(process.env.PRJCT_CLI_HOME)
+        : path.join(os.homedir(), '.prjct-cli')
+      maybeDetachDriftRefresh({
+        projectPath,
+        cliHome,
+        commitsSinceSync: status.commitsSinceSync,
+      })
+    } catch {
+      /* never block SessionStart */
+    }
+    return `**Understanding may be stale:** ${warning} — architecture/risks map from last sync; a background refresh was scheduled when drift is large. Prefer \`prjct sync\` before big calls if this notice persists.`
   } catch {
     return null
   }

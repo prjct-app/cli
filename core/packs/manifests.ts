@@ -80,7 +80,9 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
       tdd: 'assist',
       maxTurnsPerCycle: 25,
       deliveryGeometry: 'advisory',
-      land: 'advisory',
+      // Session-close is not optional on code packs (gentle-ai land ritual,
+      // code-enforced cue via land-cue + Stop).
+      land: 'strict',
     },
   },
 
