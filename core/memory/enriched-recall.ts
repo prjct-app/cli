@@ -110,19 +110,21 @@ export async function enrichedRecall(
     if (linked.length > 0) entries = entries.concat(linked)
   }
 
-  // Ship-success attribution: these entries were surfaced during the
-  // active task; if it ships, each earns the strong ship-credit.
+  // Attribution: surface for ship-credit; fetch for immediate usefulness
+  // (a deliberate recall is already proof of use).
   try {
     const task = await stateStorage.getCurrentTask(projectId)
+    const now = new Date().toISOString()
     if (task?.id) {
       usefulnessService.recordSurfaced(
         projectId,
         entries.map((e) => e.id),
         task.id,
-        new Date().toISOString(),
+        now,
         { queryText: topic, surface: 'context-memory' }
       )
     }
+    for (const e of entries) usefulnessService.recordFetch(projectId, e.id, now)
   } catch {
     /* best-effort — attribution telemetry must never break a recall */
   }

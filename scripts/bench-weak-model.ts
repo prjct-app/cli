@@ -1,13 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Weak-model readiness bench — structural proof that the harness stays lean
- * enough for a cheap brain to carry a session.
- *
- * North star: weak-model + prjct ≥ good-model alone (cadence + discipline).
- * This script measures what we can without an LLM API call.
+ * Weak-model readiness bench.
+ * Exit 0 only when all SLOs pass.
  *
  * Usage: bun scripts/bench-weak-model.ts
- * Exit 0 only when all SLOs pass.
  */
 
 import { Buffer } from 'node:buffer'
@@ -31,8 +27,7 @@ const checks: Check[] = []
 
 function check(name: string, ok: boolean, detail: string): void {
   checks.push({ name, ok, detail })
-  const mark = ok ? '✓' : '✗'
-  console.log(`${mark} ${name}: ${detail}`)
+  console.log(`${ok ? '✓' : '✗'} ${name}: ${detail}`)
 }
 
 const skillTok = countTokens(buildPrjctSkill(emptySkillContext()))
@@ -69,12 +64,45 @@ check(
   `grade ${score.grade}/5 done=${score.programDone}`
 )
 
-// Weak models drown in tool schema — core surface must stay small.
 check(
   'MCP tool surface',
   score.defaults.mcpToolCountDefault <= WORLD_CLASS.mcpToolsCoreMax,
   `${score.defaults.mcpToolCountDefault} tools at default`
 )
+
+/** Deterministic intent router — weak models must not wrap bin verbs as work. */
+function routeIntent(signal: string): string {
+  const s = signal.toLowerCase()
+  if (/\bsync\b/.test(s)) return 'sync'
+  if (/\bsearch\b|\bfind\b|\brecall\b/.test(s)) return 'search'
+  if (/\bremember\b|\bsave (this|that|a)\b/.test(s)) return 'remember'
+  if (/\bship\b|\bopen a pr\b/.test(s)) return 'ship'
+  if (/what should i work|what next|\bready\b/.test(s)) return 'next'
+  if (/\bfix\b|\bbuild\b|\bimplement\b|\bbug\b|\brefactor\b/.test(s)) return 'work'
+  return 'work'
+}
+
+const INTENT_FIXTURES: Array<{ signal: string; verb: string }> = [
+  { signal: 'sync the project', verb: 'sync' },
+  { signal: 'search for auth decisions', verb: 'search' },
+  { signal: 'remember this decision about caching', verb: 'remember' },
+  { signal: 'fix the login bug', verb: 'work' },
+  { signal: 'what should I work on next', verb: 'next' },
+  { signal: 'ship the feature', verb: 'ship' },
+  { signal: 'implement rate limiting', verb: 'work' },
+  { signal: 'find gotchas on migrations', verb: 'search' },
+]
+
+let intentHits = 0
+for (const f of INTENT_FIXTURES) {
+  const got = routeIntent(f.signal)
+  const ok = got === f.verb
+  if (ok) intentHits++
+  check(`intent:${f.verb}`, ok, `"${f.signal}" → ${got}`)
+}
+
+const intentRate = intentHits / INTENT_FIXTURES.length
+check('intent routing accuracy', intentRate >= 0.95, `${Math.round(intentRate * 100)}% (need ≥95%)`)
 
 const failed = checks.filter((c) => !c.ok)
 console.log('')

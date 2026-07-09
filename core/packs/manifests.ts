@@ -73,11 +73,31 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
     suggestedTags: {
       domain: ['auth', 'api', 'frontend', 'infra', 'data'],
     },
-    // Raise the floor without blocking init→work. Opt into full gates with
-    // `prjct sdd strict` / `prjct tdd strict`.
+    // Raise the floor without blocking init→work. Full gates: seed add code-strict.
     configDefaults: {
       sdd: 'advisory',
       tdd: 'assist',
+      maxTurnsPerCycle: 25,
+    },
+  },
+
+  'code-strict': {
+    name: 'code-strict',
+    description:
+      'Ship-grade coding: SDD+TDD strict gates and a hard turn ceiling. Opt-in; use after code pack.',
+    suggestedPersona: {
+      role: 'DEV',
+      mcps: ['github'],
+    },
+    memoryTypes: ['fact', 'decision', 'learning', 'gotcha', 'pattern', 'anti-pattern', 'shipped'],
+    workflowSlots: {
+      ship: { description: 'Publish finished work — tests, commit, push, PR.' },
+      review: { description: 'Pre-commit or pre-PR review pass.' },
+    },
+    hookSignals: [],
+    configDefaults: {
+      sdd: 'strict',
+      tdd: 'strict',
       maxTurnsPerCycle: 25,
     },
   },

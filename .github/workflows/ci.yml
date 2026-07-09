@@ -48,8 +48,13 @@ jobs:
         run: bun run knip --include files,duplicates,unlisted,binaries,unresolved
 
   test:
-    name: Tests
+    name: Tests (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Shards keep each job under the world-class ~45s wall budget.
+        shard: [core-a, core-b, core-c]
 
     steps:
       - name: Checkout
@@ -63,16 +68,66 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          # Pinned via .bun-version (single source): resolving `latest`
-          # queries the bun tags API every run — the 500-prone call that
-          # broke the v2.42.6 release — and silently drifts from local dev.
           bun-version-file: .bun-version
 
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests
-        run: npm test
+      - name: Run unit shard
+        run: |
+          set -euo pipefail
+          case "${{ matrix.shard }}" in
+            core-a)
+              bun test --dots \
+                core/__tests__/domain \
+                core/__tests__/schemas \
+                core/__tests__/utils \
+                core/__tests__/hooks \
+                core/__tests__/packs \
+                core/__tests__/mcp \
+                core/__tests__/infrastructure \
+                core/__tests__/memory \
+                core/__tests__/tools \
+                core/__tests__/types \
+                core/__tests__/statusline \
+                core/__tests__/eval \
+                core/__tests__/performance
+              ;;
+            core-b)
+              bun test --dots \
+                core/__tests__/services \
+                core/__tests__/storage
+              ;;
+            core-c)
+              bun test --dots \
+                core/__tests__/commands \
+                core/__tests__/daemon \
+                core/__tests__/workflow-engine \
+                core/__tests__/workflow \
+                core/__tests__/sync \
+                core/__tests__/_setup
+              ;;
+          esac
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    needs: [quality]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run e2e tests
+        run: bun test core/__tests__/e2e/
 
   platform-compat:
     name: Platform Compatibility (${{ matrix.os }})

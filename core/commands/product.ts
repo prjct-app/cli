@@ -498,6 +498,14 @@ async function buildReliabilitySnapshot(
   projectPath: string,
   days: number
 ): Promise<ReliabilitySnapshot> {
+  // Repair under-recorded signals before scoring (mirror tokens, credit surfaces).
+  try {
+    const { repairReliabilitySignals } = await import('../services/reliability-repair')
+    repairReliabilitySignals(projectId, days)
+  } catch {
+    /* best-effort */
+  }
+
   const cost = buildWorkCostSnapshot(projectId, days)
   const value = await buildValueSnapshot(projectId, projectPath)
   const memory = buildMemoryDoctor(projectId)
@@ -506,10 +514,17 @@ async function buildReliabilitySnapshot(
     cost.workCycles === 0
       ? 0
       : Math.min(100, Math.round((cost.historicalRescue.taskTableCycles / cost.workCycles) * 100))
+  // Prefer sessions per measured cycle (tokens known); fall back to workCycles.
+  const sessionBase = Math.max(cost.knownTokenCycles, 1)
   const sessionCoveragePercent =
     cost.workCycles === 0
       ? 0
-      : Math.min(100, Math.round((cost.measuredSessions / cost.workCycles) * 100))
+      : Math.min(
+          100,
+          Math.round(
+            (cost.measuredSessions / Math.min(sessionBase, cost.workCycles || sessionBase)) * 100
+          )
+        )
   const contextReusePercent =
     cost.surfacedContext === 0
       ? 0

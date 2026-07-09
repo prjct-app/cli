@@ -511,6 +511,12 @@ export async function setTaskStatus(
       })
       await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
       await recordEstimationOutcome(projectId, wsTask.id, verification.diffSize)
+      try {
+        const { usefulnessService } = await import('./usefulness')
+        usefulnessService.creditShippedTask(projectId, wsTask.id)
+      } catch {
+        /* best-effort usefulness credit */
+      }
       return {
         ok: true,
         taskId: wsTask.id,
@@ -572,6 +578,12 @@ export async function setTaskStatus(
     if (normalized === 'done' || normalized === 'completed') {
       await stateStorage.completeTask(projectId)
       await recordEstimationOutcome(projectId, active.id, verification.diffSize)
+      try {
+        const { usefulnessService } = await import('./usefulness')
+        usefulnessService.creditShippedTask(projectId, active.id)
+      } catch {
+        /* best-effort usefulness credit */
+      }
     } else if (normalized === 'paused' || normalized === 'pause') {
       await stateStorage.pauseTask(projectId)
     } else if (resumeIntent) {
