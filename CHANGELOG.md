@@ -5,6 +5,17 @@
 ### Added
 - xAI Grok Build CLI compatibility (agent-runtime-registry)
 
+## [3.31.0] - 2026-07-09
+
+### Features
+
+- absolute scorecard, lean defaults, multi-provider maps (#526)
+
+### Bug Fixes
+
+- Node 22 + pin npm@11 so publish is not blocked by engines (#527)
+
+
 ## [3.30.0] - 2026-07-09
 
 ### Features
