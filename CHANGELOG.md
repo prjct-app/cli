@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+## [3.33.0] - 2026-07-09
+
 ### Added
+- deeper understanding
 - xAI Grok Build CLI compatibility (agent-runtime-registry)
 
 ## [3.32.0] - 2026-07-09
@@ -10,7 +13,6 @@
 ### Features
 
 - passive capture v2, land auto-synthesis, weak-vs-frontier demo (#528)
-
 
 ## [3.31.0] - 2026-07-09
 
@@ -22,13 +24,11 @@
 
 - Node 22 + pin npm@11 so publish is not blocked by engines (#527)
 
-
 ## [3.30.0] - 2026-07-09
 
 ### Features
 
 - xAI Grok Build CLI compatibility (#525)
-
 
 ## [3.29.1] - 2026-07-06
 

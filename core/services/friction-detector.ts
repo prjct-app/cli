@@ -13,11 +13,11 @@
  *
  * What counts as friction (precision-over-recall):
  *   - User negation directly after an assistant tool-use:
- *     "no", "así no", "espera", "stop", "cancel", "wait" → strong signal
+ *     "no", "stop", "cancel", "wait" → strong signal
  *   - User correction phrasing: "should be X", "rather than", "instead"
- *   - Repeated requests for the same surface ("dónde", "where", "how
- *     do I" appearing 3+ times in the session)
- *   - Explicit complaint markers: "doesn't work", "no funciona", "broken"
+ *   - Repeated requests for the same surface ("where", "how do I"
+ *     appearing 3+ times in the session)
+ *   - Explicit complaint markers: "doesn't work", "broken"
  *
  * Conservative cap: max 5 signals per session. Hashed dedup against
  * existing improvement-signal entries so re-running the hook never
@@ -33,35 +33,20 @@ const SOURCE_TAG = 'friction-detector'
 const MAX_SIGNALS_PER_SESSION = 5
 const MAX_EXCERPT_CHARS = 400
 
-// Negation / correction markers — language-agnostic (es/en) since the
-// user codebase mixes both. Matched against the START of a user turn
-// (after the assistant just acted) to avoid false positives in
-// ordinary discussion.
+// Negation / correction markers (English). Matched against the START of a
+// user turn (after the assistant just acted) to avoid false positives in
+// ordinary discussion. Memory content is English-only (feedback contract).
 const NEGATION_MARKERS = [
   /^\s*no[,.!\s]/i,
   /^\s*nope\b/i,
-  /^\s*así no\b/i,
-  /^\s*espera\b/i,
   /^\s*stop\b/i,
   /^\s*wait\b/i,
   /^\s*cancel\b/i,
 ]
 
-const CORRECTION_MARKERS = [
-  /\bshould be\b/i,
-  /\brather than\b/i,
-  /\binstead\b/i,
-  /\bmás bien\b/i,
-  /\ben realidad\b/i,
-]
+const CORRECTION_MARKERS = [/\bshould be\b/i, /\brather than\b/i, /\binstead\b/i]
 
-const COMPLAINT_MARKERS = [
-  /\bdoesn'?t work\b/i,
-  /\bno funciona\b/i,
-  /\bbroken\b/i,
-  /\bestá roto\b/i,
-  /\bagain\b.*\bsame\b/i,
-]
+const COMPLAINT_MARKERS = [/\bdoesn'?t work\b/i, /\bbroken\b/i, /\bagain\b.*\bsame\b/i]
 
 interface TranscriptLine {
   type?: string
@@ -188,10 +173,9 @@ function extractSignals(lines: TranscriptLine[]): FrictionSignal[] {
 }
 
 function classify(text: string): FrictionSignal['category'] | null {
-  // Complaints checked FIRST: phrases like "no funciona" share the
-  // "no" prefix with negation markers, but the multi-word complaint
-  // pattern is more specific and shouldn't be miscategorised as
-  // pure rejection.
+  // Complaints checked FIRST: multi-word complaint patterns are more
+  // specific than a bare "no…" negation prefix and shouldn't be
+  // miscategorised as pure rejection.
   if (COMPLAINT_MARKERS.some((re) => re.test(text))) return 'complaint'
   if (NEGATION_MARKERS.some((re) => re.test(text))) return 'negation'
   if (CORRECTION_MARKERS.some((re) => re.test(text))) return 'correction'

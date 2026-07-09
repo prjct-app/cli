@@ -31,8 +31,12 @@ import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jso
 const SOURCE_TAG = 'transcript-auto'
 const CAPTURE_VERSION = 'v2'
 const MIN_PARAGRAPH_CHARS = 80
+/** User preference lines can be short ("Always ship as minor.") and still durable. */
+const MIN_PREF_CHARS = 20
 const MAX_CONTENT_CHARS = 1500
 const MAX_CANDIDATES_PER_SESSION = 12
+/** Cap preference captures separately so chatty corrections don't crowd project learnings. */
+const MAX_PREF_PER_SESSION = 4
 
 interface Candidate {
   type: MemoryType
@@ -66,8 +70,6 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
   { phrase: 'best approach is', type: 'decision' },
   { phrase: 'we will use', type: 'decision' },
   { phrase: 'shipping with', type: 'decision' },
-  { phrase: 'decidimos', type: 'decision' },
-  { phrase: 'la decisión es', type: 'decision' },
   // Learnings
   { phrase: 'turns out that', type: 'learning' },
   { phrase: 'now i understand', type: 'learning' },
@@ -77,7 +79,6 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
   { phrase: 'root cause is', type: 'learning' },
   { phrase: 'root cause was', type: 'learning' },
   { phrase: 'the fix is', type: 'learning' },
-  { phrase: 'resulta que', type: 'learning' },
   // Gotchas
   { phrase: 'gotcha:', type: 'gotcha' },
   { phrase: 'bug:', type: 'gotcha' },
@@ -86,7 +87,6 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
   { phrase: 'be careful', type: 'gotcha' },
   { phrase: 'never do this', type: 'gotcha' },
   { phrase: 'trap:', type: 'gotcha' },
-  { phrase: 'cuidado:', type: 'gotcha' },
   // Facts / durable project truth
   { phrase: 'important:', type: 'fact' },
   { phrase: 'always use', type: 'fact' },
@@ -104,37 +104,37 @@ const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
  */
 const LABEL_TYPE_MAP: Array<{ re: RegExp; type: MemoryType; phrase: string }> = [
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(decision|decisión)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?decision(?:\*\*)?\s*[:—-]\s+/i,
     type: 'decision',
     phrase: 'label:decision',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(learning|aprendizaje|insight)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(learning|insight)(?:\*\*)?\s*[:—-]\s+/i,
     type: 'learning',
     phrase: 'label:learning',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(gotcha|trap|cuidado|warning)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(gotcha|trap|warning)(?:\*\*)?\s*[:—-]\s+/i,
     type: 'gotcha',
     phrase: 'label:gotcha',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(fact|dato|note)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(fact|note)(?:\*\*)?\s*[:—-]\s+/i,
     type: 'fact',
     phrase: 'label:fact',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(root\s*cause|causa\s*raíz)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?root\s*cause(?:\*\*)?\s*[:—-]\s+/i,
     type: 'learning',
     phrase: 'label:root-cause',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(pattern|patrón)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?pattern(?:\*\*)?\s*[:—-]\s+/i,
     type: 'pattern',
     phrase: 'label:pattern',
   },
   {
-    re: /^(?:[-*•]\s+)?(?:\*\*)?(anti[- ]?pattern|anti[- ]?patrón)(?:\*\*)?\s*[:—-]\s+/i,
+    re: /^(?:[-*•]\s+)?(?:\*\*)?anti[- ]?pattern(?:\*\*)?\s*[:—-]\s+/i,
     type: 'anti-pattern',
     phrase: 'label:anti-pattern',
   },
@@ -179,10 +179,16 @@ export async function ingestTranscript(
   }
 
   const messages = projectMessages(lines)
-  result.scanned = messages.length
-  if (messages.length === 0) return result
+  const userMessages = projectUserMessages(lines)
+  result.scanned = messages.length + userMessages.length
+  if (messages.length === 0 && userMessages.length === 0) return result
 
-  const candidates = extractCandidates(messages)
+  // Project knowledge from assistant turns + standing preferences from the
+  // developer's own words (the "know the developer" half of the model).
+  const candidates = [
+    ...extractCandidates(messages),
+    ...extractUserPreferenceCandidates(userMessages),
+  ]
   if (candidates.length === 0) return result
 
   // Dedup against memory we already wrote from previous transcript
@@ -232,8 +238,8 @@ interface TranscriptMessage {
  * version, but the contract we depend on is minimal: each line is JSON
  * with a recognizable role + extractable text content.
  *
- * We only care about `assistant` messages with substantive text. Tool
- * calls, tool results, and user turns are skipped.
+ * Default projection is assistant-only (project knowledge). User turns
+ * are projected separately for preference capture.
  */
 function parseTranscript(raw: string): TranscriptMessage[] {
   return projectMessages(parseTranscriptJsonl(raw))
@@ -250,6 +256,63 @@ function projectMessages(lines: TranscriptJsonlLine[]): TranscriptMessage[] {
     out.push({ role, text })
   }
   return out
+}
+
+/** User turns long enough to hold a standing preference. */
+function projectUserMessages(lines: TranscriptJsonlLine[]): TranscriptMessage[] {
+  const out: TranscriptMessage[] = []
+  for (const parsed of lines) {
+    const role = inferRole(parsed)
+    if (role !== 'user') continue
+    const text = extractText(parsed)
+    if (!text || text.length < MIN_PREF_CHARS) continue
+    out.push({ role, text })
+  }
+  return out
+}
+
+/**
+ * Standing developer rules stated in user turns — high precision only.
+ * These become `feedback` so developer-profile / SessionStart can act as them.
+ */
+const USER_PREF_PATTERNS: Array<{ re: RegExp; phrase: string }> = [
+  { re: /^(?:please\s+)?always\b/i, phrase: 'user:always' },
+  { re: /^(?:please\s+)?never\b/i, phrase: 'user:never' },
+  { re: /\bi (?:always|never|prefer)\b/i, phrase: 'user:i-prefer' },
+  { re: /^(?:rule|preference)\s*[:—-]/i, phrase: 'user:rule' },
+  { re: /\bno more\s+(?:features?|feature\s+creep)\b/i, phrase: 'user:no-more-features' },
+  { re: /\bdon'?t add (?:more )?(?:features?|surface)\b/i, phrase: 'user:dont-add-features' },
+]
+
+function extractUserPreferenceCandidates(messages: TranscriptMessage[]): Candidate[] {
+  const candidates: Candidate[] = []
+  const seen = new Set<string>()
+  for (const msg of messages) {
+    if (candidates.length >= MAX_PREF_PER_SESSION) break
+    // Prefer line-level match so a long message still yields a tight rule.
+    const lines = msg.text
+      .split(/\n/)
+      .map((l) => l.replace(/^[-*•]\s+/, '').trim())
+      .filter((l) => l.length >= MIN_PREF_CHARS)
+    const units = lines.length > 0 ? lines : [msg.text.trim()]
+    for (const unit of units) {
+      if (candidates.length >= MAX_PREF_PER_SESSION) break
+      const match = USER_PREF_PATTERNS.find((p) => p.re.test(unit))
+      if (!match) continue
+      const content =
+        unit.length > MAX_CONTENT_CHARS ? `${unit.slice(0, MAX_CONTENT_CHARS)}…` : unit
+      const hash = hashContent(content)
+      if (seen.has(hash)) continue
+      seen.add(hash)
+      candidates.push({
+        type: 'feedback',
+        content,
+        hash,
+        matchedPhrase: match.phrase,
+      })
+    }
+  }
+  return candidates
 }
 
 function inferRole(msg: Record<string, unknown>): TranscriptMessage['role'] | null {
@@ -428,6 +491,7 @@ function collectExistingAutoHashes(projectId: string): Set<string> {
 export const _internal = {
   parseTranscript,
   extractCandidates,
+  extractUserPreferenceCandidates,
   hashContent,
   PHRASE_TYPE_MAP,
   LABEL_TYPE_MAP,
