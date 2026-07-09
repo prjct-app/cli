@@ -45,6 +45,15 @@ export interface PackManifest {
   hookSignals: HookSignal[]
   /** Free-form tag suggestions for autocomplete consistency. */
   suggestedTags?: Record<string, string[]>
+  /**
+   * Config defaults applied on first activation only (never overwrites
+   * user-set sdd/tdd/loop budgets).
+   */
+  configDefaults?: {
+    sdd?: 'off' | 'advisory' | 'strict'
+    tdd?: 'off' | 'assist' | 'strict'
+    maxTurnsPerCycle?: number
+  }
 }
 
 export const PACK_MANIFESTS: Record<string, PackManifest> = {
@@ -63,6 +72,12 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
     hookSignals: [],
     suggestedTags: {
       domain: ['auth', 'api', 'frontend', 'infra', 'data'],
+    },
+    // Ship-grade defaults: intent + tests first, hard loop ceiling.
+    configDefaults: {
+      sdd: 'strict',
+      tdd: 'strict',
+      maxTurnsPerCycle: 25,
     },
   },
 

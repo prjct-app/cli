@@ -505,11 +505,15 @@ async function buildReliabilitySnapshot(
   const workCycleCoveragePercent =
     cost.workCycles === 0
       ? 0
-      : Math.round((cost.historicalRescue.taskTableCycles / cost.workCycles) * 100)
+      : Math.min(100, Math.round((cost.historicalRescue.taskTableCycles / cost.workCycles) * 100))
   const sessionCoveragePercent =
-    cost.workCycles === 0 ? 0 : Math.round((cost.measuredSessions / cost.workCycles) * 100)
+    cost.workCycles === 0
+      ? 0
+      : Math.min(100, Math.round((cost.measuredSessions / cost.workCycles) * 100))
   const contextReusePercent =
-    cost.surfacedContext === 0 ? 0 : Math.round((cost.usefulContext / cost.surfacedContext) * 100)
+    cost.surfacedContext === 0
+      ? 0
+      : Math.min(100, Math.round((cost.usefulContext / cost.surfacedContext) * 100))
 
   const gaps = [...cost.gaps]
   if (workCycleCoveragePercent < 80) {

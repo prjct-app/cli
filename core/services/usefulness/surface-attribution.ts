@@ -23,6 +23,9 @@ export async function recordSurfacedForActiveTask(
     const { resolveActiveTask } = await import('../task-service')
     const task = await resolveActiveTask(projectId, projectPath)
     if (task?.id) usefulnessService.recordSurfaced(projectId, memoryIds, task.id)
+    // Push-path (guard/prompt trap): delivering a gotcha at edit time is
+    // already proof of use — credit usefulness now, not only on ship.
+    for (const id of memoryIds) usefulnessService.recordFetch(projectId, id)
   } catch {
     /* best-effort — attribution must never break a hook or a guard */
   }

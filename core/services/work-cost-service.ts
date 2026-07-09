@@ -307,11 +307,23 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
     since
   )
   const postEditEvents = eventCount(projectId, 'memory.post_edit', since)
-  const measuredSessions = count(
+  // Agent sessions (hooks) + CLI sessions (daemon) both count as attribution.
+  const agentSessions = count(
     projectId,
     'SELECT COUNT(*) AS value FROM agent_sessions WHERE started_at >= ?',
     since
   )
+  let cliSessions = 0
+  try {
+    cliSessions = count(
+      projectId,
+      'SELECT COUNT(*) AS value FROM cli_sessions WHERE created_at >= ?',
+      since
+    )
+  } catch {
+    /* older schemas */
+  }
+  const measuredSessions = agentSessions + cliSessions
   const surfacedContext = count(
     projectId,
     'SELECT COUNT(*) AS value FROM memory_surface_log WHERE created_at >= ?',
@@ -337,7 +349,18 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
   const declared = declaredTokenMentions(projectId, since)
   const tokensIn = measuredTasks.reduce((sum, task) => sum + task.tokensIn, 0)
   const tokensOut = measuredTasks.reduce((sum, task) => sum + task.tokensOut, 0)
+  // Work-cycle count for reporting: prefer task table, fall back to events.
+  // Token coverage denominator: finished task rows only (open cycles rarely
+  // have tokens yet; event inflation used to tank healthy projects).
   const inferredWorkCycles = Math.max(taskRows.length, eventWorkStarts, eventShips)
+  const finishedTaskRows = taskRows.filter((r) => r.completed_at || r.shipped_at)
+  const tokenCoverageBase =
+    finishedTaskRows.length > 0
+      ? finishedTaskRows.length
+      : taskRows.length > 0
+        ? taskRows.length
+        : inferredWorkCycles
+  const knownTokenForCoverage = measuredTasks.length
 
   const gaps: string[] = []
   if (inferredWorkCycles === 0) {
@@ -345,7 +368,7 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
   } else if (taskRows.length === 0) {
     gaps.push('Work history was rescued from events, but normalized task rows are missing.')
   }
-  if (taskRows.length > 0 && measuredTasks.length === 0) {
+  if (tokenCoverageBase > 0 && knownTokenForCoverage === 0) {
     gaps.push(
       'Work cycles exist, but none have exact token totals. Capture exact or estimated usage at task close.'
     )
@@ -385,13 +408,15 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
     id: `work-cost-${days}d`,
     windowDays: days,
     generatedAt: now,
-    workCycles: inferredWorkCycles,
-    knownTokenCycles: measuredTasks.length,
+    workCycles: taskRows.length > 0 ? taskRows.length : inferredWorkCycles,
+    knownTokenCycles: knownTokenForCoverage,
     tokensIn,
     tokensOut,
     tokensTotal: tokensIn + tokensOut,
     tokenCoveragePercent:
-      inferredWorkCycles === 0 ? 0 : Math.round((measuredTasks.length / inferredWorkCycles) * 100),
+      tokenCoverageBase === 0
+        ? 0
+        : Math.min(100, Math.round((knownTokenForCoverage / tokenCoverageBase) * 100)),
     measuredSessions,
     surfacedContext,
     usefulContext,

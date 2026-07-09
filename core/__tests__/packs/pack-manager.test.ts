@@ -76,6 +76,27 @@ describe('pack-manager', () => {
     expect(config?.persona?.mcps).toContain('linear')
   })
 
+  test('code pack applies sdd/tdd/loop defaults on first activation only', async () => {
+    await activatePacks(projectPath, ['code'])
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.sdd?.mode).toBe('strict')
+    expect(config?.tdd?.mode).toBe('strict')
+    expect(config?.maxTurnsPerCycle).toBe(25)
+
+    await configManager.writeConfig(projectPath, {
+      ...config!,
+      sdd: { mode: 'off' },
+      tdd: { mode: 'off' },
+      maxTurnsPerCycle: 99,
+      persona: { role: 'DEV', packs: [] },
+    })
+    await activatePacks(projectPath, ['code'])
+    const again = await configManager.readConfig(projectPath)
+    expect(again?.sdd?.mode).toBe('off')
+    expect(again?.tdd?.mode).toBe('off')
+    expect(again?.maxTurnsPerCycle).toBe(99)
+  })
+
   test('activatePacks never overwrites an explicit persona role', async () => {
     // Pre-seed a custom role
     const existing = await configManager.readConfig(projectPath)

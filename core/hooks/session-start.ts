@@ -356,11 +356,22 @@ export function runSessionStartHook(
       },
       afterEmit: async (_input, p) => {
         if (cachedConfig?.projectId) {
+          let taskId: string | null = null
+          let goal: string | null = _input.source ?? null
+          try {
+            const { collectActiveTasks } = await import('../services/task-overview')
+            const overview = await collectActiveTasks(cachedConfig.projectId, p)
+            taskId = overview.current?.id ?? null
+            if (overview.current?.description) goal = overview.current.description
+          } catch {
+            /* best-effort binding */
+          }
           recordAgentSessionStart({
             projectId: cachedConfig.projectId,
             sessionId: _input.session_id,
             directory: p,
-            goal: _input.source ?? null,
+            taskId,
+            goal,
           })
         }
 
