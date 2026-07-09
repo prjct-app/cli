@@ -138,7 +138,7 @@ async function writeHooksFile(hooksPath: string, data: CodexHooksFile): Promise<
 }
 
 function pruneOrphans(hooks: Record<string, CodexMatcherGroup[]>): number {
-  const valid = new Set(codexHookSpecs().map((h) => h.subcommand))
+  const valid = new Set<string>(codexHookSpecs().map((h) => h.subcommand))
   let pruned = 0
   for (const event of Object.keys(hooks)) {
     const kept: CodexMatcherGroup[] = []

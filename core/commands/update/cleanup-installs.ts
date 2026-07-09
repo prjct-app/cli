@@ -13,6 +13,7 @@
  * multi-install footgun without shelling out to real package managers.
  */
 
+import { execSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'

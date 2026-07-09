@@ -24,7 +24,7 @@ describe('adaptHookOutputForHost (gemini)', () => {
 
   it('leaves Claude host payload unchanged', () => {
     const out = buildHookOutput('SessionStart', 'HELLO')
-    expect(adaptHookOutputForHost(out, 'claude')).toEqual(out)
+    expect(adaptHookOutputForHost(out, 'claude')).toEqual(out as unknown as Record<string, unknown>)
   })
 
   it('maps Cursor host to camelCase + additional_context snake_case', () => {
