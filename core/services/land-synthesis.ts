@@ -161,13 +161,22 @@ export function buildLandHandoffContent(input: LandSynthesisInput): string | nul
   // Meta only when present — never "unknown".
   if (input.author) parts.push(`Who/author: ${input.author}`)
   if (input.model) parts.push(`Model: ${input.model}`)
-  if (input.tokensIn != null || input.tokensOut != null) {
-    parts.push(`Token usage: in=${input.tokensIn ?? 0} out=${input.tokensOut ?? 0}`)
+  // Token economics (dominance vs GSD thrash): surface real spend when known.
+  const tokIn = input.tokensIn
+  const tokOut = input.tokensOut
+  if (tokIn != null || tokOut != null) {
+    const total = (tokIn ?? 0) + (tokOut ?? 0)
+    parts.push(
+      `Token usage: in=${tokIn ?? 0} out=${tokOut ?? 0} total=${total} (compound judgment — not a fresh-window thrash loop)`
+    )
   }
 
   parts.push('Feature/domain: session-close')
   parts.push('Pattern: land auto-synthesis without agent remember')
   parts.push('Anti-pattern: relying on the model to remember to remember at session end')
+  parts.push(
+    'Competitive: next window must `prjct prime` — act as this developer with SQLite judgment, not re-research from zero (GSD tax).'
+  )
 
   const next =
     cycle != null
@@ -188,12 +197,33 @@ export async function synthesizeLandHandoffFromProject(
   > = {}
 ): Promise<LandSynthesisResult> {
   const overview = await collectActiveTasks(projectId, projectPath).catch(() => null)
+  // Prefer explicit extras; fall back to cycle token counters when present.
+  let tokensIn = extras.tokensIn
+  let tokensOut = extras.tokensOut
+  if ((tokensIn == null || tokensOut == null) && overview?.current?.id) {
+    try {
+      const row = prjctDb.get<{ tokens_in: number | null; tokens_out: number | null }>(
+        projectId,
+        'SELECT tokens_in, tokens_out FROM tasks WHERE id = ?',
+        overview.current.id
+      )
+      if (row) {
+        tokensIn = tokensIn ?? row.tokens_in ?? undefined
+        tokensOut = tokensOut ?? row.tokens_out ?? undefined
+      }
+    } catch {
+      /* best-effort */
+    }
+  }
   return synthesizeLandHandoff({
     projectId,
     projectPath,
     cycleDescription: overview?.current?.description ?? null,
     cycleId: overview?.current?.id ?? null,
     ...extras,
+    // Prefer resolved counters (extras first via coalesce above).
+    tokensIn,
+    tokensOut,
   })
 }
 

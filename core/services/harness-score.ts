@@ -192,6 +192,32 @@ export function computeHarnessScore(options: { skillCtx?: SkillContext } = {}): 
   }
 }
 
+/**
+ * Competitive dust table — absolute dimensions where prjct must stay above
+ * gentle-ai (prompt-only ecosystem) and open-GSD (markdown phase theater).
+ * Static capability matrix + live structural grade; not marketing fluff.
+ */
+export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
+  const grade = report.programDone ? 'WIN' : 'HOLD'
+  return [
+    '## Competitive dust (gentle-ai · open-GSD · prjct)',
+    '',
+    '| Dimension | gentle-ai | open-GSD | **prjct** |',
+    '|---|---|---|---|',
+    '| Judgment memory | Engram JSONL | files / MemPalace bolt-on | **SQLite typed WHY + apply-loop** |',
+    '| Enforcement | prompt-only | phase markdown ritual | **code gates (SDD/TDD/land/discuss/package)** |',
+    '| Work graph | none | ROADMAP.md | **ready/next/claim/phases in SQLite** |',
+    '| Fresh window | optional | re-research every phase | **prime + SessionStart digest (compound)** |',
+    '| Token economics | unmeasured thrash | high (fresh windows × agents) | **telemetry + skill/MCP diet** |',
+    '| Discuss before code | organic SDD | discuss-phase command | **discuss-lock H2+ (code)** |',
+    '| Install surface | curl/brew binary | npx multi-runtime | npm/pnpm/brew + upgrade consolidate |',
+    `| Structural grade | n/a | n/a | **${report.grade}/5 ${grade}** |`,
+    '',
+    '_Rule: never clone their skill count or `.planning/` OS. Crush on compound judgment, cost, and enforcement._',
+    '',
+  ].join('\n')
+}
+
 export function renderHarnessScoreMd(report: HarnessScoreReport): string {
   const rows = report.criteria.map(
     (c) => `| ${c.name} | ${c.score} | ${c.status} | ${c.slo} | ${c.measured} |`
@@ -214,6 +240,7 @@ export function renderHarnessScoreMd(report: HarnessScoreReport): string {
     `- Routing body: ${report.defaults.routingBytes} bytes`,
     `- Providers: ${report.defaults.providerCount}`,
     '',
+    renderCompetitiveDustMd(report),
   ].join('\n')
 }
 

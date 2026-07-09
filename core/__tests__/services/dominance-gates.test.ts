@@ -7,6 +7,7 @@ import { describe, expect, it } from 'bun:test'
 import { contextPressureVerdict } from '../../services/context-pressure'
 import { discussLockVerdict } from '../../services/discuss-lock'
 import { assessAcceptanceCriteria, isVerifiableAcceptance } from '../../services/nyquist-lite'
+import { buildTaskHarness } from '../../services/task-harness'
 
 describe('discuss-lock (GSD discuss-before-plan, code-enforced)', () => {
   it('never blocks when sdd is off', () => {
@@ -86,6 +87,19 @@ describe('context-pressure (GSD utilization guard proxy)', () => {
     )
     expect(v.level).toBe('critical')
     expect(v.cue).toMatch(/LAND|prime|critical/i)
+  })
+})
+
+describe('harness false-positives (discuss-lock dust)', () => {
+  it('does not classify split-home smoke as H2 refactor', () => {
+    const h = buildTaskHarness('split-home smoke')
+    expect(h.kind).not.toBe('refactor')
+    expect(h.level === 'H0' || h.level === 'H1').toBe(true)
+  })
+
+  it('still classifies real split refactors', () => {
+    const h = buildTaskHarness('split the billing module into packages')
+    expect(h.kind).toBe('refactor')
   })
 })
 
