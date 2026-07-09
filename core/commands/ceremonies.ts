@@ -257,6 +257,17 @@ export class CeremonyCommands extends PrjctCommandsBase {
     const lines = ['# Land the plane', '']
     const todo: string[] = []
     const overview = await collectActiveTasks(proj.value, projectPath).catch(() => null)
+
+    // Auto-synthesis: write the hand-off NOW so the agent never has to
+    // remember to `prjct remember context "Session close: …"`.
+    const { synthesizeLandHandoff } = await import('../services/land-synthesis')
+    const handoff = await synthesizeLandHandoff({
+      projectId: proj.value,
+      projectPath,
+      cycleDescription: overview?.current?.description ?? null,
+      cycleId: overview?.current?.id ?? null,
+    }).catch(() => null)
+
     if (overview?.current) {
       todo.push(
         `Active cycle still open: "${overview.current.description.slice(0, 70)}" — finish it (\`prjct status done\`) or journal the state (\`prjct log "..."\`).`
@@ -276,15 +287,32 @@ export class CeremonyCommands extends PrjctCommandsBase {
       'SELECT COUNT(*) AS c FROM sync_pending'
     )
     if ((pendingSync?.c ?? 0) > 0) todo.push(`${pendingSync?.c} event(s) pending cloud sync.`)
-    todo.push(
-      'Persist the hand-off: `prjct remember context "Session close: what changed, why, next" --tags topic:<key>`.'
-    )
+
+    if (handoff?.wrote) {
+      lines.push(
+        '- [x] Hand-off auto-synthesized (`context` · topic:`session-close` · source:`land-auto`). No `remember` required.',
+        ''
+      )
+    } else if (handoff?.reason === 'nothing-to-land') {
+      lines.push(
+        '- [x] Nothing durable to hand off (no cycle / journal / commits / auto-captures).',
+        ''
+      )
+    } else {
+      todo.push(
+        'Persist the hand-off: `prjct remember context "Session close: what changed, why, next" --tags topic:<key>`.'
+      )
+    }
     todo.push(
       'Team share (optional): `prjct memory export` → commit `.prjct/memory-export/` → clone → `prjct memory import`.'
     )
     lines.push(...todo.map((t) => `- [ ] ${t}`))
     console.log(lines.join('\n'))
-    return { success: true, items: todo.length }
+    return {
+      success: true,
+      items: todo.length + (handoff?.wrote ? 1 : 0),
+      handoff: handoff?.wrote ?? false,
+    }
   }
 
   private fail(msg: string, options: CeremonyOptions): CommandResult {

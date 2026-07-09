@@ -33,7 +33,7 @@ export async function buildLandCue(
     head,
     `Open cycle: "${title}${overview.current.description.length > 60 ? '…' : ''}"`,
     hard
-      ? 'Before ending the session: `prjct status done` or `prjct log "…"` + `prjct remember context "Session close: …"`. Then `prjct land`.'
-      : 'Before ending the session: `prjct land` · hand-off `prjct remember context "Session close: …"` · optional `prjct memory export` for the team.',
+      ? 'Before ending the session: `prjct status done` or `prjct log "…"`, then `prjct land` (auto-synthesizes the Session close hand-off — no manual remember).'
+      : 'Before ending the session: `prjct land` (auto hand-off) · optional `prjct memory export` for the team.',
   ].join('\n')
 }

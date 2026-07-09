@@ -270,6 +270,26 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           }
         }
 
+        // Land auto-synthesis: when a cycle is open, write the Session close
+        // hand-off without asking the agent to remember. Cooldown-aligned
+        // with heavy steps so we don't re-write every assistant turn.
+        if (runHeavySteps && activeTaskId) {
+          try {
+            const { synthesizeLandHandoff } = await import('../services/land-synthesis')
+            await synthesizeLandHandoff({
+              projectId: config.projectId,
+              projectPath: p,
+              cycleDescription: activeTaskDescription ?? null,
+              cycleId: activeTaskId,
+              tokensIn: transcriptUsage?.tokensIn,
+              tokensOut: transcriptUsage?.tokensOut,
+              model: 'claude',
+            })
+          } catch {
+            /* never block session end on land synthesis */
+          }
+        }
+
         // Cloud sync (opt-in): flush this project's pending queue at session
         // end. Gated on cloud.enabled — a no-op for local-only projects.
         // Awaited here (inside afterEmit) so it completes before teardown,

@@ -22,7 +22,7 @@ export const MINIMAL_ROUTING_BODY = `## prjct
 pull on demand. This file holds no rules. You run the verb.
 - work: \`prjct work --md\`
 - memory: \`prjct search\` / \`prjct context memory\` / \`prjct guard\` / \`prjct remember\`
-- land: \`prjct remember context "Session close: …"\` · \`--tags topic:k\` upserts
+- land: \`prjct land\` auto-synthesizes Session close · optional \`prjct memory export\`
 - deep: \`prjct workflows --md\` · grade: \`prjct harness score --md\``
 
 export interface RoutingWriteResult {

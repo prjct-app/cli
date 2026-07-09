@@ -29,6 +29,7 @@ import type { LocalConfig } from '../types/config'
 import { parseTranscriptJsonl, type TranscriptJsonlLine } from './transcript-jsonl'
 
 const SOURCE_TAG = 'transcript-auto'
+const CAPTURE_VERSION = 'v2'
 const MIN_PARAGRAPH_CHARS = 80
 const MAX_CONTENT_CHARS = 1500
 const MAX_CANDIDATES_PER_SESSION = 12
@@ -49,31 +50,94 @@ interface IngestResult {
 
 /**
  * Phrases that signal the assistant was making a durable claim. Each
- * phrase maps to a memory type. Match is case-insensitive on word
- * boundaries — we check `\bphrase\b` against the line's lowercase form.
+ * phrase maps to a memory type. Match is case-insensitive substring
+ * against the paragraph's lowercase form.
  *
- * Keep this list short and high-signal. Each addition risks false
- * positives that pollute memory.
+ * Capture v2 keeps high precision: every phrase must still read as a
+ * durable claim, not conversational filler. Label-prefix classifiers
+ * (see LABEL_TYPE_MAP) cover the structured forms models prefer.
  */
 const PHRASE_TYPE_MAP: Array<{ phrase: string; type: MemoryType }> = [
-  // Decisions: explicit choice or recommendation that should outlive the turn
+  // Decisions
   { phrase: 'decided to', type: 'decision' },
   { phrase: 'we chose', type: 'decision' },
   { phrase: 'going with', type: 'decision' },
   { phrase: 'the right call', type: 'decision' },
   { phrase: 'best approach is', type: 'decision' },
-  // Learnings: non-obvious insights gained during the work
+  { phrase: 'we will use', type: 'decision' },
+  { phrase: 'shipping with', type: 'decision' },
+  { phrase: 'decidimos', type: 'decision' },
+  { phrase: 'la decisión es', type: 'decision' },
+  // Learnings
   { phrase: 'turns out that', type: 'learning' },
   { phrase: 'now i understand', type: 'learning' },
   { phrase: 'the key insight', type: 'learning' },
   { phrase: 'i learned that', type: 'learning' },
   { phrase: 'discovered that', type: 'learning' },
-  // Gotchas: traps, bugs, or surprising failure modes
+  { phrase: 'root cause is', type: 'learning' },
+  { phrase: 'root cause was', type: 'learning' },
+  { phrase: 'the fix is', type: 'learning' },
+  { phrase: 'resulta que', type: 'learning' },
+  // Gotchas
   { phrase: 'gotcha:', type: 'gotcha' },
   { phrase: 'bug:', type: 'gotcha' },
   { phrase: 'fails when', type: 'gotcha' },
   { phrase: 'breaks when', type: 'gotcha' },
   { phrase: 'be careful', type: 'gotcha' },
+  { phrase: 'never do this', type: 'gotcha' },
+  { phrase: 'trap:', type: 'gotcha' },
+  { phrase: 'cuidado:', type: 'gotcha' },
+  // Facts / durable project truth
+  { phrase: 'important:', type: 'fact' },
+  { phrase: 'always use', type: 'fact' },
+  { phrase: 'never write', type: 'fact' },
+  // Patterns
+  { phrase: 'the pattern is', type: 'pattern' },
+  { phrase: 'anti-pattern:', type: 'anti-pattern' },
+  { phrase: 'antipattern:', type: 'anti-pattern' },
+]
+
+/**
+ * Structured label prefixes — models often write `Decision: …` or
+ * `**Gotcha** …` without the conversational phrases above. Matched at
+ * the start of a paragraph / bullet (after optional markdown/list markers).
+ */
+const LABEL_TYPE_MAP: Array<{ re: RegExp; type: MemoryType; phrase: string }> = [
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(decision|decisión)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'decision',
+    phrase: 'label:decision',
+  },
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(learning|aprendizaje|insight)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'learning',
+    phrase: 'label:learning',
+  },
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(gotcha|trap|cuidado|warning)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'gotcha',
+    phrase: 'label:gotcha',
+  },
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(fact|dato|note)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'fact',
+    phrase: 'label:fact',
+  },
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(root\s*cause|causa\s*raíz)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'learning',
+    phrase: 'label:root-cause',
+  },
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(pattern|patrón)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'pattern',
+    phrase: 'label:pattern',
+  },
+  {
+    re: /^(?:[-*•]\s+)?(?:\*\*)?(anti[- ]?pattern|anti[- ]?patrón)(?:\*\*)?\s*[:—-]\s+/i,
+    type: 'anti-pattern',
+    phrase: 'label:anti-pattern',
+  },
 ]
 
 /**
@@ -139,6 +203,7 @@ export async function ingestTranscript(
         content: cand.content,
         tags: {
           source: SOURCE_TAG,
+          capture: CAPTURE_VERSION,
           session: sessionTag,
           hash: cand.hash,
           phrase: cand.matchedPhrase,
@@ -237,8 +302,30 @@ function extractText(msg: Record<string, unknown>): string {
 // Candidate extraction
 
 /**
+ * Classify a single paragraph into a typed capture, or null.
+ * Label-prefix wins over freeform phrase match (higher precision).
+ */
+export function classifyCaptureParagraph(
+  para: string
+): { type: MemoryType; matchedPhrase: string } | null {
+  const trimmed = para.trim()
+  if (trimmed.length < MIN_PARAGRAPH_CHARS) return null
+
+  for (const label of LABEL_TYPE_MAP) {
+    if (label.re.test(trimmed)) {
+      return { type: label.type, matchedPhrase: label.phrase }
+    }
+  }
+
+  const lower = trimmed.toLowerCase()
+  const match = PHRASE_TYPE_MAP.find((m) => lower.includes(m.phrase))
+  if (!match) return null
+  return { type: match.type, matchedPhrase: match.phrase }
+}
+
+/**
  * Walk assistant messages, return the substantive paragraphs that
- * trigger one of the recognized phrases. Capped at
+ * trigger a recognized label or phrase. Capped at
  * MAX_CANDIDATES_PER_SESSION so a chatty session doesn't flood the
  * memory store.
  */
@@ -250,20 +337,18 @@ function extractCandidates(messages: TranscriptMessage[]): Candidate[] {
     const paragraphs = splitParagraphs(msg.text)
     for (const para of paragraphs) {
       if (candidates.length >= MAX_CANDIDATES_PER_SESSION) return candidates
-      if (para.length < MIN_PARAGRAPH_CHARS) continue
-      const lower = para.toLowerCase()
-      const match = PHRASE_TYPE_MAP.find((m) => lower.includes(m.phrase))
-      if (!match) continue
+      const classified = classifyCaptureParagraph(para)
+      if (!classified) continue
       const trimmed =
         para.length > MAX_CONTENT_CHARS ? `${para.slice(0, MAX_CONTENT_CHARS)}…` : para
       const hash = hashContent(trimmed)
       if (seen.has(hash)) continue
       seen.add(hash)
       candidates.push({
-        type: match.type,
+        type: classified.type,
         content: trimmed,
         hash,
-        matchedPhrase: match.phrase,
+        matchedPhrase: classified.matchedPhrase,
       })
     }
   }
@@ -272,10 +357,26 @@ function extractCandidates(messages: TranscriptMessage[]): Candidate[] {
 }
 
 function splitParagraphs(text: string): string[] {
-  return text
+  // Blank-line paragraphs plus single-line bullets so `Decision: …` lines
+  // in a dense list still surface without needing double newlines.
+  const blocks = text
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean)
+  const out: string[] = []
+  for (const block of blocks) {
+    const lines = block
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    const hasLabeledBullet = lines.some((l) => LABEL_TYPE_MAP.some((m) => m.re.test(l)))
+    if (hasLabeledBullet && lines.length > 1) {
+      for (const line of lines) out.push(line)
+    } else {
+      out.push(block)
+    }
+  }
+  return out
 }
 
 function hashContent(content: string): string {
@@ -329,4 +430,8 @@ export const _internal = {
   extractCandidates,
   hashContent,
   PHRASE_TYPE_MAP,
+  LABEL_TYPE_MAP,
+  classifyCaptureParagraph,
+  CAPTURE_VERSION,
+  SOURCE_TAG,
 }
