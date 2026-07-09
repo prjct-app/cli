@@ -501,12 +501,13 @@ export const COMMANDS: CommandMeta[] = [
     surface: 'support',
     routing: { group: 'agents', method: 'agents' },
     optionSchema: { booleans: ['fix'] },
-    description: 'Show the concrete compatibility matrix for AI coding agents',
+    description:
+      'Show the concrete compatibility matrix for AI coding agents (doctor) or harness surface map (surfaces)',
     usage: {
-      claude: 'p. agents [doctor|doctor --fix]',
-      terminal: 'prjct agents [doctor|doctor --fix]',
+      claude: 'p. agents [doctor|surfaces|doctor --fix]',
+      terminal: 'prjct agents [doctor|surfaces [--detail]|doctor --fix]',
     },
-    params: '[doctor|status|list] [--fix]',
+    params: '[doctor|status|list|surfaces] [--fix] [--detail]',
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
@@ -514,8 +515,9 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Derives support levels from the runtime registry',
       'Reports AGENTS.md, MCP, skills, hooks, ACP, and project-rule support',
+      'surfaces: benchmark-tier harness map (hooks/MCP/skills wire status)',
       'doctor --fix refreshes repo-local agent surfaces when run inside a project',
-      'Use this to audit claims like "works with Codex/Gemini/OpenCode/Cursor/Windsurf"',
+      'Use this to audit claims like "works with Codex/Gemini/OpenCode/Cursor/Grok"',
     ],
   },
   {

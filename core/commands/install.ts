@@ -9,6 +9,7 @@
 
 import { detectAgentRuntimes } from '../infrastructure/agent-runtime-registry'
 import configManager from '../infrastructure/config-manager'
+import { probeHarnessCoverage, renderHarnessCoverageMd } from '../services/harness-coverage'
 import { writeProjectAgentSurfaces } from '../services/project-agent-surfaces'
 import {
   status as hookStatus,
@@ -19,7 +20,10 @@ import {
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { installCodexHooks, uninstallCodexHooks } from '../utils/codex-hooks'
 import { ensureCodexMcpServer } from '../utils/codex-mcp'
+import { installCursorHooks, uninstallCursorHooks } from '../utils/cursor-hooks'
+import { installGeminiSettings, uninstallGeminiSettings } from '../utils/gemini-settings'
 import { ensureKimiMcpServer } from '../utils/kimi-mcp'
 import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
@@ -44,8 +48,16 @@ export class InstallCommands extends PrjctCommandsBase {
       const detected = runtimes.filter((runtime) => runtime.detected)
       const codexDetected = detected.some((runtime) => runtime.runtime.id === 'codex')
       const codexConfig = codexDetected ? await ensureCodexMcpServer() : null
+      // Always install Codex hooks when Codex is present; also install when
+      // ~/.codex exists so MCP-only users get hooks without re-detect races.
+      const codexHooks = codexDetected ? await installCodexHooks() : null
+      const geminiDetected = detected.some((runtime) => runtime.runtime.id === 'gemini')
+      const geminiConfig = geminiDetected ? await installGeminiSettings() : null
+      const cursorDetected = detected.some((runtime) => runtime.runtime.id === 'cursor')
+      const cursorHooks = cursorDetected ? await installCursorHooks() : null
       const kimiDetected = detected.some((runtime) => runtime.runtime.id === 'kimi-cli')
       const kimiConfig = kimiDetected ? await ensureKimiMcpServer() : null
+      const coverage = await probeHarnessCoverage(projectPath)
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
       const msg = `installed Claude hooks adapter: ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
@@ -66,9 +78,9 @@ export class InstallCommands extends PrjctCommandsBase {
               : []),
             ...(codexConfig
               ? [
-                  `- Codex config: ${
+                  `- Codex MCP: ${
                     codexConfig.skipped === 'user-managed'
-                      ? 'user-managed MCP preserved'
+                      ? 'user-managed preserved'
                       : codexConfig.changed
                         ? 'updated'
                         : 'already ready'
@@ -76,6 +88,23 @@ export class InstallCommands extends PrjctCommandsBase {
                   `- Codex status line: ${
                     codexConfig.statusLineChanged ? 'installed' : 'already configured'
                   }`,
+                ]
+              : []),
+            ...(codexHooks
+              ? [
+                  `- Codex hooks: ${codexHooks.hooksWritten} new, ${codexHooks.alreadyPresent} present, ${codexHooks.hooksPruned} pruned → \`${codexHooks.hooksPath}\``,
+                  `- Codex features.hooks: ${codexHooks.featuresChanged ? 'enabled' : 'already on'}`,
+                ]
+              : []),
+            ...(geminiConfig
+              ? [
+                  `- Gemini MCP: ${geminiConfig.mcpChanged ? 'updated' : 'already ready'}`,
+                  `- Gemini hooks: ${geminiConfig.hooksWritten} new, ${geminiConfig.alreadyPresent} present, ${geminiConfig.hooksPruned} pruned → \`${geminiConfig.settingsPath}\``,
+                ]
+              : []),
+            ...(cursorHooks
+              ? [
+                  `- Cursor hooks: ${cursorHooks.hooksWritten} new, ${cursorHooks.alreadyPresent} present, ${cursorHooks.hooksPruned} pruned → \`${cursorHooks.hooksPath}\``,
                 ]
               : []),
             ...(kimiConfig
@@ -95,8 +124,10 @@ export class InstallCommands extends PrjctCommandsBase {
               (runtime) => `- ${runtime.runtime.displayName}: ${runtime.supportLevel}`
             ),
             ``,
-            `> Claude hooks are an adapter, not the universal layer. AGENTS.md + MCP/CLI --md are the portable baseline.`,
-            `> Only \`_prjctManaged: true\` hook entries were touched. Your other hooks are untouched.`,
+            renderHarnessCoverageMd(coverage),
+            `> One install · one SQLite brain · every agent surface. That is the moat — not more skills.`,
+            `> Grok inherits Claude. Codex/Gemini/Cursor get native adapters. Trust Codex hooks once via \`/hooks\`.`,
+            `> Only \`_prjctManaged: true\` entries were touched.`,
           ].join('\n')
         )
       } else {
@@ -115,26 +146,71 @@ export class InstallCommands extends PrjctCommandsBase {
               : codexConfig.changed
                 ? 'updated'
                 : 'already ready'
-          out.info(`Codex config: ${action}`)
+          out.info(`Codex MCP: ${action}`)
           out.info(
             `Codex status line: ${codexConfig.statusLineChanged ? 'installed' : 'already configured'}`
+          )
+        }
+        if (codexHooks) {
+          out.info(
+            `Codex hooks: ${codexHooks.hooksWritten} new, ${codexHooks.alreadyPresent} present → ${codexHooks.hooksPath}`
+          )
+          out.info(`Codex features.hooks: ${codexHooks.featuresChanged ? 'enabled' : 'already on'}`)
+        }
+        if (geminiConfig) {
+          out.info(`Gemini MCP: ${geminiConfig.mcpChanged ? 'updated' : 'already ready'}`)
+          out.info(
+            `Gemini hooks: ${geminiConfig.hooksWritten} new, ${geminiConfig.alreadyPresent} present → ${geminiConfig.settingsPath}`
+          )
+        }
+        if (cursorHooks) {
+          out.info(
+            `Cursor hooks: ${cursorHooks.hooksWritten} new, ${cursorHooks.alreadyPresent} present → ${cursorHooks.hooksPath}`
           )
         }
         if (kimiConfig) {
           out.info(`Kimi config: ${kimiConfig.changed ? 'updated' : 'already ready'}`)
         }
+        out.info(
+          `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`
+        )
       }
       return {
         success: true,
         hooksWritten: result.hooksWritten,
         projectSurface: projectSurfaces?.agentsMd.action ?? 'skipped',
         detectedRuntimes: detected.length,
+        organicPct: coverage.organicPct,
+        liveRuntimes: coverage.liveCount,
         codexConfig: codexConfig
           ? {
               path: codexConfig.path,
               changed: codexConfig.changed,
               skipped: codexConfig.skipped,
               statusLineChanged: codexConfig.statusLineChanged ?? false,
+            }
+          : null,
+        codexHooks: codexHooks
+          ? {
+              path: codexHooks.hooksPath,
+              hooksWritten: codexHooks.hooksWritten,
+              alreadyPresent: codexHooks.alreadyPresent,
+              featuresChanged: codexHooks.featuresChanged,
+            }
+          : null,
+        geminiConfig: geminiConfig
+          ? {
+              path: geminiConfig.settingsPath,
+              mcpChanged: geminiConfig.mcpChanged,
+              hooksWritten: geminiConfig.hooksWritten,
+              alreadyPresent: geminiConfig.alreadyPresent,
+            }
+          : null,
+        cursorHooks: cursorHooks
+          ? {
+              path: cursorHooks.hooksPath,
+              hooksWritten: cursorHooks.hooksWritten,
+              alreadyPresent: cursorHooks.alreadyPresent,
             }
           : null,
         kimiConfig: kimiConfig
@@ -161,15 +237,56 @@ export class InstallCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     try {
       const result = await uninstallHooks()
-      const msg = `removed ${result.hooksRemoved} prjct hook(s)`
+      // Best-effort Codex cleanup — missing hooks.json is fine.
+      const codex = await uninstallCodexHooks().catch(() => ({
+        hooksPath: '',
+        hooksRemoved: 0,
+      }))
+      const gemini = await uninstallGeminiSettings().catch(() => ({
+        settingsPath: '',
+        hooksRemoved: 0,
+        mcpRemoved: false,
+      }))
+      const cursor = await uninstallCursorHooks().catch(() => ({
+        hooksPath: '',
+        hooksRemoved: 0,
+      }))
+      const msg = `removed ${result.hooksRemoved} Claude prjct hook(s)${
+        codex.hooksRemoved > 0 ? `, ${codex.hooksRemoved} Codex hook(s)` : ''
+      }${gemini.hooksRemoved > 0 || gemini.mcpRemoved ? `, Gemini cleaned` : ''}${
+        cursor.hooksRemoved > 0 ? `, ${cursor.hooksRemoved} Cursor hook(s)` : ''
+      }`
       if (options.md) {
         console.log(
-          `# prjct hooks removed\n\n- removed: ${result.hooksRemoved}\n- settings: \`${result.settingsPath}\`\n`
+          [
+            `# prjct hooks removed`,
+            ``,
+            `- Claude: ${result.hooksRemoved} (\`${result.settingsPath}\`)`,
+            ...(codex.hooksRemoved > 0
+              ? [`- Codex: ${codex.hooksRemoved} (\`${codex.hooksPath}\`)`]
+              : []),
+            ...(gemini.hooksRemoved > 0 || gemini.mcpRemoved
+              ? [
+                  `- Gemini: ${gemini.hooksRemoved} hook(s)${gemini.mcpRemoved ? ', MCP removed' : ''} (\`${gemini.settingsPath}\`)`,
+                ]
+              : []),
+            ...(cursor.hooksRemoved > 0
+              ? [`- Cursor: ${cursor.hooksRemoved} (\`${cursor.hooksPath}\`)`]
+              : []),
+            ``,
+          ].join('\n')
         )
       } else {
         out.done(msg)
       }
-      return { success: true, hooksRemoved: result.hooksRemoved }
+      return {
+        success: true,
+        hooksRemoved: result.hooksRemoved,
+        codexHooksRemoved: codex.hooksRemoved,
+        geminiHooksRemoved: gemini.hooksRemoved,
+        geminiMcpRemoved: gemini.mcpRemoved,
+        cursorHooksRemoved: cursor.hooksRemoved,
+      }
     } catch (error) {
       const msg = getErrorMessage(error)
       return failHard(msg)

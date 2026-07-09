@@ -8,6 +8,7 @@
 
 import { spawn } from 'node:child_process'
 import { execFileAsync } from '../utils/exec'
+import { commandOnPath } from '../utils/which'
 
 const MACOS_SERVICE = 'prjct-cli-auth'
 const ACCOUNT = 'prjct-cloud'
@@ -272,6 +273,36 @@ async function platformGet(): Promise<string | null> {
   return null
 }
 
+/**
+ * Whether this process can use a platform credential store right now.
+ * Used to fail login early with an actionable message (no plaintext fallback).
+ */
+export async function hasSecureCredentialStore(): Promise<boolean> {
+  if (isDarwin()) {
+    // `security` is part of macOS; treat as available if the binary resolves.
+    try {
+      await execFileAsync('security', ['help'])
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (isWindows()) {
+    // Credential Manager via PowerShell/advapi32 — require powershell.exe.
+    try {
+      await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'exit 0'])
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (isLinux()) {
+    // secret-tool (libsecret) is the Linux path; WSL/headless without it → false.
+    return commandOnPath('secret-tool')
+  }
+  return false
+}
+
 async function platformSet(value: string): Promise<AuthTokenLocation> {
   const token = value.trim()
   if (!token) throw new Error('Refusing to store an empty Cloud API token.')
@@ -287,6 +318,11 @@ async function platformSet(value: string): Promise<AuthTokenLocation> {
   }
 
   if (isLinux()) {
+    if (!(await hasSecureCredentialStore())) {
+      throw new Error(
+        'No secure credential store available (install libsecret / secret-tool). Refusing to store the Cloud API token in plaintext on Linux/WSL.'
+      )
+    }
     await writeLinuxSecretService(token)
     return 'secret-service'
   }
@@ -329,8 +365,14 @@ export async function getAuthToken(): Promise<string | null> {
 }
 
 export async function setAuthToken(value: string): Promise<AuthTokenLocation> {
-  const location = await activeStore().set(value)
-  cached = value.trim()
+  // Refuse empty before any store call — no backend may treat "" as a valid
+  // Cloud API token, and nothing may fall through to plaintext auth.json.
+  const token = value.trim()
+  if (!token) {
+    throw new Error('Refusing to store an empty Cloud API token.')
+  }
+  const location = await activeStore().set(token)
+  cached = token
   return location
 }
 

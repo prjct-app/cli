@@ -45,7 +45,10 @@ describe('Provider model configuration', () => {
 
   it('should have model fields on Gemini provider', () => {
     expect(GeminiProvider.defaultModel).toBe('2.5-flash')
-    expect(GeminiProvider.supportedModels).toEqual(['2.5-pro', '2.5-flash', '2.0-flash'])
+    // 2026-07: include Gemini 3.1 Pro in the supported set (frontier).
+    expect(GeminiProvider.supportedModels).toContain('3.1-pro')
+    expect(GeminiProvider.supportedModels).toContain('2.5-pro')
+    expect(GeminiProvider.supportedModels).toContain('2.5-flash')
     expect(GeminiProvider.minCliVersion).toBe('1.0.0')
   })
 
@@ -71,9 +74,16 @@ describe('isValidModelForProvider', () => {
   })
 
   it('should accept valid Gemini models', () => {
+    expect(isValidModelForProvider('gemini', '3.1-pro')).toBe(true)
     expect(isValidModelForProvider('gemini', '2.5-pro')).toBe(true)
     expect(isValidModelForProvider('gemini', '2.5-flash')).toBe(true)
     expect(isValidModelForProvider('gemini', '2.0-flash')).toBe(true)
+  })
+
+  it('should accept 2026-07 benchmark Codex / OpenAI models', () => {
+    expect(isValidModelForProvider('codex', 'gpt-5.5')).toBe(true)
+    expect(isValidModelForProvider('openai', 'gpt-5.5')).toBe(true)
+    expect(isValidModelForProvider('codex', 'o3')).toBe(true)
   })
 
   it('should reject invalid Gemini models', () => {

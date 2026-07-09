@@ -3,7 +3,11 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import authConfig from '../../sync/auth-config'
-import { _setAuthTokenStoreForTests, type AuthTokenLocation } from '../../sync/secure-auth-token'
+import {
+  _setAuthTokenStoreForTests,
+  type AuthTokenLocation,
+  setAuthToken,
+} from '../../sync/secure-auth-token'
 
 let tmpDir: string
 let tmpPath: string
@@ -209,6 +213,63 @@ describe('AuthConfig', () => {
       await authConfig.clearAuth()
       const after = await authConfig.getDeviceId()
       expect(after).toBe(before)
+    })
+  })
+
+  describe('keychain-only invariants', () => {
+    it('setAuthToken refuses empty / whitespace tokens before touching the store', async () => {
+      let setCalled = false
+      _setAuthTokenStoreForTests({
+        get: async () => storedToken,
+        set: async (value) => {
+          setCalled = true
+          storedToken = value
+          return 'keychain'
+        },
+        clear: async () => {
+          storedToken = null
+        },
+        location: async () => (storedToken ? 'keychain' : 'none'),
+      })
+
+      await expect(setAuthToken('')).rejects.toThrow(/empty/i)
+      await expect(setAuthToken('   ')).rejects.toThrow(/empty/i)
+      expect(setCalled).toBe(false)
+      expect(storedToken).toBeNull()
+    })
+
+    it('propagates store set failures — never falls back to writing the token into auth.json', async () => {
+      _setAuthTokenStoreForTests({
+        get: async () => null,
+        set: async () => {
+          throw new Error('No secure credential store is available for this platform.')
+        },
+        clear: async () => {},
+        location: async () => 'none',
+      })
+
+      await expect(authConfig.saveAuth('sk_must_not_persist', 'u', 'e@x')).rejects.toThrow(
+        /secure credential store/i
+      )
+
+      // No auth.json, or if partially created, must not contain the token.
+      try {
+        const raw = JSON.parse(await fs.readFile(tmpPath, 'utf-8')) as { apiKey: string | null }
+        expect(raw.apiKey).toBeNull()
+        expect(JSON.stringify(raw)).not.toContain('sk_must_not_persist')
+      } catch (e) {
+        // ENOENT is fine — never wrote the secret.
+        expect((e as NodeJS.ErrnoException).code).toBe('ENOENT')
+      }
+    })
+
+    it('every successful write leaves apiKey null on disk', async () => {
+      await authConfig.saveAuth('sk_disk_never', 'u', 'e@x')
+      await authConfig.write({ email: 'other@x' })
+      const raw = JSON.parse(await fs.readFile(tmpPath, 'utf-8')) as { apiKey: string | null }
+      expect(raw.apiKey).toBeNull()
+      expect(JSON.stringify(raw)).not.toContain('sk_disk_never')
+      expect(storedToken).toBe('sk_disk_never')
     })
   })
 })

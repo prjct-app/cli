@@ -9,6 +9,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
+import { probeHarnessCoverage, renderHarnessCoverageMd } from '../services/harness-coverage'
 import {
   buildInductionDispatch,
   findRig,
@@ -24,14 +25,15 @@ import { getErrorMessage } from '../types/fs'
 import { PrjctCommandsBase } from './base'
 
 export class HarnessCommands extends PrjctCommandsBase {
-  async score(
-    _projectPath: string = process.cwd(),
-    options: MdOption = {}
-  ): Promise<CommandResult> {
+  async score(projectPath: string = process.cwd(), options: MdOption = {}): Promise<CommandResult> {
     try {
-      const report = computeHarnessScore()
+      const coverage = await probeHarnessCoverage(projectPath)
+      const report = computeHarnessScore({
+        multiRuntimeOrganicGrade: coverage.grade,
+        multiRuntimeOrganicMeasured: `${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`,
+      })
       if (options.md) {
-        console.log(renderHarnessScoreMd(report))
+        console.log(renderHarnessScoreMd(report, { coverageMd: renderHarnessCoverageMd(coverage) }))
       } else {
         console.log(`Harness grade: ${report.grade}/5${report.programDone ? ' (done)' : ''}`)
         console.log(report.summary)
@@ -39,12 +41,17 @@ export class HarnessCommands extends PrjctCommandsBase {
           const mark = c.status === 'green' ? '✓' : c.status === 'amber' ? '△' : '✗'
           console.log(`  ${mark} ${c.name}: ${c.score} — ${c.measured}`)
         }
+        console.log(
+          `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`
+        )
       }
       return {
         success: true,
         grade: report.grade,
         programDone: report.programDone,
         criteria: report.criteria,
+        organicPct: coverage.organicPct,
+        liveRuntimes: coverage.liveCount,
       }
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }

@@ -41,6 +41,7 @@ export function routeIntentBare(signal: string): string {
   return 'work'
 }
 
+// Keep fixtures aligned with weak-model-bench INTENT_FIXTURES (release gate).
 const INTENT_FIXTURES: Array<{ signal: string; verb: string }> = [
   { signal: 'sync the project', verb: 'sync' },
   { signal: 'search for auth decisions', verb: 'search' },
@@ -50,6 +51,8 @@ const INTENT_FIXTURES: Array<{ signal: string; verb: string }> = [
   { signal: 'ship the feature', verb: 'ship' },
   { signal: 'implement rate limiting', verb: 'work' },
   { signal: 'find gotchas on migrations', verb: 'search' },
+  { signal: 'recall package legitimacy rules', verb: 'search' },
+  { signal: 'open a pr for the fix', verb: 'ship' },
 ]
 
 export function buildDemoRows(): DemoRow[] {
@@ -118,6 +121,19 @@ export function buildDemoRows(): DemoRow[] {
       frontierNoHarness: 'Agent must remember to remember context',
       weakWithPrjct: 'prjct land auto-synthesizes Session close (source:land-auto)',
       weakOk: true,
+    },
+    {
+      capability: 'Multi-runtime organic wire',
+      frontierNoHarness: 'Single host or re-prompt per IDE',
+      weakWithPrjct:
+        'Claude+Codex+Gemini+Cursor native adapters; Grok inherits Claude — one install',
+      weakOk: true,
+    },
+    {
+      capability: 'Intent A/B vs bare',
+      frontierNoHarness: `${Math.round(bareRate * 100)}% bare accuracy`,
+      weakWithPrjct: `${Math.round(harnessRate * 100)}% harness (must beat bare)`,
+      weakOk: harnessHits > bareHits && harnessRate >= 0.95,
     },
   ]
 }

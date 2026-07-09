@@ -56,5 +56,17 @@ describe('harness score', () => {
     expect(md).toContain('open-GSD')
     expect(md).toContain('discuss-lock')
     expect(md).toContain('SQLite')
+    expect(md).toContain('Multi-runtime wire')
+    expect(md).toContain('Organic feel')
+  })
+
+  it('can include multi-runtime organic criterion when probed', () => {
+    const report = computeHarnessScore({
+      multiRuntimeOrganicGrade: 5,
+      multiRuntimeOrganicMeasured: '4/4 live (100%)',
+    })
+    const c = report.criteria.find((x) => x.id === 'multi-runtime-organic')
+    expect(c?.score).toBe(5)
+    expect(c?.measured).toContain('4/4')
   })
 })

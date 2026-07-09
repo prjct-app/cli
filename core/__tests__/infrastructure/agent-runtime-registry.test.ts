@@ -52,16 +52,24 @@ describe('agent runtime registry', () => {
     expect(writable[0]?.pathHint).toContain('.kimi/mcp.json')
   })
 
-  it('registers xAI Grok Build as an AGENTS.md + MCP + skills capable CLI', () => {
+  it('registers xAI Grok Build as AGENTS.md + Claude-compat MCP/skills/hooks CLI', () => {
     const grok = getAgentRuntime('grok')
 
     expect(grok.kind).toBe('cli')
+    expect(grok.status).toBe('stable')
     expect(grok.supports.agentsMd).toBe(true)
     expect(grok.supports.mcp).toBe(true)
     expect(grok.supports.skills).toBe(true)
+    expect(grok.supports.hooks).toBe(true)
     expect(grok.detectsBy?.commands).toContain('grok')
-    // MCP schema unconfirmed from xAI docs — target is informational only, not auto-written.
-    expect((grok.mcpTargets ?? []).every((target) => !target.writable)).toBe(true)
+    // Grok inherits Claude MCP — writable path is ~/.claude/mcp.json (compat).
+    const writable = (grok.mcpTargets ?? []).filter((target) => target.writable)
+    expect(writable.some((t) => t.pathHint.includes('.claude/mcp.json'))).toBe(true)
+  })
+
+  it('marks Codex and Gemini as hook-capable (install adapters planned)', () => {
+    expect(getAgentRuntime('codex').supports.hooks).toBe(true)
+    expect(getAgentRuntime('gemini').supports.hooks).toBe(true)
   })
 
   it('separates runtime compatibility from model/provider names', () => {
@@ -84,12 +92,24 @@ describe('agent runtime registry', () => {
       expect(byId.get('agents-md')?.detected).toBe(true)
       expect(byId.get('mcp')?.supportLevel).toBe('manual')
       expect(byId.get('cursor')?.detectedSignals).toContain('.cursor/')
-      expect(byId.get('cursor')?.supportLevel).toBe('good')
+      // Benchmark-tier runtimes get full support investment (2026-07).
+      expect(byId.get('cursor')?.supportLevel).toBe('full')
       expect(byId.get('aider')?.detectedSignals).toContain('.aider.conf.yml')
       expect(byId.get('aider')?.supportLevel).toBe('baseline')
-      expect(byId.get('grok')?.supportLevel).toBe('good')
+      expect(byId.get('grok')?.supportLevel).toBe('full')
+      expect(byId.get('claude')?.supportLevel).toBe('full')
+      expect(byId.get('codex')?.supportLevel).toBe('full')
+      expect(byId.get('gemini')?.supportLevel).toBe('full')
+      expect(byId.get('opencode')?.supportLevel).toBe('full')
+      expect(byId.get('cline')?.supportLevel).toBe('full')
     } finally {
       await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
     }
+  })
+
+  it('marks Windsurf as legacy (not a benchmark focus)', () => {
+    const windsurf = getAgentRuntime('windsurf')
+    expect(windsurf.status).toBe('legacy')
+    expect(windsurf.notes).toMatch(/LEGACY/i)
   })
 })

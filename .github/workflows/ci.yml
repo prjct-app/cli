@@ -51,6 +51,17 @@ jobs:
       - name: Harness scorecard (world-class SLOs)
         run: bun test core/__tests__/services/harness-score.test.ts
 
+      # Dominance P1: weak-model A/B + multi-runtime wire — release-blocking.
+      # North star: weak + prjct ≥ frontier-without-harness on discipline SLOs.
+      - name: Weak-model A/B + multi-runtime SLOs (release-blocking)
+        run: |
+          set -euo pipefail
+          bun test core/__tests__/services/weak-model-bench.test.ts \
+            core/__tests__/services/weak-frontier-demo.test.ts \
+            core/__tests__/services/harness-coverage.test.ts
+          bun run bench:weak-model
+          bun run demo:weak-vs-frontier
+
   test:
     name: Tests (${{ matrix.shard }})
     runs-on: ubuntu-latest

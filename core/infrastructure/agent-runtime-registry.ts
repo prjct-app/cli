@@ -1,6 +1,6 @@
 import path from 'node:path'
-import { execFileAsync } from '../utils/exec'
 import { dirExists, fileExists } from '../utils/file-helper'
+import { commandOnPathAsync } from '../utils/which'
 import { resolveUserHome } from './user-home'
 
 export type AgentRuntimeId =
@@ -54,7 +54,8 @@ export interface AgentRuntimeDefinition {
   id: AgentRuntimeId
   displayName: string
   kind: AgentRuntimeKind
-  status: 'stable' | 'emerging' | 'hosted'
+  /** stable = current benchmark focus; legacy = keep working but do not prioritize. */
+  status: 'stable' | 'emerging' | 'hosted' | 'legacy'
   detectsBy?: {
     homeDirs?: string[]
     projectFiles?: string[]
@@ -154,7 +155,8 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       acp: false,
       projectRules: true,
     },
-    notes: 'Uses CLAUDE.md, global skills, hooks, and Claude-style MCP JSON.',
+    notes:
+      'Benchmark-tier CLI (2026-07): Claude Code + Opus frontier. CLAUDE.md, skills, hooks, MCP JSON.',
   },
   {
     id: 'codex',
@@ -168,11 +170,13 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       agentsMd: true,
       mcp: true,
       skills: true,
-      hooks: false,
+      // Hooks exist (hooks.json / config.toml) behind [features] codex_hooks — see harness-surfaces.
+      hooks: true,
       acp: false,
       projectRules: false,
     },
-    notes: 'Uses AGENTS.md, compact skills, and Codex config.toml MCP servers.',
+    notes:
+      'Benchmark-tier CLI (2026-07): Codex + GPT-5.x (TB leader). AGENTS.md, config.toml MCP (native), hooks opt-in (planned installer).',
   },
   {
     id: 'gemini',
@@ -181,15 +185,19 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
     status: 'stable',
     detectsBy: { homeDirs: ['.gemini'], commands: ['gemini'] },
     contextFiles: ['GEMINI.md', 'AGENTS.md'],
+    mcpTargets: [
+      { format: 'claude-json', pathHint: '~/.gemini/settings.json mcpServers', writable: true },
+    ],
     supports: {
       agentsMd: true,
       mcp: true,
       skills: true,
-      hooks: false,
+      hooks: true,
       acp: false,
       projectRules: true,
     },
-    notes: 'Uses GEMINI.md and MCP; AGENTS.md keeps repo-level compatibility with other agents.',
+    notes:
+      'Benchmark-tier CLI (2026-07): Gemini CLI + Pro/Flash. GEMINI.md; prjct install writes MCP+hooks to ~/.gemini/settings.json.',
   },
   {
     id: 'antigravity',
@@ -228,7 +236,8 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       acp: false,
       projectRules: true,
     },
-    notes: 'Multi-provider coding agent with AGENTS.md, project agents, plugins, and MCP config.',
+    notes:
+      'Benchmark-tier open-source CLI (2026-07): most-starred multi-provider agent. AGENTS.md + plugins + MCP.',
   },
   {
     id: 'qwen-code',
@@ -271,10 +280,18 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
     id: 'grok',
     displayName: 'xAI Grok Build',
     kind: 'cli',
-    status: 'emerging',
+    status: 'stable',
     detectsBy: { homeDirs: ['.grok'], commands: ['grok'] },
-    contextFiles: ['AGENTS.md'],
-    mcpTargets: [{ format: 'generic', pathHint: '~/.grok/config.toml (mcp)', writable: false }],
+    contextFiles: ['AGENTS.md', 'CLAUDE.md'],
+    // Grok natively loads Claude MCP/settings — no separate writer required.
+    mcpTargets: [
+      { format: 'generic', pathHint: '~/.grok config/plugins (MCP)', writable: false },
+      {
+        format: 'claude-json',
+        pathHint: '~/.claude/mcp.json (Grok Claude-compat)',
+        writable: true,
+      },
+    ],
     supports: {
       agentsMd: true,
       mcp: true,
@@ -284,7 +301,7 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       projectRules: false,
     },
     notes:
-      'xAI Grok Build CLI; AGENTS.md walked root→cwd, skills under .agents/skills or .grok/skills, hooks/plugins/MCP via ~/.grok/config.toml. Also reads Claude Code surfaces (CLAUDE.md, .claude/skills) natively.',
+      'Benchmark-tier CLI (2026-07): Grok Build. AGENTS.md + native Claude Code compat (CLAUDE.md, skills, MCP, hooks). prjct install covers Grok via inherits-claude — see harness-surfaces.',
   },
   {
     id: 'goose',
@@ -339,17 +356,18 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       agentsMd: true,
       mcp: true,
       skills: false,
-      hooks: false,
+      hooks: true,
       acp: false,
       projectRules: true,
     },
-    notes: 'Project rules live under .cursor/rules; model/provider selection happens in Cursor.',
+    notes:
+      'Benchmark-tier AI IDE (2026-07): agent mode + CLI. Rules under .cursor/rules; prjct install writes ~/.cursor/hooks.json.',
   },
   {
     id: 'windsurf',
     displayName: 'Windsurf',
     kind: 'ide',
-    status: 'stable',
+    status: 'legacy',
     detectsBy: { projectDirs: ['.windsurf'], projectFiles: ['.windsurfrules'] },
     contextFiles: ['AGENTS.md', '.windsurf/rules/prjct.md'],
     projectRuleTargets: [
@@ -367,7 +385,8 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       acp: false,
       projectRules: true,
     },
-    notes: 'Project rules live under .windsurf/rules; keep legacy support but do not center it.',
+    notes:
+      'LEGACY (2026-07): Windsurf is no longer a product focus. Keep AGENTS.md + optional .windsurf/rules for residual installs; do not expand surface area. Prefer Cursor, Claude Code, Codex, Gemini CLI, OpenCode, Cline.',
   },
   {
     id: 'cline',
@@ -384,7 +403,8 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       acp: true,
       projectRules: true,
     },
-    notes: 'VS Code agent with AGENTS.md, rules, skills, hooks, MCP, CLI, and ACP surfaces.',
+    notes:
+      'Benchmark-tier open agent (2026-07): VS Code + multi-model. AGENTS.md, rules, skills, hooks, MCP, ACP.',
   },
   {
     id: 'roo-code',
@@ -454,7 +474,7 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       projectRules: true,
     },
     notes:
-      'Hosted GitHub agent; repo instructions and MCP-compatible setup are the portable layer.',
+      'GitHub Copilot coding agent / Copilot CLI (2026-07 benchmark field). Repo AGENTS.md + .github instructions + MCP.',
   },
   {
     id: 'devin',
@@ -694,17 +714,27 @@ async function detectRuntimeSignals(
 }
 
 async function commandExists(command: string): Promise<boolean> {
-  try {
-    await execFileAsync('which', [command])
-    return true
-  } catch {
-    return false
-  }
+  // Cross-platform: which on Unix, where.exe on Windows.
+  if (await commandOnPathAsync(command)) return true
+  if (process.platform === 'win32' && (await commandOnPathAsync(`${command}.cmd`))) return true
+  return false
 }
+
+/** Runtimes that get first-class support investment (2026-07 benchmark field). */
+const FULL_SUPPORT_RUNTIME_IDS = new Set<AgentRuntimeId>([
+  'claude',
+  'codex',
+  'gemini',
+  'opencode',
+  'cursor',
+  'cline',
+  'grok',
+])
 
 function supportLevelFor(runtime: AgentRuntimeDefinition): RuntimeSupportLevel {
   if (runtime.status === 'hosted') return 'hosted'
-  if (runtime.id === 'claude') return 'full'
+  if (runtime.status === 'legacy') return 'manual'
+  if (FULL_SUPPORT_RUNTIME_IDS.has(runtime.id)) return 'full'
   if (runtime.supports.agentsMd && runtime.supports.mcp) return 'good'
   if (runtime.supports.agentsMd) return 'baseline'
   return 'manual'
