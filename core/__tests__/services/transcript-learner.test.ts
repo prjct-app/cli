@@ -14,6 +14,7 @@ import { _internal } from '../../services/transcript-learner'
 const {
   parseTranscript,
   extractCandidates,
+  extractUserPreferenceCandidates,
   hashContent,
   PHRASE_TYPE_MAP,
   classifyCaptureParagraph,
@@ -188,6 +189,44 @@ describe('transcript-learner — extractCandidates', () => {
     const out = extractCandidates(decisions)
     expect(out.length).toBeLessThanOrEqual(12)
     expect(out.length).toBe(12)
+  })
+})
+
+describe('transcript-learner — extractUserPreferenceCandidates', () => {
+  test('captures standing always/never rules as feedback', () => {
+    const out = extractUserPreferenceCandidates([
+      {
+        role: 'user',
+        text: 'Always author memory content in English regardless of the conversation language.',
+      },
+      {
+        role: 'user',
+        text: 'Never write exploits or attack any system regardless of ownership.',
+      },
+    ])
+    expect(out.length).toBe(2)
+    expect(out.every((c) => c.type === 'feedback')).toBe(true)
+    expect(out[0]!.matchedPhrase).toBe('user:always')
+    expect(out[1]!.matchedPhrase).toBe('user:never')
+  })
+
+  test('captures Spanish prefiero / siempre', () => {
+    const out = extractUserPreferenceCandidates([
+      {
+        role: 'user',
+        text: 'Prefiero que profundices lo existente antes de inventar features nuevas.',
+      },
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0]!.type).toBe('feedback')
+    expect(out[0]!.matchedPhrase).toBe('user:prefiero')
+  })
+
+  test('ignores ordinary user chat without preference markers', () => {
+    const out = extractUserPreferenceCandidates([
+      { role: 'user', text: 'can you fix the release engines issue on main please?' },
+    ])
+    expect(out).toHaveLength(0)
   })
 })
 

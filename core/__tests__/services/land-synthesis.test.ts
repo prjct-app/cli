@@ -16,7 +16,7 @@ describe('land-synthesis — buildLandHandoffContent', () => {
     expect(out).toBeNull()
   })
 
-  test('synthesizes living-context fields from an open cycle alone', () => {
+  test('synthesizes dense living-context fields from an open cycle alone', () => {
     const out = buildLandHandoffContent({
       projectId: 'no-such-project-land-test',
       projectPath: '/tmp/does-not-exist-land-synth',
@@ -36,6 +36,9 @@ describe('land-synthesis — buildLandHandoffContent', () => {
     expect(out!).toContain('fix release engines')
     expect(out!).toContain('Token usage: in=100 out=50')
     expect(out!).toContain('Model: test-model')
+    // Dense hand-off: never spam empty placeholders.
+    expect(out!).not.toContain('Sentiment: unknown')
+    expect(out!).not.toContain('Related files: unknown')
     // Must not instruct the agent to run remember — we already did the hand-off.
     expect(out!).not.toContain('prjct remember context')
   })

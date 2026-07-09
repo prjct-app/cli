@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import type { MemoryEntry } from '../../memory/entries'
-import { buildDeveloperProfile } from '../../services/developer-profile'
+import { buildDeveloperProfile, extractDeveloperRules } from '../../services/developer-profile'
 
 function entry(
   id: string,
@@ -49,11 +49,13 @@ describe('buildDeveloperProfile', () => {
     ])
     expect(out).not.toBeNull()
     expect(out).toContain('# Developer profile')
+    expect(out).toContain('## Act as this developer')
     expect(out).toContain('## Preferences & guidance')
     expect(out).toContain('English')
+    expect(out).toContain('## Working principles')
+    expect(out).toContain('Check existing dependency policy')
     expect(out).toContain('## Friction history')
     expect(out).toContain('Confirm dependency constraints before adding packages.')
-    expect(out).toContain('Check existing dependency policy')
     expect(out).toContain('`mem_1`')
     expect(out).not.toContain('unrelated decision')
   })
@@ -72,14 +74,45 @@ describe('buildDeveloperProfile', () => {
   it('omits the friction section when there is no friction signal', () => {
     const out = buildDeveloperProfile([entry('mem_1', 'feedback', 'ship as minor')])
     expect(out).toContain('## Preferences & guidance')
+    expect(out).toContain('## Act as this developer')
     expect(out).not.toContain('## Friction history')
+    expect(out).not.toContain('## Working principles')
   })
 
   it('ignores improvement-signals that are not from the friction detector', () => {
     const out = buildDeveloperProfile([
-      entry('mem_1', 'feedback', 'a rule'),
+      entry('mem_1', 'feedback', 'a standing preference rule here'),
       entry('mem_2', 'improvement-signal', 'skill-miss noise', { source: 'skill-miss-detector' }),
     ])
     expect(out).not.toContain('## Friction history')
+    expect(out).not.toContain('skill-miss noise')
+  })
+})
+
+describe('extractDeveloperRules', () => {
+  it('prefers explicit feedback over friction, dedupes, and caps', () => {
+    const rules = extractDeveloperRules(
+      [
+        entry('mem_1', 'feedback', 'Always author memory content in English.'),
+        entry('mem_2', 'feedback', 'Always author memory content in English.'),
+        entry(
+          'mem_3',
+          'improvement-signal',
+          '[negation] Lesson: Stop adding features without a quality gate.\nNext action: Deepen existing loops before shipping new surface.',
+          { source: 'friction-detector' }
+        ),
+        entry('mem_4', 'decision', 'ignore me'),
+      ],
+      4
+    )
+    expect(rules.length).toBe(2)
+    expect(rules[0]!.kind).toBe('preference')
+    expect(rules[0]!.rule).toContain('English')
+    expect(rules[1]!.kind).toBe('friction')
+    expect(rules[1]!.rule).toContain('Deepen existing loops')
+  })
+
+  it('returns empty when nothing is distillable', () => {
+    expect(extractDeveloperRules([entry('mem_1', 'decision', 'sqlite only')])).toEqual([])
   })
 })

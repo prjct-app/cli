@@ -231,6 +231,19 @@ describe('SessionStart hook — knowledge digest (cold-start only)', () => {
     expect(ctx).toContain('prjct_developer')
     expect(ctx).toContain('prjct search')
   })
+
+  test('digest pushes developer rules so cold-start acts as the developer', async () => {
+    await freshProject({ role: 'DEV' })
+    insertMemory(
+      'feedback',
+      'Memory content MUST be authored in English, regardless of conversation language.'
+    )
+    const ctx = await buildSessionContext(projectPath, null, { digest: true })
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('How this developer works')
+    expect(ctx).toContain('English')
+    expect(ctx).toContain('prjct_developer')
+  })
 })
 
 describe('SessionStart hook — digest slots are proven-first (usefulness rerank)', () => {

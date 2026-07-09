@@ -7,6 +7,10 @@
  * Stop when a cycle is still open. Deterministic synthesis from durable
  * signals (cycle, journal, recent commits, recent auto-captures) — not a
  * model call — so it works on weak models and never blocks session end.
+ *
+ * Quality bar: every field must carry signal. No "unknown" spam — omit
+ * empty slots so the next session reads a dense model of what happened,
+ * what was learned, and what to do next.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -54,7 +58,9 @@ export async function synthesizeLandHandoff(
       tags: {
         source: SOURCE_TAG,
         topic: TOPIC_KEY,
-        capture: 'land-v1',
+        capture: 'land-v2',
+        context_schema: 'living-v2',
+        synthesis: 'deterministic',
       },
       provenance: 'extracted',
       projectId: input.projectId,
@@ -87,51 +93,89 @@ export function buildLandHandoffContent(input: LandSynthesisInput): string | nul
     return null
   }
 
-  const what = cycle
-    ? `Work cycle "${truncate(cycle, 120)}" still open or just closed.`
-    : 'Session closed with no open work cycle.'
-  const why =
-    journal.length > 0
-      ? `Journal trail: ${journal.map((j) => truncate(j, 80)).join(' · ')}`
-      : 'No task journal entries; synthesis from repo + auto-captures only.'
-  const outcome =
-    commits.length > 0
-      ? `Recent commits: ${commits.join('; ')}`
-      : 'No recent git commits visible from project path.'
-  const traps =
-    autos.length > 0
-      ? autos
-          .slice(0, 4)
+  const parts: string[] = []
+
+  // Lead: one scannable sentence the next agent can act on.
+  if (cycle) {
+    parts.push(`Session close: Work cycle "${truncate(cycle, 120)}" still open or just closed.`)
+  } else {
+    parts.push('Session close: no open work cycle — landed repo + capture signals only.')
+  }
+
+  parts.push(
+    'Context synthesis: Passive land hand-off from durable signals (cycle, journal, commits, auto-captures). Not a model essay.'
+  )
+  parts.push(`Key data: source=${SOURCE_TAG}; topic=${TOPIC_KEY}; capture=land-v2`)
+
+  // What happened — cycle + journal trail (how the work evolved).
+  const whatBits: string[] = []
+  if (cycle) whatBits.push(`cycle="${truncate(cycle, 100)}"`)
+  if (journal.length > 0) {
+    whatBits.push(`journal: ${journal.map((j) => truncate(j, 70)).join(' · ')}`)
+  }
+  if (whatBits.length > 0) {
+    parts.push(`What happened: ${whatBits.join('; ')}`)
+  }
+
+  if (journal.length > 0) {
+    parts.push(
+      `Why it mattered: Journal trail shows progression — ${journal
+        .slice(0, 2)
+        .map((j) => truncate(j, 80))
+        .join(' · ')}`
+    )
+  }
+
+  // Learned / traps — auto-captures are the session's new knowledge.
+  if (autos.length > 0) {
+    const learned = autos
+      .filter((a) => a.type === 'learning' || a.type === 'decision' || a.type === 'fact')
+      .slice(0, 4)
+    const traps = autos.filter((a) => a.type === 'gotcha' || a.type === 'anti-pattern').slice(0, 3)
+    if (learned.length > 0) {
+      parts.push(
+        `Learned this session: ${learned
           .map((a) => `[${a.type}] ${truncate(a.content, 100)}`)
-          .join(' · ')
-      : 'none auto-captured this window'
-  const tokens =
-    input.tokensIn != null || input.tokensOut != null
-      ? `in=${input.tokensIn ?? 0} out=${input.tokensOut ?? 0}`
-      : 'unknown'
+          .join(' · ')}`
+      )
+    }
+    if (traps.length > 0) {
+      parts.push(
+        `Decision/trap: ${traps.map((a) => `[${a.type}] ${truncate(a.content, 100)}`).join(' · ')}`
+      )
+    }
+    // Remainder that wasn't classified above
+    const used = new Set([...learned, ...traps])
+    const rest = autos.filter((a) => !used.has(a)).slice(0, 3)
+    if (rest.length > 0 && learned.length === 0 && traps.length === 0) {
+      parts.push(
+        `Decision/trap: ${rest.map((a) => `[${a.type}] ${truncate(a.content, 100)}`).join(' · ')}`
+      )
+    }
+  }
+
+  if (commits.length > 0) {
+    parts.push(`Outcome: Recent commits: ${commits.join('; ')}`)
+  }
+
+  // Meta only when present — never "unknown".
+  if (input.author) parts.push(`Who/author: ${input.author}`)
+  if (input.model) parts.push(`Model: ${input.model}`)
+  if (input.tokensIn != null || input.tokensOut != null) {
+    parts.push(`Token usage: in=${input.tokensIn ?? 0} out=${input.tokensOut ?? 0}`)
+  }
+
+  parts.push('Feature/domain: session-close')
+  parts.push('Pattern: land auto-synthesis without agent remember')
+  parts.push('Anti-pattern: relying on the model to remember to remember at session end')
+
   const next =
     cycle != null
       ? 'Finish or pause the open cycle (`prjct status done` / `prjct pause`); next agent should `prjct work --md` or `prjct prime`.'
       : 'Next agent: `prjct prime` then pick from `prjct next --md`.'
+  parts.push(`Next implication: ${next}`)
 
-  return [
-    `Session close: ${what}`,
-    `Context synthesis: Passive land hand-off — durable signals only (cycle, journal, commits, auto-captures). Not a model essay.`,
-    `Key data: source=${SOURCE_TAG}; topic=${TOPIC_KEY}`,
-    `What happened: ${what}`,
-    `Why it mattered: ${why}`,
-    `Who/author: ${input.author ?? 'unknown'}`,
-    `Model: ${input.model ?? 'unknown'}`,
-    `Token usage: ${tokens}`,
-    `Sentiment: unknown`,
-    `Related files: unknown`,
-    `Feature/domain: session-close`,
-    `Pattern: land auto-synthesis without agent remember`,
-    `Anti-pattern: relying on the model to remember to remember at session end`,
-    `Decision/trap: ${traps}`,
-    `Outcome: ${outcome}`,
-    `Next implication: ${next}`,
-  ].join(' · ')
+  return parts.join(' · ')
 }
 
 /** Async wrapper that fills cycle from active task when omitted. */
