@@ -14,6 +14,7 @@ export type AgentRuntimeId =
   | 'opencode'
   | 'qwen-code'
   | 'kimi-cli'
+  | 'grok'
   | 'goose'
   | 'aider'
   | 'cursor'
@@ -265,6 +266,25 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
     },
     notes:
       'Kimi-family coding runtime; AGENTS.md and MCP/CLI markdown output are the portable contract.',
+  },
+  {
+    id: 'grok',
+    displayName: 'xAI Grok Build',
+    kind: 'cli',
+    status: 'emerging',
+    detectsBy: { homeDirs: ['.grok'], commands: ['grok'] },
+    contextFiles: ['AGENTS.md'],
+    mcpTargets: [{ format: 'generic', pathHint: '~/.grok/config.toml (mcp)', writable: false }],
+    supports: {
+      agentsMd: true,
+      mcp: true,
+      skills: true,
+      hooks: true,
+      acp: false,
+      projectRules: false,
+    },
+    notes:
+      'xAI Grok Build CLI; AGENTS.md walked root→cwd, skills under .agents/skills or .grok/skills, hooks/plugins/MCP via ~/.grok/config.toml. Also reads Claude Code surfaces (CLAUDE.md, .claude/skills) natively.',
   },
   {
     id: 'goose',

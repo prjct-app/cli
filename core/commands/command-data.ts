@@ -572,7 +572,7 @@ export const COMMANDS: CommandMeta[] = [
     isOptional: true,
     features: [
       'Gives the next agent the active task, required prjct checks, and high-value memories',
-      'Works across Codex, Claude, Gemini, Cursor, OpenCode, Qwen, Kimi, and unknown future agents',
+      'Works across Codex, Claude, Gemini, Cursor, OpenCode, Qwen, Kimi, Grok, and unknown future agents',
       'Makes multi-agent continuity concrete instead of relying on private model memory',
     ],
   },

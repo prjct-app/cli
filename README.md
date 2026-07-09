@@ -167,9 +167,9 @@ It reports concrete support levels:
 | `hosted` | Repo instructions are the portable layer; platform config may be manual. |
 
 Run `prjct agents doctor --md` to see the current machine/project matrix for
-Claude Code, Codex, Gemini CLI, OpenCode, Qwen Code, Kimi CLI, Cursor,
-Windsurf, Cline/Roo-family agents, hosted agents, and future AGENTS.md/MCP
-clients.
+Claude Code, Codex, Gemini CLI, OpenCode, Qwen Code, Kimi CLI, Grok Build,
+Cursor, Windsurf, Cline/Roo-family agents, hosted agents, and future
+AGENTS.md/MCP clients.
 
 Use `prjct agents doctor --fix` inside a prjct project to refresh the portable
 `AGENTS.md` surface and any repo-local IDE rule adapters prjct manages. The
