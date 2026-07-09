@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.34.0] - 2026-07-09
+
+### Features
+
+- brutal quality vs GSD — friction promote + denser prime (#531)
+
+
 ## [3.33.0] - 2026-07-09
 
 ### Added
