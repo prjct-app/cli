@@ -45,6 +45,17 @@ export interface PackManifest {
   hookSignals: HookSignal[]
   /** Free-form tag suggestions for autocomplete consistency. */
   suggestedTags?: Record<string, string[]>
+  /**
+   * Config defaults applied on first activation only (never overwrites
+   * user-set sdd/tdd/loop budgets).
+   */
+  configDefaults?: {
+    sdd?: 'off' | 'advisory' | 'strict'
+    tdd?: 'off' | 'assist' | 'strict'
+    maxTurnsPerCycle?: number
+    deliveryGeometry?: 'off' | 'advisory' | 'strict'
+    land?: 'off' | 'advisory' | 'strict'
+  }
 }
 
 export const PACK_MANIFESTS: Record<string, PackManifest> = {
@@ -63,6 +74,35 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
     hookSignals: [],
     suggestedTags: {
       domain: ['auth', 'api', 'frontend', 'infra', 'data'],
+    },
+    configDefaults: {
+      sdd: 'advisory',
+      tdd: 'assist',
+      maxTurnsPerCycle: 25,
+      deliveryGeometry: 'advisory',
+      land: 'advisory',
+    },
+  },
+
+  'code-strict': {
+    name: 'code-strict',
+    description: 'Ship-grade coding: SDD+TDD strict, delivery-geometry gate, forced land. Opt-in.',
+    suggestedPersona: {
+      role: 'DEV',
+      mcps: ['github'],
+    },
+    memoryTypes: ['fact', 'decision', 'learning', 'gotcha', 'pattern', 'anti-pattern', 'shipped'],
+    workflowSlots: {
+      ship: { description: 'Publish finished work — tests, commit, push, PR.' },
+      review: { description: 'Pre-commit or pre-PR review pass.' },
+    },
+    hookSignals: [],
+    configDefaults: {
+      sdd: 'strict',
+      tdd: 'strict',
+      maxTurnsPerCycle: 25,
+      deliveryGeometry: 'strict',
+      land: 'strict',
     },
   },
 

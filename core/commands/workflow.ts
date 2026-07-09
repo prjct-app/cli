@@ -68,7 +68,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async now(
     task: string | null = null,
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean; md?: boolean; spec?: string; extend?: boolean } = {}
+    options: {
+      skipHooks?: boolean
+      md?: boolean
+      spec?: string
+      extend?: boolean
+      geometry?: string
+    } = {}
   ): Promise<CommandResult> {
     try {
       const proj = await requireProject(projectPath)
@@ -90,11 +96,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // No work arg → show the active one (or none).
       if (!task) return this._showActiveTask(projectId, projectPath, options)
 
+      const geoRaw = options.geometry?.toLowerCase()
+      const geometry =
+        geoRaw === 'direct' || geoRaw === 'single' || geoRaw === 'split' ? geoRaw : undefined
+
       // Side-effecting core lives in task-service so the MCP write-path
       // fires identical gates/state/memory without printing to stdout.
       const outcome = await startTask(projectId, projectPath, task, {
         skipHooks: options.skipHooks,
         spec: options.spec,
+        geometry,
       })
       if (!outcome.ok) {
         return { success: false, error: outcome.blocked ?? 'Task start blocked' }

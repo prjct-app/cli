@@ -211,6 +211,26 @@ export class PlanningCommands extends PrjctCommandsBase {
   }
 
   /**
+   * `prjct quickstart` — one shot: init --yes + default packs + surfaces.
+   * Target: ~60s to a usable harness (match viral memory-plugin friction).
+   */
+  async quickstart(
+    options: InitOptions = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    const pack = options.pack ?? 'code,daily'
+    const result = await this.init({ ...options, yes: true, pack }, projectPath)
+    if (!result.success && result.message !== 'Already initialized') return result
+    console.log('')
+    console.log('  ── quickstart ready ──')
+    console.log('  1. Open your coding agent in this repo (Claude / Codex / Cursor / Grok).')
+    console.log('  2. Say what to build — the agent runs `prjct work` for you.')
+    console.log('  3. Team brain without cloud: `prjct memory export` → commit → clone → import.')
+    console.log('')
+    return { ...result, success: true }
+  }
+
+  /**
    * Print next steps after initialization
    */
   private _printNextSteps(
@@ -239,7 +259,8 @@ export class PlanningCommands extends PrjctCommandsBase {
     console.log('  If you want to drive manually:')
     console.log('    prjct sync       Refresh context + skill body')
     console.log('    prjct work       Start a work cycle')
-    console.log('    prjct hooks      Auto-sync on commit/checkout')
+    console.log('    prjct land       Session-close checklist')
+    console.log('    prjct memory export   Git-share team memory')
     console.log('')
 
     if (wizardResult && wizardResult.agents.length > 0) {

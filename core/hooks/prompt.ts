@@ -82,6 +82,11 @@ export async function buildProjectState(
       lines.push(
         `- Active work cycle: "${overview.current.description}" (${startedAgo}) [${overview.current.label}]`
       )
+      if ((config.land?.mode ?? 'advisory') !== 'off') {
+        lines.push(
+          '  ↳ Before session end: `prjct land` · hand-off `prjct remember context "Session close: …"`'
+        )
+      }
       // Loop control — count the turns spent on this cycle (best-effort write,
       // resets when a new cycle starts) so the harness can tell a grind from
       // honest iteration.

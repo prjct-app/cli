@@ -42,11 +42,41 @@ export const PROVIDER_CAPABILITY_MODELS: Record<
     balanced: ['2.5-flash', '2.0-flash', '2.5-pro'],
     fast: ['2.0-flash', '2.5-flash', '2.5-pro'],
   },
+  openai: {
+    frontier: ['o3', 'gpt-4.1', 'gpt-4o'],
+    balanced: ['gpt-4.1', 'gpt-4o', 'gpt-4.1-mini'],
+    fast: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o'],
+  },
+  codex: {
+    frontier: ['o3', 'gpt-4.1', 'gpt-4o'],
+    balanced: ['gpt-4.1', 'gpt-4o', 'gpt-4.1-mini'],
+    fast: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o'],
+  },
+  xai: {
+    frontier: ['grok-3', 'grok-2', 'grok-2-mini'],
+    balanced: ['grok-2', 'grok-2-mini', 'grok-3'],
+    fast: ['grok-2-mini', 'grok-2', 'grok-3'],
+  },
+  grok: {
+    frontier: ['grok-3', 'grok-2', 'grok-2-mini'],
+    balanced: ['grok-2', 'grok-2-mini', 'grok-3'],
+    fast: ['grok-2-mini', 'grok-2', 'grok-3'],
+  },
+  kimi: {
+    frontier: ['kimi-k2', 'kimi-latest', 'moonshot-v1-128k'],
+    balanced: ['kimi-latest', 'moonshot-v1-128k', 'moonshot-v1-32k'],
+    fast: ['moonshot-v1-32k', 'moonshot-v1-128k', 'kimi-latest'],
+  },
 }
 
 const MIN_CLI_VERSIONS: Record<string, string> = {
   claude: '1.0.0',
   gemini: '1.0.0',
+  openai: '0.1.0',
+  codex: '0.1.0',
+  xai: '0.1.0',
+  grok: '0.1.0',
+  kimi: '0.1.0',
 } as const
 
 // ── Roles → capability classes ───────────────────────────────────────────────

@@ -96,10 +96,39 @@ export async function activatePacks(
     applyPersonaSuggestion(nextPersona, activated)
   }
 
-  const nextConfig: LocalConfig = { ...existing, persona: nextPersona }
+  const nextConfig: LocalConfig = {
+    ...existing,
+    persona: nextPersona,
+    ...packConfigDefaults(existing, activated),
+  }
   await configManager.writeConfig(projectPath, nextConfig)
 
   return { activated, skipped }
+}
+
+/** First-activation defaults from pack manifests — never overwrite set fields. */
+function packConfigDefaults(existing: LocalConfig, activated: string[]): Partial<LocalConfig> {
+  const patch: Partial<LocalConfig> = {}
+  for (const name of activated) {
+    const defaults = PACK_MANIFESTS[name]?.configDefaults
+    if (!defaults) continue
+    if (defaults.sdd && !existing.sdd) patch.sdd = { mode: defaults.sdd }
+    if (defaults.tdd && !existing.tdd) patch.tdd = { mode: defaults.tdd }
+    if (
+      defaults.maxTurnsPerCycle != null &&
+      existing.maxTurnsPerCycle == null &&
+      patch.maxTurnsPerCycle == null
+    ) {
+      patch.maxTurnsPerCycle = defaults.maxTurnsPerCycle
+    }
+    if (defaults.deliveryGeometry && !existing.deliveryGeometry) {
+      patch.deliveryGeometry = { mode: defaults.deliveryGeometry }
+    }
+    if (defaults.land && !existing.land) {
+      patch.land = { mode: defaults.land }
+    }
+  }
+  return patch
 }
 
 export async function deactivatePacks(

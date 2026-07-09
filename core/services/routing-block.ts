@@ -15,26 +15,15 @@ export const ROUTING_START_MARKER = '<!-- prjct:routing - do not edit between ma
 export const ROUTING_END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
 
 /**
- * The ONLY content prjct ever writes into a client repo's instruction surfaces
- * (AGENTS.md / CLAUDE.md), and only when the user explicitly runs `prjct
- * agents`. Clean-repo sovereignty doctrine: a project repo's sole prjct
- * footprint is `.prjct/`; every rule and all project knowledge live in prjct's
- * SQLite and the global agent config, pulled on demand.
- *
- * This is a MAP of the harness, not a ruleset: it names each organ (memory/KB,
- * skills, agents, guardrails) and the ONE command to pull it, so the model
- * knows WHERE to look without loading anything wholesale. Never inline the
- * rules/RAG protocol/verb map themselves — those belong in prjct.
+ * Minimal routing map for AGENTS.md / CLAUDE.md (written only via `prjct agents`).
+ * Pull commands only — no ruleset, no project history. Budget: ≤400 body bytes.
  */
-export const MINIMAL_ROUTING_BODY = `## prjct — map of this project's harness
-This project uses prjct. Recognize intent and run the verb yourself.
-This file holds no rules — pull on demand. The harness lives in prjct:
-- \`prjct work --md\` — entrypoint: the work cycle + related context.
-- \`prjct context memory <topic>\` / \`prjct search "<q>"\` — memory + knowledge base (voice, glossary, decisions, gotchas, learnings).
-- \`prjct guard <file>\` before a risky edit · \`prjct remember <type> "<text>"\` to persist outcomes.
-- Wrap-up/compaction: persist a hand-off first (\`prjct remember context "Session close: ..."\`); \`--tags topic:<key>\` upserts.
-- \`prjct workflows --md\` — methodology (dispatch, model policy, judgment).
-Skills, the agent catalog, and rules live in prjct — pulled, never inlined here.`
+export const MINIMAL_ROUTING_BODY = `## prjct
+pull on demand. This file holds no rules. You run the verb.
+- work: \`prjct work --md\`
+- memory: \`prjct search\` / \`prjct context memory\` / \`prjct guard\` / \`prjct remember\`
+- land: \`prjct remember context "Session close: …"\` · \`--tags topic:k\` upserts
+- deep: \`prjct workflows --md\` · grade: \`prjct harness score --md\``
 
 export interface RoutingWriteResult {
   action: 'created' | 'updated' | 'unchanged'

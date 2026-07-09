@@ -151,7 +151,12 @@ export async function startTask(
   projectId: string,
   projectPath: string,
   description: string,
-  options: { skipHooks?: boolean; spec?: string } = {}
+  options: {
+    skipHooks?: boolean
+    spec?: string
+    /** Explicit delivery geometry when the working tree is large (strict gate). */
+    geometry?: 'direct' | 'single' | 'split'
+  } = {}
 ): Promise<StartTaskOutcome> {
   // Verb-collision guard. Agents on non-Claude harnesses (e.g. Codex) that
   // don't have the verb-intent map memorized tend to wrap a bare CLI verb as
@@ -180,13 +185,14 @@ export async function startTask(
     return { ok: false, blocked }
   }
 
+  const cfg = await configManager.readConfig(projectPath).catch(() => null)
+
   // SDD strict gate (opt-in via config.sdd.mode === 'strict'): a work cycle must
   // link a REVIEWED intent/spec. Enforced here so CLI and MCP share
   // it. `off`/`advisory` never block (advisory only nudges via the skill).
   {
-    const sddConfig = await configManager.readConfig(projectPath).catch(() => null)
     const { effectiveSddMode } = await import('../commands/sdd')
-    if (effectiveSddMode(sddConfig) === 'strict') {
+    if (effectiveSddMode(cfg) === 'strict') {
       if (!options.spec) {
         return {
           ok: false,
@@ -208,6 +214,37 @@ export async function startTask(
         }
       } catch {
         // spec lookup failed internally — don't hard-block on our own error
+      }
+    }
+  }
+
+  // Delivery-geometry gate: large working tree requires an explicit strategy.
+  {
+    const mode = cfg?.deliveryGeometry?.mode ?? 'off'
+    if (mode === 'strict' || mode === 'advisory') {
+      try {
+        const { existsSync } = await import('node:fs')
+        const path = await import('node:path')
+        // Skip when there is no git dir (tests, non-repos) — never hang cold paths.
+        if (existsSync(path.join(projectPath, '.git'))) {
+          const {
+            computeWorkingTreeChangeset,
+            geometryOf,
+            tierOf,
+            geometryBlockMessage,
+            NORMAL_MAX_LOC,
+          } = await import('./delivery-geometry')
+          const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
+          const cs = await computeWorkingTreeChangeset(projectPath)
+          if (cs && cs.loc >= threshold) {
+            const geometry = geometryOf(tierOf(cs))
+            if (mode === 'strict' && !options.geometry) {
+              return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
+            }
+          }
+        }
+      } catch {
+        /* geometry is best-effort — never block on git errors */
       }
     }
   }
@@ -511,6 +548,12 @@ export async function setTaskStatus(
       })
       await stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId)
       await recordEstimationOutcome(projectId, wsTask.id, verification.diffSize)
+      try {
+        const { usefulnessService } = await import('./usefulness')
+        usefulnessService.creditShippedTask(projectId, wsTask.id)
+      } catch {
+        /* best-effort usefulness credit */
+      }
       return {
         ok: true,
         taskId: wsTask.id,
@@ -572,6 +615,12 @@ export async function setTaskStatus(
     if (normalized === 'done' || normalized === 'completed') {
       await stateStorage.completeTask(projectId)
       await recordEstimationOutcome(projectId, active.id, verification.diffSize)
+      try {
+        const { usefulnessService } = await import('./usefulness')
+        usefulnessService.creditShippedTask(projectId, active.id)
+      } catch {
+        /* best-effort usefulness credit */
+      }
     } else if (normalized === 'paused' || normalized === 'pause') {
       await stateStorage.pauseTask(projectId)
     } else if (resumeIntent) {

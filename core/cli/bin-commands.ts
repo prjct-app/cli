@@ -488,22 +488,24 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
     }
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'harness') {
-    // `prjct harness learn-from|list|use <rig>` — build the Body: induction
-    // from a flow you just did, or steal a rig as the base. prjct describes;
-    // the host runs the LLM work and persists organs through prjct verbs.
+    // score | learn-from | list | use <rig>
     const subcommand = args[1] ?? 'list'
     const { HarnessCommands } = await import('../commands/harness')
     const cmd = new HarnessCommands()
     const mdMode = args.includes('--md')
     let result: { success: boolean; error?: string } = { success: false }
-    if (subcommand === 'learn-from') {
+    if (subcommand === 'score') {
+      result = await cmd.score(process.cwd(), { md: mdMode })
+    } else if (subcommand === 'learn-from') {
       result = await cmd.learnFrom(process.cwd(), { md: mdMode })
     } else if (subcommand === 'list') {
       result = await cmd.list({ md: mdMode })
     } else if (subcommand === 'use') {
       result = await cmd.use(args[2] ?? null, process.cwd(), { md: mdMode })
     } else {
-      console.error(`Unknown harness subcommand: ${subcommand}. Use: learn-from, list, use <rig>.`)
+      console.error(
+        `Unknown harness subcommand: ${subcommand}. Use: score, learn-from, list, use <rig>.`
+      )
       result = { success: false, error: `unknown subcommand: ${subcommand}` }
     }
     process.exitCode = result.success ? 0 : 1

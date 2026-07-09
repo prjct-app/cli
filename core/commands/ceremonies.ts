@@ -279,6 +279,9 @@ export class CeremonyCommands extends PrjctCommandsBase {
     todo.push(
       'Persist the hand-off: `prjct remember context "Session close: what changed, why, next" --tags topic:<key>`.'
     )
+    todo.push(
+      'Team share (optional): `prjct memory export` → commit `.prjct/memory-export/` → clone → `prjct memory import`.'
+    )
     lines.push(...todo.map((t) => `- [ ] ${t}`))
     console.log(lines.join('\n'))
     return { success: true, items: todo.length }

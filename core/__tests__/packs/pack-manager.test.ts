@@ -76,6 +76,38 @@ describe('pack-manager', () => {
     expect(config?.persona?.mcps).toContain('linear')
   })
 
+  test('code pack applies sdd/tdd/loop defaults on first activation only', async () => {
+    await activatePacks(projectPath, ['code'])
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.sdd?.mode).toBe('advisory')
+    expect(config?.tdd?.mode).toBe('assist')
+    expect(config?.maxTurnsPerCycle).toBe(25)
+    expect(config?.deliveryGeometry?.mode).toBe('advisory')
+    expect(config?.land?.mode).toBe('advisory')
+
+    await configManager.writeConfig(projectPath, {
+      ...config!,
+      sdd: { mode: 'off' },
+      tdd: { mode: 'off' },
+      maxTurnsPerCycle: 99,
+      persona: { role: 'DEV', packs: [] },
+    })
+    await activatePacks(projectPath, ['code'])
+    const again = await configManager.readConfig(projectPath)
+    expect(again?.sdd?.mode).toBe('off')
+    expect(again?.tdd?.mode).toBe('off')
+    expect(again?.maxTurnsPerCycle).toBe(99)
+  })
+
+  test('code-strict pack applies hard gates on first activation', async () => {
+    await activatePacks(projectPath, ['code-strict'])
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.sdd?.mode).toBe('strict')
+    expect(config?.tdd?.mode).toBe('strict')
+    expect(config?.deliveryGeometry?.mode).toBe('strict')
+    expect(config?.land?.mode).toBe('strict')
+  })
+
   test('activatePacks never overwrites an explicit persona role', async () => {
     // Pre-seed a custom role
     const existing = await configManager.readConfig(projectPath)

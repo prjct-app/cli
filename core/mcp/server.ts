@@ -45,20 +45,20 @@ Use when the user describes work, asks for project memory, or wants to improve d
 - Synthesize what happened and why. Raw transcript fragments are input, not final project context.`
 
 /**
- * Tiered tool loading (Task Master's pattern, harness research 2026-07):
- * every registered tool costs schema tokens in EVERY session of every agent
- * connected to the server. PRJCT_MCP_TOOLS picks the surface:
- *
- *   core     — memory + project (recall, save, work-cycle state): the verbs
- *              an agent needs on nearly every turn
- *   standard — + files + code-intel (guard, relevant files, impact)
- *   all      — + workflows + specs (default; full surface)
+ * Tool surface tiers. Every registered tool costs schema tokens every session.
+ *   core     — memory + project (default)
+ *   standard — + files + code-intel
+ *   all      — + workflows + specs
+ * Override with PRJCT_MCP_TOOLS=core|standard|all.
  */
-type ToolTier = 'core' | 'standard' | 'all'
+export type ToolTier = 'core' | 'standard' | 'all'
 
-function resolveTier(): ToolTier {
-  const raw = (process.env.PRJCT_MCP_TOOLS ?? 'all').toLowerCase()
-  return raw === 'core' || raw === 'standard' ? raw : 'all'
+export const DEFAULT_MCP_TOOL_TIER: ToolTier = 'core'
+
+export function resolveTier(envValue: string | undefined = process.env.PRJCT_MCP_TOOLS): ToolTier {
+  const raw = (envValue ?? DEFAULT_MCP_TOOL_TIER).toLowerCase()
+  if (raw === 'standard' || raw === 'all' || raw === 'core') return raw
+  return DEFAULT_MCP_TOOL_TIER
 }
 
 export function createServer(): McpServer {

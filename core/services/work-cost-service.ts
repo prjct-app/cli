@@ -307,21 +307,54 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
     since
   )
   const postEditEvents = eventCount(projectId, 'memory.post_edit', since)
-  const measuredSessions = count(
+  // Agent sessions (hooks) + CLI sessions (daemon) both count as attribution.
+  const agentSessions = count(
     projectId,
     'SELECT COUNT(*) AS value FROM agent_sessions WHERE started_at >= ?',
     since
   )
+  let cliSessions = 0
+  try {
+    cliSessions = count(
+      projectId,
+      'SELECT COUNT(*) AS value FROM cli_sessions WHERE created_at >= ?',
+      since
+    )
+  } catch {
+    /* older schemas */
+  }
+  const measuredSessions = agentSessions + cliSessions
+  // Distinct memories (not raw surface rows) — row spam should not tank reuse.
   const surfacedContext = count(
     projectId,
-    'SELECT COUNT(*) AS value FROM memory_surface_log WHERE created_at >= ?',
+    'SELECT COUNT(DISTINCT memory_id) AS value FROM memory_surface_log WHERE created_at >= ?',
     since
   )
+  // Surface in-window + usefulness score > 0 (last_used may predate the window).
   const usefulContext = count(
     projectId,
-    'SELECT COUNT(*) AS value FROM memory_usefulness WHERE score > 0 AND last_used_at >= ?',
+    `SELECT COUNT(DISTINCT s.memory_id) AS value
+     FROM memory_surface_log s
+     INNER JOIN memory_usefulness u ON u.memory_id = s.memory_id
+     WHERE s.created_at >= ?
+       AND u.score > 0`,
     since
   )
+  // Finished cycles with a linked agent session (task_id) — better than sessions/cycles.
+  let cyclesWithSession = 0
+  try {
+    cyclesWithSession = count(
+      projectId,
+      `SELECT COUNT(DISTINCT t.id) AS value
+       FROM tasks t
+       INNER JOIN agent_sessions a ON a.task_id = t.id
+       WHERE (t.completed_at IS NOT NULL OR t.shipped_at IS NOT NULL)
+         AND COALESCE(t.completed_at, t.shipped_at, t.started_at) >= ?`,
+      since
+    )
+  } catch {
+    cyclesWithSession = 0
+  }
   const contextZoneEvents = count(
     projectId,
     'SELECT COUNT(*) AS value FROM context_zone_events WHERE timestamp >= ?',
@@ -337,7 +370,50 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
   const declared = declaredTokenMentions(projectId, since)
   const tokensIn = measuredTasks.reduce((sum, task) => sum + task.tokensIn, 0)
   const tokensOut = measuredTasks.reduce((sum, task) => sum + task.tokensOut, 0)
+  // Work-cycle count for reporting: prefer task table, fall back to events.
+  // Token coverage denominator: finished task rows only (open cycles rarely
+  // have tokens yet; event inflation used to tank healthy projects).
   const inferredWorkCycles = Math.max(taskRows.length, eventWorkStarts, eventShips)
+  const finishedTaskRows = taskRows.filter((r) => r.completed_at || r.shipped_at)
+  const tokenUsageIds = new Set(measuredCyclesFromTokenUsage(projectId, since).keys())
+  let sessionTaskIds = new Set<string>()
+  try {
+    sessionTaskIds = new Set(
+      prjctDb
+        .query<{ task_id: string }>(
+          projectId,
+          `SELECT DISTINCT task_id AS task_id FROM agent_sessions
+           WHERE task_id IS NOT NULL AND started_at >= ?`,
+          since
+        )
+        .map((r) => r.task_id)
+        .filter(Boolean)
+    )
+  } catch {
+    sessionTaskIds = new Set()
+  }
+  const finishedWithTokens = finishedTaskRows.filter((r) => {
+    const tin = Number(r.tokens_in ?? 0)
+    const tout = Number(r.tokens_out ?? 0)
+    return tin + tout > 0 || tokenUsageIds.has(r.id)
+  }).length
+  // Eligible = finished cycles where an agent signal exists (tokens or session).
+  // Purely manual closes without agent activity don't penalize coverage.
+  const finishedEligible = finishedTaskRows.filter((r) => {
+    const tin = Number(r.tokens_in ?? 0) + Number(r.tokens_out ?? 0)
+    return tin > 0 || tokenUsageIds.has(r.id) || sessionTaskIds.has(r.id)
+  }).length
+  const tokenCoverageBase =
+    finishedEligible > 0
+      ? finishedEligible
+      : finishedTaskRows.length > 0
+        ? finishedTaskRows.length
+        : taskRows.length > 0
+          ? taskRows.length
+          : inferredWorkCycles
+  // knownTokenCycles = all measured cycles (task rows or token_usage-only).
+  // Coverage % uses finished-with-tokens over agent-eligible finished base.
+  const knownTokenCycles = Math.max(finishedWithTokens, measuredTasks.length)
 
   const gaps: string[] = []
   if (inferredWorkCycles === 0) {
@@ -345,7 +421,7 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
   } else if (taskRows.length === 0) {
     gaps.push('Work history was rescued from events, but normalized task rows are missing.')
   }
-  if (taskRows.length > 0 && measuredTasks.length === 0) {
+  if (tokenCoverageBase > 0 && finishedWithTokens === 0 && knownTokenCycles === 0) {
     gaps.push(
       'Work cycles exist, but none have exact token totals. Capture exact or estimated usage at task close.'
     )
@@ -385,14 +461,26 @@ export function buildWorkCostSnapshot(projectId: string, days: number): WorkCost
     id: `work-cost-${days}d`,
     windowDays: days,
     generatedAt: now,
-    workCycles: inferredWorkCycles,
-    knownTokenCycles: measuredTasks.length,
+    workCycles: taskRows.length > 0 ? taskRows.length : inferredWorkCycles,
+    knownTokenCycles,
     tokensIn,
     tokensOut,
     tokensTotal: tokensIn + tokensOut,
     tokenCoveragePercent:
-      inferredWorkCycles === 0 ? 0 : Math.round((measuredTasks.length / inferredWorkCycles) * 100),
-    measuredSessions,
+      tokenCoverageBase === 0
+        ? 0
+        : Math.min(
+            100,
+            Math.round(
+              (Math.max(
+                finishedWithTokens,
+                measuredTasks.filter((t) => tokenUsageIds.has(t.id) || t.tokensTotal > 0).length
+              ) /
+                tokenCoverageBase) *
+                100
+            )
+          ),
+    measuredSessions: Math.max(measuredSessions, cyclesWithSession),
     surfacedContext,
     usefulContext,
     contextZoneEvents,

@@ -13,18 +13,18 @@ import { execFileAsync } from '../../utils/exec'
 
 describe('review-risk — tier + geometry (pure)', () => {
   it('trivial → direct', () => {
-    const t = _internal.tierOf({ base: 'x', files: 1, loc: 5, dirs: ['core'] })
+    const t = _internal.tierOf({ files: 1, loc: 5 })
     expect(t).toBe('trivial')
     expect(_internal.geometryOf(t)).toBe('direct')
   })
   it('normal → single', () => {
-    const t = _internal.tierOf({ base: 'x', files: 6, loc: 200, dirs: ['core'] })
+    const t = _internal.tierOf({ files: 6, loc: 200 })
     expect(t).toBe('normal')
     expect(_internal.geometryOf(t)).toBe('single')
   })
   it('large (by files or LOC) → split', () => {
-    expect(_internal.tierOf({ base: 'x', files: 40, loc: 50, dirs: [] })).toBe('large')
-    expect(_internal.tierOf({ base: 'x', files: 3, loc: 900, dirs: [] })).toBe('large')
+    expect(_internal.tierOf({ files: 40, loc: 50 })).toBe('large')
+    expect(_internal.tierOf({ files: 3, loc: 900 })).toBe('large')
     expect(_internal.geometryOf('large')).toBe('split')
   })
 })
