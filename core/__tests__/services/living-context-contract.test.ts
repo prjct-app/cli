@@ -92,10 +92,9 @@ describe('living context contract', () => {
       when: '2026-06-26T00:00:00Z',
     } satisfies RelatedContextHit)
 
-    // Compact surface: head (type, title, date, id) + the single most salient
-    // field. Full body stays one `prjct search <id>` away — no verbose
-    // "Key data:"/"Detail:" prefixes that bloated the passive work surface.
-    expect(line).toContain('[context] Living context')
+    // Compact surface: [role·type] title (date) `id` — salient field.
+    // role is ctx/SoT/SUGGEST (living-apply). Full body stays one search away.
+    expect(line).toContain('[ctx·context] Living context')
     expect(line).toContain('`mem_1`')
     expect(line).toContain('feature=memory; surface=dashboard')
     expect(line).not.toContain('Key data:')

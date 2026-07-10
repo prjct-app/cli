@@ -3,15 +3,19 @@
 ## [Unreleased]
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
+
+## [3.45.0] - 2026-07-10
+
+### Added
+- **Living apply (SoT · live suggest · tip→user)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Agent is the terminal tip channel (no web UI) — restates SoT/SUGGEST in chat, then acts.
 - **Rho-inspired selective memory (microsoft/rho analogy)** — real reference model R (judgment + living-v2), excess = 1−max_sim vs R via local subword embeddings (0 tokens), capture gate rejects low-excess noise, score/apply/embed driven by excess + usage + groundedness. Modules: `retention/reference-model.ts`, `excess.ts`, `capture-gate.ts`.
 - Value-based retention apply path: archive/delete caps, inbox triage, done-trigger, `config.retention.mode` off|dry-run|apply.
 - **Historical bloat mitigation on `prjct sync`**: soft-deleted vacuum (30d), orphan remember-events purge, archive prune, auto-source live cap (20), vault health line; auto-source capture gate (stricter excess); inject filter demotes aged auto history on recall.
+- **Distill-then-hard-delete**: worthless history analyzed into one digest then hard-deleted; auto-source overflow distilled; delete verdicts hard-delete (protected types archive only).
 
 ## [3.44.0] - 2026-07-10
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - multi-agent realtime yield/switch handoff + auto-worktree isolation
 - **`prjct switch <agent> [--reason] [--launch]`** — yield the live work cycle to another runtime (codex/claude/grok/…) with durable who/why in SQLite (`task_handoffs`)
 - **`prjct accept [hand_id]`** / **`prjct handoffs`** — accept pending handoff, rebind ownership, resume brief
@@ -23,14 +27,12 @@
 ## [3.42.0] - 2026-07-10
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - adorable Codex-style cast names for multi-agent fan-out
 - Adorable multi-agent cast names (Codex-style): orchestration assigns durable scientist/inventor codenames (Popper, Copernicus, McClintock…) to explore/implement/review or crew roles; shown on `prjct work` and used as default `claim` identity when `--as` / `PRJCT_AGENT` unset.
 
 ## [3.41.0] - 2026-07-10
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - closed-loop judgment + dynamic work-scope inventory
 - Closed-loop judgment continuity: Judgment Receipts on `land`/Stop (capture:receipt-v1), Decision Conflict Gate on Edit|Write (`judgment.conflictMode` off|advisory|strict with durable override via remember tags — not land/sdd modes), hot-path latency budgets (≤300ms fail-open + SQL LIMIT on file recall), SessionStart git timeouts, closed-loop health line on `prjct harness score`. Proof of traps prevented and decisions applied — continuity of engineering judgment, not an AI memory product (mem_3919).
 - Full 7-bet leap: world-model impact on `guard` (import/co-change + traps); default routing surface `work`+`ship` progressive disclosure; multi-agent geometry DEFAULT wording for H2/H3 fan-out; token economics score on `prime`/`harness score`; `judgment.weakModelMode` product mode (strict conflict floor + elevated quality + SessionStart/prime banner).
@@ -41,20 +43,17 @@
 ## [3.40.0] - 2026-07-10
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - CLI login PKCE S256 (flow=pkce-v1) aligned with api+app
 - CLI login PKCE S256 (flow=pkce-v1): callback carries only code+state; exchange via /auth/cli/exchange
 
 ## [3.39.0] - 2026-07-10
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - quality orchestrator P0: auto ledger + inject; ship suggest with text confirm
 
 ## [3.38.0] - 2026-07-09
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - credential pre-secrets MUST (no PPID) + inert cloud workflow pull
 
 ## [3.36.0] - 2026-07-09
@@ -79,7 +78,6 @@
 ## [3.33.0] - 2026-07-09
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - deeper understanding
 - xAI Grok Build CLI compatibility (agent-runtime-registry)
 
@@ -279,7 +277,6 @@
 ## [3.12.0] - 2026-06-29
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - world class efficiency
 
 ## [3.11.1] - 2026-06-29
@@ -291,31 +288,26 @@
 ## [3.11.0] - 2026-06-29
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - harness pillars
 
 ## [3.10.0] - 2026-06-29
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - hacer que prjct sea el mejor harness agéntico del mercado para devs: estructura de workspace, bucle de agentes, arquitectura multi-agente, skills/comandos, y soberanía del rig (modelo intercambiable)
 
 ## [3.9.0] - 2026-06-28
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - token-efficiency program: compact pull verbs, lean routing blocks, search relevance threshold, guard precision, fix BM25 file-index prototype crash
 
 ## [3.8.0] - 2026-06-27
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - work token savings
 
 ## [3.7.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - kimi cli doesn't know what prjct is — surface prjct agent protocol to Kimi CLI
 
 ### Fixed
@@ -324,49 +316,41 @@
 ## [3.6.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - investigate and fix multiple cloud sync problems users are reporting after recent v3.4.0/v3.5.0 sync ships
 
 ## [3.5.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - make all sync entities bidirectional (pull+push) and preserve per-record created_at (origin creation time) distinct from synced_at (ingestion time on receiving machine)
 
 ## [3.4.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - work cost
 
 ## [3.3.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Investigate why Claude spent 55k tokens exploring existing repo context instead of prjct surfacing files context and repo state
 
 ## [3.2.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - synthesis context eval gate
 
 ## [3.1.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - cold hook bundle
 
 ## [3.0.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - v3.0 AI Agile OS second brain context refresh
 
 ## [2.77.0] - 2026-06-26
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - context quality cleanup
 
 ## [2.76.2] - 2026-06-26
@@ -402,19 +386,16 @@
 ## [2.73.0] - 2026-06-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - fix daemon auth cache for cloud link
 
 ## [2.72.0] - 2026-06-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - auth bin only logout
 
 ## [2.71.0] - 2026-06-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - secure cli login auth
 
 ## [2.70.0] - 2026-06-25
@@ -426,13 +407,11 @@
 ## [2.69.0] - 2026-06-24
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - reduce user token consumption in generated agent context
 
 ## [2.68.0] - 2026-06-24
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - transparent auto-harness task start and Codex status line install
 - `prjct task` now creates a transparent auto-harness (H0-H3) with expected evidence and advisory completion warnings, shared by CLI and MCP task starts.
 
@@ -454,25 +433,21 @@
 ## [2.67.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - eval benchmarks cloud
 
 ## [2.66.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - cleanup command surfaces and dead templates
 
 ## [2.65.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - setup-owned vault root with OS-aware defaults
 
 ## [2.64.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - eval benchmarks cloud
 
 ## [2.63.2] - 2026-06-23
@@ -490,25 +465,21 @@
 ## [2.63.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - eval result publishing
 
 ## [2.62.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Point CLI metadata to cli site
 
 ## [2.61.0] - 2026-06-23
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Improve prjct-cli maintainability performance and UX
 
 ## [2.60.0] - 2026-06-22
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - update tolerates legacy project dbs
 
 ## [2.59.0] - 2026-06-22
@@ -519,31 +490,26 @@
 ## [2.58.0] - 2026-06-22
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - stale sync slash copy
 
 ## [2.57.0] - 2026-06-22
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - context7 daemon path
 
 ## [2.56.0] - 2026-06-22
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - paid-tier product proof surfaces
 
 ## [2.55.0] - 2026-06-21
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - fix sync analysis save for all agents
 
 ## [2.54.0] - 2026-06-21
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Universal AI coding agent compatibility surfaces. `prjct init`, `setup`, and `sync` now refresh AGENTS.md, legacy Claude routing, stable IDE rules, and repaired MCP config from a shared runtime registry covering Codex, Claude, Gemini, OpenCode, Qwen Code, Cursor, Windsurf, Cline/Roo, Continue, Kiro, Copilot, Devin, Jules, Zed, Warp, Amp, Factory, Augment, Kilo Code, Phoenix, Ona, Semgrep, and related agent runtimes.
 
 ### Fixed
@@ -557,19 +523,16 @@
 ## [2.53.0] - 2026-06-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Desktop notifications + sharper work-state — never lose track of a background wait.** prjct now pings you (best-effort OS notification, **default on**) the moment **Claude is waiting on you** and when a **subagent finishes** — so a wait no longer hangs silently while you've tabbed away. New Claude Code hooks (`Notification`, `SubagentStop`) fire the ping with the active task + pending count; macOS (`osascript`) and Linux (`notify-send`) supported, silent elsewhere. Toggle with **`prjct notify on|off`** (`config.notify.mode`). Separately, the per-prompt "project state" block now shows a **`Pending: N · Next: "…"`** line (from the task queue) on top of the existing active-task + owner (worktree) + inbox lines — so "what's active, what's pending, who's working it" is always in view. Notifications are best-effort and `safeRun`-wrapped: they never disturb the session.
 
 ## [2.52.0] - 2026-06-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **`prjct sdd` — opt-in Spec-Driven Development mode.** Gates the spec pipeline prjct already has (`spec → audit-spec → task --spec → ship`), per project, mirroring `lean`/`tdd`: `off` (default, escalate-only — no change), `advisory` (nudge + the existing ship acceptance surface), or `strict`. In **strict**, every `prjct task` must link a **reviewed** spec — enforced in `task-service` so the CLI and the MCP write-path share the gate — and `ship` blocks work with no linked spec (`prjct ship --no-spec-gate` overrides). `prjct sdd` shows the mode + the active task's pipeline station as a checklist. No new pipeline; this only gates the existing one.
 
 ## [2.51.0] - 2026-06-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **`prjct tdd` — opt-in Test-Driven Development mode.** For dev teams that want test-first discipline, set an intensity per project (mirrors `lean`): `off` (default, zero change), `assist` (skill biases the implement loop test-first; `ship` reminds), or `strict` (test-first expected; `ship` surfaces a hard gate). `prjct tdd check` runs the auto-detected test command (per-stack via `detectProjectCommands`) and reports red/green — the real teeth; `prjct tdd` alone shows the mode + detected command. Enforcement stays consistent with prjct's model: the CLI surfaces the gate, `prjct tdd check` is the actual red/green, the agent honours it (no new engine). `prjct ship --no-test-gate` overrides.
 
 ## [2.50.1] - 2026-06-20
@@ -580,7 +543,6 @@
 ## [2.50.0] - 2026-06-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Loop-discipline triggers in the always-loaded skill body.** A compact trigger table now tells the agent exactly when to stop going direct: delegate exploration when reading 4+ files, keep one writer + a fresh `review` when touching 2+ non-trivial files, run `review` before any commit/push/PR (trivial diffs excepted), and **STOP and re-orient/`audit` on a wrong cwd, worktree/git accident, merge recovery, or confusing test/env failure** — never debug forward over a broken state. The per-dispatch model quick-reference (implementer→opus, reviewer/judge→sonnet, routing→haiku) now lives in the always-loaded body too, not just in on-demand `workflows.md`, and `ship` documents the pre-PR review gate. (Adopted from patterns observed in Gentleman-Programming/gentle-ai's delegation triggers; kept as lean guidance — no new config.)
 
 ## [2.49.2] - 2026-06-20
@@ -596,7 +558,6 @@
 ## [2.49.0] - 2026-06-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Cloud sync — workflows round-trip + hardening.** Added pull handlers for `custom_workflows` (keyed by the stable workflow `name`) and `workflow_rules` (mirrored by source id via `INSERT OR REPLACE`, matching the cloud's upsert-by-id model), so a project's custom workflows + their hooks/gates/steps now sync across machines (both write directly to the tables — no echo back to the queue). A one-line `prjct cloud` pointer was added to the generated skill so agents surface it.
 
 ### Changed
@@ -605,13 +566,11 @@
 ## [2.48.0] - 2026-06-19
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Cloud sync — realtime (WebSocket).** Linked projects now propagate changes across machines in near-real-time (target <5s), on top of the pull-based sync from 2.47.0. A new realtime client (`core/sync/realtime-client.ts`) uses the **platform global `WebSocket`** (RFC 6455, stable in Node ≥22.5 and Bun) — **no `ws` dependency and no backend SDK**; the token/device/project are passed as `wss://` query params (TLS-encrypted) since the WHATWG WebSocket API can't set headers. Connections live in the **warm daemon** (`RealtimeManager`), reopened on boot from a tiny linked-projects registry (`core/sync/cloud-registry.ts`) instead of scanning every project dir. `prjct cloud link` / `resume` open a connection; `pause` / `unlink` close it; `prjct cloud status` shows the live connection state. Inbound events apply through `syncManager.applyRealtimeEvent` with an **echo-loop guard** (events originating from this device are skipped) and cursor advance so a later pull doesn't re-fetch. Reconnect uses exponential backoff with jitter. Realtime runs only inside the daemon; in `PRJCT_NO_DAEMON` mode sync stays pull-based (no behavior change). The engine-agnostic CI guard now covers the realtime files too.
 
 ## [2.47.0] - 2026-06-19
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Cloud sync — client foundation (paid, opt-in, local-first).** New `prjct cloud` command group: `link` / `unlink` / `sync` / `pull` / `pause` / `resume` / `status`. A project stays 100% local until you `prjct cloud link` it (`config.cloud.enabled`); then the durable local queue (`sync_pending`) pushes to a token API and pulls remote changes. Linked projects also flush best-effort on `prjct ship` and at session end. **Memories now sync** — the highest-value cross-device entity (decisions/learnings/gotchas) was silently dropped before: the push mapper keyed off legacy `type` strings, so `memories`, `queue_task`, `custom_workflows`, `workflow_rules` and `archives` never reached the wire. Push is now driven by a single canonical entity→table map shared with the pull path, and a new `memories` pull handler applies remote memories into the events table (the source of truth) without echoing back. Per-project `include` whitelist (cross-device groups on; sensitive prompts/sessions/analysis off by default). The client carries only a token (`X-Api-Key` + `X-Device-Id`) and talks to a storage API — **no backend-engine reference anywhere in the client (CI-guarded), and zero paywall logic: paid limits are enforced server-side and surfaced verbatim** (e.g. a 402 upgrade message). Backend lives in a separate repo. No behavior change for projects that never link.
 
 ### Internal
@@ -625,7 +584,6 @@
 ## [2.46.0] - 2026-06-19
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - dynamic audit-spec lenses (deterministic baseline + agent override)
 
 ### Fixed
@@ -751,7 +709,6 @@
 Memory recall + apply-loop: prjct now *applies* what it learns at the moment it matters, not just on demand — and the knowledge survives model updates.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **`prjct search "<query>"`** — first-class memory recall verb over the blended BM25 + semantic + recency pipeline (`prjct search mem_1234` resolves an entry by id). Before this, `prjct search "x"` was an unknown verb that fell through the GTD auto-route and silently *captured* the query to the inbox instead of searching.
 - **`prjct forget <id>`** — the delete half of `remember`. Hard-deletes the source event and drops the FTS mirror + any embedding, so an entry can't resurface lexically or semantically; regenerates the vault. Accepts `mem_1234`, `mem-1234`, or a bare `1234`. (`projectMemory.forget()` existed but had no CLI verb — `prjct remember forget <id>` used to just create a junk `type:forget` entry.)
 - **Apply-loop push hooks (Claude).** Anticipation was pull-only (`prjct guard` / the `prjct_guard` MCP tool), which depends on the agent *remembering* to ask — and a freshly-updated model starts with that instinct reset and zero conversation context. Now Claude also gets two targeted pushes (both fire regardless of model = update-proof): a `PreToolUse(Edit|Write)` hook surfaces a file's preventive memory (gotchas/anti-patterns) the moment it's edited, and `SessionStart` injects a compact knowledge digest (top traps + decisions in force + a `developer.md` pointer) on cold start. Pull stays for non-Claude agents. The digest only injects on cold-start sources (`startup`/`clear`/`compact`), never the warm-prefix reusers (`resume`/subagent/cwd-change), so the prompt-cache-stability contract is preserved.
@@ -782,7 +739,6 @@ Memory recall + apply-loop: prjct now *applies* what it learns at the moment it 
 - **Embeddings test isolation:** `global-config` resolves its directory lazily from `PRJCT_CLI_HOME`, so config/embeddings tests no longer read the developer's real `~/.prjct-cli`.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Zero-config embeddings setup — paste just the key.** `prjct embeddings set --key <k>` now infers the base URL from the key's prefix (`sk-or-…` → OpenRouter, `sk-…` → OpenAI, `pa-…` → Voyage; `sk-ant-`/Groq/unknown → keep default), so `--base-url` is optional for known providers. An explicit `--base-url` still wins, and detection re-fires when you switch keys. `set` is now partial-update friendly too: `set --key …` keeps your existing model/base URL instead of resetting them.
 - **Embeddings support ANY OpenAI-compatible provider, including non-Bearer ones.** Already worked with OpenAI, OpenRouter, Ollama, Together, Mistral, Voyage, Jina, LM Studio, … via `--base-url` + `--model` + `--key`; now providers that deviate from `Authorization: Bearer` are covered too — e.g. **Azure OpenAI** (`api-key` header + `api-version` query) and custom gateways. New `prjct embeddings set` flags: `--auth-header <h>`, `--auth-scheme <s|none>` (`none` = raw key), `--headers "k=v,…"`, `--query <qs>`. Default stays `Bearer`/`authorization`, so existing providers are unchanged. Vector dimensionality is detected from the response (no hardcoded size).
 
@@ -865,7 +821,6 @@ Context-efficiency pivot (push → pull): stop filling the agent's context windo
 - **Codex skill no longer rejected.** The Codex `SKILL.md` exceeded Codex's hard 1024-byte limit (1085 B), so prjct silently failed to load in Codex entirely. Rewrote it as a minimal router (~870 B) that points at the CLI + MCP instead of inlining instructions.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - `prjct guard <file>` — anticipation primitive: the preventive memory (gotchas / anti-patterns / recurring-bugs) recorded against a file, pulled on demand before editing. Quiet by design ("clear to edit" when nothing matches).
 - `prjct_guard` MCP tool — the same anticipation, pull-based, for Claude and Codex (Codex has no hook system; both reach it here).
 - Installer now prunes retired prjct-managed hooks from existing settings.
@@ -876,13 +831,11 @@ Context-efficiency pivot (push → pull): stop filling the agent's context windo
 ## [2.35.0] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - feat: pillar 3 anticipation — PreToolUse(Edit|Write) hook surfaces a file's gotchas/anti-patterns/recurring-bugs before you edit it, so traps are prevented not repeated
 
 ## [2.34.0] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - RAG reorientation pillars 1+2: selective memory (embed only model-building knowledge, prune noise) + developer profile (developer.md from feedback+friction so the LLM acts as the dev)
 
 ## [2.33.0] - 2026-05-31
@@ -890,7 +843,6 @@ Context-efficiency pivot (push → pull): stop filling the agent's context windo
 A project-memory RAG overhaul — recall that never bloats, never guesses on vocabulary, ingests your documents, and a vault that is synthesis rather than a mirror. Consolidates 2.32.3–2.32.8.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 
 - Semantic recall **on by default** for every project — a zero-dependency local embedder (feature-hashed character n-grams) vectorizes memory into SQLite, catching morphological / cross-vocabulary matches BM25 misses.
 - Global **BYOT embeddings**: `prjct embeddings set|status|test|clear` — bring one API key, stored in the macOS Keychain (else a 0600 file), used by every project. OpenAI-compatible (OpenAI, Ollama, LM Studio).
@@ -1002,7 +954,6 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.23.7] - 2026-05-18
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Repair required SQLite native dependencies during package install, `prjct install`, and daemon startup.
 - Configure only required MCP defaults (`context7` and `prjct`); Linear and Jira remain manual optional integrations.
 
@@ -1012,7 +963,6 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.23.6] - 2026-05-18
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - test: regression guards for per-role subagent model policy
 
 ## [2.23.4] - 2026-05-18
@@ -1078,97 +1028,81 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.32.8] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - global BYOT embeddings: one securely-stored API key (Keychain) for all projects + prjct embeddings command
 
 ## [2.32.7] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - vault signal cleanup: collapse release/tag sprawl + always-on architecture.md synthesis
 
 ## [2.32.6] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - binary ingest extractors: zero-dep auto-detect (textutil/pdftotext/tesseract) for PDF/Office/images
 
 ## [2.32.5] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - ingest pipeline: multi-format text drops + chunking (bidirectional vault INPUT, auto-vectorized)
 
 ## [2.32.4] - 2026-05-31
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - embeddings ON por defecto (local subword, universal, cero-dep) + auto-upgrade + convención de contenido en inglés (RAG #2)
 
 ## [2.32.3] - 2026-05-30
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - memory dedup en capture + heal histórico (RAG #1): content-fingerprint, dedup net en remember(), fix friction-detector 64-vs-12, migración v25 backfill+purga
 
 ## [2.32.2] - 2026-05-30
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.24.3] - 2026-05-30
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.23.18] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Perf round 2 + LLM recall quality (FTS5 BM25, hot-path parallelization, camelCase tokenizer)
 
 ## [2.23.17] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Deep cleanup: legacy/dead code + verbose comments cut
 
 ## [2.23.16] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.23.15] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Audit followups 2: regression tests para prompt-injection, exec hardening defense-in-depth, legacy-crew-sweep env gate
 
 ## [2.23.14] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.23.13] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Audit followups: docs tightening, scripts orphans verified, CHANGELOG archive split, migrate-json deprecation track
 
 ## [2.23.12] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.23.11] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Audit cleanup: prompt-injection defense, perf paralelización, crew identity por nombre+color, vault sweep fix
 
 ## [2.23.10] - 2026-05-20
@@ -1179,7 +1113,6 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.23.9] - 2026-05-20
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Repair required SQLite native dependencies during package install, `prjct install`, and daemon startup.
 - Configure only required MCP defaults (`context7` and `prjct`); Linear and Jira remain manual optional integrations.
 
@@ -1189,19 +1122,16 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.23.5] - 2026-05-18
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - perf: per-role subagent model policy + everything-in-prjct persistence
 
 ## [2.23.4] - 2026-05-18
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - vault: link by note slug not alias — fix Obsidian graph (alias links graph-invisible)
 
 ## [2.23.3] - 2026-05-18
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - vault: nota por entrada + grafo conectado legible (fix relaciones perdidas)
 
 ## [2.21.0] - 2026-05-17
@@ -1213,7 +1143,6 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.20.2] - 2026-05-17
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 
 - **Architecture guard: SQLite connection factory is now an enforced invariant.** `openDatabase()` in `core/storage/database/sqlite-compat.ts` already baked the daemon-safety PRAGMAs (`journal_mode=WAL`, `busy_timeout=5000`) into every connection, but nothing stopped a future caller from doing a raw `new Database(...)` / `require('bun:sqlite')` / `require('better-sqlite3')` and silently bypassing them — the open half of the HIGH-severity daemon-vs-CLI write-lock anti-pattern. New `core/__tests__/storage/sqlite-factory-guard.test.ts` scans `core/` + `bin/` and fails CI if any file outside the sanctioned factory acquires a driver, and separately asserts the factory keeps both PRAGMAs. Closes the anti-pattern by moving it from convention to enforced. No runtime code change. (#342)
 
@@ -1230,7 +1159,6 @@ A project-memory RAG overhaul — recall that never bloats, never guesses on voc
 ## [2.20.0] - 2026-05-17
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 
 - **Skill Resolution Feedback (harness #16, spec `08344b7d`).** At Stop, `core/services/skill-miss-detector.ts` flags captured project knowledge (`decision` / `gotcha` / `anti-pattern`) that was relevant to the session's work but never referenced — a "skill-miss" — and persists it as an `improvement-signal` tagged `source:skill-miss-detector`. Transcript-primary; changed-file overlap is a best-effort booster via `getModifiedFiles()` (absent on a clean tree → degrades to token overlap, never errors). Precision-leaning: relevance needs a path hit OR ≥2 distinctive shared tokens; `inferred`-provenance and captured-this-session memories are excluded; hashed `(type,key)` dedup makes Stop re-runs idempotent (mirrors `friction-detector`).
 - **`prjct skill-adherence [window] [--md]`** — read-only QA surface: skill-misses vs resolutions over a window (7d default), with an addressed ratio. Same Tier-1 read-only contract as `prjct retro` / `prjct health`.
@@ -1259,7 +1187,6 @@ Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of tr
 - **`SqliteStatement.run` return type widened** from `void` to `{ changes: number }` in the compat wrapper. Both drivers already returned this shape at runtime; the wrapper was discarding it. Non-breaking for callers that ignore the return (grep-verified — no caller in core/ consumes the value).
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 
 - **`prjct crew record-run`** — persists one row per crew session at kv_store key `crew-run:<id>` with `{spec_id?, task_id?, started_at, ended_at, implementer_summary, files_touched, reviewer_verdict, reviewer_notes?}`. Idempotent on caller-supplied `--run-id`. Vault renders to `~/Documents/prjct/<slug>/_generated/crew-runs/<slug>-<ts>.md`.
 - **`prjct crew checkpoints [show|set|reset|export]`** — kv_store CRUD for the reviewer's checkpoint gate. `set` errors fast (exit 2 + stderr) when stdin is a TTY and no `--content` / `--file` flag is given. `export` empty-state emits the bundled default + stderr log `(exporting bundled default; no user customization set)`.
@@ -1294,14 +1221,12 @@ Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of tr
 - **Crew mode no longer writes `.prjct/sessions/` files into the customer's working tree.** The shipped templates (`templates/crew/agents/{leader,implementer,reviewer}.md`, `CHECKPOINTS.md`, `CLAUDE-leader-mode.md`) previously instructed subagents to persist plan / impl notes / review verdicts as loose markdown files under `.prjct/sessions/<task-slug>/<role>.md`. This violated the product invariant (SQLite + regenerated vault are the only allowed persistence surfaces) and was customer-reported. Subagents now reply inline; durable state goes through `prjct` CLI verbs only.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Build-time guard in `scripts/build.js` that fails the bundle if any template under `templates/` reintroduces a forbidden persistence path (currently: `.prjct/sessions/`).
 - Regression test `core/__tests__/commands/crew-templates-no-disk-writes.test.ts` asserting the same invariant at unit-test time.
 
 ## [2.19.5] - 2026-05-13
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.19.4] - 2026-05-11
@@ -1475,259 +1400,216 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 ## [2.4.43] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.42] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.41] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.40] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - perf: cache context7 verify to disk + dead-code cleanup (3.5x faster sync direct path)
 
 ## [2.4.39] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.38] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.37] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.36] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.35] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.34] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.33] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.32] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.31] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.30] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.29] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.28] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.27] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.26] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.25] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.24] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.23] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.22] - 2026-05-02
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.21] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.20] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.19] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.18] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.17] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.16] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.15] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.14] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.13] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.12] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.11] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.10] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.9] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.8] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.7] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.6] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.5] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.4] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.3] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.2] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.1] - 2026-05-01
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.4.0] - 2026-05-02
@@ -1821,37 +1703,31 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 ## [2.2.18] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.17] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.16] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.15] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.14] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.13] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.12] - 2026-04-26
@@ -1863,13 +1739,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 ## [2.2.11] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.10] - 2026-04-25
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.9] - 2026-04-25
@@ -1887,13 +1761,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 ## [2.2.7] - 2026-04-24
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.6] - 2026-04-24
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - current work
 
 ## [2.2.5] - 2026-04-24
@@ -1928,7 +1800,6 @@ the folder wasn't registered in Obsidian's global vault list. Users had
 to manually "Open folder as vault" the first time.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - `core/services/obsidian-vault.ts`: `ensureObsidianVault(vaultPath)`
   does two things, idempotently:
   1. Bootstraps a minimal `.obsidian/app.json` inside the vault so
@@ -1981,7 +1852,6 @@ own visible vault at `~/Documents/prjct/<slug>/` instead of the hidden
   `wiki-ingest.ts` route through it.
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - `vaultPath` field in `.prjct/prjct.config.json` (optional string) —
   overrides the default. Accepts absolute paths, `~/...`, or
   project-relative paths (e.g. `"./docs/wiki"` to keep the vault
@@ -2042,7 +1912,6 @@ could hit in the wild.
   (`core/storage/database.ts`, migration v15)
 
 ### Added
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - Upgrade-path test coverage in
   `core/__tests__/storage/upgrade-v1-to-v2.test.ts`: seeds a v1-shaped
   DB, asserts orphan rules are disabled, valid hooks survive, and the
@@ -2137,7 +2006,6 @@ that closed it. Covers five commits on `v2/cut`: 28eb87e0, e3a163cb,
 4c661bde, d59612a5, b1cd664f.
 
 ### Added (alpha.6 → alpha.11, landed earlier in the arc)
-- **Living apply (SoT · live suggest)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Wired on `prjct work`, prompt trap cue, and skill triggers.
 - **Hook pack**: `prjct claude install` writes 7 passive hooks into
   `~/.claude/settings.json` (SessionStart / UserPromptSubmit /
   PreToolUse / PostToolUse / Stop / SubagentStart / CwdChanged).
