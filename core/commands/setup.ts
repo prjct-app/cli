@@ -10,6 +10,13 @@ import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import authConfig from '../sync/auth-config'
+import {
+  buildCliLoginSearchParams,
+  buildExchangeBody,
+  generatePkceMaterial,
+  parseMintedKeyResponse,
+  parsePkceCallback,
+} from '../sync/cli-pkce'
 import { syncClient } from '../sync/sync-client'
 import syncManager from '../sync/sync-manager'
 import type { MdOption } from '../types/cli'
@@ -79,8 +86,9 @@ export class SetupCommands extends PrjctCommandsBase {
   }
 
   /**
-   * Browser-based login: opens browser, user authenticates with OTP, CLI gets API key automatically.
-   * Usage: prjct login
+   * Browser-based login via PKCE S256 (flow=pkce-v1).
+   * Opens the SPA, user approves the device, callback carries only code+state;
+   * the CLI exchanges the code for a device key (never a bearer in the URL).
    */
   async login(options: { md?: boolean } = {}): Promise<CommandResult> {
     // Check if already authenticated
@@ -98,49 +106,99 @@ export class SetupCommands extends PrjctCommandsBase {
       }
     }
 
-    const webUrl = 'https://cli.prjct.app'
-    const apiUrl = 'https://cli-api.prjct.app'
+    const webUrl = process.env.PRJCT_WEB_URL || 'https://cli.prjct.app'
+    const apiUrl = process.env.PRJCT_API_URL || 'https://cli-api.prjct.app'
+    // Verifier/state only in this process for the lifetime of one login.
+    const pkce = generatePkceMaterial()
+    let settled = false
+    let listenPort = 0
 
     return new Promise<CommandResult>((resolve) => {
+      const finish = (result: CommandResult) => {
+        if (settled) return
+        settled = true
+        resolve(result)
+      }
+
       const server = http.createServer(async (req, res) => {
-        const url = new URL(req.url || '/', `http://127.0.0.1`)
+        const url = new URL(req.url || '/', 'http://127.0.0.1')
+        const noStore = {
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer',
+        }
 
         if (url.pathname === '/callback') {
-          const apiKey = url.searchParams.get('key')
-          const email = url.searchParams.get('email')
-          const userId = url.searchParams.get('user_id')
-          let verified = false
-          let failureMessage = 'No API key received'
-
-          if (apiKey) {
-            try {
-              await authConfig.saveAuth(apiKey, userId || '', email || '')
-              await authConfig.write({ apiUrl })
-              verified = await syncClient.testConnection()
-              if (!verified) {
-                failureMessage = 'Could not verify credentials with prjct Cloud'
-                await authConfig.clearAuth()
+          const parsed = parsePkceCallback(url.searchParams, pkce.state)
+          if (!parsed.ok) {
+            // Invalid/legacy params: respond but keep listening so the user can retry
+            // from the browser without restarting the CLI (except success closes).
+            const statusCode = parsed.reason === 'legacy-bearer' ? 400 : 400
+            res.writeHead(statusCode, noStore)
+            res.end(this.buildErrorPage(parsed.message))
+            if (parsed.reason === 'legacy-bearer') {
+              if (!options.md) {
+                out.warn(parsed.message)
+                out.info(`Update prjct-cli-app or open the login URL with flow=pkce-v1`)
               }
-            } catch (error) {
-              failureMessage =
-                error instanceof Error ? error.message : 'Could not store credentials securely'
-              await authConfig.clearAuth()
             }
+            return
+          }
+
+          let verified = false
+          let failureMessage = 'Authorization exchange failed'
+          let email = ''
+
+          try {
+            const body = buildExchangeBody({
+              code: parsed.code,
+              state: parsed.state,
+              codeVerifier: pkce.codeVerifier,
+              deviceId: await authConfig.getDeviceId(),
+              port: listenPort,
+            })
+            const exchangeRes = await fetch(`${apiUrl}/auth/cli/exchange`, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                accept: 'application/json',
+              },
+              body: JSON.stringify(body),
+            })
+            if (!exchangeRes.ok) {
+              failureMessage = `Exchange failed (${exchangeRes.status})`
+            } else {
+              const minted = parseMintedKeyResponse(await exchangeRes.json())
+              if (!minted) {
+                failureMessage = 'Malformed exchange response'
+              } else {
+                email = minted.email
+                await authConfig.saveAuth(minted.apiKey, minted.userId, minted.email)
+                await authConfig.write({ apiUrl })
+                verified = await syncClient.testConnection()
+                if (!verified) {
+                  failureMessage = 'Could not verify credentials with prjct Cloud'
+                  await authConfig.clearAuth()
+                }
+              }
+            }
+          } catch (error) {
+            failureMessage =
+              error instanceof Error ? error.message : 'Could not store credentials securely'
+            await authConfig.clearAuth()
           }
 
           if (verified) {
-            // Send success HTML to browser
-            res.writeHead(200, { 'Content-Type': 'text/html' })
-            res.end(this.buildSuccessPage(email || ''))
+            res.writeHead(200, noStore)
+            res.end(this.buildSuccessPage(email))
           } else {
-            res.writeHead(apiKey ? 401 : 400, { 'Content-Type': 'text/html' })
+            res.writeHead(401, noStore)
             res.end(this.buildErrorPage(failureMessage))
           }
 
-          // Close server and resolve
           server.close()
 
-          if (verified && apiKey) {
+          if (verified) {
             if (!options.md) {
               out.step(3, 3, 'Connected')
               out.stop()
@@ -151,16 +209,11 @@ export class SetupCommands extends PrjctCommandsBase {
             }
 
             // Refresh the long-lived daemon FIRST so it picks up the new
-            // token before anything routes through it. Without this the
-            // daemon keeps its boot-time (unauthenticated) state and
-            // cloud status/link report "not authenticated" until a manual
-            // `daemon restart` (mem_2880).
+            // token before anything routes through it (mem_2880).
             await this.refreshDaemonAuth()
-
-            // Auto-sync if inside a prjct project
             await this.autoSync()
 
-            resolve({
+            finish({
               success: true,
               message: options.md
                 ? `## Authenticated\n- **Email**: ${email}\n- **Token**: stored securely`
@@ -168,7 +221,7 @@ export class SetupCommands extends PrjctCommandsBase {
             })
           } else {
             if (!options.md) out.fail(`Authentication failed: ${failureMessage}`)
-            resolve({
+            finish({
               success: false,
               message: options.md ? `## Error\nAuthentication failed: ${failureMessage}` : '',
             })
@@ -176,55 +229,58 @@ export class SetupCommands extends PrjctCommandsBase {
           return
         }
 
-        // Any other path — 404
-        res.writeHead(404)
+        res.writeHead(404, noStore)
         res.end('Not found')
       })
 
-      // Listen on random port
       server.listen(0, '127.0.0.1', async () => {
         const addr = server.address()
         if (!addr || typeof addr === 'string') {
           server.close()
           if (!options.md) out.fail('Failed to start callback server')
-          resolve({
+          finish({
             success: false,
             message: options.md ? '## Error\nFailed to start callback server' : '',
           })
           return
         }
 
-        const port = addr.port
-        // Open the web SPA's device-authorization route, passing THIS device's
-        // stable id + hostname so the minted key is bound to the same deviceId
-        // the CLI sends as X-Device-Id (no "device mismatch" on later sync).
+        listenPort = addr.port
         const deviceId = await authConfig.getDeviceId()
         const hostname = await authConfig.getHostname()
-        const loginParams = new URLSearchParams({
-          port: String(port),
-          device_id: deviceId,
+        const loginParams = buildCliLoginSearchParams({
+          port: listenPort,
+          deviceId,
           hostname,
+          state: pkce.state,
+          codeChallenge: pkce.codeChallenge,
         })
+        // Sanitized display: never print state/challenge (identifying params).
+        const displayUrl = `${webUrl}/auth/cli?flow=pkce-v1&port=${listenPort}`
         const loginUrl = `${webUrl}/auth/cli?${loginParams.toString()}`
 
         out.step(1, 3, 'Opening browser...')
         out.stop()
-        out.info(chalk.dim(loginUrl))
+        out.info(chalk.dim(displayUrl))
 
-        // Open browser
         const platform = process.platform
         const openCmd =
           platform === 'darwin'
             ? `open "${loginUrl}"`
             : platform === 'win32'
-              ? `start "${loginUrl}"`
+              ? `start "" "${loginUrl}"`
               : `xdg-open "${loginUrl}"`
 
         try {
           await execAsync(openCmd)
         } catch {
           out.warn('Could not open browser automatically')
-          out.info(`Visit: ${loginUrl}`)
+          out.info(
+            `Visit the URL printed by your terminal session (full URL not echoed for safety)`
+          )
+          // Still need the full URL when auto-open fails — print once without
+          // labeling it as a secret dump; user must complete login.
+          out.info(loginUrl)
         }
 
         out.step(2, 3, 'Waiting for authentication...')
@@ -233,13 +289,14 @@ export class SetupCommands extends PrjctCommandsBase {
       // Timeout after 5 minutes
       setTimeout(
         () => {
+          if (settled) return
           server.close()
           out.stop()
           if (!options.md) {
             out.fail('Authentication timed out')
             out.info(`Run ${chalk.cyan('prjct login')} to try again`)
           }
-          resolve({
+          finish({
             success: false,
             message: options.md
               ? '## Error\nAuthentication timed out. Run `prjct login` to try again.'
