@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "3.41.0",
+  "version": "3.42.0",
   "description": "Project memory and workflow context for AI coding agents.",
   "main": "dist/bin/prjct.mjs",
   "bin": {
