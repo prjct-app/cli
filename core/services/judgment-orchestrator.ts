@@ -1,10 +1,14 @@
 /**
- * Quality orchestrator (P0) — automatic judgment when required; never auto-ship.
+ * Quality orchestrator (P0) — automatic judgment when required; ship only after
+ * explicit user text confirmation.
  *
  * Doctrine:
  *  - Human asks for features only. Quality opens/injects itself when intensity
  *    is standard|full (or harness forces full).
- *  - `prjct ship` stays human-only. This module never calls ship.
+ *  - Agents MAY suggest ship when quality is ready, but MUST wait for an
+ *    explicit text confirmation this turn (e.g. "ship", "sí, publícalo") before
+ *    running `prjct ship`. Never ship on silence, Stop, or green tests alone.
+ *  - This module never calls ship.
  *  - Pure CLI steps only (open ledger, next card text). Host agent runs
  *    RED/BLUE / challenge following the card.
  */
@@ -21,9 +25,12 @@ import {
   type NextActionCard,
 } from './precision-judgment'
 
-/** Ship is human-only — never auto-invoke. Shared by skill + orchestration. */
+/**
+ * Ship policy: suggest OK, execute only after explicit user text this turn.
+ * Shared by skill + orchestration + inject.
+ */
 export const SHIP_USER_ONLY =
-  'Ship is user-only. Do not run `prjct ship` unless the user explicitly asked to ship/publish this turn.'
+  'Ship: you MAY suggest when ready, but run `prjct ship` ONLY after the user confirms in text this turn (e.g. "ship", "sí publícalo"). Never ship on silence, Stop, or green tests alone.'
 
 export type QualityCeremony = 'none' | 'standard' | 'full'
 
@@ -130,8 +137,8 @@ export async function ensureJudgmentLedger(input: {
 }
 
 /**
- * Markdown block for prompt/stop inject. Never mentions running ship.
- * Returns null when no quality work is pending (skip or approved).
+ * Markdown block for prompt/stop inject. May suggest ship when approved;
+ * never auto-runs ship. Returns null when no quality work is pending.
  */
 export function formatQualityInject(
   card: NextActionCard,
@@ -143,8 +150,8 @@ export function formatQualityInject(
       '# prjct: quality ready',
       '',
       `- Judgment ledger \`${ledger.id.slice(0, 8)}\` → **APPROVED** (intensity=${ledger.intensity}).`,
+      '- You MAY suggest: work is ready to ship when they want.',
       `- ${SHIP_USER_ONLY}`,
-      '- Do not invent a ship step. Wait for the user to ask to ship/publish.',
     ].join('\n')
   }
 

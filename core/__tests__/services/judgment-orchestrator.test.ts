@@ -75,14 +75,15 @@ describe('formatQualityInject', () => {
     }
   })
 
-  it('approved ledger reminds human-only ship', () => {
+  it('approved ledger suggests ready and still requires text confirm', () => {
     const ledger = createLedger({ target: 't', intensity: 'standard', now: 't0' })
     ledger.verdict = 'approved'
     const card = buildNextAction(ledger, 'standard')
     const md = formatQualityInject(card, ledger)
     expect(md).toMatch(/APPROVED/i)
     expect(md).toContain(SHIP_USER_ONLY)
-    expect(md).toMatch(/wait for the user/i)
+    expect(md).toMatch(/MAY suggest/i)
+    expect(md).toMatch(/confirms in text|explicitly/i)
   })
 })
 
@@ -110,8 +111,9 @@ describe('ship gate by intensity (human-invoked ship only)', () => {
 })
 
 describe('no auto-ship path in orchestrator module', () => {
-  it('SHIP_USER_ONLY forbids unsolicited ship', () => {
-    expect(SHIP_USER_ONLY).toMatch(/user-only/i)
-    expect(SHIP_USER_ONLY).toMatch(/explicitly asked/i)
+  it('SHIP_USER_ONLY allows suggest but requires text confirmation', () => {
+    expect(SHIP_USER_ONLY).toMatch(/MAY suggest/i)
+    expect(SHIP_USER_ONLY).toMatch(/confirms in text|ONLY after/i)
+    expect(SHIP_USER_ONLY).toMatch(/Never ship on silence/i)
   })
 })
