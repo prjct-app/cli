@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.44.0] - 2026-07-10
+
+### Added
+- multi-agent switch/accept handoff + auto-worktree isolation
+
 ## [3.43.0] - 2026-07-10
 
 ### Added
