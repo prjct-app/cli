@@ -212,9 +212,15 @@ export async function installCursorHooks(
     // Drop legacy unmarked prjct entries
     const cleaned = list.filter((h) => !(isLegacyPrjctHandler(h) && !isPrjctHandler(h)))
     const desired = handlerFor(map)
-    const idx = cleaned.findIndex(
-      (h) => isPrjctHandler(h) && (h.name === map.name || h.command.includes(map.subcommand))
-    )
+    // Prefer exact name match. Falling back to bare subcommand match collides when
+    // the same subcommand installs under two matchers (pre-secrets shell + write).
+    const idx = cleaned.findIndex((h) => {
+      if (!isPrjctHandler(h)) return false
+      if (h.name) return h.name === map.name
+      return (
+        h.command.includes(`hook ${map.subcommand}`) && (h.matcher ?? '') === (map.matcher ?? '')
+      )
+    })
     if (idx >= 0) {
       const existing = cleaned[idx]
       if (

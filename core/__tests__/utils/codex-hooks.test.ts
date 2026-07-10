@@ -59,10 +59,12 @@ describe('installCodexHooks', () => {
     expect(sessionHandlers[0]?.command).toContain('prjct hook session-start')
     expect(sessionHandlers[0]?.commandWindows).toContain('prjct hook session-start')
 
-    // Edit|Write pre-edit maps with matcher Codex understands for apply_patch.
+    // Edit|Write carries pre-secrets (credential MUST) + pre-edit (memory nudge).
     const preEdit = body.hooks.PreToolUse.find((b) => b.matcher === 'Edit|Write')
     expect(preEdit).toBeDefined()
-    expect(preEdit!.hooks[0]?.command).toContain('pre-edit')
+    const editCmds = (preEdit!.hooks ?? []).map((h) => String(h.command ?? ''))
+    expect(editCmds.some((c) => c.includes('pre-edit'))).toBe(true)
+    expect(editCmds.some((c) => c.includes('pre-secrets'))).toBe(true)
   })
 
   it('is idempotent on second install', async () => {
