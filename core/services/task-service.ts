@@ -142,17 +142,38 @@ const RELATED_SALIENT_MAX = 120
  * while still carrying the actionable signal.
  */
 export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
+  // Living apply: SoT (binding) vs SUGGEST (live mod) vs plain context.
+  const role =
+    hit.type === 'decision' || hit.type === 'gotcha' || hit.type === 'fact' || hit.type === 'spec'
+      ? 'SoT'
+      : hit.type === 'anti-pattern' || hit.type === 'pattern' || hit.type === 'learning'
+        ? 'SUGGEST'
+        : 'ctx'
   const when = hit.when ? hit.when.slice(0, 10) : ''
   const who = hit.author ? ` by ${hit.author}` : ''
   const meta = [when, who].filter(Boolean).join('')
-  const head = `[${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``
+  const head = `[${role}·${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``
 
-  // Priority: what would make me act differently first.
   const salient =
-    hit.decisionTrap ?? hit.antiPattern ?? hit.why ?? hit.outcome ?? hit.keyData ?? hit.detail
-  if (!salient) return head
+    hit.decisionTrap ??
+    hit.antiPattern ??
+    hit.nextImplication ??
+    hit.why ??
+    hit.outcome ??
+    hit.keyData ??
+    hit.detail
+  if (!salient) {
+    return role === 'SoT' ? `${head} — BINDING; supersede via prjct remember if wrong` : head
+  }
   const trimmed =
     salient.length > RELATED_SALIENT_MAX ? `${salient.slice(0, RELATED_SALIENT_MAX - 1)}…` : salient
+  // Agent surfaces these as terminal tips to the user (no web UI).
+  if (role === 'SoT') return `${head} — tip→user · SoT: ${trimmed}`
+  if (role === 'SUGGEST') {
+    const files =
+      hit.files && hit.files.length > 0 ? ` in \`${hit.files.slice(0, 2).join('`, `')}\`` : ''
+    return `${head} — tip→user · suggest${files}: ${trimmed}`
+  }
   return `${head} — ${trimmed}`
 }
 
@@ -565,8 +586,17 @@ async function recallRelatedContext(
     const { deriveTitle } = await import('../memory/format')
     const hits = await enrichedRecall(projectPath, projectId, {
       topic: description,
-      types: ['context', 'decision', 'gotcha', 'anti-pattern'],
-      limit: 5,
+      types: [
+        'decision',
+        'gotcha',
+        'fact',
+        'spec',
+        'anti-pattern',
+        'pattern',
+        'learning',
+        'context',
+      ],
+      limit: 8,
     })
     if (hits.length === 0) return []
     // Learn which surfaced context proves useful (usefulness ledger).

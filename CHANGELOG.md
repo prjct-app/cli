@@ -3,9 +3,15 @@
 ## [Unreleased]
 
 ### Added
+
+## [3.45.0] - 2026-07-10
+
+### Added
+- **Living apply (SoT · live suggest · tip→user)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Agent is the terminal tip channel (no web UI) — restates SoT/SUGGEST in chat, then acts.
 - **Rho-inspired selective memory (microsoft/rho analogy)** — real reference model R (judgment + living-v2), excess = 1−max_sim vs R via local subword embeddings (0 tokens), capture gate rejects low-excess noise, score/apply/embed driven by excess + usage + groundedness. Modules: `retention/reference-model.ts`, `excess.ts`, `capture-gate.ts`.
 - Value-based retention apply path: archive/delete caps, inbox triage, done-trigger, `config.retention.mode` off|dry-run|apply.
 - **Historical bloat mitigation on `prjct sync`**: soft-deleted vacuum (30d), orphan remember-events purge, archive prune, auto-source live cap (20), vault health line; auto-source capture gate (stricter excess); inject filter demotes aged auto history on recall.
+- **Distill-then-hard-delete**: worthless history analyzed into one digest then hard-deleted; auto-source overflow distilled; delete verdicts hard-delete (protected types archive only).
 
 ## [3.45.0] - 2026-07-10
 

@@ -319,13 +319,20 @@ export function buildTopicalCue(
     const keywords = extractKeywords(prompt)
     if (keywords.length === 0) return null
     const hits = projectMemory.searchFts(projectId, keywords, CUE_CANDIDATES)
-    const trap = hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
-    if (!trap) return null
-    // Push-path ship attribution: the cue surfaced this trap during the
-    // active work — if the work ships, it earned its keep (otherwise the
-    // most effective gotchas DECAY precisely because the push works).
-    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [trap.id])
-    return `> Trap on this topic: ${deriveTitle(trap)}  \`${trap.id}\``
+    const ranked =
+      hits.find((e) => e.type === 'decision' || e.type === 'gotcha' || e.type === 'fact') ??
+      hits.find((e) => e.type === 'anti-pattern' || e.type === 'pattern') ??
+      hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
+    if (!ranked) return null
+    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [ranked.id])
+    // Terminal-only tip channel: agent must relay this to the user in chat.
+    if (ranked.type === 'decision' || ranked.type === 'gotcha' || ranked.type === 'fact') {
+      return `> Tip→user (SoT): ${deriveTitle(ranked)}  \`${ranked.id}\` — say it briefly in chat; binding — do not contradict without superseding`
+    }
+    if (ranked.type === 'anti-pattern' || ranked.type === 'pattern') {
+      return `> Tip→user (suggest): ${deriveTitle(ranked)}  \`${ranked.id}\` — propose the live change in chat, then apply when editing`
+    }
+    return `> Tip→user: ${deriveTitle(ranked)}  \`${ranked.id}\``
   } catch {
     return null
   }
