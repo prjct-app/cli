@@ -4,6 +4,19 @@
 
 ### Added
 
+## [3.46.0] - 2026-07-10
+
+### Features
+
+- value-based memory retention (full plan: score + apply + triggers) (#542)
+- terminal tip channel — agent surfaces SoT/suggest to user
+- living apply — SoT binding + live mod suggestions
+
+### Bug Fixes
+
+- align tip→user tests + ship as v3.45.0
+
+
 ## [3.45.0] - 2026-07-10
 
 ### Added
