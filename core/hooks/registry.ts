@@ -18,6 +18,7 @@ import { runNotificationHook } from './notification'
 import { runPostEditHook } from './post-edit'
 import { runPreCommitHook } from './pre-commit'
 import { runPreEditHook } from './pre-edit'
+import { runPreSecretsHook } from './pre-secrets'
 import { runPromptHook } from './prompt'
 import { runSessionStartHook } from './session-start'
 import { runStopHook } from './stop'
@@ -32,6 +33,8 @@ export const HOOK_RUNNERS: Record<string, HookRunner> = {
   'session-start': runSessionStartHook,
   prompt: runPromptHook,
   'pre-commit': runPreCommitHook,
+  // Credential MUST — registered before pre-edit so security decide runs early.
+  'pre-secrets': runPreSecretsHook,
   'pre-edit': runPreEditHook,
   'post-edit': runPostEditHook,
   stop: runStopHook,

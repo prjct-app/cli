@@ -39,6 +39,11 @@ export const PRJCT_HOOKS = [
     subcommand: 'pre-commit',
     ifClause: 'Bash(git commit *)',
   },
+  // Credential non-exposure MUST — deny tools whose args contain secret
+  // material. No $PPID / host-only env (Gemini sanitizes env and skips hooks
+  // that require vars it does not set). Two matchers share one subcommand.
+  { event: 'PreToolUse', matcher: 'Bash', subcommand: 'pre-secrets' },
+  { event: 'PreToolUse', matcher: 'Edit|Write', subcommand: 'pre-secrets' },
   // Push a file's preventive memory (gotchas/anti-patterns) the moment Claude
   // is about to edit it — closes the apply loop that pull-only `guard` left to
   // the agent's (unreliable) instinct. Fires regardless of model = update-proof.
@@ -218,7 +223,9 @@ export async function install(): Promise<InstallResult> {
     block.hooks = block.hooks.filter((h) => !isLegacyPrjctHook(h))
     const droppedLegacy = beforeLen - block.hooks.length
 
-    const existing = block.hooks.find((h) => isPrjctHook(h))
+    // Match by subcommand — multiple managed hooks can share a matcher
+    // (e.g. Bash → pre-commit + pre-secrets; Edit|Write → pre-secrets + pre-edit).
+    const existing = block.hooks.find((h) => isPrjctHook(h) && subcommandOf(h) === spec.subcommand)
     if (existing) {
       // Refresh command + if clause in case the binary path or matcher changed.
       const refreshed = hookEntryFor(spec)

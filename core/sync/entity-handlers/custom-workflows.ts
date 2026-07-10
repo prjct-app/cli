@@ -17,8 +17,6 @@ export const customWorkflowsHandler: EntityHandler = {
 
     const description = (data.description as string) ?? null
     const metadata = serializeMetadata(data.metadata)
-    const enabled = data.enabled === 0 ? 0 : 1
-    const isBuiltin = data.is_builtin === 1 ? 1 : 0
     const now = new Date().toISOString()
 
     const existing = prjctDb.get<{ id: number; is_builtin: number }>(
@@ -32,10 +30,9 @@ export const customWorkflowsHandler: EntityHandler = {
       if (existing.is_builtin === 1) return
       prjctDb.run(
         projectId,
-        'UPDATE custom_workflows SET description = ?, metadata = ?, enabled = ?, updated_at = ? WHERE name = ? AND is_builtin = 0',
+        'UPDATE custom_workflows SET description = ?, metadata = ?, updated_at = ? WHERE name = ? AND is_builtin = 0',
         description,
         metadata,
-        enabled,
         now,
         name
       )
@@ -45,13 +42,11 @@ export const customWorkflowsHandler: EntityHandler = {
     prjctDb.run(
       projectId,
       `INSERT INTO custom_workflows (name, description, created_at, updated_at, is_builtin, enabled, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, 0, 0, ?)`,
       name,
       description,
       (data.created_at as string) || now,
       now,
-      isBuiltin,
-      enabled,
       metadata
     )
   },

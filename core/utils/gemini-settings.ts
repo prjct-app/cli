@@ -90,18 +90,19 @@ export function geminiHookMaps(): GeminiHookMap[] {
         name: `prjct-${spec.subcommand}`,
       })
     } else if (spec.event === 'PreToolUse' && spec.matcher === 'Bash') {
+      // pre-secrets + pre-commit both map here; names disambiguate.
       maps.push({
         geminiEvent: 'BeforeTool',
         matcher: 'run_shell_command',
         subcommand: spec.subcommand,
-        name: `prjct-${spec.subcommand}`,
+        name: `prjct-${spec.subcommand}${spec.subcommand === 'pre-secrets' ? '-shell' : ''}`,
       })
     } else if (spec.event === 'PreToolUse' && spec.matcher === 'Edit|Write') {
       maps.push({
         geminiEvent: 'BeforeTool',
         matcher: 'write_file|replace',
         subcommand: spec.subcommand,
-        name: `prjct-${spec.subcommand}`,
+        name: `prjct-${spec.subcommand}${spec.subcommand === 'pre-secrets' ? '-write' : ''}`,
       })
     } else if (spec.event === 'PostToolUse' && spec.matcher === 'Edit|Write') {
       maps.push({
@@ -131,6 +132,10 @@ export function geminiHookMaps(): GeminiHookMap[] {
 function hookCommand(subcommand: string): string {
   const bin = process.env.PRJCT_BIN ?? 'prjct'
   // Host env remaps deny/context for Gemini schema.
+  // CRITICAL: never reference $PPID or other host-only vars. Gemini runs hooks
+  // with a sanitized env and refuses commands that require unset vars
+  // ("required env var(s) not set: ${PPID}") — which would skip the
+  // credential MUST. Only GEMINI_* / explicit PRJCT_* are portable here.
   return `command -v ${bin} >/dev/null 2>&1 && PRJCT_HOOK_HOST=gemini ${bin} hook ${subcommand} || exit 0`
 }
 
