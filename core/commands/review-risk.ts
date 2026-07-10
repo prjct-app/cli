@@ -3,6 +3,7 @@
  * Never gates (use deliveryGeometry strict on work start for hard gates).
  */
 
+import type { ReviewIntensity } from '../schemas/judgment'
 import {
   computeCommittedChangeset,
   type DeliveryGeometry,
@@ -10,6 +11,7 @@ import {
   geometryOf,
   tierOf,
 } from '../services/delivery-geometry'
+import { intensityProtocol, routeIntensity } from '../services/precision-judgment'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -30,13 +32,26 @@ export class ReviewRiskCommands extends PrjctCommandsBase {
       if (!cs) {
         const msg = 'review-risk: no comparable changeset (no base branch or nothing committed).'
         console.log(options.md ? `## Review risk\n\n_${msg}_\n` : msg)
-        return { success: true, tier: 'trivial', files: 0, loc: 0, geometry: geometryOf('trivial') }
+        return {
+          success: true,
+          tier: 'trivial',
+          files: 0,
+          loc: 0,
+          geometry: geometryOf('trivial'),
+          intensity: 'skip' as ReviewIntensity,
+        }
       }
 
       const tier = tierOf(cs)
       const geometry = geometryOf(tier)
-      console.log(options.md ? formatMd(cs, tier, geometry) : formatText(cs, tier, geometry))
-      return { success: true, tier, files: cs.files, loc: cs.loc, geometry }
+      const intensity = routeIntensity(tier, { paths: cs.dirs })
+      const protocol = intensityProtocol(intensity)
+      console.log(
+        options.md
+          ? formatMd(cs, tier, geometry, intensity, protocol)
+          : formatText(cs, tier, geometry, intensity, protocol)
+      )
+      return { success: true, tier, files: cs.files, loc: cs.loc, geometry, intensity }
     } catch (error) {
       return failHard(getErrorMessage(error))
     }
@@ -56,19 +71,26 @@ function suggestion(geometry: DeliveryGeometry, dirs: string[]): string {
 function formatText(
   cs: { base: string; files: number; loc: number; dirs: string[] },
   tier: DeliveryTier,
-  geometry: DeliveryGeometry
+  geometry: DeliveryGeometry,
+  intensity: ReviewIntensity,
+  protocol: ReturnType<typeof intensityProtocol>
 ): string {
   return [
     `Review risk: ${tier.toUpperCase()} — ${cs.files} files, ${cs.loc} LOC vs ${cs.base}`,
     `Delivery: ${geometry} — ${suggestion(geometry, cs.dirs)}`,
-    '(advisory — you decide; nothing was changed)',
+    `Judgment intensity: ${intensity} — ${protocol.reviewers}`,
+    `  severity floor: ${protocol.severityFloor}`,
+    `  next: prjct judgment plan | open  (ledger + ship gate)`,
+    '(advisory for delivery; judgment ledger enforces intensity on code-strict ship)',
   ].join('\n')
 }
 
 function formatMd(
   cs: { base: string; files: number; loc: number; dirs: string[] },
   tier: DeliveryTier,
-  geometry: DeliveryGeometry
+  geometry: DeliveryGeometry,
+  intensity: ReviewIntensity,
+  protocol: ReturnType<typeof intensityProtocol>
 ): string {
   return [
     '## Review risk',
@@ -77,8 +99,11 @@ function formatMd(
     `- **Changeset**: ${cs.files} files, ${cs.loc} LOC (vs \`${cs.base}\`)`,
     `- **Dirs touched**: ${cs.dirs.join(', ') || '—'}`,
     `- **Suggested delivery**: \`${geometry}\` — ${suggestion(geometry, cs.dirs)}`,
+    `- **Judgment intensity**: \`${intensity}\` — ${protocol.reviewers}`,
+    `- **Severity floor**: ${protocol.severityFloor}`,
+    `- **Max fix rounds**: ${protocol.maxFixRounds}`,
     '',
-    '_Advisory only — no gate, nothing changed. Strict packs gate at work start._',
+    '_Delivery is advisory. On code-strict packs, `prjct ship` hard-gates on `prjct judgment` ledger.approved._',
   ].join('\n')
 }
 

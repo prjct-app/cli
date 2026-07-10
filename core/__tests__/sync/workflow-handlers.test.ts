@@ -32,7 +32,7 @@ describe('workflow entity handlers', () => {
     await fs.rm(tempDir, { recursive: true, force: true })
   })
 
-  test('custom_workflows upserts by name (insert then update, no dupe)', async () => {
+  test('pulled custom_workflows stay disabled on insert and update', async () => {
     await customWorkflowsHandler.upsert(projectId, {
       id: 9,
       name: 'deploy',
@@ -49,16 +49,45 @@ describe('workflow entity handlers', () => {
       is_builtin: 0,
     })
 
-    const rows = prjctDb.query<{ name: string; description: string }>(
+    const rows = prjctDb.query<{ name: string; description: string; enabled: number }>(
       projectId,
-      'SELECT name, description FROM custom_workflows WHERE name = ?',
+      'SELECT name, description, enabled FROM custom_workflows WHERE name = ?',
       'deploy'
     )
     expect(rows.length).toBe(1)
     expect(rows[0].description).toBe('ship it (v2)')
+    expect(rows[0].enabled).toBe(0)
   })
 
-  test('custom_workflows delete is a no-op — local stays enabled', async () => {
+  test('pulled custom_workflows preserve an existing local enablement decision', async () => {
+    prjctDb.run(
+      projectId,
+      `INSERT INTO custom_workflows
+         (name, description, created_at, updated_at, is_builtin, enabled, metadata)
+       VALUES (?, ?, ?, ?, 0, 1, NULL)`,
+      'deploy-local',
+      'local definition',
+      new Date().toISOString(),
+      new Date().toISOString()
+    )
+
+    await customWorkflowsHandler.upsert(projectId, {
+      name: 'deploy-local',
+      description: 'remote metadata refresh',
+      enabled: 0,
+      is_builtin: 0,
+    })
+
+    const row = prjctDb.get<{ enabled: number; description: string }>(
+      projectId,
+      'SELECT enabled, description FROM custom_workflows WHERE name = ?',
+      'deploy-local'
+    )
+    expect(row?.enabled).toBe(1)
+    expect(row?.description).toBe('remote metadata refresh')
+  })
+
+  test('custom_workflows delete is a no-op — pulled row stays inert', async () => {
     await customWorkflowsHandler.upsert(projectId, { name: 'temp', enabled: 1, is_builtin: 0 })
     await customWorkflowsHandler.delete(projectId, { name: 'temp' })
     const row = prjctDb.get<{ enabled: number }>(
@@ -66,8 +95,7 @@ describe('workflow entity handlers', () => {
       'SELECT enabled FROM custom_workflows WHERE name = ?',
       'temp'
     )
-    // A remote delete never disables the local workflow.
-    expect(row?.enabled).toBe(1)
+    expect(row?.enabled).toBe(0)
   })
 
   test('custom_workflows handler does not echo to the sync queue', async () => {
@@ -76,7 +104,7 @@ describe('workflow entity handlers', () => {
     expect(syncPendingStorage.list(projectId).length).toBe(before)
   })
 
-  test('workflow_rules upserts by explicit id (replace on re-apply)', async () => {
+  test('workflow_rules use a negative remote-id namespace and stay inert', async () => {
     await workflowRulesHandler.upsert(projectId, {
       id: 42,
       type: 'gate',
@@ -98,13 +126,77 @@ describe('workflow entity handlers', () => {
       sort_order: 0,
     })
 
-    const rows = prjctDb.query<{ id: number; action: string }>(
-      projectId,
-      'SELECT id, action FROM workflow_rules WHERE id = ?',
-      42
-    )
+    const rows = prjctDb.query<{
+      id: number
+      action: string
+      enabled: number
+      trust_source: string
+    }>(projectId, 'SELECT id, action, enabled, trust_source FROM workflow_rules WHERE id = ?', -42)
     expect(rows.length).toBe(1)
     expect(rows[0].action).toBe('run tests AND lint')
+    expect(rows[0].enabled).toBe(0)
+    expect(rows[0].trust_source).toBe('imported')
+  })
+
+  test('remote rule id collision never overwrites a positive local rule', async () => {
+    prjctDb.run(
+      projectId,
+      `INSERT INTO workflow_rules
+         (id, type, command, position, action, enabled, timeout_ms, created_at,
+          sort_order, parallel, trust_source)
+       VALUES (42, 'step', 'ship', 'before', 'local-only', 1, 5000, ?, 0, 1, 'local')`,
+      new Date().toISOString()
+    )
+
+    await workflowRulesHandler.upsert(projectId, {
+      id: 42,
+      type: 'step',
+      command: 'ship',
+      position: 'before',
+      action: 'remote-payload',
+      enabled: 1,
+      trust_source: 'local',
+    })
+
+    const local = prjctDb.get<{ action: string; enabled: number; trust_source: string }>(
+      projectId,
+      'SELECT action, enabled, trust_source FROM workflow_rules WHERE id = 42'
+    )
+    const remote = prjctDb.get<{ action: string; enabled: number; trust_source: string }>(
+      projectId,
+      'SELECT action, enabled, trust_source FROM workflow_rules WHERE id = -42'
+    )
+    expect(local).toEqual({ action: 'local-only', enabled: 1, trust_source: 'local' })
+    expect(remote).toEqual({ action: 'remote-payload', enabled: 0, trust_source: 'imported' })
+  })
+
+  test('legacy positive imported rows converge into the remote namespace', async () => {
+    prjctDb.run(
+      projectId,
+      `INSERT INTO workflow_rules
+         (id, type, command, position, action, enabled, timeout_ms, created_at,
+          sort_order, parallel, trust_source)
+       VALUES (9, 'step', 'ship', 'before', 'legacy', 0, 5000, ?, 0, 1, 'imported')`,
+      new Date().toISOString()
+    )
+
+    await workflowRulesHandler.upsert(projectId, {
+      id: 9,
+      type: 'step',
+      command: 'ship',
+      position: 'before',
+      action: 'current',
+      enabled: 1,
+      trust_source: 'local',
+    })
+
+    expect(prjctDb.get(projectId, 'SELECT id FROM workflow_rules WHERE id = 9')).toBeNull()
+    expect(
+      prjctDb.get<{ action: string; trust_source: string }>(
+        projectId,
+        'SELECT action, trust_source FROM workflow_rules WHERE id = -9'
+      )
+    ).toEqual({ action: 'current', trust_source: 'imported' })
   })
 
   test('workflow_rules delete is a no-op — local row is never removed', async () => {
@@ -119,10 +211,10 @@ describe('workflow entity handlers', () => {
     const row = prjctDb.get<{ id: number }>(
       projectId,
       'SELECT id FROM workflow_rules WHERE id = ?',
-      7
+      -7
     )
     // A remote delete never drops the local rule.
-    expect(row?.id).toBe(7)
+    expect(row?.id).toBe(-7)
   })
 
   test('ignores malformed events (missing name / id)', async () => {

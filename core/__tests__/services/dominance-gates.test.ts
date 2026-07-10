@@ -103,6 +103,25 @@ describe('harness false-positives (discuss-lock dust)', () => {
   })
 })
 
+describe('precision judgment ship gate (gentle-ai 4R v2 — with teeth)', () => {
+  it('code-strict + full intensity hard-blocks without ledger', async () => {
+    const { judgmentShipVerdict } = await import('../../services/precision-judgment')
+    const v = judgmentShipVerdict({
+      codeStrict: true,
+      intensity: 'full',
+      ledger: null,
+      override: false,
+    })
+    expect(v.blocked).toBe(true)
+    expect(v.mode).toBe('hard')
+  })
+
+  it('fail-closed missing refute votes stand (not silent kill)', async () => {
+    const { resolveRefuteVotes } = await import('../../services/precision-judgment')
+    expect(resolveRefuteVotes([], 3)).toBe('stands')
+  })
+})
+
 describe('nyquist-lite (verifiable ACs)', () => {
   it('accepts test-named criteria', () => {
     expect(isVerifiableAcceptance('bun test core/foo.test.ts passes')).toBe(true)

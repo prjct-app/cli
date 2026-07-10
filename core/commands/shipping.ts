@@ -91,14 +91,12 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       let featureName = normalizeShipFeature(feature)
 
-      // Resolve + complete the task for THIS worktree (main → currentTask,
-      // child worktree → its activeTasks[] slot) so parallel agents ship their
-      // own work without disturbing sibling worktrees.
+      // Resolve the task for THIS worktree first. Hard gates run BEFORE
+      // completeActiveTask so a blocked ship does not silently close the cycle.
       const currentTask = await resolveActiveTask(projectId, projectPath)
       const linkedSpecId = currentTask?.linkedSpecId
-      if (currentTask) {
-        if (!featureName) featureName = normalizeShipFeature(currentTask.description)
-        await completeActiveTask(projectId, projectPath)
+      if (currentTask && !featureName) {
+        featureName = normalizeShipFeature(currentTask.description)
       }
 
       // SDD strict gate (opt-in via config.sdd.mode === 'strict'): refuse to
@@ -141,15 +139,45 @@ export class ShippingCommands extends PrjctCommandsBase {
         /* package check is best-effort */
       }
 
-      // Dual-blind judgment default on ship-grade packs (code-strict).
-      if (
-        shipConfig?.sdd?.mode === 'strict' &&
-        shipConfig?.tdd?.mode === 'strict' &&
-        !options.noSpecGate
-      ) {
-        console.log(
-          '⚖️  code-strict ship: run dual-blind `judgment` (two independent reviewers, confirmed-only fixes, re-judge) before merge — `prjct workflows` → judgment.'
+      // Precision-gated judgment ship gate (steroids vs gentle-ai 4R prose):
+      // intensity from delivery-geometry; code-strict hard-blocks without
+      // ledger.approved; soft packs get a reminder only.
+      try {
+        const { intensityFromChangeset, judgmentShipVerdict } = await import(
+          '../services/precision-judgment'
         )
+        const { computeCommittedChangeset } = await import('../services/delivery-geometry')
+        const { judgmentLedgerStorage } = await import('../storage/judgment-ledger-storage')
+        const cs = await computeCommittedChangeset(projectPath)
+        const signals = {
+          harnessLevel: currentTask?.harness?.level,
+          harnessKind: currentTask?.harness?.kind,
+        }
+        const { intensity } = intensityFromChangeset(
+          { files: cs?.files ?? 0, loc: cs?.loc ?? 0 },
+          signals
+        )
+        const codeStrict = shipConfig?.sdd?.mode === 'strict' && shipConfig?.tdd?.mode === 'strict'
+        const ledger = judgmentLedgerStorage.get(projectId)
+        const jv = judgmentShipVerdict({
+          codeStrict,
+          intensity,
+          ledger,
+          override: Boolean(options.noSpecGate),
+        })
+        if (jv.blocked) {
+          return { success: false, error: jv.message }
+        }
+        if (jv.message) console.log(jv.message)
+      } catch {
+        /* judgment gate is best-effort — never crash ship on lookup */
+      }
+
+      // Gates passed — complete the task for THIS worktree (main → currentTask,
+      // child worktree → its activeTasks[] slot) so parallel agents ship their
+      // own work without disturbing sibling worktrees.
+      if (currentTask) {
+        await completeActiveTask(projectId, projectPath)
       }
 
       // SDD acceptance gate: surface the linked spec's acceptance_criteria

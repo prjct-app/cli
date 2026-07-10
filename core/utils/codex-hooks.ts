@@ -241,7 +241,11 @@ export async function installCodexHooks(opts?: {
     block.hooks = block.hooks.filter((h) => !isLegacyPrjctHandler(h))
 
     const desired = handlerFor(spec.subcommand, statusFor(spec.subcommand))
-    const existing = block.hooks.find((h) => isPrjctHandler(h))
+    // Match by subcommand — multiple managed hooks share a matcher (Bash /
+    // Edit|Write both carry pre-secrets + a sibling).
+    const existing = block.hooks.find(
+      (h) => isPrjctHandler(h) && subcommandOf(h) === spec.subcommand
+    )
     if (existing) {
       if (
         existing.command === desired.command &&
