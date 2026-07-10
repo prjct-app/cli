@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+## [3.41.0] - 2026-07-10
+
 ### Added
+- closed-loop judgment + dynamic work-scope inventory
 - Closed-loop judgment continuity: Judgment Receipts on `land`/Stop (capture:receipt-v1), Decision Conflict Gate on Edit|Write (`judgment.conflictMode` off|advisory|strict with durable override via remember tags — not land/sdd modes), hot-path latency budgets (≤300ms fail-open + SQL LIMIT on file recall), SessionStart git timeouts, closed-loop health line on `prjct harness score`. Proof of traps prevented and decisions applied — continuity of engineering judgment, not an AI memory product (mem_3919).
 - Full 7-bet leap: world-model impact on `guard` (import/co-change + traps); default routing surface `work`+`ship` progressive disclosure; multi-agent geometry DEFAULT wording for H2/H3 fan-out; token economics score on `prime`/`harness score`; `judgment.weakModelMode` product mode (strict conflict floor + elevated quality + SessionStart/prime banner).
 - Work-scope SSOT: before Grep/Glob, agents get a constrained file list from memory (FTS + semantic embeddings when enabled) + BM25 code index + import/co-change graph (`resolveWorkScope`). Wired into `prjct work`, prompt file cue, MCP `prjct_relevant_files`, and skill MUST discipline.
