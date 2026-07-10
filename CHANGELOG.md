@@ -5,11 +5,6 @@
 ## [3.44.0] - 2026-07-10
 
 ### Added
-- multi-agent switch/accept handoff + auto-worktree isolation
-
-## [3.43.0] - 2026-07-10
-
-### Added
 - multi-agent realtime yield/switch handoff + auto-worktree isolation
 - **`prjct switch <agent> [--reason] [--launch]`** — yield the live work cycle to another runtime (codex/claude/grok/…) with durable who/why in SQLite (`task_handoffs`)
 - **`prjct accept [hand_id]`** / **`prjct handoffs`** — accept pending handoff, rebind ownership, resume brief
