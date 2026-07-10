@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.39.0] - 2026-07-09
+
+### Added
+- pre-secrets CI parity after #534 — wire dispatcher + cursor multi-matcher
+
 ## [3.38.0] - 2026-07-09
 
 ### Added
