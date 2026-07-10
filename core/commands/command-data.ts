@@ -452,6 +452,31 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'judgment',
+    group: 'optional',
+    surface: 'support',
+    routing: { group: 'judgment', method: 'judgment' },
+    optionSchema: { booleans: ['md'] },
+    description:
+      'Precision judgment v2: evidence tax, DNA, RED/BLUE merge, ghosts, next card, ship gate',
+    usage: {
+      claude: 'p. judgment [plan|open|add|merge|challenge|next|approve|…]',
+      terminal: 'prjct judgment [sub]',
+    },
+    params:
+      '[plan|open|add|merge|challenge|fix-round|fixed|verify|brief|next|ghosts|approve|escalate|status|clear]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'next → machine directive card (agent loop never re-derives state)',
+      'evidence tax + finding DNA + project ghost FP memory',
+      'RED/BLUE dual-blind merge; contradiction auto-escalates',
+      'code-strict ship hard-gates on ledger.approved before task complete',
+    ],
+  },
+  {
     name: 'sdd',
     group: 'optional',
     surface: 'support',

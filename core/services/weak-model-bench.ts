@@ -16,6 +16,12 @@ import { DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
+import {
+  applyEvidenceTax,
+  buildNextAction,
+  findingDna,
+  judgmentShipVerdict,
+} from './precision-judgment'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
 import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
 import { buildDemoRows, routeIntent, routeIntentBare } from './weak-frontier-demo'
@@ -160,6 +166,41 @@ export function runWeakModelBench(): WeakBenchReport {
     ['claude', 'codex', 'gemini', 'grok', 'cursor'].every((id) => surfaceIds.has(id as never)),
     `${surfaceIds.size} surfaces in matrix`
   )
+
+  // Precision judgment v2 — structural dominance vs gentle-ai 4R prose
+  {
+    const tax = applyEvidenceTax({
+      id: 't',
+      severity: 'blocker',
+      status: 'candidate',
+      title: 'vibes only',
+    })
+    push(
+      'judgment evidence tax',
+      tax.severity === 'critical',
+      `blocker-without-locus → ${tax.severity}`
+    )
+    const ship = judgmentShipVerdict({
+      codeStrict: true,
+      intensity: 'full',
+      ledger: null,
+      override: false,
+    })
+    push(
+      'judgment ship teeth',
+      ship.blocked && ship.mode === 'hard',
+      `code-strict full without ledger blocked=${ship.blocked}`
+    )
+    const next = buildNextAction(null, 'full')
+    push(
+      'judgment next card',
+      next.kind === 'open_ledger' && Boolean(next.judgeCharters?.red),
+      `kind=${next.kind} has RED charter`
+    )
+    const dnaA = findingDna({ title: 'Auth hole', file: 'a.ts', line: 10 })
+    const dnaB = findingDna({ title: 'auth hole!', file: 'a.ts', line: 12 })
+    push('judgment DNA stable', dnaA === dnaB, dnaA)
+  }
 
   const passed = checks.filter((c) => c.ok).length
   const total = checks.length
