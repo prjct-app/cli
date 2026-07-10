@@ -614,17 +614,22 @@ export const projectMemory = {
     // superseded pruning stay in JS over the (small) matched set.
     // memory_entries.file is the typed, indexed equivalent of the old events
     // `file_tag` generated column — exact / suffix / basename match in SQL.
+    // SQL LIMIT bounds the hot path (pre-edit / guard). Over-fetch a small
+    // multiple so preventive JS filter + superseded prune still fill `limit`.
+    const sqlLimit = Math.max(limit * 5, 15)
     let matches: MemoryEntry[]
     try {
       matches = loadV2Entries(
         projectId,
         `AND file IS NOT NULL
           AND (file = ? OR ? LIKE '%/' || file OR file = ? OR file LIKE '%/' || ?)
-          ORDER BY created_at DESC, rowid DESC`,
+          ORDER BY created_at DESC, rowid DESC
+          LIMIT ?`,
         filePath,
         filePath,
         base,
-        base
+        base,
+        sqlLimit
       ).filter(isPreventive)
     } catch {
       return []

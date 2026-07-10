@@ -57,7 +57,43 @@ afterEach(async () => {
 })
 
 describe('pre-edit hook', () => {
-  test('surfaces a gotcha tagged to the file being edited', async () => {
+  test('default off: classic heads-up for a gotcha (no CONFLICT spam)', async () => {
+    await projectMemory.remember(projectPath, {
+      type: 'gotcha',
+      content: 'this module mutates shared state — clone before writing',
+      tags: { file: 'core/state.ts' },
+    })
+    const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
+    // Quiet default — pack-gated conflict only.
+    expect(out).toContain('heads-up before editing')
+    expect(out).toContain('clone before writing')
+    expect(out).not.toContain('CONFLICT')
+    expect(out).not.toContain('"permissionDecision":"deny"')
+  })
+
+  test('conflictMode advisory: CONFLICT warn without deny', async () => {
+    await configManager.writeConfig(projectPath, {
+      projectId,
+      dataPath: path.join(projectPath, '.prjct-data'),
+      judgment: { conflictMode: 'advisory' },
+    } as Parameters<typeof configManager.writeConfig>[1])
+    await projectMemory.remember(projectPath, {
+      type: 'gotcha',
+      content: 'this module mutates shared state — clone before writing',
+      tags: { file: 'core/state.ts' },
+    })
+    const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
+    expect(out).toContain('CONFLICT')
+    expect(out).toContain('clone before writing')
+    expect(out).not.toContain('"permissionDecision":"deny"')
+  })
+
+  test('conflictMode off: classic heads-up nudge (no CONFLICT gate)', async () => {
+    await configManager.writeConfig(projectPath, {
+      projectId,
+      dataPath: path.join(projectPath, '.prjct-data'),
+      judgment: { conflictMode: 'off' },
+    } as Parameters<typeof configManager.writeConfig>[1])
     await projectMemory.remember(projectPath, {
       type: 'gotcha',
       content: 'this module mutates shared state — clone before writing',
@@ -65,6 +101,25 @@ describe('pre-edit hook', () => {
     })
     const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
     expect(out).toContain('heads-up before editing')
+    expect(out).toContain('clone before writing')
+    expect(out).not.toContain('CONFLICT')
+  })
+
+  test('conflictMode strict: DENIES high-confidence gotcha via PreToolUse deny', async () => {
+    await configManager.writeConfig(projectPath, {
+      projectId,
+      dataPath: path.join(projectPath, '.prjct-data'),
+      judgment: { conflictMode: 'strict' },
+    } as Parameters<typeof configManager.writeConfig>[1])
+    await projectMemory.remember(projectPath, {
+      type: 'gotcha',
+      content: 'this module mutates shared state — clone before writing',
+      tags: { file: 'core/state.ts' },
+    })
+    const out = await runWith({ file_path: '/abs/repo/core/state.ts' })
+    expect(out).toContain('permissionDecision')
+    expect(out).toContain('deny')
+    expect(out).toContain('conflict deny')
     expect(out).toContain('clone before writing')
   })
 

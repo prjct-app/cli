@@ -19,10 +19,9 @@ export const ROUTING_END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
  * Pull commands only — no ruleset, no project history. Budget: ≤400 body bytes.
  */
 export const MINIMAL_ROUTING_BODY = `## prjct
-pull on demand. This file holds no rules. You run the verb.
-- work: \`prjct work --md\`
-- memory: \`prjct search\` / \`prjct context memory\` / \`prjct guard\` / \`prjct remember\`
-- land: \`prjct land\` auto-synthesizes Session close · optional \`prjct memory export\`
+This file holds no rules. Default surface: \`work\` + \`ship\` (user text confirm). Rest is pull-on-demand.
+- work: \`prjct work --md\` · ship: \`prjct ship\`
+- pull: \`search\` / \`remember\` / \`guard\` / \`land\` / \`prime\`
 - deep: \`prjct workflows --md\` · grade: \`prjct harness score --md\``
 
 export interface RoutingWriteResult {

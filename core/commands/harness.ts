@@ -32,8 +32,37 @@ export class HarnessCommands extends PrjctCommandsBase {
       // presence is gated by weak-model-bench, not ~/.claude probes on runners.
       const coverage = await probeHarnessCoverage(projectPath)
       const report = computeHarnessScore()
+      let closedLoopLine: string | null = null
+      let tokenLine: string | null = null
+      let weakLine: string | null = null
+      try {
+        const projectId = await configManager.getProjectId(projectPath)
+        if (projectId) {
+          const { buildClosedLoopHealth } = await import('../services/closed-loop-health')
+          closedLoopLine = buildClosedLoopHealth(projectId).line
+          const { buildTokenEconomics } = await import('../services/token-economics')
+          tokenLine = buildTokenEconomics(projectId).line
+          const cfg = await configManager.readConfig(projectPath)
+          const { effectiveWeakModelMode, weakModelOneLiner } = await import(
+            '../services/weak-model-mode'
+          )
+          if (effectiveWeakModelMode(cfg) === 'on') weakLine = weakModelOneLiner()
+        }
+      } catch {
+        closedLoopLine = null
+      }
       if (options.md) {
-        console.log(renderHarnessScoreMd(report, { coverageMd: renderHarnessCoverageMd(coverage) }))
+        const md = renderHarnessScoreMd(report, {
+          coverageMd: renderHarnessCoverageMd(coverage),
+        })
+        const extras = [
+          closedLoopLine ? `## Closed-loop judgment\n\n${closedLoopLine}` : '',
+          tokenLine ? `## Token economics\n\n${tokenLine}` : '',
+          weakLine ? `## Weak-model mode\n\n${weakLine}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+        console.log(extras ? `${md}\n\n${extras}\n` : md)
       } else {
         console.log(`Harness grade: ${report.grade}/5${report.programDone ? ' (done)' : ''}`)
         console.log(report.summary)
@@ -44,6 +73,9 @@ export class HarnessCommands extends PrjctCommandsBase {
         console.log(
           `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%) — advisory`
         )
+        if (closedLoopLine) console.log(closedLoopLine)
+        if (tokenLine) console.log(tokenLine)
+        if (weakLine) console.log(weakLine)
       }
       return {
         success: true,

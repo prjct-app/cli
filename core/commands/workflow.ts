@@ -183,13 +183,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
             : null,
           likelyFileLines.length > 0
             ? mdSection(
-                'Likely files — from prjct index',
+                'Work scope — prjct (MUST before Grep/Glob)',
                 [
-                  '> Read these first. Pull more with `prjct search`/`prjct context memory` before grep-walking the repo.',
+                  '> Do NOT tree-walk. Open these first. Expand with `prjct guard <file>` or MCP `prjct_relevant_files` / `prjct_impact_analysis`. Memory+index+graph already ran.',
                   mdList(likelyFileLines),
                 ].join('\n')
               )
-            : null,
+            : mdSection(
+                'Work scope — prjct',
+                '> No high-confidence files yet. MUST run `prjct context memory <topic>` + `prjct search` (and `prjct sync` if indexes cold) before Grep/Glob walks.'
+              ),
           mdNextSteps([
             { label: 'Synthesize context on close', command: 'prjct remember context "..."' },
             { label: 'Ship when done', command: 'prjct ship --md' },
@@ -217,8 +220,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
           for (const line of relatedLines) out.info(`  ${line}`)
         }
         if (likelyFileLines.length > 0) {
-          out.info('Likely files — from prjct index')
+          out.info('Work scope — prjct (MUST before Grep/Glob)')
           for (const line of likelyFileLines) out.info(`  ${line}`)
+        } else {
+          out.info(
+            'Work scope empty — run prjct context memory / search (or prjct sync) before Grep/Glob'
+          )
         }
         showStateInfo('working')
         showNextSteps('task')

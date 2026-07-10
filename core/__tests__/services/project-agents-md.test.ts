@@ -90,10 +90,12 @@ describe('writeProjectAgentsMd', () => {
     const body = await readAgentsMd()
     expect(body).toContain('This file holds no rules')
     // Names each organ + the one command to pull it — the map, not the rules.
+    // Surface compression: work+ship default; rest is pull-on-demand short names.
     expect(body).toContain('prjct work --md') // entrypoint
-    expect(body).toContain('prjct context memory') // memory + KB
-    expect(body).toContain('prjct guard') // guardrails
-    expect(body).toContain('prjct remember') // persistence
+    expect(body).toContain('ship') // ship after user confirm
+    expect(body).toMatch(/pull-on-demand|pull:/i)
+    expect(body).toContain('guard') // guardrails
+    expect(body).toContain('remember') // persistence
     // But the rules/protocol themselves are NOT inlined here — they live in prjct.
     expect(body).not.toContain('intent brief')
     expect(body).not.toContain('RAG-backed project memory harness')

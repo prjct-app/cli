@@ -244,7 +244,8 @@ describe('UserPromptSubmit — indexed file cue', () => {
 
     const cue = buildIndexedFileCue(projectId, 'map headless API endpoints')
     expect(cue).not.toBeNull()
-    expect(cue).toContain('Likely files from prjct index')
+    expect(cue).toContain('Work scope')
+    expect(cue).toContain('Grep/Glob')
     expect(cue).toContain('core/server/headless-api.ts')
     expect(cue).toContain('bm25')
   })

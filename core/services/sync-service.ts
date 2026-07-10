@@ -223,6 +223,15 @@ class SyncService {
         })
       )
 
+      // 3a. Dynamic file inventory EVERY sync (extensions/languages in THIS tree).
+      // Work-scope uses this instead of hard-coded language lists.
+      try {
+        const { refreshFileInventory } = await import('./project-file-inventory')
+        await refreshFileInventory(this.projectId!, this.projectPath)
+      } catch {
+        /* non-critical — scope falls back to open accept until next sync */
+      }
+
       // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
       // Skip if no source files changed (incremental optimization)
       if (shouldRebuildIndexes) {

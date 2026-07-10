@@ -122,11 +122,19 @@ export function registerProjectTools(server: McpServer) {
         if (outcome.likelyFiles && outcome.likelyFiles.length > 0) {
           lines.push(
             '',
-            'Likely files from prjct index — read these first, do not grep-walk the repo:'
+            'Work scope (prjct memory+index+graph) — MUST open these before Grep/Glob:'
           )
           for (const file of outcome.likelyFiles) {
             lines.push(`- ${formatLikelyFileForAgent(file)}`)
           }
+          lines.push(
+            'Expand only via prjct_guard / prjct_relevant_files / prjct_impact_analysis — do not tree-walk.'
+          )
+        } else {
+          lines.push(
+            '',
+            'Work scope empty — MUST call prjct_relevant_files or prjct context memory before Grep/Glob (run prjct sync if indexes cold).'
+          )
         }
         return { content: [{ type: 'text', text: lines.join('\n') }] }
       }
