@@ -47,10 +47,10 @@ If Claude assumes one package manager and you actually use another, the install 
 If you'd rather have the standalone binary (Bun runtime embedded), open your own terminal and run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
+curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash
 ```
 
-> **Note:** This is a `curl | bash` install. Run it from your own terminal, not via Claude Code — the Claude Code harness blocks remote `curl | bash` for safety, and that's the right call. Trust comes from you reading the script before running it. The script is here: [scripts/install-via-claude.sh](./scripts/install-via-claude.sh).
+> **Note:** This is a `curl | bash` install. Run it from your own terminal, not via Claude Code — the Claude Code harness blocks remote `curl | bash` for safety, and that's the right call. Trust comes from you reading the script before running it. The script is here: [scripts/install-standalone.sh](./scripts/install-standalone.sh).
 
 The script:
 1. Detects platform (macOS arm64/intel + Linux x64)

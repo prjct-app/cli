@@ -7,7 +7,7 @@
 # friction AND zero npm/Node dependency at install time.
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash
 #
 # What it does:
 #   1. Detects platform (mac arm64/intel + linux x64)

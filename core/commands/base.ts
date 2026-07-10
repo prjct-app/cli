@@ -10,7 +10,7 @@ import { agentService } from '../services/agent-service'
 import { breakdownService } from '../services/breakdown-service'
 import { memoryService } from '../services/memory-service'
 import { projectService } from '../services/project-service'
-import type { AgentInfo } from '../types/agents'
+import type { AgentInfo } from '../types/agent-info'
 import type { Author, CommandResult } from '../types/commands'
 
 /**

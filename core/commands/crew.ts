@@ -72,7 +72,7 @@ interface CrewFile {
 // the single crew roster (CREW_ROLES), so the native crew, the emulated
 // protocol, and the model policy can never drift apart.
 const AGENT_FILES: CrewFile[] = CREW_ROLES.map((r) => ({
-  templateKey: `crew/agents/${r.name}.md`,
+  templateKey: `crew/roles/${r.name}.md`,
   destRelative: `.claude/agents/${r.name}.md`,
 }))
 

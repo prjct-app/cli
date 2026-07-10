@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { fileExists } from '../utils/file-helper'
-import { writeProjectAgentsMd } from './project-agents-md'
-import { writeProjectClaudeMd } from './project-claude-md'
+import { writeProjectAgentsMd } from './host-agents-md'
+import { writeProjectClaudeMd } from './host-claude-md'
 import { writeProjectIdeRules } from './project-ide-rules'
 import type { RoutingWriteResult } from './routing-block'
 

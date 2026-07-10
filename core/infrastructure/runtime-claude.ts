@@ -38,7 +38,8 @@ interface IntentResult {
   command: string | null
 }
 
-class ClaudeAgent {
+/** Host adapter for Claude Code environments (writes/reads via MCP filesystem when present). */
+class RuntimeClaude {
   name: string
   type: string
 
@@ -287,4 +288,4 @@ Type p. help to see all options`
   }
 }
 
-export default ClaudeAgent
+export default RuntimeClaude

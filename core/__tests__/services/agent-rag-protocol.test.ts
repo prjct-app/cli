@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { _routing as agentsRouting } from '../../services/project-agents-md'
-import { _routing as claudeRouting } from '../../services/project-claude-md'
+import { _routing as agentsRouting } from '../../services/host-agents-md'
+import { _routing as claudeRouting } from '../../services/host-claude-md'
 import {
   buildAntigravityConfig,
   buildAntigravitySkill,

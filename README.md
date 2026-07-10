@@ -34,7 +34,7 @@ After install, run `prjct install` to verify/repair required native dependencies
 If you'd rather have the standalone binary (Bun runtime embedded, no Node ecosystem needed), run this **yourself in a terminal** — it's a `curl | bash` install which Claude Code's harness intentionally blocks for safety:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
+curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash
 ```
 
 The script auto-detects platform (mac arm64/intel + linux x64), downloads the right binary from GitHub Releases, sets up `~/.local/bin/prjct` on your PATH, runs `prjct setup` + `prjct sync`, and warns you if a stale package-manager install is shadowing the new binary.

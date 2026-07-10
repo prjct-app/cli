@@ -5,8 +5,9 @@
 ### Added
 
 ### Changed
-- **Repo hygiene**: knip-clean dead exports; removed non-product root/harness files (repo `AGENTS.md`/`CLAUDE.md`, handoffs, design-notes, turbo cache, copilot-instructions, `.claude/`/`.mcp.json`, unused planning/spec template docs); crew template renamed `leader-mode.md` (no CLAUDE in path). Architecture for contributors lives in `CONTRIBUTING.md` + `docs/`. **Product still generates** consumer `AGENTS.md` / host adapters via `templates/` + install.
-- **Licensing**: MIT copyright 2024–2026, `NOTICE` with third-party pointer, package.json author/SPDX metadata, contribution license clause in `CONTRIBUTING.md`.
+- **Repo hygiene (complete)**: knip-clean; no repo-local AGENTS/CLAUDE/Copilot/MCP harness; dead template docs removed; contributor architecture in `CONTRIBUTING.md` + `docs/`.
+- **Source renames (product-only naming)**: `host-agents-md` / `host-claude-md` / `runtime-claude` / `agent-info` / `agents-md-discovery`; crew templates under `templates/crew/roles/`; standalone installer `scripts/install-standalone.sh`. Destination host paths (e.g. user-project `CLAUDE.md`, `.claude/agents/`) unchanged — those are host APIs.
+- **Licensing**: MIT © 2024–2026, `NOTICE`, package author/SPDX, CONTRIBUTING contribution clause.
 
 ## [3.47.0] - 2026-07-10
 
