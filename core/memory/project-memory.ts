@@ -341,6 +341,19 @@ export const projectMemory = {
       } catch {
         /* fall through — never block a capture on the dedup check */
       }
+
+      // Rho capture gate: low-excess noise (near-dup of reference model R) is
+      // rejected for low-stakes types. Judgment types always pass. Best-effort
+      // — never drop a capture because the gate failed to load.
+      try {
+        const { captureGate } = await import('../services/retention/capture-gate')
+        const gate = captureGate(projectId, args.type, args.content, tags)
+        if (!gate.accept) {
+          return
+        }
+      } catch {
+        /* gate unavailable — proceed with write */
+      }
     }
 
     const logResult = await memoryService.log(

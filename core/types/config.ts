@@ -148,6 +148,25 @@ export interface LocalConfig {
   notify?: { mode: 'on' | 'off' }
 
   /**
+   * Value-based memory retention (score → active|archive|delete).
+   * Unset / `apply` runs archive+delete on sync (capped). `dry-run` only
+   * reports. `off` skips the retention phase entirely.
+   */
+  retention?: {
+    mode?: 'off' | 'dry-run' | 'apply'
+    /** Max archive actions per full sync (default 100). */
+    maxArchive?: number
+    /** Max delete actions per full sync (default 50). */
+    maxDelete?: number
+    /** Hard-delete soft-deleted rows older than N days on sync (default 7 — no statistical value). */
+    softDeletedPurgeDays?: number
+    /** Prune archives older than N days on sync (default 90). */
+    archivePruneDays?: number
+    /** Max live entries per auto source prefix (default 20). */
+    autoSourceMaxLive?: number
+  }
+
+  /**
    * Multi-agent coordination (worktree isolation + switch/accept handoff).
    * Unset ⇒ owner stamping always on; isolation defaults to `auto` when a
    * foreign cycle occupies the workspace; switch does not spawn target CLIs

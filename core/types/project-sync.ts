@@ -109,6 +109,44 @@ export interface ContextQualitySummary {
   issues: string[]
 }
 
+/** Retention phase summary (dry-run or applied). See core/services/retention. */
+export interface RetentionDryRunSummary {
+  evaluated: number
+  active: number
+  archive: number
+  delete: number
+  /** Actions actually performed this pass (0 when dry-run). */
+  archived?: number
+  deleted?: number
+  inboxMerged?: number
+  inboxArchived?: number
+  dryRun?: boolean
+  /** Worst-scored flagged entries, capped for the sync report. */
+  samples: Array<{
+    id: string
+    type: string
+    verdict: string
+    score: number
+    reasons: string[]
+    excess?: number
+  }>
+  referenceSize?: number
+  /** Cold purge + vault inventory (sync maintenance). */
+  vault?: {
+    live: number
+    softDeleted: number
+    archives: number
+    rememberEvents: number
+    autoSourceLive: number
+    softDeletedPurged?: number
+    orphanEventsPurged?: number
+    archivesPruned?: number
+    autoSourceTrimmed?: number
+    distilledDiscarded?: number
+    digestsWritten?: number
+  }
+}
+
 // Sync Result & Context Generator Config
 
 export interface IncrementalInfo {
@@ -135,6 +173,7 @@ export interface ProjectSyncResult {
   context7?: SyncContext7Status
   analysisSummary?: SyncAnalysisSummary
   contextQuality?: ContextQualitySummary
+  retentionDryRun?: RetentionDryRunSummary
   syncMetrics?: SyncMetrics
   workCost?: WorkCostSnapshot[]
   verification?: VerificationReport

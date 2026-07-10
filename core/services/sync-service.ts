@@ -459,6 +459,78 @@ class SyncService {
         repairContextQuality(this.projectPath, this.projectId!)
       )
 
+      // 9d. Value-based retention (score → archive/delete). Default applies
+      // capped actions; config.retention.mode = dry-run|off for observe/skip.
+      // 9e. Inbox triage merges fingerprint duplicates + archives stale inbox.
+      const retentionDryRun = await phase('retention', async () => {
+        try {
+          const cfg = await configManager.readConfig(this.projectPath).catch(() => null)
+          const mode = cfg?.retention?.mode ?? 'apply'
+          if (mode === 'off') return undefined
+
+          const dryRun = mode === 'dry-run'
+          const { applyRetention, triageInbox } = await import('./retention')
+          const applied = applyRetention(this.projectId!, {
+            dryRun,
+            maxArchive: cfg?.retention?.maxArchive,
+            maxDelete: cfg?.retention?.maxDelete,
+          })
+          let inboxMerged = 0
+          let inboxArchived = 0
+          if (!dryRun) {
+            const triaged = triageInbox(this.projectId!)
+            inboxMerged = triaged.merged
+            inboxArchived = triaged.archived
+          }
+
+          // Cold purge: vacuum soft-deleted, orphan events, old archives,
+          // auto-source caps. This is where historical bloat actually dies.
+          const { runVaultPurge, vaultHealth } = await import('./retention/purge')
+          const purged = await runVaultPurge(this.projectId!, {
+            projectPath: this.projectPath,
+            dryRun,
+            softDeletedPurgeDays: cfg?.retention?.softDeletedPurgeDays,
+            archivePruneDays: cfg?.retention?.archivePruneDays,
+            autoSourceMaxLive: cfg?.retention?.autoSourceMaxLive,
+          })
+          const health = vaultHealth(this.projectId!)
+
+          return {
+            evaluated: applied.evaluated,
+            active: applied.active,
+            archive: applied.wouldArchive,
+            delete: applied.wouldDelete,
+            archived: applied.archived,
+            deleted: applied.deleted,
+            inboxMerged,
+            inboxArchived,
+            dryRun,
+            samples: applied.samples.map((s) => ({
+              id: s.id,
+              type: s.type,
+              verdict: s.verdict,
+              score: s.score,
+              reasons: s.reasons,
+              excess: s.excess,
+            })),
+            referenceSize: applied.referenceSize,
+            vault: {
+              ...health,
+              softDeletedPurged: purged.softDeletedPurged,
+              orphanEventsPurged: purged.orphanEventsPurged,
+              archivesPruned: purged.archivesPruned,
+              autoSourceTrimmed: purged.autoSourceTrimmed,
+              distilledDiscarded: purged.distilledDiscarded,
+              digestsWritten: purged.digestsWritten,
+            },
+          }
+        } catch (error) {
+          // Best-effort: a scoring/apply failure must never break sync.
+          log.debug('retention phase failed', { error: getErrorMessage(error) })
+          return undefined
+        }
+      })
+
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
       await phase('install-global', async () => {
@@ -500,6 +572,7 @@ class SyncService {
         },
         analysisSummary,
         contextQuality,
+        retentionDryRun,
         syncMetrics,
         workCost,
         verification,
