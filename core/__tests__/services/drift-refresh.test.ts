@@ -2,7 +2,13 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { shouldRefreshDrift } from '../../services/drift-refresh'
+import {
+  driftStaleResolved,
+  formatDriftNotice,
+  markDriftRefreshApplied,
+  readDriftStamp,
+  shouldRefreshDrift,
+} from '../../services/drift-refresh'
 
 describe('shouldRefreshDrift', () => {
   const dirs: string[] = []
@@ -54,5 +60,26 @@ describe('shouldRefreshDrift', () => {
       'utf-8'
     )
     expect(shouldRefreshDrift(home, 5)).toBe(true)
+  })
+
+  test('markDriftRefreshApplied resolves permanent stale presentation', () => {
+    const home = tmpHome()
+    const stateDir = path.join(home, 'state')
+    fs.mkdirSync(stateDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(stateDir, 'drift-refresh-last.json'),
+      JSON.stringify({ scheduledAt: Date.now() - 5000, commitsAtSchedule: 4 }),
+      'utf-8'
+    )
+    markDriftRefreshApplied(home)
+    const stamp = readDriftStamp(home)
+    expect(driftStaleResolved(stamp)).toBe(true)
+    const line = formatDriftNotice({
+      warning: '4 commits',
+      commitsSinceSync: 4,
+      stamp,
+      refreshScheduled: false,
+    })
+    expect(line).toMatch(/refreshed|cleared/i)
   })
 })

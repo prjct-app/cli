@@ -2,47 +2,111 @@
  * Continuous understanding — when SessionStart detects genuine git drift since
  * last sync, kick a *lightweight* refresh so agents don't re-map the whole
  * codebase every phase (GSD map-codebase thrash). Detached, best-effort.
+ *
+ * SUPERIOR: not warn-forever — we stamp schedule + apply so SessionStart can
+ * report "refresh applied" and stop permanent stale banners after sync lands.
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const STAMP = 'drift-refresh-last.json'
+
+export interface DriftRefreshStamp {
+  /** When a detached refresh was last scheduled. */
+  scheduledAt?: number
+  /** When sync completed under PRJCT_WORLD_MODEL_REFRESH (applied). */
+  appliedAt?: number
+  /** commitsSinceSync at schedule time. */
+  commitsAtSchedule?: number
+}
 
 function stampPath(cliHome: string): string {
   return path.join(cliHome, 'state', STAMP)
 }
 
+export function readDriftStamp(cliHome: string): DriftRefreshStamp {
+  try {
+    const p = stampPath(cliHome)
+    if (!existsSync(p)) return {}
+    return JSON.parse(readFileSync(p, 'utf-8')) as DriftRefreshStamp
+  } catch {
+    return {}
+  }
+}
+
+function writeDriftStamp(cliHome: string, patch: DriftRefreshStamp): void {
+  try {
+    const dir = path.join(cliHome, 'state')
+    mkdirSync(dir, { recursive: true })
+    const prev = readDriftStamp(cliHome)
+    writeFileSync(stampPath(cliHome), JSON.stringify({ ...prev, ...patch }), 'utf-8')
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
- * Throttle: at most one detached refresh per hour per machine.
+ * Throttle: at most one detached refresh per hour per machine when drift ≥ 3.
  */
 export function shouldRefreshDrift(cliHome: string, commitsSinceSync: number): boolean {
   if (commitsSinceSync <= 0) return false
-  // Only act on real drift (same threshold band as staleness warnings).
   if (commitsSinceSync < 3) return false
   try {
-    const p = stampPath(cliHome)
-    if (!existsSync(p)) return true
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const raw = require('node:fs').readFileSync(p, 'utf-8') as string
-    const j = JSON.parse(raw) as { at?: number }
-    if (!j.at) return true
-    return Date.now() - j.at > 60 * 60 * 1000
+    const j = readDriftStamp(cliHome)
+    // Prefer scheduledAt; fall back to legacy `at` field if present.
+    const last = j.scheduledAt ?? (j as { at?: number }).at
+    if (!last) return true
+    return Date.now() - last > 60 * 60 * 1000
   } catch {
     return true
   }
 }
 
-function writeStamp(cliHome: string): void {
-  try {
-    const fs = require('node:fs') as typeof import('node:fs')
-    const dir = path.join(cliHome, 'state')
-    fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(stampPath(cliHome), JSON.stringify({ at: Date.now() }), 'utf-8')
-  } catch {
-    /* ignore */
+/**
+ * After a successful world-model sync, mark refresh applied so SessionStart
+ * stops looking like permanent staleness.
+ */
+export function markDriftRefreshApplied(cliHome: string): void {
+  writeDriftStamp(cliHome, { appliedAt: Date.now() })
+}
+
+/**
+ * Pure notice: did a recent apply clear the permanent-stale look?
+ * applied after schedule within the last hour → "refresh applied".
+ */
+export function driftStaleResolved(stamp: DriftRefreshStamp, now = Date.now()): boolean {
+  if (!stamp.appliedAt || !stamp.scheduledAt) return false
+  if (stamp.appliedAt < stamp.scheduledAt) return false
+  return now - stamp.appliedAt < 60 * 60 * 1000
+}
+
+/**
+ * SessionStart line for drift — SUPERIOR to warn-forever.
+ */
+export function formatDriftNotice(input: {
+  warning: string
+  commitsSinceSync: number
+  stamp: DriftRefreshStamp
+  refreshScheduled: boolean
+}): string {
+  if (driftStaleResolved(input.stamp)) {
+    return (
+      `**World model refreshed:** drift was ${input.commitsSinceSync}+ commits; ` +
+      `architecture/risk/work-scope sync applied. Stale banner cleared.`
+    )
   }
+  if (input.refreshScheduled) {
+    return (
+      `**Understanding may be stale:** ${input.warning} — background world-model refresh ` +
+      `scheduled (BM25 + import graph + architecture). Prefer \`prjct sync\` if this persists after ~1 min.`
+    )
+  }
+  return (
+    `**Understanding may be stale:** ${input.warning} — run \`prjct sync\` before big calls ` +
+    `to refresh architecture/risk/work-scope.`
+  )
 }
 
 /**
@@ -57,9 +121,12 @@ export function maybeDetachDriftRefresh(input: {
   cliHome: string
   commitsSinceSync: number
   prjctBin?: string
-}): void {
-  if (!shouldRefreshDrift(input.cliHome, input.commitsSinceSync)) return
-  writeStamp(input.cliHome)
+}): boolean {
+  if (!shouldRefreshDrift(input.cliHome, input.commitsSinceSync)) return false
+  writeDriftStamp(input.cliHome, {
+    scheduledAt: Date.now(),
+    commitsAtSchedule: input.commitsSinceSync,
+  })
 
   const bin = input.prjctBin ?? process.argv[1] ?? 'prjct'
   const env = {
@@ -76,8 +143,8 @@ export function maybeDetachDriftRefresh(input: {
       env,
     })
     child.unref()
+    return true
   } catch {
-    // try bare prjct on PATH
     try {
       const child = spawn('prjct', ['sync'], {
         detached: true,
@@ -87,8 +154,9 @@ export function maybeDetachDriftRefresh(input: {
         shell: true,
       })
       child.unref()
+      return true
     } catch {
-      /* never block session */
+      return false
     }
   }
 }

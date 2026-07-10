@@ -557,6 +557,24 @@ class SyncService {
         }
       })
 
+      // Continuous understanding: mark drift refresh applied so SessionStart
+      // stops permanent-stale banners after a world-model sync.
+      if (
+        process.env.PRJCT_WORLD_MODEL_REFRESH === '1' ||
+        process.env.PRJCT_DRIFT_REFRESH === '1'
+      ) {
+        try {
+          const os = await import('node:os')
+          const { markDriftRefreshApplied } = await import('./drift-refresh')
+          const cliHome = process.env.PRJCT_CLI_HOME
+            ? path.resolve(process.env.PRJCT_CLI_HOME)
+            : path.join(os.homedir(), '.prjct-cli')
+          markDriftRefreshApplied(cliHome)
+        } catch {
+          /* best-effort */
+        }
+      }
+
       return {
         success: true,
         projectId: this.projectId,

@@ -60,6 +60,10 @@ interface ShipOptions {
   allowNewDeps?: boolean
   /** Context-pressure critical: force ship despite hard gate (explicit consent) */
   forcePressure?: boolean
+  /** Delivery geometry decision for large diffs (explicit consent) */
+  geometry?: 'direct' | 'single' | 'split'
+  /** Skip precision-judgment ledger gate (explicit consent — not --no-spec-gate) */
+  noJudgmentGate?: boolean
 }
 
 export class ShippingCommands extends PrjctCommandsBase {
@@ -170,9 +174,31 @@ export class ShippingCommands extends PrjctCommandsBase {
         /* pressure gate best-effort */
       }
 
+      // Delivery geometry at ship — large committed diffs need an explicit strategy.
+      try {
+        const { computeCommittedChangeset, shipGeometryVerdict } = await import(
+          '../services/delivery-geometry'
+        )
+        const cs = await computeCommittedChangeset(projectPath)
+        const geomMode = shipConfig?.deliveryGeometry?.mode ?? 'off'
+        const gv = shipGeometryVerdict({
+          changeset: cs,
+          mode: geomMode,
+          explicitGeometry: options.geometry ?? null,
+          locThreshold: shipConfig?.deliveryGeometry?.locThreshold,
+        })
+        if (gv.blocked) {
+          return { success: false, error: gv.message ?? 'Delivery geometry gate blocked ship.' }
+        }
+        if (gv.message) console.log(gv.message)
+      } catch {
+        /* geometry best-effort */
+      }
+
       // Precision-gated judgment ship gate (human-invoked ship only — never
       // auto-ship). Intensity standard|full hard-blocks without ledger.approved.
-      // Override: --no-spec-gate with explicit user consent only.
+      // Override: --no-judgment-gate only (consent-scoped; not --no-spec-gate).
+      // code-strict pack forces dual-blind (full) intensity when quality applies.
       try {
         const { intensityFromChangeset, judgmentShipVerdict } = await import(
           '../services/precision-judgment'
@@ -185,18 +211,24 @@ export class ShippingCommands extends PrjctCommandsBase {
           harnessLevel: currentTask?.harness?.level,
           harnessKind: currentTask?.harness?.kind,
         }
-        const { intensity } = intensityFromChangeset(
+        let { intensity } = intensityFromChangeset(
           { files: cs?.files ?? 0, loc: cs?.loc ?? 0 },
           signals
         )
-        // Hard gate whenever quality is required (not only code-strict packs).
-        const codeStrict = shipRequiresQuality(intensity)
+        const packs = shipConfig?.persona?.packs ?? []
+        const isCodeStrictPack = packs.includes('code-strict')
+        // SUPERIOR: code-strict defaults to dual-blind (full) when not skip.
+        if (isCodeStrictPack && intensity !== 'skip') {
+          intensity = 'full'
+        }
+        // Hard gate for any non-skip intensity; pack code-strict always hard.
+        const codeStrict = isCodeStrictPack || shipRequiresQuality(intensity)
         const ledger = judgmentLedgerStorage.get(projectId)
         const jv = judgmentShipVerdict({
           codeStrict,
           intensity,
           ledger,
-          override: Boolean(options.noSpecGate),
+          override: Boolean(options.noJudgmentGate),
         })
         if (jv.blocked) {
           return { success: false, error: jv.message }

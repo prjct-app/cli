@@ -1,16 +1,46 @@
 /**
  * Superiority gates — beat field (not near-parity).
- * Pins for package-install PreToolUse, context-pressure hard gate,
- * per-gate ship overrides, competitive dust SUPERIOR claims.
+ * Pins for every program criterion: discuss/pressure/package/nyquist/
+ * geometry/judgment override, close, competitive dust, multi-runtime signals.
  */
 
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import {
   contextPressureBlocksExpansion,
   contextPressureVerdict,
 } from '../../services/context-pressure'
+import { shipGeometryVerdict } from '../../services/delivery-geometry'
+import { discussLockVerdict } from '../../services/discuss-lock'
+import {
+  driftStaleResolved,
+  formatDriftNotice,
+  markDriftRefreshApplied,
+  readDriftStamp,
+  shouldRefreshDrift,
+} from '../../services/drift-refresh'
 import { computeHarnessScore, renderCompetitiveDustMd } from '../../services/harness-score'
+import {
+  CORE_SUPERIORITY_RUNTIMES,
+  multiRuntimeSignalParityComplete,
+  runtimeSignalDelivery,
+  SUPERIORITY_SIGNAL_CONTRACTS,
+} from '../../services/multi-runtime-signals'
+import { effectiveNyquistWorkMode, nyquistWorkVerdict } from '../../services/nyquist-lite'
 import { decidePackageInstall, parsePackageInstallCommand } from '../../services/package-legitimacy'
+import { judgmentShipVerdict } from '../../services/precision-judgment'
+import { applyRetention } from '../../services/retention'
+import { isAutoSource, trimAutoSourceCap, vaultHealth } from '../../services/retention/purge'
+import { PRJCT_HOOKS } from '../../services/settings-installer'
+import {
+  buildCodexSkill,
+  buildGeminiConfig,
+  CONTRACT,
+} from '../../services/skill-generator/editor-surfaces'
+import prjctDb from '../../storage/database'
+import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 describe('package install parse (PreToolUse superiority)', () => {
   it('parses npm/pnpm/yarn/bun add with package names', () => {
@@ -46,6 +76,10 @@ describe('package install parse (PreToolUse superiority)', () => {
     expect(r.risky).toBe(true)
     expect(r.newPackages).toEqual(['evil-typo'])
   })
+
+  it('pre-package is registered in PRJCT_HOOKS', () => {
+    expect(PRJCT_HOOKS.some((h) => h.subcommand === 'pre-package')).toBe(true)
+  })
 })
 
 describe('context-pressure hard gate (expansion block)', () => {
@@ -66,6 +100,115 @@ describe('context-pressure hard gate (expansion block)', () => {
   })
 })
 
+describe('discuss-lock H2+ code path', () => {
+  it('blocks H2 advisory without reviewed spec', () => {
+    const v = discussLockVerdict({
+      sddMode: 'advisory',
+      harnessLevel: 'H2',
+      hasSpecId: false,
+    })
+    expect(v.blocked).toBe(true)
+    expect(v.message).toMatch(/Discuss-lock|SUPERIOR/i)
+  })
+
+  it('allows H0 without spec (smoke regression)', () => {
+    const v = discussLockVerdict({
+      sddMode: 'advisory',
+      harnessLevel: 'H0',
+      hasSpecId: false,
+    })
+    expect(v.blocked).toBe(false)
+  })
+})
+
+describe('nyquist work-start H2+', () => {
+  it('strict blocks H2 with vague ACs', () => {
+    const v = nyquistWorkVerdict({
+      harnessLevel: 'H2',
+      criteria: ['auth feels solid'],
+      mode: 'strict',
+    })
+    expect(v.blocked).toBe(true)
+    expect(v.reason).toBe('strict-vague')
+  })
+
+  it('advisory warns but does not block', () => {
+    const v = nyquistWorkVerdict({
+      harnessLevel: 'H2',
+      criteria: ['auth feels solid'],
+      mode: 'advisory',
+    })
+    expect(v.blocked).toBe(false)
+    expect(v.message).toMatch(/Nyquist/i)
+  })
+
+  it('H0 never blocks (smoke)', () => {
+    const v = nyquistWorkVerdict({
+      harnessLevel: 'H0',
+      criteria: ['auth feels solid'],
+      mode: 'strict',
+    })
+    expect(v.blocked).toBe(false)
+    expect(v.reason).toBe('h0-skip')
+  })
+
+  it('maps sdd/tdd modes', () => {
+    expect(effectiveNyquistWorkMode('strict', 'off')).toBe('strict')
+    expect(effectiveNyquistWorkMode('advisory', 'assist')).toBe('advisory')
+    expect(effectiveNyquistWorkMode('off', 'off')).toBe('off')
+  })
+})
+
+describe('ship delivery-geometry gate', () => {
+  it('strict blocks large committed diffs without explicit geometry', () => {
+    const v = shipGeometryVerdict({
+      changeset: {
+        files: 20,
+        loc: 900,
+        source: 'committed',
+        dirs: ['core', 'apps'],
+      },
+      mode: 'strict',
+      explicitGeometry: null,
+    })
+    expect(v.blocked).toBe(true)
+    expect(v.reason).toBe('strict-block')
+    expect(v.message).toMatch(/--geometry/i)
+  })
+
+  it('explicit geometry overrides block', () => {
+    const v = shipGeometryVerdict({
+      changeset: { files: 20, loc: 900, source: 'committed', dirs: ['core'] },
+      mode: 'strict',
+      explicitGeometry: 'split',
+    })
+    expect(v.blocked).toBe(false)
+    expect(v.reason).toBe('override')
+  })
+})
+
+describe('judgment gate consent-scoped override', () => {
+  it('codeStrict hard-blocks without ledger; override is separate', () => {
+    const blocked = judgmentShipVerdict({
+      codeStrict: true,
+      intensity: 'full',
+      ledger: null,
+      override: false,
+    })
+    expect(blocked.blocked).toBe(true)
+    expect(blocked.message).toMatch(/no-judgment-gate/)
+    expect(blocked.message).toMatch(/Dual-blind|dual-blind/i)
+
+    const ok = judgmentShipVerdict({
+      codeStrict: true,
+      intensity: 'full',
+      ledger: null,
+      override: true,
+    })
+    expect(ok.blocked).toBe(false)
+  })
+})
+
 describe('competitive dust claims SUPERIOR on every row', () => {
   it('matrix uses SUPERIOR not n/a ties', () => {
     const md = renderCompetitiveDustMd(computeHarnessScore())
@@ -73,10 +216,158 @@ describe('competitive dust claims SUPERIOR on every row', () => {
     expect(md).toContain('gentle-ai')
     expect(md).toContain('open-GSD')
     expect(md).toContain('memory plugins')
-    // No "tie" language — we claim measurable mechanisms
     expect(md).not.toMatch(/\bn\/a\b/i)
     expect(md).toMatch(/discuss-lock/i)
     expect(md).toMatch(/Rho/i)
     expect(md).toMatch(/Package legitimacy/i)
+  })
+})
+
+describe('multi-runtime signal + skill parity', () => {
+  it('core five runtimes each deliver every superiority signal', () => {
+    expect(CORE_SUPERIORITY_RUNTIMES).toEqual(['claude', 'codex', 'gemini', 'cursor', 'grok'])
+    expect(multiRuntimeSignalParityComplete()).toBe(true)
+    for (const r of CORE_SUPERIORITY_RUNTIMES) {
+      const d = runtimeSignalDelivery(r)
+      for (const s of SUPERIORITY_SIGNAL_CONTRACTS) {
+        expect(d[s].length).toBeGreaterThan(8)
+      }
+    }
+  })
+
+  it('Codex + Gemini surfaces carry loop-discipline CONTRACT', () => {
+    const codex = buildCodexSkill()
+    const gemini = buildGeminiConfig()
+    expect(codex).toContain(CONTRACT.loop)
+    expect(gemini).toContain(CONTRACT.loop)
+    expect(codex).toMatch(/tip→user|close/)
+    expect(Buffer.byteLength(codex, 'utf-8')).toBeLessThanOrEqual(1024 - 50)
+  })
+})
+
+describe('drift refresh — not warn-forever', () => {
+  const dirs: string[] = []
+  afterEach(() => {
+    for (const d of dirs) {
+      try {
+        require('node:fs').rmSync(d, { recursive: true, force: true })
+      } catch {
+        /* ignore */
+      }
+    }
+    dirs.length = 0
+  })
+
+  function tmpHome(): string {
+    const d = require('node:fs').mkdtempSync(path.join(os.tmpdir(), 'prjct-sup-drift-'))
+    dirs.push(d)
+    return d
+  }
+
+  it('applied after schedule clears permanent stale presentation', () => {
+    const home = tmpHome()
+    expect(shouldRefreshDrift(home, 5)).toBe(true)
+    // simulate schedule stamp
+    const stateDir = path.join(home, 'state')
+    require('node:fs').mkdirSync(stateDir, { recursive: true })
+    require('node:fs').writeFileSync(
+      path.join(stateDir, 'drift-refresh-last.json'),
+      JSON.stringify({ scheduledAt: Date.now() - 1000, commitsAtSchedule: 5 }),
+      'utf-8'
+    )
+    markDriftRefreshApplied(home)
+    const stamp = readDriftStamp(home)
+    expect(driftStaleResolved(stamp)).toBe(true)
+    const notice = formatDriftNotice({
+      warning: '5 commits behind',
+      commitsSinceSync: 5,
+      stamp,
+      refreshScheduled: false,
+    })
+    expect(notice).toMatch(/refreshed|cleared/i)
+    expect(notice).not.toMatch(/may be stale/i)
+  })
+})
+
+describe('retention living-loop — noisy vault shrinks on apply', () => {
+  let tmpRoot: string
+  let projectId: string
+
+  beforeEach(async () => {
+    tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-sup-ret-'))
+    projectId = `test-sup-ret-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    patchPathManager(tmpRoot)
+    prjctDb.run(projectId, 'SELECT 1 WHERE 1=0')
+  })
+
+  afterEach(async () => {
+    restorePathManager()
+    await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
+  })
+
+  it('auto-source cap trims live noise and vaultHealth reports inventory', () => {
+    const now = Date.now()
+    // Seed many auto-source context rows (noise) — source lives in tags.
+    // IDs must be mem_<digits> so projectMemory.forget can remove them.
+    for (let i = 0; i < 25; i++) {
+      const id = `mem_${9100 + i}`
+      prjctDb.run(
+        projectId,
+        `INSERT INTO memory_entries (
+          id, project_id, type, title, content, provenance, content_hash,
+          user_triggered, revision_count, created_at, updated_at, deleted_at
+        ) VALUES (?, ?, 'context', ?, ?, 'extracted', ?, 0, 0, ?, ?, NULL)`,
+        id,
+        projectId,
+        `auto noise ${i}`,
+        `auto-generated noise content row ${i} for retention living-loop superiority fixture xx`,
+        `hash_noise_${i}`,
+        now - i * 1000,
+        now - i * 1000
+      )
+      prjctDb.run(
+        projectId,
+        'INSERT INTO memory_entry_tags (entry_id, key, value, is_machine) VALUES (?, ?, ?, 0)',
+        id,
+        'source',
+        'pattern-detector-auto'
+      )
+    }
+    // One declared decision must survive
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memory_entries (
+        id, project_id, type, title, content, provenance, content_hash,
+        user_triggered, revision_count, created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'decision', ?, ?, 'declared', ?, 1, 0, ?, ?, NULL)`,
+      'mem_9199',
+      projectId,
+      'keep me',
+      'important decision that retention must not delete under type floor',
+      'hash_keep',
+      now,
+      now
+    )
+
+    expect(isAutoSource('pattern-detector-auto')).toBe(true)
+    const before = vaultHealth(projectId)
+    expect(before.live).toBeGreaterThanOrEqual(26)
+
+    const trimmed = trimAutoSourceCap(projectId, 20)
+    expect(trimmed).toBeGreaterThan(0)
+
+    const after = vaultHealth(projectId)
+    // Soft-delete reduces "live" count
+    expect(after.live).toBeLessThan(before.live)
+
+    // Full apply path still runs without throwing
+    const applied = applyRetention(projectId, {
+      dryRun: false,
+      maxArchive: 50,
+      maxDelete: 20,
+    })
+    expect(applied).toBeDefined()
+    expect(typeof applied.active).toBe('number')
+    expect(typeof applied.archived).toBe('number')
   })
 })

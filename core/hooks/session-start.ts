@@ -191,22 +191,43 @@ async function buildStalenessNotice(
     if (!warning) return null
     // Continuous understanding: detach a lightweight sync so the map
     // refreshes without GSD-style full map-codebase thrash every phase.
+    // SUPERIOR: stamp schedule/apply so we don't warn forever after refresh.
+    let refreshScheduled = false
+    let stamp: import('../services/drift-refresh').DriftRefreshStamp = {}
     try {
       const path = await import('node:path')
       const os = await import('node:os')
-      const { maybeDetachDriftRefresh } = await import('../services/drift-refresh')
+      const { maybeDetachDriftRefresh, readDriftStamp, formatDriftNotice, driftStaleResolved } =
+        await import('../services/drift-refresh')
       const cliHome = process.env.PRJCT_CLI_HOME
         ? path.resolve(process.env.PRJCT_CLI_HOME)
         : path.join(os.homedir(), '.prjct-cli')
-      maybeDetachDriftRefresh({
+      stamp = readDriftStamp(cliHome)
+      // If a recent apply already cleared staleness presentation, say so once.
+      if (driftStaleResolved(stamp)) {
+        return formatDriftNotice({
+          warning,
+          commitsSinceSync: status.commitsSinceSync,
+          stamp,
+          refreshScheduled: false,
+        })
+      }
+      refreshScheduled = maybeDetachDriftRefresh({
         projectPath,
         cliHome,
         commitsSinceSync: status.commitsSinceSync,
       })
+      stamp = readDriftStamp(cliHome)
+      return formatDriftNotice({
+        warning,
+        commitsSinceSync: status.commitsSinceSync,
+        stamp,
+        refreshScheduled,
+      })
     } catch {
       /* never block SessionStart */
     }
-    return `**Understanding may be stale:** ${warning} — architecture/risks map from last sync; a background refresh was scheduled when drift is large. Prefer \`prjct sync\` before big calls if this notice persists.`
+    return `**Understanding may be stale:** ${warning} — run \`prjct sync\` before big calls.`
   } catch {
     return null
   }

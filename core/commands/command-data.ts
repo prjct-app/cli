@@ -149,8 +149,15 @@ export const COMMANDS: CommandMeta[] = [
     surface: 'ai-agile',
     routing: { group: 'shipping', method: 'ship' },
     optionSchema: {
-      booleans: ['skipHooks', 'noSpecGate', 'noTestGate', 'allowNewDeps', 'forcePressure'],
-      strings: ['intent'],
+      booleans: [
+        'skipHooks',
+        'noSpecGate',
+        'noTestGate',
+        'allowNewDeps',
+        'forcePressure',
+        'noJudgmentGate',
+      ],
+      strings: ['intent', 'geometry'],
     },
     description: 'Commit, push, and celebrate shipped feature',
     usage: { claude: 'p. ship ["feature"]', terminal: 'prjct ship ["feature"]' },

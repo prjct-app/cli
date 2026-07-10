@@ -270,6 +270,8 @@ class PrjctCommands {
       noTestGate?: boolean
       allowNewDeps?: boolean
       forcePressure?: boolean
+      noJudgmentGate?: boolean
+      geometry?: 'direct' | 'single' | 'split'
     } = {}
   ): Promise<CommandResult> {
     return (await this.shippingG()).ship(feature, projectPath, { ...options })

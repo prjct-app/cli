@@ -36,6 +36,8 @@ export const CONTRACT = {
     'Save synthesized memory in English: `prjct remember <decision|learning|gotcha|context> "<text>"`.',
   kb: `KB facets (\`${KB}\`): \`prjct remember <facet>\` / \`prjct context memory <facet>\` — pulled on demand, never injected here.`,
   ship: 'Ship only after the user OKs: `prjct ship --md`.',
+  /** Loop-discipline parity across Claude/Codex/Gemini/Cursor/Grok (SUPERIOR multi-runtime). */
+  loop: 'Loop: land on pressure; H2+ needs reviewed intent; tip→user SoT; `prjct close` resolves.',
 } as const
 
 /**
@@ -59,6 +61,7 @@ export function buildCompactSkill(): string {
     `- ${CONTRACT.remember}`,
     `- ${CONTRACT.kb}`,
     `- ${CONTRACT.ship}`,
+    `- ${CONTRACT.loop}`,
     '',
     `Commit footer: \`${FOOTER}\``,
   ].join('\n')}\n`
@@ -91,6 +94,7 @@ export function buildGlobalConfig(rigName: string): string {
     `- ${CONTRACT.pull}`,
     `- Sovereign knowledge base — ${CONTRACT.kb}`,
     `- ${CONTRACT.remember}`,
+    `- ${CONTRACT.loop}`,
     '- On close, save synthesized context; raw quotes, counters, detector rows, and transcript chunks are inputs, not final memory',
     '- prjct remembers and shows the path; the agent decides how to execute with its own native tools',
     '- Treat prjct output as signals, not a prescriptive harness',
