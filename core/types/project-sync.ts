@@ -109,12 +109,18 @@ export interface ContextQualitySummary {
   issues: string[]
 }
 
-/** Dry-run retention verdict counts (nothing is mutated; see core/services/retention). */
+/** Retention phase summary (dry-run or applied). See core/services/retention. */
 export interface RetentionDryRunSummary {
   evaluated: number
   active: number
   archive: number
   delete: number
+  /** Actions actually performed this pass (0 when dry-run). */
+  archived?: number
+  deleted?: number
+  inboxMerged?: number
+  inboxArchived?: number
+  dryRun?: boolean
   /** Worst-scored flagged entries, capped for the sync report. */
   samples: Array<{ id: string; type: string; verdict: string; score: number; reasons: string[] }>
 }

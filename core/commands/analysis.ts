@@ -296,11 +296,21 @@ export class AnalysisCommands extends PrjctCommandsBase {
         let retentionSection: string | null = null
         if (result.retentionDryRun) {
           const r = result.retentionDryRun
-          mdStatsObj['Retention (dry-run)'] =
-            `${r.active} active · ${r.archive} archive · ${r.delete} delete`
+          const mode = r.dryRun === false ? 'applied' : 'dry-run'
+          const acted =
+            r.dryRun === false
+              ? ` · acted: ${r.archived ?? 0} archived, ${r.deleted ?? 0} deleted` +
+                (r.inboxMerged || r.inboxArchived
+                  ? `, inbox ${r.inboxMerged ?? 0} merged/${r.inboxArchived ?? 0} archived`
+                  : '')
+              : ''
+          mdStatsObj[`Retention (${mode})`] =
+            `${r.active} active · ${r.archive} archive · ${r.delete} delete${acted}`
           if (r.samples.length > 0) {
             retentionSection = mdSection(
-              'Retention dry-run — worst-scored entries (nothing removed)',
+              r.dryRun === false
+                ? 'Retention — worst-scored (actions applied this sync)'
+                : 'Retention dry-run — worst-scored entries (nothing removed)',
               mdList(
                 r.samples.map(
                   (s) =>

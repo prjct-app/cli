@@ -41,7 +41,6 @@ import log from '../utils/logger'
 import { repairContextQuality } from './context-quality-service'
 import context7Service from './context7-service'
 import { writeProjectAgentSurfaces } from './project-agent-surfaces'
-import { evaluateRetention } from './retention'
 import { skillGenerator } from './skill-generator'
 import { emptyCommands, emptyGitData, emptyStack, emptyStats } from './sync/defaults'
 import { detectIncrementalChanges } from './sync/incremental'
@@ -460,22 +459,44 @@ class SyncService {
         repairContextQuality(this.projectPath, this.projectId!)
       )
 
-      // 9d. Retention dry-run (PR1 of retention-score): report which entries
-      // the value-based criterion would archive/delete. READ-ONLY — nothing
-      // is mutated until the verdicts are validated against real projects.
-      const retentionDryRun = await phase('retention-dryrun', async () => {
+      // 9d. Value-based retention (score → archive/delete). Default applies
+      // capped actions; config.retention.mode = dry-run|off for observe/skip.
+      // 9e. Inbox triage merges fingerprint duplicates + archives stale inbox.
+      const retentionDryRun = await phase('retention', async () => {
         try {
-          const report = evaluateRetention(this.projectId!, Date.now())
+          const cfg = await configManager.readConfig(this.projectPath).catch(() => null)
+          const mode = cfg?.retention?.mode ?? 'apply'
+          if (mode === 'off') return undefined
+
+          const dryRun = mode === 'dry-run'
+          const { applyRetention, triageInbox } = await import('./retention')
+          const applied = applyRetention(this.projectId!, {
+            dryRun,
+            maxArchive: cfg?.retention?.maxArchive,
+            maxDelete: cfg?.retention?.maxDelete,
+          })
+          let inboxMerged = 0
+          let inboxArchived = 0
+          if (!dryRun) {
+            const triaged = triageInbox(this.projectId!)
+            inboxMerged = triaged.merged
+            inboxArchived = triaged.archived
+          }
           return {
-            evaluated: report.evaluated,
-            active: report.active,
-            archive: report.archive,
-            delete: report.delete,
-            samples: report.flagged.slice(0, 10),
+            evaluated: applied.evaluated,
+            active: applied.active,
+            archive: applied.wouldArchive,
+            delete: applied.wouldDelete,
+            archived: applied.archived,
+            deleted: applied.deleted,
+            inboxMerged,
+            inboxArchived,
+            dryRun,
+            samples: applied.samples,
           }
         } catch (error) {
-          // Best-effort: a scoring failure must never break sync.
-          log.debug('retention dry-run failed', { error: getErrorMessage(error) })
+          // Best-effort: a scoring/apply failure must never break sync.
+          log.debug('retention phase failed', { error: getErrorMessage(error) })
           return undefined
         }
       })

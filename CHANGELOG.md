@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Value-based memory retention (full plan)** — score honesty (base 40 + idle age), `applyRetention` archive/delete with caps, inbox triage, incremental cleanup on `status done`, selective embedding (active only), `config.retention.mode` off|dry-run|apply (default apply). Sync reports applied actions.
+
 ## [3.44.0] - 2026-07-10
 
 ### Added

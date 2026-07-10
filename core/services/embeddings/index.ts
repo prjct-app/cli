@@ -360,20 +360,36 @@ export const embeddingService = {
     // Work list via SQL anti-join: only entries that still lack a vector are
     // fetched + deserialized. The old path loaded the WHOLE corpus on every
     // Stop hook just to set-diff against embeddedIds in JS.
-    const todo = projectMemory
-      .unembeddedEntriesForIndex(projectId, provider.model)
-      .filter((e) => isModelMemory(e) && e.content.trim().length > 0)
+    // Selectivity: model memory only + retention active (never archive/delete
+    // candidates; never signals/telemetry). Retention scores are best-effort.
+    let retentionById: Map<string, { verdict: string }> | null = null
+    try {
+      const { evaluateRetention } = await import('../retention')
+      retentionById = evaluateRetention(projectId, Date.now()).byId
+    } catch {
+      retentionById = null
+    }
+
+    const todo = projectMemory.unembeddedEntriesForIndex(projectId, provider.model).filter((e) => {
+      if (!isModelMemory(e) || e.content.trim().length === 0) return false
+      const r = retentionById?.get(e.id)
+      if (r && r.verdict !== 'active') return false
+      return true
+    })
 
     // Selectivity (RAG north star): embed only entries that MODEL the
     // project/developer, never bulk-vectorize telemetry noise. Pruning noise
-    // vectors needs the full corpus, so it's throttled to every Nth backfill
-    // (first run always prunes) — a stale noise vector is harmless meanwhile.
+    // + archive/delete vectors is throttled to every Nth backfill.
     if (this.shouldPruneThisRun(projectId)) {
       const all = projectMemory.allEntriesForIndex(projectId)
-      this.pruneNonModelVectors(
-        projectId,
-        all.filter((e) => !isModelMemory(e)).map((e) => e.id)
-      )
+      const drop = all
+        .filter((e) => {
+          if (!isModelMemory(e)) return true
+          const r = retentionById?.get(e.id)
+          return r != null && r.verdict !== 'active'
+        })
+        .map((e) => e.id)
+      this.pruneNonModelVectors(projectId, drop)
     }
 
     // "skipped" = entries already vectorized by prior runs (counted before

@@ -670,6 +670,13 @@ export async function setTaskStatus(
       } catch {
         /* best-effort usefulness credit */
       }
+      // Phase 3: incremental retention cleanup on task done (capped, best-effort).
+      try {
+        const { applyRetentionIncremental } = await import('./retention')
+        applyRetentionIncremental(projectId)
+      } catch {
+        /* never block done on cleanup */
+      }
       return {
         ok: true,
         taskId: wsTask.id,
@@ -736,6 +743,13 @@ export async function setTaskStatus(
         usefulnessService.creditShippedTask(projectId, active.id)
       } catch {
         /* best-effort usefulness credit */
+      }
+      // Phase 3: incremental retention cleanup on task done (capped, best-effort).
+      try {
+        const { applyRetentionIncremental } = await import('./retention')
+        applyRetentionIncremental(projectId)
+      } catch {
+        /* never block done on cleanup */
       }
     } else if (normalized === 'paused' || normalized === 'pause') {
       await stateStorage.pauseTask(projectId)
