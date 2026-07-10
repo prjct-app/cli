@@ -41,6 +41,7 @@ import log from '../utils/logger'
 import { repairContextQuality } from './context-quality-service'
 import context7Service from './context7-service'
 import { writeProjectAgentSurfaces } from './project-agent-surfaces'
+import { evaluateRetention } from './retention'
 import { skillGenerator } from './skill-generator'
 import { emptyCommands, emptyGitData, emptyStack, emptyStats } from './sync/defaults'
 import { detectIncrementalChanges } from './sync/incremental'
@@ -459,6 +460,26 @@ class SyncService {
         repairContextQuality(this.projectPath, this.projectId!)
       )
 
+      // 9d. Retention dry-run (PR1 of retention-score): report which entries
+      // the value-based criterion would archive/delete. READ-ONLY — nothing
+      // is mutated until the verdicts are validated against real projects.
+      const retentionDryRun = await phase('retention-dryrun', async () => {
+        try {
+          const report = evaluateRetention(this.projectId!, Date.now())
+          return {
+            evaluated: report.evaluated,
+            active: report.active,
+            archive: report.archive,
+            delete: report.delete,
+            samples: report.flagged.slice(0, 10),
+          }
+        } catch (error) {
+          // Best-effort: a scoring failure must never break sync.
+          log.debug('retention dry-run failed', { error: getErrorMessage(error) })
+          return undefined
+        }
+      })
+
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
       await phase('install-global', async () => {
@@ -500,6 +521,7 @@ class SyncService {
         },
         analysisSummary,
         contextQuality,
+        retentionDryRun,
         syncMetrics,
         workCost,
         verification,

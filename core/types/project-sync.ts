@@ -109,6 +109,16 @@ export interface ContextQualitySummary {
   issues: string[]
 }
 
+/** Dry-run retention verdict counts (nothing is mutated; see core/services/retention). */
+export interface RetentionDryRunSummary {
+  evaluated: number
+  active: number
+  archive: number
+  delete: number
+  /** Worst-scored flagged entries, capped for the sync report. */
+  samples: Array<{ id: string; type: string; verdict: string; score: number; reasons: string[] }>
+}
+
 // Sync Result & Context Generator Config
 
 export interface IncrementalInfo {
@@ -135,6 +145,7 @@ export interface ProjectSyncResult {
   context7?: SyncContext7Status
   analysisSummary?: SyncAnalysisSummary
   contextQuality?: ContextQualitySummary
+  retentionDryRun?: RetentionDryRunSummary
   syncMetrics?: SyncMetrics
   workCost?: WorkCostSnapshot[]
   verification?: VerificationReport

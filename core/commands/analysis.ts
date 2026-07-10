@@ -15,7 +15,15 @@ import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
 import { failFromError } from '../utils/md-aware'
-import { mdDone, mdNextSteps, mdOutput, mdStats, mdWarn } from '../utils/md-formatter'
+import {
+  mdDone,
+  mdList,
+  mdNextSteps,
+  mdOutput,
+  mdSection,
+  mdStats,
+  mdWarn,
+} from '../utils/md-formatter'
 import { getNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 import { rollback, seal, semanticVerifyCommand, verify } from './analysis/lifecycle'
@@ -285,9 +293,27 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStatsObj['Context removed'] = result.contextQuality.irrelevantRemoved
           mdStatsObj['Context repairs'] = result.contextQuality.repairEntriesCreated
         }
+        let retentionSection: string | null = null
+        if (result.retentionDryRun) {
+          const r = result.retentionDryRun
+          mdStatsObj['Retention (dry-run)'] =
+            `${r.active} active · ${r.archive} archive · ${r.delete} delete`
+          if (r.samples.length > 0) {
+            retentionSection = mdSection(
+              'Retention dry-run — worst-scored entries (nothing removed)',
+              mdList(
+                r.samples.map(
+                  (s) =>
+                    `\`${s.id}\` [${s.type}] ${s.verdict} (${s.score}) — ${s.reasons.join(', ')}`
+                )
+              )
+            )
+          }
+        }
         const md = mdOutput(
           mdDone(`Sync Complete`),
           mdStats(mdStatsObj),
+          retentionSection,
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           contextReviewSection,
