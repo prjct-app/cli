@@ -784,7 +784,7 @@ async function changesetPaths(projectPath: string, dirs: string[] | undefined): 
 async function defaultTarget(projectPath: string): Promise<string | null> {
   try {
     const { getGitBranch } = await import('../session/git-helpers')
-    return await getGitBranch(projectPath)
+    return (await getGitBranch(projectPath)) ?? null
   } catch {
     return null
   }
