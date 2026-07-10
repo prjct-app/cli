@@ -122,7 +122,15 @@ export interface RetentionDryRunSummary {
   inboxArchived?: number
   dryRun?: boolean
   /** Worst-scored flagged entries, capped for the sync report. */
-  samples: Array<{ id: string; type: string; verdict: string; score: number; reasons: string[] }>
+  samples: Array<{
+    id: string
+    type: string
+    verdict: string
+    score: number
+    reasons: string[]
+    excess?: number
+  }>
+  referenceSize?: number
 }
 
 // Sync Result & Context Generator Config

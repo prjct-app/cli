@@ -309,13 +309,16 @@ export class AnalysisCommands extends PrjctCommandsBase {
           if (r.samples.length > 0) {
             retentionSection = mdSection(
               r.dryRun === false
-                ? 'Retention — worst-scored (actions applied this sync)'
-                : 'Retention dry-run — worst-scored entries (nothing removed)',
+                ? 'Retention (Rho) — worst excess/score (actions applied)'
+                : 'Retention (Rho) dry-run — worst excess/score (nothing removed)',
               mdList(
-                r.samples.map(
-                  (s) =>
-                    `\`${s.id}\` [${s.type}] ${s.verdict} (${s.score}) — ${s.reasons.join(', ')}`
-                )
+                r.samples.map((s) => {
+                  const excess =
+                    'excess' in s && typeof (s as { excess?: number }).excess === 'number'
+                      ? ` excess=${(s as { excess: number }).excess.toFixed(2)}`
+                      : ''
+                  return `\`${s.id}\` [${s.type}] ${s.verdict} (${s.score}${excess}) — ${s.reasons.join(', ')}`
+                })
               )
             )
           }

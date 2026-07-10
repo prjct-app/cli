@@ -207,6 +207,14 @@ function embedLocal(text: string): number[] {
 }
 
 /**
+ * Sync local embed for deterministic scorers (retention Rho excess).
+ * Same algorithm as LocalSubwordEmbeddingProvider — pure, 0 network, 0 tokens.
+ */
+export function embedLocalText(text: string): number[] {
+  return embedLocal(text)
+}
+
+/**
  * The always-available default provider. Pure-JS, deterministic, no network.
  * Captures morphological / substring similarity (auth≈authentication,
  * sqlite≈SQLite) that exact-token BM25 misses, and yields a continuous score

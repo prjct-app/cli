@@ -3,7 +3,8 @@
 ## [Unreleased]
 
 ### Added
-- **Value-based memory retention (full plan)** — score honesty (base 40 + idle age), `applyRetention` archive/delete with caps, inbox triage, incremental cleanup on `status done`, selective embedding (active only), `config.retention.mode` off|dry-run|apply (default apply). Sync reports applied actions.
+- **Rho-inspired selective memory (microsoft/rho analogy)** — real reference model R (judgment + living-v2), excess = 1−max_sim vs R via local subword embeddings (0 tokens), capture gate rejects low-excess noise, score/apply/embed driven by excess + usage + groundedness. Modules: `retention/reference-model.ts`, `excess.ts`, `capture-gate.ts`.
+- Value-based retention apply path: archive/delete caps, inbox triage, done-trigger, `config.retention.mode` off|dry-run|apply.
 
 ## [3.44.0] - 2026-07-10
 

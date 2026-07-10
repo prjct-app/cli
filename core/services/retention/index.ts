@@ -1,25 +1,18 @@
 /**
- * Retention score — value-based cleanup verdicts for memory entries.
+ * Retention — Rho-inspired selective memory for prjct.
  *
- * Replaces "oldest-first" knowledge thinning with a single per-entry
- * evaluation against what the project actually knows and uses:
+ * microsoft/rho (Selective Language Modeling):
+ *   1. Build a reference model on high-quality data
+ *   2. Score candidates by excess loss vs reference
+ *   3. Keep / train only high-excess signal
  *
- *   1. Real usage    — decayed `memory_usefulness` score (ship credits,
- *                      references, corrections). The strongest signal.
- *   2. Groundedness  — cited file paths still exist in the code index (HEAD)?
- *                      Superseded or corrected by a later entry?
- *   3. Excess signal — fingerprint duplicates + generated noise
- *                      (improvement-signal, hot-file, low-value legacy context).
- *                      Proxy for "adds nothing beyond synthesis/code" until a
- *                      deeper synthesis-diff lands.
- *   4. Type floor    — judgment knowledge is never hard-deleted: worst case
- *                      archive (soft-delete from recall, recoverable).
- *   5. Idle age      — unused knowledge past 90d gradually loses score so
- *                      dead entries can leave `active` without dramatic strikes.
+ * prjct mapping (deterministic, 0 tokens, no new tables):
+ *   1. R = judgment + living-v2 synthesis (reference-model.ts)
+ *   2. excess(entry) = 1 - max_sim(entry, R\{entry}) via local embeddings (excess.ts)
+ *   3. Verdict active|archive|delete from excess + usage + groundedness + floor
  *
- * Deterministic, 0 tokens, no new tables. `evaluateRetention` is read-only;
- * `applyRetention` archives/deletes according to verdicts (soft-delete via
- * `projectMemory.forget` + optional archives table row for recoverability).
+ * Capture gate (capture-gate.ts) rejects low-excess noise at write time.
+ * applyRetention soft-deletes according to verdicts (capped).
  */
 
 import { loadIndex as loadBm25Index } from '../../domain/bm25'
@@ -30,6 +23,13 @@ import { archiveStorage } from '../../storage/archive-storage'
 import prjctDb from '../../storage/database'
 import { isIrrelevantGeneratedContext } from '../context-quality-service'
 import { extractCorrectionIds, usefulnessService } from '../usefulness'
+import {
+  buildReferenceIndex,
+  type ExcessResult,
+  excessAgainstIndex,
+  type ReferenceIndex,
+} from './excess'
+import { buildReferenceModel } from './reference-model'
 
 export type RetentionVerdict = 'active' | 'archive' | 'delete'
 
@@ -37,9 +37,13 @@ export interface RetentionResult {
   id: string
   type: string
   verdict: RetentionVerdict
-  /** 0–100; higher = more worth keeping. Used to rank within a verdict. */
+  /** 0–100; higher = more worth keeping. */
   score: number
   reasons: string[]
+  /** Rho excess ∈ [0,1]; high = novel vs R. */
+  excess?: number
+  maxSim?: number
+  nearestId?: string | null
 }
 
 export interface RetentionReport {
@@ -47,18 +51,15 @@ export interface RetentionReport {
   active: number
   archive: number
   delete: number
-  /** Non-active results only — the actionable set, worst score first. */
+  /** |R| used for this evaluation. */
+  referenceSize: number
   flagged: RetentionResult[]
-  /** All results by id (for callers that need per-entry lookup). */
   byId: Map<string, RetentionResult>
 }
 
 export interface ApplyRetentionOptions {
-  /** When true, score only — no mutations. Default false. */
   dryRun?: boolean
-  /** Cap how many archive actions run this pass (default 100). */
   maxArchive?: number
-  /** Cap how many delete actions run this pass (default 50). */
   maxDelete?: number
   nowMs?: number
 }
@@ -73,9 +74,9 @@ export interface ApplyRetentionResult {
   skipped: number
   dryRun: boolean
   samples: RetentionResult[]
+  referenceSize?: number
 }
 
-/** Entry types whose worst-case verdict is `archive` (tombstone), never `delete`. */
 export const PROTECTED_TYPES = new Set([
   'decision',
   'gotcha',
@@ -86,40 +87,38 @@ export const PROTECTED_TYPES = new Set([
   'spec',
 ])
 
-/** Entries newer than this stay `active` unless duplicated or superseded. */
 const GRACE_DAYS = 30
-
-/** Verdict thresholds over the 0–100 score. */
 const ACTIVE_MIN = 50
 const ARCHIVE_MIN = 20
 
 /**
- * Base below ACTIVE_MIN so unused knowledge is not permanently active.
- * Usefulness / recency push above the line; idle age + strikes pull below.
+ * Score composition (0–100), Rho-first:
+ *   excess contribution up to 45  — THE signal (novelty vs R)
+ *   usefulness up to 25
+ *   recency up to 15
+ *   penalties: superseded/corrected/noise/ungrounded/idle/low-excess
  */
-const BASE_SCORE = 40
-const USEFULNESS_MAX_BONUS = 30
-const RECENCY_MAX_BONUS = 20
+const EXCESS_MAX = 45
+const USEFULNESS_MAX_BONUS = 25
+const RECENCY_MAX_BONUS = 15
 const RECENCY_WINDOW_DAYS = 180
-/** After this many days with zero usefulness, apply idle penalty. */
 const IDLE_AFTER_DAYS = 90
-const IDLE_MAX_PENALTY = 30
-const IDLE_PENALTY_PER_DAY = 0.15
+const IDLE_MAX_PENALTY = 25
+const IDLE_PENALTY_PER_DAY = 0.12
 const SUPERSEDED_PENALTY = 40
 const CORRECTED_PENALTY = 40
-const DUPLICATE_PENALTY = 35
-const NOISE_PENALTY = 35
-const UNGROUNDED_PENALTY = 25
+const NOISE_PENALTY = 30
+const UNGROUNDED_PENALTY = 20
+/** When excess is near-zero, push hard toward archive (redundant with R). */
+const LOW_EXCESS_PENALTY = 35
+const LOW_EXCESS_CUTOFF = 0.12
 
 const MS_PER_DAY = 86_400_000
-
 const DEFAULT_MAX_ARCHIVE = 100
 const DEFAULT_MAX_DELETE = 50
-/** Smaller budget for per-done incremental passes. */
 const INCREMENTAL_MAX_ARCHIVE = 25
 const INCREMENTAL_MAX_DELETE = 15
 
-/** Path-like references in entry content (e.g. `core/services/foo.ts`). */
 const PATH_RE = /\b[\w.-]+(?:\/[\w.-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|sh|toml|yml|yaml)\b/g
 
 export interface RetentionInputs {
@@ -127,12 +126,12 @@ export interface RetentionInputs {
   usefulness: Map<string, number>
   supersededIds: Set<string>
   correctedIds: Set<string>
-  /** Indexed file paths at HEAD; null when no code index exists yet. */
   indexedPaths: Set<string> | null
   nowMs: number
+  /** Prebuilt reference index (required for Rho excess). */
+  refIndex: ReferenceIndex
 }
 
-/** Gather every input the scorer needs from storage. Read-only. */
 export function collectRetentionInputs(projectId: string, nowMs: number): RetentionInputs {
   const entries = projectMemory.allEntriesForIndex(projectId)
 
@@ -146,8 +145,11 @@ export function collectRetentionInputs(projectId: string, nowMs: number): Retent
     const index = loadBm25Index(projectId)
     if (index) indexedPaths = new Set(Object.keys(index.documents))
   } catch {
-    // No code index (first run) — groundedness is skipped, not failed.
+    /* first run */
   }
+
+  const R = buildReferenceModel(entries)
+  const refIndex = buildReferenceIndex(R)
 
   return {
     entries,
@@ -156,13 +158,10 @@ export function collectRetentionInputs(projectId: string, nowMs: number): Retent
     correctedIds,
     indexedPaths,
     nowMs,
+    refIndex,
   }
 }
 
-/**
- * Older entries whose content fingerprint matches a newer entry exactly.
- * Newest copy survives; the rest are duplicates (backstop for pre-dedup data).
- */
 export function collectDuplicateIds(entries: MemoryEntry[]): Set<string> {
   const newestByPrint = new Map<string, MemoryEntry>()
   const duplicates = new Set<string>()
@@ -175,7 +174,6 @@ export function collectDuplicateIds(entries: MemoryEntry[]): Set<string> {
   return duplicates
 }
 
-/** True when the entry cites concrete files and NONE of them exist at HEAD. */
 function isUngrounded(entry: MemoryEntry, indexedPaths: Set<string>): boolean {
   const cited = entry.content.match(PATH_RE)
   if (!cited || cited.length === 0) return false
@@ -188,11 +186,34 @@ export function scoreEntry(
   duplicateIds: Set<string>
 ): RetentionResult {
   const reasons: string[] = []
-  let score = BASE_SCORE
 
+  // ── Rho core: excess vs R ──────────────────────────────────────────
+  const ex: ExcessResult = excessAgainstIndex(entry.content, inputs.refIndex, entry.id)
+  // Exact/near fingerprint dups among full corpus still count
+  const corpusDup = duplicateIds.has(entry.id)
+  if (corpusDup && !ex.exactDup) {
+    reasons.push('duplicate of newer entry')
+  }
+
+  // Start from excess — high novelty is the keep signal (Rho).
+  let score = ex.excess * EXCESS_MAX
+  reasons.push(`excess ${ex.excess.toFixed(2)} (sim ${ex.maxSim.toFixed(2)})`)
+
+  if (ex.exactDup || ex.nearDup || ex.excess < LOW_EXCESS_CUTOFF) {
+    score -= LOW_EXCESS_PENALTY
+    reasons.push(
+      ex.exactDup
+        ? `exact dup of ${ex.nearestId}`
+        : ex.nearDup
+          ? `near-dup of ${ex.nearestId}`
+          : 'low excess vs reference'
+    )
+  }
+
+  // ── Real usage ─────────────────────────────────────────────────────
   const usefulness = inputs.usefulness.get(entry.id) ?? 0
   if (usefulness > 0) {
-    const bonus = Math.min(USEFULNESS_MAX_BONUS, usefulness * 10)
+    const bonus = Math.min(USEFULNESS_MAX_BONUS, usefulness * 8)
     score += bonus
     reasons.push(`used (+${Math.round(bonus)})`)
   }
@@ -203,7 +224,6 @@ export function scoreEntry(
     score += recency
   }
 
-  // Idle: unused knowledge past IDLE_AFTER_DAYS gradually falls out of active.
   if (usefulness <= 0 && Number.isFinite(ageDays) && ageDays > IDLE_AFTER_DAYS) {
     const idle = Math.min(IDLE_MAX_PENALTY, (ageDays - IDLE_AFTER_DAYS) * IDLE_PENALTY_PER_DAY)
     if (idle > 0) {
@@ -212,6 +232,7 @@ export function scoreEntry(
     }
   }
 
+  // ── Groundedness / refutation ──────────────────────────────────────
   const superseded = inputs.supersededIds.has(entry.id)
   if (superseded) {
     score -= SUPERSEDED_PENALTY
@@ -222,13 +243,6 @@ export function scoreEntry(
     reasons.push('corrected')
   }
 
-  const duplicate = duplicateIds.has(entry.id)
-  if (duplicate) {
-    score -= DUPLICATE_PENALTY
-    reasons.push('duplicate of newer entry')
-  }
-
-  // Excess-signal proxy: non-model types + low-value generated/legacy context.
   const noise = !isModelMemory(entry) || isIrrelevantGeneratedContext(entry)
   if (noise) {
     score -= NOISE_PENALTY
@@ -240,27 +254,41 @@ export function scoreEntry(
     reasons.push('cites files missing at HEAD')
   }
 
+  // Corpus-level exact older dup
+  if (corpusDup) {
+    score -= 20
+  }
+
   score = Math.max(0, Math.min(100, score))
 
   let verdict: RetentionVerdict =
     score >= ACTIVE_MIN ? 'active' : score >= ARCHIVE_MIN ? 'archive' : 'delete'
 
-  // Grace: fresh knowledge stays active unless already known-dead.
-  if (verdict !== 'active' && ageDays < GRACE_DAYS && !duplicate && !superseded) {
+  // Grace: brand-new high-stakes knowledge gets time to be used —
+  // unless already known-dead (dup/superseded/near-dup of R).
+  const knownDead = corpusDup || ex.exactDup || ex.nearDup || superseded
+  if (verdict !== 'active' && ageDays < GRACE_DAYS && !knownDead) {
     verdict = 'active'
     reasons.push('grace period')
   }
 
-  // Type floor: judgment knowledge is never hard-deleted.
   if (verdict === 'delete' && PROTECTED_TYPES.has(entry.type)) {
     verdict = 'archive'
     reasons.push('protected type')
   }
 
-  return { id: entry.id, type: entry.type, verdict, score: Math.round(score), reasons }
+  return {
+    id: entry.id,
+    type: entry.type,
+    verdict,
+    score: Math.round(score),
+    reasons,
+    excess: ex.excess,
+    maxSim: ex.maxSim,
+    nearestId: ex.nearestId,
+  }
 }
 
-/** Score every memory entry. Read-only; callers act on the verdicts. */
 export function evaluateRetention(projectId: string, nowMs: number): RetentionReport {
   const inputs = collectRetentionInputs(projectId, nowMs)
   const duplicateIds = collectDuplicateIds(inputs.entries)
@@ -270,6 +298,7 @@ export function evaluateRetention(projectId: string, nowMs: number): RetentionRe
     active: 0,
     archive: 0,
     delete: 0,
+    referenceSize: inputs.refIndex.entries.length,
     flagged: [],
     byId: new Map(),
   }
@@ -285,21 +314,17 @@ export function evaluateRetention(projectId: string, nowMs: number): RetentionRe
   return report
 }
 
-/**
- * Whether an entry should receive an embedding (selective vectorization).
- * Never embed signals/telemetry; never embed entries that score archive/delete.
- */
 export function shouldEmbedEntry(entry: MemoryEntry, retention?: RetentionResult | null): boolean {
   if (!isModelMemory(entry)) return false
   if (entry.content.trim().length === 0) return false
   if (retention && retention.verdict !== 'active') return false
+  // Rho: do not embed zero-excess near-dups of R
+  if (retention && retention.excess !== undefined && retention.excess < 0.05) return false
   return true
 }
 
 function forgetEntry(projectId: string, id: string): boolean {
-  // projectMemory.forget only handles mem_N numeric ids.
   if (projectMemory.forget(projectId, id)) return true
-  // ship_* and other ids: soft-delete memory_entries row if present.
   try {
     const r = prjctDb.run(
       projectId,
@@ -313,12 +338,6 @@ function forgetEntry(projectId: string, id: string): boolean {
   }
 }
 
-/**
- * Act on retention verdicts:
- *   - archive → row in archives table + soft-delete from active recall
- *   - delete  → soft-delete from active recall (no archives row; refuted/noise)
- * Caps prevent a single sync from emptying a large vault.
- */
 export function applyRetention(
   projectId: string,
   options: ApplyRetentionOptions = {}
@@ -348,14 +367,15 @@ export function applyRetention(
             id: r.id,
             type: r.type,
             score: r.score,
+            excess: r.excess,
             reasons: r.reasons,
             verdict: r.verdict,
           },
-          summary: `retention archive [${r.type}] score=${r.score}`,
+          summary: `retention archive [${r.type}] excess=${r.excess?.toFixed(2) ?? '?'} score=${r.score}`,
           reason: 'retention-archive',
         })
       } catch {
-        /* archive row best-effort */
+        /* best-effort */
       }
       if (forgetEntry(projectId, r.id)) archived++
       else skipped++
@@ -365,7 +385,6 @@ export function applyRetention(
     skipped += Math.max(0, toDelete.length - deleteBatch.length)
     for (const r of deleteBatch) {
       if (PROTECTED_TYPES.has(r.type)) {
-        // Double-check floor — never hard-delete protected types.
         skipped++
         continue
       }
@@ -384,10 +403,10 @@ export function applyRetention(
     skipped,
     dryRun,
     samples: report.flagged.slice(0, 10),
+    referenceSize: report.referenceSize,
   }
 }
 
-/** Smaller best-effort pass for `prjct status done` / task close. */
 export function applyRetentionIncremental(projectId: string): ApplyRetentionResult {
   return applyRetention(projectId, {
     maxArchive: INCREMENTAL_MAX_ARCHIVE,
@@ -395,39 +414,28 @@ export function applyRetentionIncremental(projectId: string): ApplyRetentionResu
   })
 }
 
-/**
- * Inbox triage: soft-delete inbox items that are fingerprint-duplicates of
- * newer non-inbox knowledge, or that score archive/delete under retention.
- */
 export function triageInbox(
   projectId: string,
   nowMs: number = Date.now()
-): {
-  merged: number
-  archived: number
-} {
+): { merged: number; archived: number } {
   const entries = projectMemory.allEntriesForIndex(projectId)
   const inbox = entries.filter((e) => e.type === 'inbox')
   if (inbox.length === 0) return { merged: 0, archived: 0 }
 
-  const nonInbox = entries.filter((e) => e.type !== 'inbox')
-  const nonInboxPrints = new Set(nonInbox.map((e) => memoryFingerprint(e.content)))
-  const dups = collectDuplicateIds(entries)
+  const R = buildReferenceModel(entries)
+  const refIndex = buildReferenceIndex(R)
   const report = evaluateRetention(projectId, nowMs)
 
   let merged = 0
   let archived = 0
 
   for (const item of inbox) {
-    const print = memoryFingerprint(item.content)
-    const isDupOfKnowledge = nonInboxPrints.has(print)
-    const isOlderDup = dups.has(item.id)
-    const verdict = report.byId.get(item.id)
-
-    if (isDupOfKnowledge || isOlderDup) {
+    const ex = excessAgainstIndex(item.content, refIndex)
+    if (ex.exactDup || ex.nearDup || ex.excess < 0.15) {
       if (forgetEntry(projectId, item.id)) merged++
       continue
     }
+    const verdict = report.byId.get(item.id)
     if (verdict && verdict.verdict !== 'active') {
       try {
         archiveStorage.archive(projectId, {
@@ -437,9 +445,10 @@ export function triageInbox(
             id: item.id,
             type: 'inbox',
             score: verdict.score,
+            excess: verdict.excess,
             reasons: verdict.reasons,
           },
-          summary: `inbox triage score=${verdict.score}`,
+          summary: `inbox triage excess=${verdict.excess?.toFixed(2) ?? '?'}`,
           reason: 'retention-inbox',
         })
       } catch {
@@ -451,3 +460,10 @@ export function triageInbox(
 
   return { merged, archived }
 }
+
+export type { CaptureGateResult } from './capture-gate'
+// Re-exports for tests and capture path
+export { captureGate } from './capture-gate'
+export type { ExcessResult } from './excess'
+export { CAPTURE_MIN_EXCESS, computeExcess, NEAR_DUP_SIM } from './excess'
+export { buildReferenceModel, isReferenceEligible, REFERENCE_CAP } from './reference-model'

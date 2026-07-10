@@ -492,7 +492,15 @@ class SyncService {
             inboxMerged,
             inboxArchived,
             dryRun,
-            samples: applied.samples,
+            samples: applied.samples.map((s) => ({
+              id: s.id,
+              type: s.type,
+              verdict: s.verdict,
+              score: s.score,
+              reasons: s.reasons,
+              excess: s.excess,
+            })),
+            referenceSize: applied.referenceSize,
           }
         } catch (error) {
           // Best-effort: a scoring/apply failure must never break sync.

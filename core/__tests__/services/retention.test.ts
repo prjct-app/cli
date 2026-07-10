@@ -18,6 +18,7 @@ import {
   shouldEmbedEntry,
   triageInbox,
 } from '../../services/retention'
+import { buildReferenceIndex } from '../../services/retention/excess'
 import { usefulnessService } from '../../services/usefulness'
 import prjctDb from '../../storage/database'
 import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
@@ -46,6 +47,8 @@ const inputs = (over: Partial<RetentionInputs>): RetentionInputs => ({
   correctedIds: new Set(),
   indexedPaths: null,
   nowMs: NOW,
+  // Empty R → full excess (tests isolate other score factors)
+  refIndex: buildReferenceIndex([]),
   ...over,
 })
 
