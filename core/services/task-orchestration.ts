@@ -19,6 +19,12 @@
  */
 
 import type { HarnessKind, HarnessLevel, HarnessRisk, TaskHarness } from '../schemas/state'
+import {
+  type AgentCastMember,
+  castForFanout,
+  formatAgentCastDispatchHint,
+  formatAgentCastLine,
+} from './agent-codenames'
 import { type QualityCeremony, SHIP_USER_ONLY } from './judgment-orchestrator'
 
 /** Rig-agnostic capability tier (see core/schemas/model.ts MODEL_TIERS). */
@@ -52,6 +58,11 @@ export interface OrchestrationPlan {
   expectedPoints: number
   /** Agent-facing one-block directive — how to run THIS task efficiently. */
   directive: string
+  /**
+   * Cute durable cast for multi-agent fan-out (Codex-style codenames).
+   * Empty when fanout is direct.
+   */
+  cast: AgentCastMember[]
 }
 
 const SPEC_RANK: Record<SpecCeremony, number> = { none: 0, frame: 1, reviewed: 2 }
@@ -84,6 +95,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
       quality: 'none',
       expectedPoints: 2,
       directive: '',
+      cast: [],
     }
   }
   switch (level) {
@@ -98,6 +110,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         quality: 'none',
         expectedPoints: 1,
         directive: '',
+        cast: [],
       }
     case 'H1':
       // Simple bug/change. Fix directly on a balanced model; leave a test behind.
@@ -110,6 +123,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         quality: code ? 'standard' : 'none',
         expectedPoints: 2,
         directive: '',
+        cast: [],
       }
     case 'H2':
       // Substantial feature/refactor. Frame a lightweight spec, tests first,
@@ -123,6 +137,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         quality: code ? 'standard' : 'none',
         expectedPoints: 5,
         directive: '',
+        cast: [],
       }
     default:
       // H3 — high-risk (security / architecture / migration). Full ceremony.
@@ -136,6 +151,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         quality: kind === 'security' || risk === 'high' || code ? 'full' : 'none',
         expectedPoints: 8,
         directive: '',
+        cast: [],
       }
   }
 }
@@ -206,7 +222,11 @@ function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: Orchestra
     plan.fanout === 'parallel' || plan.fanout === 'crew'
       ? ' Multi-agent is the DEFAULT geometry for this harness class — do not collapse to a single-thread monologue unless the change is truly atomic.'
       : ''
-  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}; ${QUALITY_TEXT[plan.quality]}.${forecast}${multi} ${SHIP_USER_ONLY}`
+  const castLine =
+    plan.cast.length > 0
+      ? ` ${formatAgentCastLine(plan.cast)}. ${formatAgentCastDispatchHint(plan.cast)}`
+      : ''
+  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}; ${QUALITY_TEXT[plan.quality]}.${forecast}${multi}${castLine} ${SHIP_USER_ONLY}`
 }
 
 /**
@@ -245,7 +265,12 @@ export function orchestrationFor(
   harness: Pick<TaskHarness, 'level' | 'kind' | 'risk'>,
   sdd: SddMode = 'off',
   tdd: TddMode = 'off',
-  weakModelMode: 'off' | 'on' = 'off'
+  weakModelMode: 'off' | 'on' = 'off',
+  /**
+   * Seed for durable agent cast names (description + cycle id). Defaults to
+   * kind+level so plans stay deterministic in tests without a description.
+   */
+  castSeed?: string
 ): OrchestrationPlan {
   const base = baseline(harness.level, harness.kind, harness.risk)
   const withFloors = applyModeFloors(base, harness.kind, sdd, tdd)
@@ -254,6 +279,8 @@ export function orchestrationFor(
     if (quality === 'none') quality = 'standard'
     else if (quality === 'standard') quality = 'full'
   }
-  const plan = { ...withFloors, quality }
+  const seed = (castSeed ?? `${harness.level}:${harness.kind}:${harness.risk}`).trim()
+  const cast = castForFanout(withFloors.fanout, seed)
+  const plan: OrchestrationPlan = { ...withFloors, quality, cast }
   return { ...plan, directive: renderDirective(harness.level, harness.kind, plan) }
 }

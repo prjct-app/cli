@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Adorable multi-agent cast names (Codex-style): orchestration assigns durable scientist/inventor codenames (Popper, Copernicus, McClintock…) to explore/implement/review or crew roles; shown on `prjct work` and used as default `claim` identity when `--as` / `PRJCT_AGENT` unset.
+
 ## [3.41.0] - 2026-07-10
 
 ### Added

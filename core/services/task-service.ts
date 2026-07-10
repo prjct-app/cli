@@ -276,10 +276,12 @@ export async function startTask(
         harness,
         effectiveSddMode(cfg),
         effectiveTddMode(cfg),
-        effectiveWeakModelMode(cfg)
+        effectiveWeakModelMode(cfg),
+        // Durable cast seed: same description → same adorable subagent names.
+        `${description}::${taskId}`
       )
     } catch {
-      return orchestrationFor(harness)
+      return orchestrationFor(harness, 'off', 'off', 'off', `${description}::${taskId}`)
     }
   })()
 
