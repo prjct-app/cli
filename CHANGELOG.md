@@ -7,7 +7,7 @@
 ### Features
 
 - multi-runtime organic wire + weak A/B CI dominance gate (#533)
-
+- precision-gated judgment v2 — evidence tax, DNA, RED/BLUE merge, ghost FP memory, next card, ship hard-gate
 
 ## [3.35.0] - 2026-07-09
 
@@ -15,13 +15,11 @@
 
 - dominance P0–P2 vs gentle-ai + open-GSD (#532)
 
-
 ## [3.34.0] - 2026-07-09
 
 ### Features
 
 - brutal quality vs GSD — friction promote + denser prime (#531)
-
 
 ## [3.33.0] - 2026-07-09
 
