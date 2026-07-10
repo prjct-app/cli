@@ -288,6 +288,20 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
           } catch {
             /* never block session end on land synthesis */
           }
+          try {
+            const { synthesizeJudgmentReceipt } = await import('../services/judgment-receipt')
+            await synthesizeJudgmentReceipt({
+              projectId: config.projectId,
+              projectPath: p,
+              cycleDescription: activeTaskDescription ?? null,
+              cycleId: activeTaskId,
+              tokensIn: transcriptUsage?.tokensIn,
+              tokensOut: transcriptUsage?.tokensOut,
+              model: 'claude',
+            })
+          } catch {
+            /* never block session end on judgment receipt */
+          }
         }
 
         // Cloud sync (opt-in): flush this project's pending queue at session

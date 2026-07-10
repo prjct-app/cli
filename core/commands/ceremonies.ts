@@ -285,9 +285,33 @@ export class CeremonyCommands extends PrjctCommandsBase {
       // ignore
     }
 
+    // Token economics (daily product score) + weak-model mode banner.
+    try {
+      const { default: configManager } = await import('../infrastructure/config-manager')
+      const cfg = await configManager.readConfig(projectPath)
+      const { buildTokenEconomics } = await import('../services/token-economics')
+      const cycle = overview?.current
+      const econ = buildTokenEconomics(proj.value, {
+        cycleTokensIn:
+          cycle && 'tokensIn' in cycle ? (cycle as { tokensIn?: number }).tokensIn : undefined,
+        cycleTokensOut:
+          cycle && 'tokensOut' in cycle ? (cycle as { tokensOut?: number }).tokensOut : undefined,
+        maxTokensPerCycle: cfg?.maxTokensPerCycle ?? null,
+      })
+      lines.push('', `**${econ.line}**`)
+      const { effectiveWeakModelMode, weakModelOneLiner } = await import(
+        '../services/weak-model-mode'
+      )
+      if (effectiveWeakModelMode(cfg) === 'on') {
+        lines.push('', `**${weakModelOneLiner()}**`)
+      }
+    } catch {
+      /* best-effort */
+    }
+
     lines.push(
       '',
-      'Pull deeper context on demand: `prjct brief` · `prjct search "<q>"` · `prjct guard <file>`.'
+      'Default surface: `work` + `ship` (user text confirm). Pull deeper on demand: `prjct brief` · `prjct search "<q>"` · `prjct guard <file>`.'
     )
     console.log(lines.join('\n'))
     return { success: true }
@@ -309,6 +333,15 @@ export class CeremonyCommands extends PrjctCommandsBase {
     // remember to `prjct remember context "Session close: …"`.
     const { synthesizeLandHandoff } = await import('../services/land-synthesis')
     const handoff = await synthesizeLandHandoff({
+      projectId: proj.value,
+      projectPath,
+      cycleDescription: overview?.current?.description ?? null,
+      cycleId: overview?.current?.id ?? null,
+    }).catch(() => null)
+
+    // Closed-loop Judgment Receipt (continuity proof — not bulk memory).
+    const { synthesizeJudgmentReceipt } = await import('../services/judgment-receipt')
+    const receipt = await synthesizeJudgmentReceipt({
       projectId: proj.value,
       projectPath,
       cycleDescription: overview?.current?.description ?? null,
@@ -350,6 +383,9 @@ export class CeremonyCommands extends PrjctCommandsBase {
         'Persist the hand-off: `prjct remember context "Session close: what changed, why, next" --tags topic:<key>`.'
       )
     }
+    if (receipt?.wrote && receipt.summary) {
+      lines.push(`- [x] ${receipt.summary} (tags: source:land-receipt · capture:receipt-v1).`, '')
+    }
     todo.push(
       'Team share (optional): `prjct memory export` → commit `.prjct/memory-export/` → clone → `prjct memory import`.'
     )
@@ -357,8 +393,10 @@ export class CeremonyCommands extends PrjctCommandsBase {
     console.log(lines.join('\n'))
     return {
       success: true,
-      items: todo.length + (handoff?.wrote ? 1 : 0),
+      items: todo.length + (handoff?.wrote ? 1 : 0) + (receipt?.wrote ? 1 : 0),
       handoff: handoff?.wrote ?? false,
+      receipt: receipt?.wrote ?? false,
+      receiptSummary: receipt?.summary ?? null,
     }
   }
 

@@ -108,8 +108,17 @@ export async function buildSessionContext(
     landCue = null
   }
 
+  // Weak-model product mode banner (apuesta 7).
+  let weakBanner: string | null = null
+  try {
+    const { effectiveWeakModelMode, weakModelBanner } = await import('../services/weak-model-mode')
+    if (effectiveWeakModelMode(config) === 'on') weakBanner = weakModelBanner()
+  } catch {
+    weakBanner = null
+  }
+
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness && !vaultNotice && !landCue) return null
+  if (!persona && !digest && !staleness && !vaultNotice && !landCue && !weakBanner) return null
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
@@ -137,6 +146,10 @@ export async function buildSessionContext(
   if (landCue) {
     if (persona || digest || staleness || vaultNotice) sections.push('')
     sections.push(landCue)
+  }
+  if (weakBanner) {
+    if (persona || digest || staleness || vaultNotice || landCue) sections.push('')
+    sections.push(weakBanner)
   }
   return sections.join('\n')
 }

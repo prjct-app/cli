@@ -271,7 +271,13 @@ export async function startTask(
         import('../commands/sdd'),
         import('../commands/tdd'),
       ])
-      return orchestrationFor(harness, effectiveSddMode(cfg), effectiveTddMode(cfg))
+      const { effectiveWeakModelMode } = await import('./weak-model-mode')
+      return orchestrationFor(
+        harness,
+        effectiveSddMode(cfg),
+        effectiveTddMode(cfg),
+        effectiveWeakModelMode(cfg)
+      )
     } catch {
       return orchestrationFor(harness)
     }
@@ -396,7 +402,9 @@ export async function startTask(
   // on demand. Reuses the one RAG pipeline (enrichedRecall) so it works over
   // the user's EXISTING memory from day one. Best-effort; never blocks a start.
   const relatedContext = await recallRelatedContext(projectPath, projectId, description)
-  const likelyFiles = recallLikelyFiles(projectId, description)
+  // Work scope: memory (vectorial/FTS) + BM25 + import/co-change graph — constrained
+  // list BEFORE the agent greps. Full async path includes semantic blend when enabled.
+  const likelyFiles = await recallLikelyFiles(projectPath, projectId, description)
   // Predictive risk: concentrate the preventive memory for the area this cycle
   // will touch, so the trap is surfaced at planning, not after it bites.
   const risks = recallRisksForFiles(projectId, likelyFiles)
@@ -449,12 +457,27 @@ export function recallRisksForFiles(projectId: string, files: LikelyFileHit[]): 
   return risks
 }
 
-/** Pull likely file targets from prebuilt indexes (best-effort, no live scan). */
-function recallLikelyFiles(projectId: string, description: string): LikelyFileHit[] {
+/**
+ * Pull likely file targets via unified work-scope (memory vector/FTS + code
+ * index + graph). Best-effort; never blocks work start.
+ */
+async function recallLikelyFiles(
+  projectPath: string,
+  projectId: string,
+  description: string
+): Promise<LikelyFileHit[]> {
   try {
+    const { resolveWorkScope, toLikelyFileHits } = await import('./work-scope')
+    const scope = await resolveWorkScope(projectPath, projectId, description, 8)
+    if (scope.files.length > 0) return toLikelyFileHits(scope.files)
+    // Fallback pure sync ranker if async path empty
     return rankLikelyFiles(projectId, description)
   } catch {
-    return []
+    try {
+      return rankLikelyFiles(projectId, description)
+    } catch {
+      return []
+    }
   }
 }
 

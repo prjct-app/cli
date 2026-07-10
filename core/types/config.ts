@@ -125,6 +125,20 @@ export interface LocalConfig {
    */
   land?: { mode: 'off' | 'advisory' | 'strict' }
   /**
+   * Closed-loop judgment + weak-model product mode.
+   * conflictMode is dedicated — MUST NOT be inferred from land.mode or sdd.mode.
+   * Defaults when unset (pack-gated): off | code→advisory | code-strict→strict
+   *   - conflictMode off — gate disabled; classic heads-up only
+   *   - conflictMode advisory — warn only
+   *   - conflictMode strict — high-confidence deny via PreToolUse deny channel
+   *   - weakModelMode on — product mode: intensify conflict (floor strict unless off),
+   *     elevate quality ceremony, banner on prime/session — weak-model + prjct ≥ good alone
+   */
+  judgment?: {
+    conflictMode?: 'off' | 'advisory' | 'strict'
+    weakModelMode?: 'off' | 'on'
+  }
+  /**
    * Desktop notifications. **Default ON** (absent / `on`) — prjct pings you
    * when Claude is waiting for input and when a subagent finishes, so a wait
    * never hangs silently. `off` (via `prjct notify off`) silences the OS

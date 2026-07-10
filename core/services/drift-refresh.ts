@@ -47,6 +47,10 @@ function writeStamp(cliHome: string): void {
 
 /**
  * Spawn `prjct sync` detached from the package entry. Never blocks SessionStart.
+ *
+ * Live world model: `sync` already rebuilds BM25 + import graph + co-change
+ * and refreshes architecture/risk analysis signals — one detached path, not a
+ * second map-codebase thrash. PRJCT_DRIFT_REFRESH marks the spawn for telemetry.
  */
 export function maybeDetachDriftRefresh(input: {
   projectPath: string
@@ -58,12 +62,18 @@ export function maybeDetachDriftRefresh(input: {
   writeStamp(input.cliHome)
 
   const bin = input.prjctBin ?? process.argv[1] ?? 'prjct'
+  const env = {
+    ...process.env,
+    PRJCT_DRIFT_REFRESH: '1',
+    // Hint to sync that this is continuous-understanding refresh (world model).
+    PRJCT_WORLD_MODEL_REFRESH: '1',
+  }
   try {
     const child = spawn(process.execPath, [bin, 'sync', '--project', input.projectPath], {
       detached: true,
       stdio: 'ignore',
       cwd: input.projectPath,
-      env: { ...process.env, PRJCT_DRIFT_REFRESH: '1' },
+      env,
     })
     child.unref()
   } catch {
@@ -73,7 +83,7 @@ export function maybeDetachDriftRefresh(input: {
         detached: true,
         stdio: 'ignore',
         cwd: input.projectPath,
-        env: { ...process.env, PRJCT_DRIFT_REFRESH: '1' },
+        env,
         shell: true,
       })
       child.unref()

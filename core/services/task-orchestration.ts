@@ -170,8 +170,8 @@ const TEST_TEXT: Record<TestCeremony, string> = {
 const FANOUT_TEXT: Record<FanOut, string> = {
   direct: 'do it yourself — no subagents',
   parallel:
-    'fan out to parallel subagents ONLY if scope splits into independent pieces — set EACH subagent’s model explicitly (they inherit yours otherwise: mem_3432)',
-  crew: 'run a crew (`prjct crew`): leader + implementer + review lenses. Set EACH subagent’s model (Explore→fast, implementer→frontier, reviewers→balanced) — they inherit your expensive model unless you fix it',
+    'DEFAULT multi-agent geometry: explore (fast) → implement (frontier) → review (balanced dual-blind); set EACH subagent model explicitly (they inherit yours otherwise: mem_3432). Stay single-thread only for a truly atomic one-file fix',
+  crew: 'DEFAULT crew geometry (`prjct crew`): leader + implementer + review lenses. Set EACH subagent model (Explore→fast, implementer→frontier, reviewers→balanced) — they inherit your expensive model unless you fix it',
 }
 const QUALITY_TEXT: Record<QualityCeremony, string> = {
   none: 'no judgment tax (trivial)',
@@ -202,7 +202,11 @@ function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: Orchestra
     return `Orchestrate (${level} ${kind}): trivial — do it directly on a ${MODEL_HINT[plan.model]}${effortNote}. ${SPEC_TEXT[plan.spec]}, ${TEST_TEXT[plan.tests]}, ${FANOUT_TEXT[plan.fanout]}. ${QUALITY_TEXT[plan.quality]}. Don’t burn frontier tokens on this. ${SHIP_USER_ONLY}`
   }
   const forecast = level === 'H2' || level === 'H3' ? ` ${FORECAST_TEXT}` : ''
-  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}; ${QUALITY_TEXT[plan.quality]}.${forecast} ${SHIP_USER_ONLY}`
+  const multi =
+    plan.fanout === 'parallel' || plan.fanout === 'crew'
+      ? ' Multi-agent is the DEFAULT geometry for this harness class — do not collapse to a single-thread monologue unless the change is truly atomic.'
+      : ''
+  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}; ${QUALITY_TEXT[plan.quality]}.${forecast}${multi} ${SHIP_USER_ONLY}`
 }
 
 /**
@@ -235,13 +239,21 @@ export function renderDelegationTrigger(filesTouched: number): string | null {
 /**
  * The public entrypoint: given the triage harness and the project's SDD/TDD
  * modes, produce the orchestration plan + its agent-facing directive.
+ * Optional weakModelMode elevates quality ceremony (product mode).
  */
 export function orchestrationFor(
   harness: Pick<TaskHarness, 'level' | 'kind' | 'risk'>,
   sdd: SddMode = 'off',
-  tdd: TddMode = 'off'
+  tdd: TddMode = 'off',
+  weakModelMode: 'off' | 'on' = 'off'
 ): OrchestrationPlan {
   const base = baseline(harness.level, harness.kind, harness.risk)
   const withFloors = applyModeFloors(base, harness.kind, sdd, tdd)
-  return { ...withFloors, directive: renderDirective(harness.level, harness.kind, withFloors) }
+  let quality = withFloors.quality
+  if (weakModelMode === 'on') {
+    if (quality === 'none') quality = 'standard'
+    else if (quality === 'standard') quality = 'full'
+  }
+  const plan = { ...withFloors, quality }
+  return { ...plan, directive: renderDirective(harness.level, harness.kind, plan) }
 }

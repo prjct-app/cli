@@ -51,7 +51,9 @@ describe('compact RAG-first agent protocol', () => {
     // It must name the entrypoint and carry NO ruleset / RAG protocol.
     for (const body of [agentsRouting.FULL_BLOCK, claudeRouting.FULL_BLOCK]) {
       expect(body).toContain('prjct work --md')
-      expect(body).toContain('pull on demand')
+      // Surface compression: work+ship default; rest is pull-on-demand
+      expect(body).toMatch(/pull.on.demand/i)
+      expect(body).toContain('ship')
       expect(body).toContain('This file holds no rules')
       for (const forbidden of FORBIDDEN_ALWAYS_ON_PHRASES) expect(body).not.toContain(forbidden)
       // The full protocol belongs in the global pull layer, never inlined here.

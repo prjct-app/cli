@@ -75,11 +75,28 @@ export class GuardCommands extends PrjctCommandsBase {
 
     const base = file.split('/').pop() ?? file
 
+    // World-model impact: related files via import/co-change (best-effort).
+    let impactBlock = ''
+    let impactLine = ''
+    try {
+      const { breakImpact, formatImpactMd } = await import('../services/world-model-impact')
+      const impact = breakImpact(guard.value, [file], 6)
+      impactBlock = formatImpactMd(impact)
+      impactLine = impact.line
+    } catch {
+      impactBlock = ''
+      impactLine = ''
+    }
+
     if (hits.length === 0) {
       const msg = `No preventive memory recorded against \`${base}\` — clear to edit.`
-      if (options.md) console.log(`> ${msg}`)
-      else out.done(`No preventive memory for ${base} — clear to edit.`)
-      return { success: true, file, hits: 0 }
+      if (options.md) {
+        console.log(impactBlock ? `> ${msg}\n\n${impactBlock}` : `> ${msg}`)
+      } else {
+        out.done(`No preventive memory for ${base} — clear to edit.`)
+        if (impactLine) out.info(impactLine)
+      }
+      return { success: true, file, hits: 0, impact: impactLine || undefined }
     }
 
     if (options.md) {
@@ -95,6 +112,7 @@ export class GuardCommands extends PrjctCommandsBase {
         )
       }
       lines.push('', '> Surfaced as prevention. Apply if relevant; ignore if not.')
+      if (impactBlock) lines.push('', impactBlock)
       console.log(lines.join('\n'))
     } else {
       out.info(
@@ -105,9 +123,10 @@ export class GuardCommands extends PrjctCommandsBase {
           `  • [${preventiveLabel(e)}] ${deriveTitle(e)} — ${flatDetail(e.content, 120)} (${e.id})`
         )
       }
+      if (impactLine) out.info(impactLine)
     }
 
-    return { success: true, file, hits: hits.length }
+    return { success: true, file, hits: hits.length, impact: impactLine || undefined }
   }
 
   /**
