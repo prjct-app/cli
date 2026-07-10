@@ -44,6 +44,8 @@ export const PRJCT_HOOKS = [
   // that require vars it does not set). Two matchers share one subcommand.
   { event: 'PreToolUse', matcher: 'Bash', subcommand: 'pre-secrets' },
   { event: 'PreToolUse', matcher: 'Edit|Write', subcommand: 'pre-secrets' },
+  // Package legitimacy — flag/deny unknown npm|pnpm|yarn|bun adds BEFORE install.
+  { event: 'PreToolUse', matcher: 'Bash', subcommand: 'pre-package' },
   // Push a file's preventive memory (gotchas/anti-patterns) the moment Claude
   // is about to edit it — closes the apply loop that pull-only `guard` left to
   // the agent's (unreliable) instinct. Fires regardless of model = update-proof.

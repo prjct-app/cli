@@ -56,6 +56,13 @@ describe('multi-editor surfaces generated from one contract', () => {
     for (const surface of all) expect(surface).toContain(CONTRACT.rag)
   })
 
+  it('loop-discipline contract is on every multi-runtime surface (SUPERIOR parity)', () => {
+    for (const surface of all) {
+      expect(surface).toContain(CONTRACT.loop)
+      expect(surface).toMatch(/tip→user|close|land|H2\+/)
+    }
+  })
+
   it('keeps compact skills pull-only and storage-safe', () => {
     for (const skill of [codex, antigravitySkill]) {
       expect(skill).toContain('do not preload project history')

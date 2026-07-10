@@ -347,6 +347,62 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return failHard(msg)
     }
   }
+
+  /**
+   * Resolve/close a memory entry so it leaves rotation (inbox, signals, traps).
+   * Soft-deletes like forget's memory surface, records a closed audit remember,
+   * and is the hygiene verb memory plugins lack.
+   */
+  async close(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption & { reason?: string } = {}
+  ): Promise<CommandResult> {
+    try {
+      const target = (id ?? '').trim()
+      if (!target) {
+        out.info('Usage: prjct close <id> [--reason "..."]')
+        return { success: false, error: 'Missing id' }
+      }
+
+      const pid = await requireProject(projectPath)
+      if (!pid.ok) return pid.result
+
+      const removed = projectMemory.forget(pid.value, target)
+      if (!removed) {
+        if (options.md) console.log(`✗ no memory entry matched ${target}`)
+        else out.fail(`no memory entry matched ${target}`)
+        return { success: false, error: `No memory entry matched ${target}` }
+      }
+
+      const reason = (options.reason ?? '').trim()
+      try {
+        await projectMemory.remember(projectPath, {
+          type: 'context',
+          content: reason
+            ? `Closed ${target}: ${reason}`
+            : `Closed ${target} (resolved — left rotation)`,
+          tags: {
+            status: 'closed',
+            resolves: target.startsWith('mem_') ? target : `mem_${target}`,
+            source: 'prjct-close',
+          },
+          provenance: 'declared',
+          projectId: pid.value,
+        })
+      } catch {
+        /* audit trail best-effort */
+      }
+
+      if (options.md) console.log(`✓ closed ${target}`)
+      else out.done(`closed ${target}`)
+
+      return { success: true, id: target }
+    } catch (error) {
+      const msg = getErrorMessage(error)
+      return failHard(msg)
+    }
+  }
 }
 
 // Helpers (unexported)

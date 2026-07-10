@@ -49,3 +49,66 @@ export function assessAcceptanceCriteria(criteria: string[]): NyquistLiteReport 
       ].join('\n')
   return { total, verifiable, vague, ok, message }
 }
+
+export type NyquistWorkMode = 'off' | 'advisory' | 'strict'
+
+export interface NyquistWorkVerdict {
+  /** True → startTask must refuse until ACs are verifiable. */
+  blocked: boolean
+  /** Warning to print when advisory (or block message when blocked). */
+  message: string | null
+  reason: 'none' | 'h0-skip' | 'no-criteria' | 'ok' | 'advisory-vague' | 'strict-vague'
+}
+
+/**
+ * Work-start Nyquist gate — SUPERIOR to promote-only check.
+ * H2+ linked specs with vague ACs: advisory warns, strict blocks.
+ * H0/H1 never block (smoke / trivial path).
+ */
+export function nyquistWorkVerdict(input: {
+  harnessLevel: 'H0' | 'H1' | 'H2' | 'H3'
+  criteria: string[]
+  /** Effective mode: derived from sdd|tdd strict → strict, else advisory when any on. */
+  mode: NyquistWorkMode
+}): NyquistWorkVerdict {
+  if (input.mode === 'off') {
+    return { blocked: false, message: null, reason: 'none' }
+  }
+  if (input.harnessLevel === 'H0' || input.harnessLevel === 'H1') {
+    return { blocked: false, message: null, reason: 'h0-skip' }
+  }
+  if (input.criteria.length === 0) {
+    // No ACs listed — discuss-lock already required a reviewed spec; empty ACs
+    // are a quality smell but not a hard block (avoid trapping empty templates).
+    return { blocked: false, message: null, reason: 'no-criteria' }
+  }
+  const report = assessAcceptanceCriteria(input.criteria)
+  if (report.ok) {
+    return { blocked: false, message: null, reason: 'ok' }
+  }
+  const msg =
+    report.message ??
+    'Nyquist-lite: acceptance criteria need verifiable signals before H2+ implementation.'
+  if (input.mode === 'strict') {
+    return {
+      blocked: true,
+      message: `${msg}\nBlocked on H2+ work (strict). Fix ACs, re-audit, then \`prjct work --spec <id>\`.`,
+      reason: 'strict-vague',
+    }
+  }
+  return {
+    blocked: false,
+    message: `⚠️  ${msg}`,
+    reason: 'advisory-vague',
+  }
+}
+
+/** Map pack SDD/TDD modes → Nyquist work mode. */
+export function effectiveNyquistWorkMode(
+  sddMode: 'off' | 'advisory' | 'strict' | undefined,
+  tddMode: 'off' | 'assist' | 'strict' | undefined
+): NyquistWorkMode {
+  if (sddMode === 'strict' || tddMode === 'strict') return 'strict'
+  if (sddMode === 'advisory' || tddMode === 'assist') return 'advisory'
+  return 'off'
+}

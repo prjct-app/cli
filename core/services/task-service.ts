@@ -255,6 +255,32 @@ export async function startTask(
     }
   }
 
+  // Nyquist-lite on H2+ work with linked spec — vague ACs block (strict) or warn.
+  if (options.spec) {
+    try {
+      const { effectiveSddMode } = await import('../commands/sdd')
+      const { effectiveTddMode } = await import('../commands/tdd')
+      const { effectiveNyquistWorkMode, nyquistWorkVerdict } = await import('./nyquist-lite')
+      const { specService } = await import('./spec-service')
+      const harnessPreview = buildTaskHarness(description)
+      const spec = await specService.get(projectPath, options.spec)
+      const criteria = spec?.content?.acceptance_criteria ?? []
+      const nv = nyquistWorkVerdict({
+        harnessLevel: harnessPreview.level,
+        criteria,
+        mode: effectiveNyquistWorkMode(effectiveSddMode(cfg), effectiveTddMode(cfg)),
+      })
+      if (nv.blocked) {
+        return { ok: false, blocked: nv.message ?? 'Nyquist-lite blocked work start.' }
+      }
+      if (nv.message) {
+        console.log(nv.message)
+      }
+    } catch {
+      /* nyquist best-effort */
+    }
+  }
+
   // Delivery-geometry gate: large working tree requires an explicit strategy.
   {
     const mode = cfg?.deliveryGeometry?.mode ?? 'off'

@@ -945,10 +945,11 @@ export function judgmentShipVerdict(input: JudgmentShipInput): JudgmentShipVerdi
   }
 
   if (!ledger) {
+    const dual = intensity === 'full' ? ' Dual-blind RED+BLUE required (code-strict default).' : ''
     const msg =
       `Precision judgment required (intensity=${intensity}): run \`prjct judgment plan\` → ` +
-      `\`prjct judgment open\` → follow \`prjct judgment next\`. ` +
-      `Override only with explicit consent: \`prjct ship --no-spec-gate\`.`
+      `\`prjct judgment open\` → follow \`prjct judgment next\`.${dual} ` +
+      `Override only with explicit consent: \`prjct ship --no-judgment-gate\`.`
     if (codeStrict) {
       return { blocked: true, mode: 'hard', message: msg, reason: 'missing-ledger' }
     }

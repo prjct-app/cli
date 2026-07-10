@@ -96,3 +96,4 @@ CLAUDE.md
 # Regenerated artifacts, referenced nowhere, not shipped to npm — untracked
 # so it stops polluting Context7's repo-wide SKILL.md scan.
 output/
+.tmp-spec-dump.mjs

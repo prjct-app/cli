@@ -4,6 +4,16 @@
 
 ### Added
 
+## [3.47.0] - 2026-07-10
+
+### Added
+- **Dominance SUPERIOR program (complete)**: all feature gaps vs gentle-ai / open-GSD / memory plugins are hard mechanisms, not banners.
+  - **Gates (consent-scoped overrides)**: discuss-lock H2+; context-pressure hard-blocks ship (`--force-pressure`); package PreToolUse + ship (`--allow-new-deps`); judgment dual-blind on code-strict (`--no-judgment-gate`); ship delivery-geometry on large diffs (`--geometry`); Nyquist-lite on H2+ work with vague ACs.
+  - **Memory hygiene**: `prjct close <id>`; Rho retention + auto-source cap + vault health; SoT/SUGGEST tip→user.
+  - **Drift**: SessionStart schedules world-model refresh; applied stamp clears permanent-stale banner.
+  - **Multi-runtime**: Claude/Codex/Gemini/Cursor/Grok signal parity matrix; CONTRACT.loop on Codex/Gemini surfaces (Codex ≤1024B).
+  - **Proof**: competitive dust SUPERIOR every row; `gate:dominance` 28/28.
+
 ## [3.46.0] - 2026-07-10
 
 ### Features

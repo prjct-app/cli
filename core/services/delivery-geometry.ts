@@ -125,3 +125,62 @@ export function geometryBlockMessage(cs: Changeset, geometry: DeliveryGeometry):
     `or split the tree before continuing. (Relax: \`prjct config\` deliveryGeometry off.)`
   )
 }
+
+export interface ShipGeometryVerdict {
+  blocked: boolean
+  message: string | null
+  tier: DeliveryTier
+  geometry: DeliveryGeometry
+  reason: 'none' | 'ok-small' | 'advisory' | 'strict-block' | 'override'
+}
+
+/**
+ * Ship-time delivery geometry — large committed diffs must decide strategy.
+ * SUPERIOR to work-only advisory: hard-blocks ship on strict packs without
+ * explicit `--geometry` (consent-scoped, not --no-spec-gate).
+ */
+export function shipGeometryVerdict(input: {
+  changeset: Pick<Changeset, 'files' | 'loc' | 'source' | 'dirs'> | null
+  mode: 'off' | 'advisory' | 'strict'
+  /** Explicit geometry from `prjct ship --geometry …` */
+  explicitGeometry?: DeliveryGeometry | null
+  locThreshold?: number
+}): ShipGeometryVerdict {
+  if (input.mode === 'off' || !input.changeset) {
+    return {
+      blocked: false,
+      message: null,
+      tier: 'trivial',
+      geometry: 'direct',
+      reason: 'none',
+    }
+  }
+  const threshold = input.locThreshold ?? NORMAL_MAX_LOC
+  const tier = tierOf(input.changeset)
+  const geometry = geometryOf(tier)
+  if (input.changeset.loc < threshold && tier !== 'large') {
+    return { blocked: false, message: null, tier, geometry, reason: 'ok-small' }
+  }
+  if (input.explicitGeometry) {
+    return {
+      blocked: false,
+      message: null,
+      tier,
+      geometry: input.explicitGeometry,
+      reason: 'override',
+    }
+  }
+  const dirs =
+    input.changeset.dirs && input.changeset.dirs.length > 1
+      ? ` Natural split lines: ${input.changeset.dirs.slice(0, 6).join(', ')}.`
+      : ''
+  const msg =
+    `Delivery geometry (ship): ${input.changeset.loc} LOC / ${input.changeset.files} files ` +
+    `(${input.changeset.source}) → suggested \`${geometry}\`.${dirs} ` +
+    `Decide with \`prjct ship --geometry split|single|direct\` before publishing. ` +
+    `(SUPERIOR to silent large PRs — gentle-ai forecast with teeth.)`
+  if (input.mode === 'strict') {
+    return { blocked: true, message: msg, tier, geometry, reason: 'strict-block' }
+  }
+  return { blocked: false, message: `⚠️  ${msg}`, tier, geometry, reason: 'advisory' }
+}

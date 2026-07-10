@@ -127,6 +127,13 @@ function packConfigDefaults(existing: LocalConfig, activated: string[]): Partial
     if (defaults.land && !existing.land) {
       patch.land = { mode: defaults.land }
     }
+    if (defaults.conflictMode && !existing.judgment?.conflictMode) {
+      patch.judgment = {
+        ...existing.judgment,
+        ...patch.judgment,
+        conflictMode: defaults.conflictMode,
+      }
+    }
   }
   return patch
 }

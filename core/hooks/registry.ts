@@ -18,6 +18,7 @@ import { runNotificationHook } from './notification'
 import { runPostEditHook } from './post-edit'
 import { runPreCommitHook } from './pre-commit'
 import { runPreEditHook } from './pre-edit'
+import { runPrePackageHook } from './pre-package'
 import { runPreSecretsHook } from './pre-secrets'
 import { runPromptHook } from './prompt'
 import { runSessionStartHook } from './session-start'
@@ -35,6 +36,8 @@ export const HOOK_RUNNERS: Record<string, HookRunner> = {
   'pre-commit': runPreCommitHook,
   // Credential MUST — registered before pre-edit so security decide runs early.
   'pre-secrets': runPreSecretsHook,
+  // Package legitimacy PreToolUse — unknown deps before install (SUPERIOR vs ship-only).
+  'pre-package': runPrePackageHook,
   'pre-edit': runPreEditHook,
   'post-edit': runPostEditHook,
   stop: runStopHook,
