@@ -5,7 +5,7 @@
 ### Added
 
 ### Changed
-- **Repo hygiene**: removed dead exports (knip-clean), untracked agent routing files (`AGENTS.md` / `CLAUDE.md` / handoffs), design notes, turbo cache, and changelog archive from the tree; architecture notes live in `CONTRIBUTING.md` + `docs/`.
+- **Repo hygiene**: knip-clean dead exports; removed non-product root/harness files (repo `AGENTS.md`/`CLAUDE.md`, handoffs, design-notes, turbo cache, copilot-instructions, `.claude/`/`.mcp.json`, unused planning/spec template docs); crew template renamed `leader-mode.md` (no CLAUDE in path). Architecture for contributors lives in `CONTRIBUTING.md` + `docs/`. **Product still generates** consumer `AGENTS.md` / host adapters via `templates/` + install.
 - **Licensing**: MIT copyright 2024–2026, `NOTICE` with third-party pointer, package.json author/SPDX metadata, contribution license clause in `CONTRIBUTING.md`.
 
 ## [3.47.0] - 2026-07-10

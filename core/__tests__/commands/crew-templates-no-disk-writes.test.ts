@@ -69,7 +69,7 @@ describe('crew templates: no disk-write instructions', () => {
     //      with other targets) is gone.
     const targets = [
       path.join(CREW_DIR, 'agents', 'leader.md'),
-      path.join(CREW_DIR, 'CLAUDE-leader-mode.md'),
+      path.join(CREW_DIR, 'leader-mode.md'),
     ]
     for (const file of targets) {
       const content = await fs.readFile(file, 'utf-8')

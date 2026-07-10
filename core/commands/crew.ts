@@ -98,7 +98,8 @@ const CHECKPOINTS_FILE: CrewFile = {
   destRelative: '.prjct/CHECKPOINTS.md',
 }
 
-const CLAUDE_SNIPPET_TEMPLATE = 'crew/CLAUDE-leader-mode.md'
+const CLAUDE_SNIPPET_TEMPLATE = 'crew/leader-mode.md'
+/** Destination file name in the *user's* project (host-specific, not this repo). */
 const CLAUDE_FILE = 'CLAUDE.md'
 
 interface PieceStatus {
