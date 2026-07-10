@@ -7,6 +7,18 @@
 - Value-based retention apply path: archive/delete caps, inbox triage, done-trigger, `config.retention.mode` off|dry-run|apply.
 - **Historical bloat mitigation on `prjct sync`**: soft-deleted vacuum (30d), orphan remember-events purge, archive prune, auto-source live cap (20), vault health line; auto-source capture gate (stricter excess); inject filter demotes aged auto history on recall.
 
+## [3.45.0] - 2026-07-10
+
+### Features
+
+- paid UX — account status, connect, billing (v3.45.0) (#543)
+- distill-then-hard-delete worthless history
+- historical bloat mitigation on prjct sync
+- real Rho excess vs reference model R
+- complete retention plan — apply, inbox triage, done-trigger, selective embed
+- retention score service + sync dry-run report (PR1 of value-based cleanup)
+
+
 ## [3.44.0] - 2026-07-10
 
 ### Added
