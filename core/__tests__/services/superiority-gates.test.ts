@@ -24,9 +24,9 @@ import {
 import { computeHarnessScore, renderCompetitiveDustMd } from '../../services/harness-score'
 import {
   CORE_SUPERIORITY_RUNTIMES,
+  multiRuntimeInstallParityReport,
   multiRuntimeSignalParityComplete,
-  runtimeSignalDelivery,
-  SUPERIORITY_SIGNAL_CONTRACTS,
+  REQUIRED_HOOK_SUBCOMMANDS,
 } from '../../services/multi-runtime-signals'
 import { effectiveNyquistWorkMode, nyquistWorkVerdict } from '../../services/nyquist-lite'
 import { decidePackageInstall, parsePackageInstallCommand } from '../../services/package-legitimacy'
@@ -223,16 +223,19 @@ describe('competitive dust claims SUPERIOR on every row', () => {
   })
 })
 
-describe('multi-runtime signal + skill parity', () => {
-  it('core five runtimes each deliver every superiority signal', () => {
+describe('multi-runtime signal + skill parity (installer-derived)', () => {
+  it('PRJCT_HOOKS + host mappers + skill CONTRACT.loop are complete', () => {
     expect(CORE_SUPERIORITY_RUNTIMES).toEqual(['claude', 'codex', 'gemini', 'cursor', 'grok'])
-    expect(multiRuntimeSignalParityComplete()).toBe(true)
-    for (const r of CORE_SUPERIORITY_RUNTIMES) {
-      const d = runtimeSignalDelivery(r)
-      for (const s of SUPERIORITY_SIGNAL_CONTRACTS) {
-        expect(d[s].length).toBeGreaterThan(8)
-      }
+    for (const sub of REQUIRED_HOOK_SUBCOMMANDS) {
+      expect(PRJCT_HOOKS.some((h) => h.subcommand === sub)).toBe(true)
     }
+    const report = multiRuntimeInstallParityReport()
+    expect(report.missing).toEqual([])
+    expect(report.ok).toBe(true)
+    expect(multiRuntimeSignalParityComplete()).toBe(true)
+    expect(report.codexHasLoop).toBe(true)
+    expect(report.geminiHasLoop).toBe(true)
+    expect(report.grokInheritsClaude).toBe(true)
   })
 
   it('Codex + Gemini surfaces carry loop-discipline CONTRACT', () => {

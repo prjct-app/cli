@@ -1,96 +1,122 @@
 /**
  * Multi-runtime signal parity — SUPERIOR mandate.
  *
- * Hosts differ (hooks APIs ≠ ASCII). What must be equal: the *signal contracts*
- * each core runtime receives via installers + skill/AGENTS surfaces.
+ * Hosts differ (hooks APIs ≠ ASCII). Parity is proven by:
+ *   1. PRJCT_HOOKS install set (Claude source of truth)
+ *   2. Host mappers (Codex/Gemini/Cursor) including pre-package + prompt
+ *   3. Compact skill CONTRACT.loop on Codex/Gemini surfaces
+ *   4. Grok inherits Claude surfaces (harness-surfaces)
  *
- * Core five: Claude, Codex, Gemini, Cursor, Grok.
+ * Not hardcoded prose theater — derived from real installers.
  */
+
+import { BENCHMARK_HARNESS_SURFACES } from '../infrastructure/harness-surfaces'
+import { PRJCT_HOOKS } from './settings-installer'
+import { buildCodexSkill, buildGeminiConfig, CONTRACT } from './skill-generator/editor-surfaces'
 
 export const CORE_SUPERIORITY_RUNTIMES = ['claude', 'codex', 'gemini', 'cursor', 'grok'] as const
 
 export type SuperiorityRuntime = (typeof CORE_SUPERIORITY_RUNTIMES)[number]
 
-/**
- * Signal contracts every core runtime must surface (host-native form).
- * Not identical shell hooks — identical *meaning* to the agent.
- */
-export const SUPERIORITY_SIGNAL_CONTRACTS = [
-  'discuss-lock',
-  'context-pressure',
-  'land',
-  'handoff-switch-accept',
-  'sot-suggest-tip',
-  'package-legitimacy',
-  'loop-discipline-skill',
+/** Subcommands that must exist for superiority signal delivery via hooks. */
+export const REQUIRED_HOOK_SUBCOMMANDS = [
+  'prompt',
+  'session-start',
+  'pre-package',
+  'pre-secrets',
+  'stop',
 ] as const
 
-export type SuperioritySignal = (typeof SUPERIORITY_SIGNAL_CONTRACTS)[number]
-
 /**
- * How each signal reaches each runtime today (install path / surface).
- * Used by tests + harness docs — keep honest, not aspirational.
+ * Live install parity report — reads real PRJCT_HOOKS + host maps + skill bodies.
+ * Returns missing items (empty = complete).
  */
-export function runtimeSignalDelivery(
-  runtime: SuperiorityRuntime
-): Record<SuperioritySignal, string> {
-  const viaHooks = 'PRJCT_HOOKS / host hook map (prompt, session-start, pre-package, land cues)'
-  const viaSkill = 'skill body / compact skill CONTRACT.loop'
-  const viaCli = 'prjct work|switch|accept|ship --md'
-
-  const common: Record<SuperioritySignal, string> = {
-    'discuss-lock': `${viaCli} + startTask discussLockVerdict`,
-    'context-pressure': `${viaHooks} + ship hard gate`,
-    land: `${viaHooks} land-cue + land.mode pack default`,
-    'handoff-switch-accept': `${viaCli} switch/accept + SessionStart handoff cue`,
-    'sot-suggest-tip': `${viaCli} work related-context + prompt topical cue tip→user`,
-    'package-legitimacy': `${viaHooks} pre-package + ship --allow-new-deps`,
-    'loop-discipline-skill': viaSkill,
+export function multiRuntimeInstallParityReport(): {
+  ok: boolean
+  missing: string[]
+  hooks: string[]
+  codexHasLoop: boolean
+  geminiHasLoop: boolean
+  grokInheritsClaude: boolean
+} {
+  const missing: string[] = []
+  const hooks = PRJCT_HOOKS.map((h) => h.subcommand)
+  for (const sub of REQUIRED_HOOK_SUBCOMMANDS) {
+    if (!hooks.includes(sub)) missing.push(`PRJCT_HOOKS missing ${sub}`)
   }
 
-  if (runtime === 'claude') {
-    return {
-      ...common,
-      'loop-discipline-skill': 'Claude SKILL.md full body + CONTRACT.loop compact inherit',
+  // Lazy import host mappers so this module stays usable in unit tests without
+  // circular init issues — dynamic require of pure functions.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { cursorHookMaps } =
+    require('../utils/cursor-hooks') as typeof import('../utils/cursor-hooks')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { geminiHookMaps } =
+    require('../utils/gemini-settings') as typeof import('../utils/gemini-settings')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { codexHookSpecs } =
+    require('../utils/codex-hooks') as typeof import('../utils/codex-hooks')
+
+  const cursorSubs = new Set(cursorHookMaps().map((m) => m.subcommand))
+  const geminiSubs = new Set(geminiHookMaps().map((m) => m.subcommand))
+  const codexSubs = new Set(codexHookSpecs().map((m) => m.subcommand))
+
+  for (const sub of ['prompt', 'session-start', 'pre-package'] as const) {
+    if (!cursorSubs.has(sub)) missing.push(`cursor map missing ${sub}`)
+    if (!geminiSubs.has(sub)) missing.push(`gemini map missing ${sub}`)
+    // Codex may skip some events; pre-package maps if PreToolUse Bash is supported
+    if (sub === 'pre-package' && !codexSubs.has(sub) && !codexSubs.has('pre-secrets')) {
+      // codexHookSpecs filters by CODEX_HOOK_EVENTS — PreToolUse should include bash hooks
+      if (!codexHookSpecs().some((s) => s.subcommand === 'pre-package')) {
+        // Only fail if Claude has it but codex filter dropped all bash prettools
+        const bashHooks = PRJCT_HOOKS.filter(
+          (h) => h.event === 'PreToolUse' && h.matcher === 'Bash'
+        )
+        const codexBash = codexHookSpecs().filter((h) => h.event === 'PreToolUse')
+        if (bashHooks.length > 0 && codexBash.length === 0) {
+          missing.push('codex map has no PreToolUse hooks')
+        }
+      }
     }
   }
-  if (runtime === 'codex') {
-    return {
-      ...common,
-      'loop-discipline-skill': 'Codex SKILL.md (buildCompactSkill) includes CONTRACT.loop',
-      'package-legitimacy': 'Codex hooks.json maps PreToolUse Bash → pre-package',
+
+  // Explicit: pre-package must be in Cursor + Gemini bash/shell maps
+  if (!cursorHookMaps().some((m) => m.subcommand === 'pre-package')) {
+    missing.push('cursor missing pre-package')
+  }
+  if (!geminiHookMaps().some((m) => m.subcommand === 'pre-package')) {
+    missing.push('gemini missing pre-package')
+  }
+
+  const codexSkill = buildCodexSkill()
+  const geminiCfg = buildGeminiConfig()
+  const codexHasLoop = codexSkill.includes(CONTRACT.loop)
+  const geminiHasLoop = geminiCfg.includes(CONTRACT.loop)
+  if (!codexHasLoop) missing.push('codex skill missing CONTRACT.loop')
+  if (!geminiHasLoop) missing.push('gemini config missing CONTRACT.loop')
+
+  const grok = BENCHMARK_HARNESS_SURFACES.find((s) => s.runtimeId === 'grok')
+  const grokInheritsClaude =
+    grok?.hooks?.prjct === 'inherits-claude' || grok?.mcp?.prjct === 'inherits-claude'
+  if (!grokInheritsClaude) missing.push('grok does not inherit Claude surfaces')
+
+  for (const id of CORE_SUPERIORITY_RUNTIMES) {
+    if (!BENCHMARK_HARNESS_SURFACES.some((s) => s.runtimeId === id)) {
+      missing.push(`BENCHMARK_HARNESS_SURFACES missing ${id}`)
     }
   }
-  if (runtime === 'gemini') {
-    return {
-      ...common,
-      'loop-discipline-skill': 'GEMINI.md global config includes CONTRACT.loop',
-      'package-legitimacy': 'Gemini BeforeTool/run_shell_command maps pre-package',
-    }
-  }
-  if (runtime === 'cursor') {
-    return {
-      ...common,
-      'loop-discipline-skill':
-        'Cursor .mdc pointer + portable skill; CONTRACT.loop in compact surfaces',
-      'package-legitimacy': 'Cursor preToolUse Shell|Bash → pre-package',
-    }
-  }
-  // grok inherits Claude Code surfaces
+
   return {
-    ...common,
-    'loop-discipline-skill': 'Grok inherits Claude skill/hooks (native Claude surface compat)',
-    'package-legitimacy': 'Grok inherits Claude PreToolUse pre-package',
+    ok: missing.length === 0,
+    missing,
+    hooks: [...new Set(hooks)],
+    codexHasLoop,
+    geminiHasLoop,
+    grokInheritsClaude: Boolean(grokInheritsClaude),
   }
 }
 
-/** True when every core runtime lists every superiority signal. */
+/** True when install-derived parity is complete. */
 export function multiRuntimeSignalParityComplete(): boolean {
-  for (const r of CORE_SUPERIORITY_RUNTIMES) {
-    const delivery = runtimeSignalDelivery(r)
-    for (const s of SUPERIORITY_SIGNAL_CONTRACTS) {
-      if (!delivery[s] || delivery[s].length < 8) return false
-    }
-  }
-  return true
+  return multiRuntimeInstallParityReport().ok
 }

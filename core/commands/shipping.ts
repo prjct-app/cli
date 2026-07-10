@@ -217,8 +217,9 @@ export class ShippingCommands extends PrjctCommandsBase {
         )
         const packs = shipConfig?.persona?.packs ?? []
         const isCodeStrictPack = packs.includes('code-strict')
-        // SUPERIOR: code-strict defaults to dual-blind (full) when not skip.
-        if (isCodeStrictPack && intensity !== 'skip') {
+        // SUPERIOR: code-strict ALWAYS dual-blind (full) — even trivial diffs.
+        // Ship-grade packs never skip the judgment ledger.
+        if (isCodeStrictPack) {
           intensity = 'full'
         }
         // Hard gate for any non-skip intensity; pack code-strict always hard.
