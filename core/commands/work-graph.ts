@@ -7,11 +7,16 @@
  *   prjct depend <id> --on <id> [--type blocks|parent|related|discovered-from]
  *   prjct phases [--md]             topological parallelization plan
  *   prjct expand <id> ["sub" ...]   read the decomposition record / persist subtasks
+ *   prjct switch <agent>            yield active cycle to another agent (realtime)
+ *   prjct accept [hand_id]          accept a pending handoff
+ *   prjct handoffs                  list recent handoffs
  */
 
+import { acceptAgentHandoff, switchAgent } from '../services/agent-switch'
 import { buildTaskHarness } from '../services/task-harness'
 import { orchestrationFor } from '../services/task-orchestration'
 import { type DepType, workGraph } from '../services/work-graph'
+import { listHandoffs } from '../storage/handoff-storage'
 import { queueStorage } from '../storage/queue-storage'
 import type { CommandResult } from '../types/commands'
 import out from '../utils/output'
@@ -23,6 +28,8 @@ interface GraphOptions {
   on?: string
   type?: string
   as?: string
+  reason?: string
+  launch?: boolean
 }
 
 const DEP_TYPES: DepType[] = ['blocks', 'parent', 'related', 'discovered-from']
@@ -280,6 +287,115 @@ export class WorkGraphCommands extends PrjctCommandsBase {
     if (options.md) console.log(`✓ ${msg}`)
     else out.done(msg)
     return { success: true, id, created }
+  }
+
+  /**
+   * Yield the current work cycle to another agent runtime.
+   * Usage: prjct switch codex --reason "looping on auth" [--launch]
+   */
+  async switch(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: GraphOptions = {}
+  ): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+    const target = (input ?? '').trim().split(/\s+/).filter(Boolean)[0]
+    if (!target) {
+      return this.fail('Usage: prjct switch <agent> [--reason "…"] [--launch]', options)
+    }
+    const result = await switchAgent(proj.value, projectPath, target, {
+      reason: options.reason,
+      launch: options.launch,
+      md: options.md,
+    })
+    if (!result.ok) return this.fail(result.error ?? 'switch failed', options)
+    const h = result.handoff!
+    if (options.md) {
+      console.log(result.resumeCard ?? '')
+      if (result.launched) console.log('\n_Launched target CLI (best-effort)._')
+      else if (result.launchError) console.log(`\n_Launch skipped: ${result.launchError}_`)
+    } else {
+      out.done(`Yielded ${h.taskId.slice(0, 8)} → ${h.toAgent} (${h.id.slice(0, 16)})`)
+      out.info(`Reason: ${h.reason}`)
+      out.info(`Accept: prjct accept ${h.id}`)
+      if (result.launched) out.info('Launched target CLI (best-effort)')
+      else if (result.launchError) out.info(`Launch skipped: ${result.launchError}`)
+    }
+    return {
+      success: true,
+      handoffId: h.id,
+      taskId: h.taskId,
+      toAgent: h.toAgent,
+      launched: result.launched ?? false,
+    }
+  }
+
+  /**
+   * Accept a pending handoff (by id or latest for this runtime).
+   * Usage: prjct accept [hand_id]
+   */
+  async accept(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: GraphOptions = {}
+  ): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+    const id = (input ?? '').trim().split(/\s+/).filter(Boolean)[0] ?? null
+    const result = await acceptAgentHandoff(proj.value, projectPath, id)
+    if (!result.ok) return this.fail(result.error ?? 'accept failed', options)
+    if (options.md) console.log(result.brief ?? '')
+    else {
+      out.done(`Accepted ${result.handoff!.id.slice(0, 16)} — cycle is yours`)
+      out.info(`Task: ${result.handoff!.taskId.slice(0, 8)} · ${result.handoff!.taskDescription}`)
+      out.info(`Why yielded: ${result.handoff!.reason}`)
+      out.info('Next: prjct work --md  (same cycle; do not restart)')
+    }
+    return {
+      success: true,
+      handoffId: result.handoff!.id,
+      taskId: result.handoff!.taskId,
+    }
+  }
+
+  /** List recent / pending handoffs. */
+  async handoffs(
+    _input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: GraphOptions = {}
+  ): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+    const rows = listHandoffs(proj.value, { limit: 20 })
+    if (rows.length === 0) {
+      const msg = 'No handoffs yet. Yield with `prjct switch <agent> --reason "…"`.'
+      if (options.md) console.log(`> ${msg}`)
+      else out.info(msg)
+      return { success: true, count: 0 }
+    }
+    if (options.md) {
+      const lines = [
+        `# Handoffs (${rows.length})`,
+        '',
+        '| Id | Status | From → To | Task | Reason |',
+        '|---|---|---|---|---|',
+      ]
+      for (const h of rows) {
+        lines.push(
+          `| \`${h.id.slice(0, 14)}\` | ${h.status} | ${h.fromAgent} → ${h.toAgent} | \`${h.taskId.slice(0, 8)}\` | ${h.reason.slice(0, 60)} |`
+        )
+      }
+      lines.push('', 'Accept: `prjct accept <id>`')
+      console.log(lines.join('\n'))
+    } else {
+      for (const h of rows) {
+        out.info(
+          `[${h.status}] ${h.id.slice(0, 14)} ${h.fromAgent}→${h.toAgent} ${h.taskId.slice(0, 8)} — ${h.reason.slice(0, 50)}`
+        )
+      }
+    }
+    return { success: true, count: rows.length, handoffs: rows }
   }
 
   /** Accept full UUIDs or unambiguous short prefixes (beads-style). */

@@ -203,6 +203,40 @@ export async function buildProjectState(
       lines.push(`- ${others.length} task(s) active in other workspace(s)`)
       hasContent = true
     }
+    // Foreign occupant on THIS workspace without being the current task owner
+    // (rare mid-session) — cue isolation / switch.
+    if (overview.current) {
+      // Owner line when present on the live cycle
+      try {
+        const { resolveActiveTask } = await import('../services/task-service')
+        const t = await resolveActiveTask(config.projectId, projectPath)
+        if (t?.ownerAgent) {
+          lines.push(
+            `- Owner: ${t.ownerAgent}${t.ownerIdentity ? `/${t.ownerIdentity}` : ''}${t.yieldStatus === 'yielded' ? ' (yielded — awaiting accept)' : ''}`
+          )
+          hasContent = true
+        }
+      } catch {
+        /* best-effort */
+      }
+    } else if (others.length > 0) {
+      lines.push(
+        '- This workspace idle but siblings busy — `prjct work` auto-isolates to a worktree when needed'
+      )
+      hasContent = true
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  // Pending multi-agent handoffs addressed to this runtime (or any if unknown).
+  try {
+    const { formatPendingHandoffCue } = await import('../services/agent-switch')
+    const cue = formatPendingHandoffCue(config.projectId)
+    if (cue) {
+      lines.push(`- ${cue.replace(/\n/g, '\n- ')}`)
+      hasContent = true
+    }
   } catch {
     /* best-effort */
   }

@@ -1,0 +1,270 @@
+/**
+ * Durable task handoffs — multi-agent yield/accept bus over SQLite.
+ *
+ * `prjct switch <agent>` writes a pending row; `prjct accept` claims it.
+ * Hooks inject pending rows so the target terminal can pick up without
+ * a shared chat transcript.
+ */
+
+import { generateUUID } from '../schemas/schemas'
+import { getTimestamp } from '../utils/date-helper'
+import { prjctDb } from './database'
+
+export type HandoffStatus = 'pending' | 'accepted' | 'expired' | 'cancelled'
+
+export interface HandoffEvidence {
+  turns?: number
+  files?: string[]
+  pressure?: string
+  loopStopped?: boolean
+  journal?: string[]
+  tried?: string
+}
+
+export interface TaskHandoff {
+  id: string
+  projectId: string
+  taskId: string
+  taskDescription: string
+  fromAgent: string
+  fromIdentity: string | null
+  toAgent: string
+  reason: string
+  evidence: HandoffEvidence | null
+  status: HandoffStatus
+  workspaceId: string | null
+  worktreePath: string | null
+  branch: string | null
+  createdAt: string
+  acceptedAt: string | null
+  acceptedBy: string | null
+  expiresAt: string | null
+}
+
+export interface CreateHandoffInput {
+  projectId: string
+  taskId: string
+  taskDescription: string
+  fromAgent: string
+  fromIdentity?: string | null
+  toAgent: string
+  reason: string
+  evidence?: HandoffEvidence | null
+  workspaceId?: string | null
+  worktreePath?: string | null
+  branch?: string | null
+  /** TTL hours; default 24 */
+  ttlHours?: number
+}
+
+interface HandoffRow {
+  id: string
+  project_id: string
+  task_id: string
+  task_description: string
+  from_agent: string
+  from_identity: string | null
+  to_agent: string
+  reason: string
+  evidence: string | null
+  status: string
+  workspace_id: string | null
+  worktree_path: string | null
+  branch: string | null
+  created_at: string
+  accepted_at: string | null
+  accepted_by: string | null
+  expires_at: string | null
+}
+
+function parseEvidence(raw: string | null): HandoffEvidence | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as HandoffEvidence
+  } catch {
+    return null
+  }
+}
+
+function toHandoff(row: HandoffRow): TaskHandoff {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    taskId: row.task_id,
+    taskDescription: row.task_description,
+    fromAgent: row.from_agent,
+    fromIdentity: row.from_identity,
+    toAgent: row.to_agent,
+    reason: row.reason,
+    evidence: parseEvidence(row.evidence),
+    status: row.status as HandoffStatus,
+    workspaceId: row.workspace_id,
+    worktreePath: row.worktree_path,
+    branch: row.branch,
+    createdAt: row.created_at,
+    acceptedAt: row.accepted_at,
+    acceptedBy: row.accepted_by,
+    expiresAt: row.expires_at,
+  }
+}
+
+function expiresAtIso(ttlHours: number): string {
+  const d = new Date()
+  d.setTime(d.getTime() + Math.max(1, ttlHours) * 3600_000)
+  return d.toISOString()
+}
+
+export function createHandoff(input: CreateHandoffInput): TaskHandoff {
+  const id = `hand_${generateUUID()}`
+  const now = getTimestamp()
+  const ttl = input.ttlHours ?? 24
+  const evidenceJson = input.evidence ? JSON.stringify(input.evidence) : null
+
+  prjctDb.run(
+    input.projectId,
+    `INSERT INTO task_handoffs (
+      id, project_id, task_id, task_description, from_agent, from_identity,
+      to_agent, reason, evidence, status, workspace_id, worktree_path, branch,
+      created_at, accepted_at, accepted_by, expires_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NULL, NULL, ?)`,
+    id,
+    input.projectId,
+    input.taskId,
+    input.taskDescription,
+    input.fromAgent,
+    input.fromIdentity ?? null,
+    input.toAgent,
+    input.reason,
+    evidenceJson,
+    input.workspaceId ?? null,
+    input.worktreePath ?? null,
+    input.branch ?? null,
+    now,
+    expiresAtIso(ttl)
+  )
+
+  return {
+    id,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    taskDescription: input.taskDescription,
+    fromAgent: input.fromAgent,
+    fromIdentity: input.fromIdentity ?? null,
+    toAgent: input.toAgent,
+    reason: input.reason,
+    evidence: input.evidence ?? null,
+    status: 'pending',
+    workspaceId: input.workspaceId ?? null,
+    worktreePath: input.worktreePath ?? null,
+    branch: input.branch ?? null,
+    createdAt: now,
+    acceptedAt: null,
+    acceptedBy: null,
+    expiresAt: expiresAtIso(ttl),
+  }
+}
+
+export function getHandoff(projectId: string, id: string): TaskHandoff | null {
+  const row = prjctDb.get<HandoffRow>(
+    projectId,
+    'SELECT * FROM task_handoffs WHERE id = ? OR id LIKE ?',
+    id,
+    `${id}%`
+  )
+  return row ? toHandoff(row) : null
+}
+
+/** Expire stale pending rows (lazy, on read paths). */
+export function expireStaleHandoffs(projectId: string): number {
+  const now = getTimestamp()
+  try {
+    prjctDb.run(
+      projectId,
+      `UPDATE task_handoffs SET status = 'expired'
+       WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < ?`,
+      now
+    )
+  } catch {
+    return 0
+  }
+  return 0
+}
+
+export function listHandoffs(
+  projectId: string,
+  opts: { status?: HandoffStatus; toAgent?: string; limit?: number } = {}
+): TaskHandoff[] {
+  expireStaleHandoffs(projectId)
+  const limit = opts.limit ?? 20
+  const clauses: string[] = []
+  const params: Array<string | number> = []
+  if (opts.status) {
+    clauses.push('status = ?')
+    params.push(opts.status)
+  }
+  if (opts.toAgent) {
+    clauses.push('to_agent = ?')
+    params.push(opts.toAgent)
+  }
+  const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : ''
+  const rows = prjctDb.query<HandoffRow>(
+    projectId,
+    `SELECT * FROM task_handoffs ${where} ORDER BY created_at DESC LIMIT ?`,
+    ...params,
+    limit
+  )
+  return rows.map(toHandoff)
+}
+
+export function listPendingForAgent(projectId: string, toAgent: string): TaskHandoff[] {
+  return listHandoffs(projectId, { status: 'pending', toAgent, limit: 10 })
+}
+
+/**
+ * Race-free accept: succeeds only if still pending.
+ * Returns the handoff when this caller won; null if lost or missing.
+ */
+export function acceptHandoff(
+  projectId: string,
+  id: string,
+  acceptedBy: string
+): TaskHandoff | null {
+  expireStaleHandoffs(projectId)
+  const now = getTimestamp()
+  prjctDb.run(
+    projectId,
+    `UPDATE task_handoffs
+     SET status = 'accepted', accepted_at = ?, accepted_by = ?
+     WHERE (id = ? OR id LIKE ?) AND status = 'pending'`,
+    now,
+    acceptedBy,
+    id,
+    `${id}%`
+  )
+  const row = prjctDb.get<HandoffRow>(
+    projectId,
+    'SELECT * FROM task_handoffs WHERE (id = ? OR id LIKE ?) AND status = ? AND accepted_by = ?',
+    id,
+    `${id}%`,
+    'accepted',
+    acceptedBy
+  )
+  return row ? toHandoff(row) : null
+}
+
+export function cancelHandoff(projectId: string, id: string): boolean {
+  prjctDb.run(
+    projectId,
+    `UPDATE task_handoffs SET status = 'cancelled'
+     WHERE (id = ? OR id LIKE ?) AND status = 'pending'`,
+    id,
+    `${id}%`
+  )
+  const row = prjctDb.get<{ status: string }>(
+    projectId,
+    'SELECT status FROM task_handoffs WHERE id = ? OR id LIKE ?',
+    id,
+    `${id}%`
+  )
+  return row?.status === 'cancelled'
+}
