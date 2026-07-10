@@ -56,6 +56,10 @@ interface ShipOptions {
   noSpecGate?: boolean
   /** TDD: skip the test gate surfaced in strict mode (explicit override) */
   noTestGate?: boolean
+  /** Package legitimacy: allow ship with new deps vs HEAD (explicit consent) */
+  allowNewDeps?: boolean
+  /** Context-pressure critical: force ship despite hard gate (explicit consent) */
+  forcePressure?: boolean
 }
 
 export class ShippingCommands extends PrjctCommandsBase {
@@ -118,7 +122,8 @@ export class ShippingCommands extends PrjctCommandsBase {
         }
       }
 
-      // Package legitimacy (GSD slopcheck steal): new deps vs HEAD.
+      // Package legitimacy (SUPERIOR to GSD slopcheck): new deps vs HEAD.
+      // Override is `--allow-new-deps` only — never shared with `--no-spec-gate`.
       try {
         const { checkPackageLegitimacy } = await import('../services/package-legitimacy')
         const pkg = await checkPackageLegitimacy(projectPath)
@@ -127,16 +132,42 @@ export class ShippingCommands extends PrjctCommandsBase {
             shipConfig?.sdd?.mode === 'strict' ||
             shipConfig?.tdd?.mode === 'strict' ||
             shipConfig?.deliveryGeometry?.mode === 'strict'
-          if (hard && !options.noSpecGate) {
+          if (hard && !options.allowNewDeps) {
             return {
               success: false,
-              error: `${pkg.message}\nOverride only with explicit consent: verify packages, then \`prjct ship --no-spec-gate\`.`,
+              error: `${pkg.message}\nOverride only with explicit consent: verify packages, then \`prjct ship --allow-new-deps\`.`,
             }
           }
           console.log(`⚠️  ${pkg.message}`)
         }
       } catch {
         /* package check is best-effort */
+      }
+
+      // Context-pressure HARD gate — critical sessions must land/prime first.
+      try {
+        const { contextPressureBlocksExpansion, contextPressureVerdict } = await import(
+          '../services/context-pressure'
+        )
+        const pressure = contextPressureVerdict(shipConfig, {
+          turnCount: currentTask?.turnCount,
+          tokensIn: currentTask?.tokensIn,
+          tokensOut: currentTask?.tokensOut,
+          description: currentTask?.description,
+        })
+        if (contextPressureBlocksExpansion(pressure) && !options.forcePressure) {
+          return {
+            success: false,
+            error:
+              pressure.cue ??
+              'Context pressure critical — run `prjct land`, open a fresh window + `prjct prime`. Override only with `prjct ship --force-pressure` and explicit consent.',
+          }
+        }
+        if (pressure.level === 'warn' && pressure.cue) {
+          console.log(pressure.cue)
+        }
+      } catch {
+        /* pressure gate best-effort */
       }
 
       // Precision-gated judgment ship gate (human-invoked ship only — never

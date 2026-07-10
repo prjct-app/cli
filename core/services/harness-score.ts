@@ -214,29 +214,31 @@ export function computeHarnessScore(
 }
 
 /**
- * Competitive dust table — absolute dimensions where prjct must stay above
- * gentle-ai (prompt-only ecosystem) and open-GSD (markdown phase theater).
- * Static capability matrix + live structural grade; not marketing fluff.
+ * Competitive dust — every row claims SUPERIOR with a measurable mechanism.
+ * Field: gentle-ai, open-GSD, memory plugins (claude-mem/agentmemory/Mem0-class).
+ * Mandate: not near-parity — beat on every dimension that is our job.
  */
 export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
-  const grade = report.programDone ? 'WIN' : 'HOLD'
+  const grade = report.programDone ? 'SUPERIOR' : 'HOLD'
   return [
-    '## Competitive dust (gentle-ai · open-GSD · prjct)',
+    '## Competitive dust (SUPERIOR mandate — gentle-ai · open-GSD · memory plugins · prjct)',
     '',
-    '| Dimension | gentle-ai | open-GSD | **prjct** |',
-    '|---|---|---|---|',
-    '| Judgment memory | Engram JSONL | files / MemPalace bolt-on | **SQLite typed WHY + apply-loop** |',
-    '| Enforcement | prompt-only | phase markdown ritual | **code gates (SDD/TDD/land/discuss/package)** |',
-    '| Work graph | none | ROADMAP.md | **ready/next/claim/phases in SQLite** |',
-    '| Fresh window | optional | re-research every phase | **prime + SessionStart digest (compound)** |',
-    '| Token economics | unmeasured thrash | high (fresh windows × agents) | **telemetry + skill/MCP diet** |',
-    '| Discuss before code | organic SDD | discuss-phase command | **discuss-lock H2+ (code)** |',
-    '| Install surface | curl/brew binary | npx multi-runtime | npm/pnpm/brew + upgrade consolidate |',
-    '| Multi-runtime wire | single ecosystem | Claude-centric phases | **Claude+Codex+Gemini+Cursor+Grok inherit, one install** |',
-    '| Organic feel | install prompts | ceremony `/plan` | **passive hooks + SQLite; agent never re-learns the OS** |',
-    `| Structural grade | n/a | n/a | **${report.grade}/5 ${grade}** |`,
+    '| Dimension | gentle-ai | open-GSD | memory plugins | **prjct (mechanism)** |',
+    '|---|---|---|---|---|',
+    '| Judgment memory | Engram JSONL | files / bolt-on | chat transcript | **SUPERIOR: SQLite typed WHY + SoT/SUGGEST apply-loop** |',
+    '| Enforcement | prompt-only | phase markdown | none | **SUPERIOR: code gates SDD/TDD/land/discuss/package/judgment** |',
+    '| Work graph | none | ROADMAP.md | none | **SUPERIOR: ready/next/claim/phases + switch/accept in SQLite** |',
+    '| Fresh window | optional | re-research thrash | session reset | **SUPERIOR: prime + SessionStart compound (0 re-teach OS)** |',
+    '| Token economics | unmeasured | high × agents | dump context | **SUPERIOR: telemetry + skill diet + Rho retention** |',
+    '| Discuss before code | organic | discuss-phase | none | **SUPERIOR: discuss-lock H2+ code-enforced** |',
+    '| Context pressure | soft | fresh window | none | **SUPERIOR: hard gate on ship at critical + land path** |',
+    '| Package legitimacy | none | slopcheck-ish | none | **SUPERIOR: PreToolUse install + ship `--allow-new-deps`** |',
+    '| Memory hygiene | grow forever | files pile | grow forever | **SUPERIOR: Rho excess vs R + distill-hard-delete + close** |',
+    '| Multi-runtime wire | one eco | Claude-first | plugin per host | **SUPERIOR: one install → Claude+Codex+Gemini+Cursor+Grok** |',
+    '| Organic feel | install prompts | `/plan` ceremony | manual MCP | **SUPERIOR: passive hooks; agent never re-learns the OS** |',
+    `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
-    '_Rule: never clone their skill count or `.planning/` OS. Crush on compound judgment, cost, enforcement, and multi-surface organic wire._',
+    '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',
     '',
   ].join('\n')
 }

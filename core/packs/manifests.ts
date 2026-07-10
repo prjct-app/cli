@@ -55,6 +55,8 @@ export interface PackManifest {
     maxTurnsPerCycle?: number
     deliveryGeometry?: 'off' | 'advisory' | 'strict'
     land?: 'off' | 'advisory' | 'strict'
+    /** Closed-loop conflict gate default (first activation only). */
+    conflictMode?: 'off' | 'advisory' | 'strict'
   }
 }
 
@@ -83,6 +85,8 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
       // Session-close is not optional on code packs (gentle-ai land ritual,
       // code-enforced cue via land-cue + Stop).
       land: 'strict',
+      // SUPERIOR: conflict gate on by default for code (not off).
+      conflictMode: 'advisory',
     },
   },
 
@@ -105,6 +109,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
       maxTurnsPerCycle: 25,
       deliveryGeometry: 'strict',
       land: 'strict',
+      conflictMode: 'strict',
     },
   },
 

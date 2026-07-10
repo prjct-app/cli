@@ -148,7 +148,10 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     surface: 'ai-agile',
     routing: { group: 'shipping', method: 'ship' },
-    optionSchema: { booleans: ['skipHooks', 'noSpecGate', 'noTestGate'], strings: ['intent'] },
+    optionSchema: {
+      booleans: ['skipHooks', 'noSpecGate', 'noTestGate', 'allowNewDeps', 'forcePressure'],
+      strings: ['intent'],
+    },
     description: 'Commit, push, and celebrate shipped feature',
     usage: { claude: 'p. ship ["feature"]', terminal: 'prjct ship ["feature"]' },
     params: '[feature]',
@@ -274,6 +277,27 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Accepts `mem_1234`, `mem-1234`, or a bare `1234`',
       'Hard-deletes the source event + drops the FTS mirror and any embedding — cannot resurface lexically or semantically',
+    ],
+  },
+  {
+    name: 'close',
+    group: 'core',
+    surface: 'ai-agile',
+    routing: { group: 'primitives', method: 'close' },
+    optionSchema: { strings: ['reason'] },
+    description:
+      'Resolve/close a memory entry (inbox, signal, trap) so it leaves rotation — soft-delete + closed tag',
+    usage: {
+      claude: 'p. close mem_1234 --reason "fixed in PR"',
+      terminal: 'prjct close mem_1234 [--reason "..."] [--md]',
+    },
+    params: '<id>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Soft-removes from recall/FTS/embeddings; records status:closed for audit',
+      'Use for resolved inbox/improvement-signals — prefer over silent forget when the resolution matters',
     ],
   },
   {

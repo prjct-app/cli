@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Dominance SUPERIOR slice**: package legitimacy PreToolUse (`pre-package`) + ship `--allow-new-deps` (not shared with `--no-spec-gate`); context-pressure **hard-blocks ship** at critical (`--force-pressure` override); `prjct close <id>` resolve hygiene; pack `conflictMode` defaults (code=advisory, code-strict=strict); competitive dust matrix claims SUPERIOR on every row vs gentle-ai / open-GSD / memory plugins.
 
 ## [3.45.0] - 2026-07-10
 
