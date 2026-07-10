@@ -107,7 +107,16 @@ export class WorkGraphCommands extends PrjctCommandsBase {
     if (!proj.ok) return proj.result
     const id = await this.resolveId(proj.value, (input ?? '').trim())
     if (!id) return this.fail('Usage: prjct claim <task-id>', options)
-    const claimant = options.as ?? process.env.PRJCT_AGENT ?? 'claude'
+    // Codex-style adorable default when neither --as nor PRJCT_AGENT is set.
+    let claimant = options.as ?? process.env.PRJCT_AGENT
+    if (!claimant) {
+      const { pickCodename } = await import('../services/agent-codenames')
+      const taken = workGraph
+        .ready(proj.value, { limit: 50 })
+        .map((i) => i.claimedBy)
+        .filter((x): x is string => Boolean(x))
+      claimant = pickCodename(`claim:${id}:${Date.now()}`, taken)
+    }
     const won = workGraph.claim(proj.value, id, claimant)
     const msg = won
       ? `claimed ${id.slice(0, 8)} as ${claimant}`

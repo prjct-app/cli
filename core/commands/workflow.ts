@@ -152,7 +152,17 @@ export class WorkflowCommands extends PrjctCommandsBase {
             )
           ),
           orchestration
-            ? mdSection('How to run this (orchestration)', orchestration.directive)
+            ? mdSection(
+                'How to run this (orchestration)',
+                [
+                  orchestration.directive,
+                  orchestration.cast && orchestration.cast.length > 0
+                    ? `\n**Subagents:** ${orchestration.cast.map((c) => `${c.name} (${c.role})`).join(' · ')}`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join('')
+              )
             : null,
           pipeline
             ? mdSection(
