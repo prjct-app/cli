@@ -319,13 +319,19 @@ export function buildTopicalCue(
     const keywords = extractKeywords(prompt)
     if (keywords.length === 0) return null
     const hits = projectMemory.searchFts(projectId, keywords, CUE_CANDIDATES)
-    const trap = hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
-    if (!trap) return null
-    // Push-path ship attribution: the cue surfaced this trap during the
-    // active work — if the work ships, it earned its keep (otherwise the
-    // most effective gotchas DECAY precisely because the push works).
-    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [trap.id])
-    return `> Trap on this topic: ${deriveTitle(trap)}  \`${trap.id}\``
+    const ranked =
+      hits.find((e) => e.type === 'decision' || e.type === 'gotcha' || e.type === 'fact') ??
+      hits.find((e) => e.type === 'anti-pattern' || e.type === 'pattern') ??
+      hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
+    if (!ranked) return null
+    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [ranked.id])
+    if (ranked.type === 'decision' || ranked.type === 'gotcha' || ranked.type === 'fact') {
+      return `> SoT (binding): ${deriveTitle(ranked)}  \`${ranked.id}\` — do not contradict without superseding`
+    }
+    if (ranked.type === 'anti-pattern' || ranked.type === 'pattern') {
+      return `> Live suggest: ${deriveTitle(ranked)}  \`${ranked.id}\` — apply when editing related code`
+    }
+    return `> Knowledge: ${deriveTitle(ranked)}  \`${ranked.id}\``
   } catch {
     return null
   }

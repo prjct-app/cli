@@ -205,7 +205,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
               )
             : null,
           relatedLines.length > 0
-            ? mdSection('Related context — has this come up before?', mdList(relatedLines))
+            ? mdSection(
+                'Living knowledge — SoT (binding) · SUGGEST (live mods)',
+                [
+                  '> **SoT** = project truth — do not contradict without `prjct remember` superseding. **SUGGEST** = apply the live modification when editing.',
+                  mdList(relatedLines),
+                ].join('\n')
+              )
             : null,
           likelyFileLines.length > 0
             ? mdSection(
@@ -250,7 +256,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           for (const line of riskLines) out.info(`  ${line}`)
         }
         if (relatedLines.length > 0) {
-          out.info('Related context — has this come up before?')
+          out.info('Living knowledge — SoT (binding) · SUGGEST (live mods)')
           for (const line of relatedLines) out.info(`  ${line}`)
         }
         if (likelyFileLines.length > 0) {
