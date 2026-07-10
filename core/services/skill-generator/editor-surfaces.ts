@@ -37,7 +37,8 @@ export const CONTRACT = {
   kb: `KB facets (\`${KB}\`): \`prjct remember <facet>\` / \`prjct context memory <facet>\` — pulled on demand, never injected here.`,
   ship: 'Ship only after the user OKs: `prjct ship --md`.',
   /** Loop-discipline parity across Claude/Codex/Gemini/Cursor/Grok (SUPERIOR multi-runtime). */
-  loop: 'Loop: land on pressure; H2+ needs reviewed intent; tip→user SoT; `prjct close` resolves.',
+  // Kept short: Codex SKILL.md hard cap ~1024B including metadata marker.
+  loop: 'Loop: land; H2+ intent; tip→user SoT; close.',
 } as const
 
 /**
