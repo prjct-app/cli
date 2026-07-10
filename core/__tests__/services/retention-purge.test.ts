@@ -152,7 +152,58 @@ describe('vaultHealth + runVaultPurge', () => {
     })
     const h = vaultHealth(projectId)
     expect(h.live).toBeGreaterThanOrEqual(1)
-    const dry = runVaultPurge(projectId, { dryRun: true })
+    const dry = await runVaultPurge(projectId, { dryRun: true })
     expect(dry.softDeletedPurged + dry.archivesPruned).toBe(0)
+  })
+})
+
+describe('distill-then-hard-delete', () => {
+  it('buildDistillContent collapses batch to one model residue', async () => {
+    const { buildDistillContent } = await import('../../services/retention/distill')
+    const batch = [
+      {
+        id: 'mem_1',
+        type: 'learning',
+        content: 'pattern detector found recurring auth bug in middleware layer again today',
+        tags: { source: 'pattern-detector-auto' },
+        rememberedAt: new Date().toISOString(),
+        provenance: 'inferred' as const,
+      },
+      {
+        id: 'mem_2',
+        type: 'learning',
+        content: 'pattern detector found recurring timeout in sync service under load',
+        tags: { source: 'pattern-detector-auto' },
+        rememberedAt: new Date().toISOString(),
+        provenance: 'inferred' as const,
+      },
+    ]
+    const text = buildDistillContent('pattern-detector-auto', batch, new Date().toISOString())
+    expect(text).toMatch(/Distill of discarded/)
+    expect(text).toMatch(/discarded=2/)
+    expect(text).toMatch(/hard-deleted after distillation/)
+    // One compact residue, not two full entry dumps glued together
+    expect(text.split('pattern detector found').length).toBeLessThanOrEqual(3)
+  })
+
+  it('hardDeleteEntries removes rows for real', () => {
+    const { hardDeleteEntries } =
+      require('../../services/retention/distill') as typeof import('../../services/retention/distill')
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memory_entries (
+        id, project_id, type, title, content, provenance, content_hash,
+        user_triggered, revision_count, created_at, updated_at, deleted_at
+      ) VALUES ('mem_7701', ?, 'context', 'x', 'noise body to hard delete after distill xx', 'inferred', 'hd1', 0, 0, ?, ?, NULL)`,
+      projectId,
+      Date.now(),
+      Date.now()
+    )
+    expect(hardDeleteEntries(projectId, ['mem_7701'])).toBe(1)
+    const c = prjctDb.get<{ c: number }>(
+      projectId,
+      "SELECT COUNT(*) AS c FROM memory_entries WHERE id = 'mem_7701'"
+    )
+    expect(c?.c).toBe(0)
   })
 })

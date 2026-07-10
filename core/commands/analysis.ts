@@ -310,7 +310,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
             const v = r.vault
             const purged =
               r.dryRun === false
-                ? ` · purged: softΔ${v.softDeletedPurged ?? 0} orphanΔ${v.orphanEventsPurged ?? 0} archΔ${v.archivesPruned ?? 0} autoΔ${v.autoSourceTrimmed ?? 0}`
+                ? ` · purged: hardΔ${v.softDeletedPurged ?? 0} distillΔ${v.distilledDiscarded ?? 0} digests+${v.digestsWritten ?? 0} archΔ${v.archivesPruned ?? 0}`
                 : ''
             mdStatsObj.Vault = `${v.live} live · soft-del ${v.softDeleted} · archives ${v.archives} · auto ${v.autoSourceLive}${purged}`
           }

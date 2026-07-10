@@ -486,7 +486,8 @@ class SyncService {
           // Cold purge: vacuum soft-deleted, orphan events, old archives,
           // auto-source caps. This is where historical bloat actually dies.
           const { runVaultPurge, vaultHealth } = await import('./retention/purge')
-          const purged = runVaultPurge(this.projectId!, {
+          const purged = await runVaultPurge(this.projectId!, {
+            projectPath: this.projectPath,
             dryRun,
             softDeletedPurgeDays: cfg?.retention?.softDeletedPurgeDays,
             archivePruneDays: cfg?.retention?.archivePruneDays,
@@ -519,6 +520,8 @@ class SyncService {
               orphanEventsPurged: purged.orphanEventsPurged,
               archivesPruned: purged.archivesPruned,
               autoSourceTrimmed: purged.autoSourceTrimmed,
+              distilledDiscarded: purged.distilledDiscarded,
+              digestsWritten: purged.digestsWritten,
             },
           }
         } catch (error) {

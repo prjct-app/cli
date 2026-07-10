@@ -142,6 +142,8 @@ export interface RetentionDryRunSummary {
     orphanEventsPurged?: number
     archivesPruned?: number
     autoSourceTrimmed?: number
+    distilledDiscarded?: number
+    digestsWritten?: number
   }
 }
 

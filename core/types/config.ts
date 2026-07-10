@@ -158,7 +158,7 @@ export interface LocalConfig {
     maxArchive?: number
     /** Max delete actions per full sync (default 50). */
     maxDelete?: number
-    /** Hard-delete soft-deleted rows older than N days on sync (default 30). */
+    /** Hard-delete soft-deleted rows older than N days on sync (default 7 — no statistical value). */
     softDeletedPurgeDays?: number
     /** Prune archives older than N days on sync (default 90). */
     archivePruneDays?: number

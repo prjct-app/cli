@@ -23,6 +23,7 @@ import { archiveStorage } from '../../storage/archive-storage'
 import prjctDb from '../../storage/database'
 import { isIrrelevantGeneratedContext } from '../context-quality-service'
 import { extractCorrectionIds, usefulnessService } from '../usefulness'
+import { hardDeleteEntries } from './distill'
 import {
   buildReferenceIndex,
   type ExcessResult,
@@ -381,15 +382,21 @@ export function applyRetention(
       else skipped++
     }
 
+    // Delete verdict = no future value (not even statistical): HARD-delete.
+    // Protected types never reach here (floored to archive).
     const deleteBatch = toDelete.slice(0, maxDelete)
     skipped += Math.max(0, toDelete.length - deleteBatch.length)
+    const hardIds: string[] = []
     for (const r of deleteBatch) {
       if (PROTECTED_TYPES.has(r.type)) {
         skipped++
         continue
       }
-      if (forgetEntry(projectId, r.id)) deleted++
-      else skipped++
+      hardIds.push(r.id)
+    }
+    if (hardIds.length > 0) {
+      deleted = hardDeleteEntries(projectId, hardIds)
+      skipped += hardIds.length - deleted
     }
   }
 

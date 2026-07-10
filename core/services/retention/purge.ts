@@ -14,7 +14,8 @@ import { projectMemory } from '../../memory/project-memory'
 import { archiveStorage } from '../../storage/archive-storage'
 import prjctDb from '../../storage/database'
 
-export const DEFAULT_SOFT_DELETED_PURGE_DAYS = 30
+/** Soft-deleted rows have no future/statistical value — purge quickly. */
+export const DEFAULT_SOFT_DELETED_PURGE_DAYS = 7
 export const DEFAULT_ARCHIVE_PRUNE_DAYS = 90
 export const DEFAULT_AUTO_SOURCE_MAX_LIVE = 20
 /** Sources that are auto-generated (not human judgment). */
@@ -32,6 +33,9 @@ export interface PurgeResult {
   orphanEventsPurged: number
   archivesPruned: number
   autoSourceTrimmed: number
+  /** Hard-deleted after distill (auto-source noise). */
+  distilledDiscarded?: number
+  digestsWritten?: number
 }
 
 export interface VaultHealth {
@@ -212,16 +216,20 @@ export function vaultHealth(projectId: string): VaultHealth {
 
 /**
  * Full cold purge pass for sync. Best-effort; never throws.
+ *
+ * Policy (user): if rows have no future value — not even statistical —
+ * distill a one-line residue when useful, then HARD-delete. No purgatory.
  */
-export function runVaultPurge(
+export async function runVaultPurge(
   projectId: string,
   opts: {
+    projectPath?: string
     softDeletedPurgeDays?: number
     archivePruneDays?: number
     autoSourceMaxLive?: number
     dryRun?: boolean
   } = {}
-): PurgeResult {
+): Promise<PurgeResult> {
   const softDays = opts.softDeletedPurgeDays ?? DEFAULT_SOFT_DELETED_PURGE_DAYS
   const archDays = opts.archivePruneDays ?? DEFAULT_ARCHIVE_PRUNE_DAYS
   const autoMax = opts.autoSourceMaxLive ?? DEFAULT_AUTO_SOURCE_MAX_LIVE
@@ -233,11 +241,33 @@ export function runVaultPurge(
       orphanEventsPurged: 0,
       archivesPruned: 0,
       autoSourceTrimmed: 0,
+      distilledDiscarded: 0,
+      digestsWritten: 0,
     }
   }
 
-  const autoSourceTrimmed = trimAutoSourceCap(projectId, autoMax)
-  const softDeletedPurged = purgeSoftDeleted(projectId, softDays)
+  let distilledDiscarded = 0
+  let digestsWritten = 0
+  // Distill-then-hard-delete auto-source overflow (preferred over soft-delete).
+  if (opts.projectPath) {
+    try {
+      const { distillAndDiscardAllAutoSources } = await import('./distill')
+      const d = await distillAndDiscardAllAutoSources(opts.projectPath, projectId, autoMax)
+      distilledDiscarded = d.discarded
+      digestsWritten = d.digests
+    } catch {
+      // Fallback: soft-trim if distill fails
+      trimAutoSourceCap(projectId, autoMax)
+    }
+  } else {
+    trimAutoSourceCap(projectId, autoMax)
+  }
+
+  // Soft-deleted = already judged worthless → hard eliminate (no second archive).
+  const { eliminateSoftDeletedNoValue } = await import('./distill')
+  const elim = eliminateSoftDeletedNoValue(projectId, softDays)
+  const softDeletedPurged = elim.purged || purgeSoftDeleted(projectId, softDays)
+
   const orphanEventsPurged = purgeOrphanRememberEvents(projectId, softDays)
   let archivesPruned = 0
   try {
@@ -250,7 +280,9 @@ export function runVaultPurge(
     softDeletedPurged,
     orphanEventsPurged,
     archivesPruned,
-    autoSourceTrimmed,
+    autoSourceTrimmed: distilledDiscarded,
+    distilledDiscarded,
+    digestsWritten,
   }
 }
 
