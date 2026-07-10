@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+## [3.40.0] - 2026-07-10
+
 ### Added
+- CLI login PKCE S256 (flow=pkce-v1) aligned with api+app
 - CLI login PKCE S256 (flow=pkce-v1): callback carries only code+state; exchange via /auth/cli/exchange
 
 ## [3.39.0] - 2026-07-10
