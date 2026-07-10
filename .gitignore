@@ -47,6 +47,17 @@ pnpm-debug.log*
 .vscode/
 .windsurf/
 
+# Turbo local cache (never commit)
+.turbo/
+
+# Local agent routing (not source of truth — product templates under templates/)
+# CLAUDE.md is written by prjct setup to ~/.claude/ and optionally cwd
+CLAUDE.md
+AGENTS.md
+HANDOFF-*.md
+design-notes/
+images/
+
 # Obsolete directories
 # Note: Do NOT ignore website/src/ - it contains the website source code!
 
@@ -65,10 +76,6 @@ tmp/
 # Runtime lock file for the scheduled-task daemon (per-process sessionId/pid,
 # rewritten on every run) — was mistakenly tracked, churns every run.
 .claude/scheduled_tasks.lock
-
-# CLAUDE.md lives in ~/.claude/ (installed via prjct setup)
-# Template is at templates/global/CLAUDE.md
-CLAUDE.md
 
 # Cursor IDE local config (routers are dynamically generated per-developer)
 .cursor/rules/prjct.mdc

@@ -251,20 +251,3 @@ export function acceptHandoff(
   )
   return row ? toHandoff(row) : null
 }
-
-export function cancelHandoff(projectId: string, id: string): boolean {
-  prjctDb.run(
-    projectId,
-    `UPDATE task_handoffs SET status = 'cancelled'
-     WHERE (id = ? OR id LIKE ?) AND status = 'pending'`,
-    id,
-    `${id}%`
-  )
-  const row = prjctDb.get<{ status: string }>(
-    projectId,
-    'SELECT status FROM task_handoffs WHERE id = ? OR id LIKE ?',
-    id,
-    `${id}%`
-  )
-  return row?.status === 'cancelled'
-}

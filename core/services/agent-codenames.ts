@@ -42,8 +42,6 @@ export const AGENT_CODENAME_POOL = [
   'Archimedes',
 ] as const
 
-export type AgentCodename = (typeof AGENT_CODENAME_POOL)[number]
-
 export interface AgentCastMember {
   role: string
   name: string

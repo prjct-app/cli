@@ -6,6 +6,7 @@ RAG context, preventive guardrails, synthesized learning, and performance
 signals for each dev+LLM work cycle.
 
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)]()
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
@@ -622,4 +623,7 @@ tradeoffs: [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
 ## License
 
-MIT
+[MIT](./LICENSE) © 2024–2026 Juan José López Lira and [prjct.app](https://prjct.app) contributors.
+
+See [NOTICE](./NOTICE) for third-party attribution notes. Contributions are
+accepted under the same MIT License (see [CONTRIBUTING.md](./CONTRIBUTING.md)).

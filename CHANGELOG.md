@@ -4,6 +4,10 @@
 
 ### Added
 
+### Changed
+- **Repo hygiene**: removed dead exports (knip-clean), untracked agent routing files (`AGENTS.md` / `CLAUDE.md` / handoffs), design notes, turbo cache, and changelog archive from the tree; architecture notes live in `CONTRIBUTING.md` + `docs/`.
+- **Licensing**: MIT copyright 2024–2026, `NOTICE` with third-party pointer, package.json author/SPDX metadata, contribution license clause in `CONTRIBUTING.md`.
+
 ## [3.47.0] - 2026-07-10
 
 ### Added

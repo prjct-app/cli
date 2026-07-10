@@ -211,10 +211,6 @@ export function applySeverityFloorAll(findings: JudgmentFinding[]): JudgmentFind
 
 // ── Ghost filter (project FP memory) ────────────────────────────────────────
 
-export function emptyGhostBook(now: string): JudgmentGhostBook {
-  return { ghosts: [], updatedAt: now }
-}
-
 export function markGhost(
   book: JudgmentGhostBook,
   finding: Pick<JudgmentFinding, 'dna' | 'title'>,

@@ -1,0 +1,25 @@
+prjct-cli
+Copyright (c) 2024-2026 Juan José López Lira and prjct.app contributors
+
+This product is licensed under the MIT License. See the LICENSE file in the
+repository root for the full license text.
+
+SPDX-License-Identifier: MIT
+
+---
+
+Third-party software
+
+This package bundles or depends on open-source components distributed under
+their own licenses (see package.json `dependencies` and the npm registry
+for each package's license). Notable direct runtime dependencies include:
+
+  - @clack/prompts
+  - @modelcontextprotocol/sdk
+  - chalk
+  - chokidar
+  - jsonc-parser
+  - zod
+
+When you redistribute prjct-cli, preserve this NOTICE file and the LICENSE
+file as required by the MIT License.
