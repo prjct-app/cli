@@ -19,6 +19,7 @@
  */
 
 import type { HarnessKind, HarnessLevel, HarnessRisk, TaskHarness } from '../schemas/state'
+import { type QualityCeremony, SHIP_USER_ONLY } from './judgment-orchestrator'
 
 /** Rig-agnostic capability tier (see core/schemas/model.ts MODEL_TIERS). */
 export type ModelTier = 'fast' | 'balanced' | 'frontier'
@@ -29,6 +30,8 @@ export type SpecCeremony = 'none' | 'frame' | 'reviewed'
 export type TestCeremony = 'none' | 'after' | 'first'
 /** direct = do it yourself; parallel = independent subagents; crew = leader + review crew. */
 export type FanOut = 'direct' | 'parallel' | 'crew'
+/** none = skip judgment; standard/full = auto ledger + inject next card (never auto-ship). */
+export type { QualityCeremony }
 
 export type SddMode = 'off' | 'advisory' | 'strict'
 export type TddMode = 'off' | 'assist' | 'strict'
@@ -39,6 +42,8 @@ export interface OrchestrationPlan {
   spec: SpecCeremony
   tests: TestCeremony
   fanout: FanOut
+  /** Precision judgment ceremony — orchestrator opens ledger when not none. */
+  quality: QualityCeremony
   /**
    * Size estimate in points (1/2/5/8 by harness level). Stored on the task at
    * start and compared against the ACTUAL diff at completion — the estimation
@@ -76,6 +81,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
       spec: 'none',
       tests: 'none',
       fanout: 'parallel',
+      quality: 'none',
       expectedPoints: 2,
       directive: '',
     }
@@ -89,6 +95,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: 'none',
         tests: 'none',
         fanout: 'direct',
+        quality: 'none',
         expectedPoints: 1,
         directive: '',
       }
@@ -100,6 +107,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: 'none',
         tests: code ? 'after' : 'none',
         fanout: 'direct',
+        quality: code ? 'standard' : 'none',
         expectedPoints: 2,
         directive: '',
       }
@@ -112,6 +120,7 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: code ? 'frame' : 'none',
         tests: code ? 'first' : 'none',
         fanout: 'parallel',
+        quality: code ? 'standard' : 'none',
         expectedPoints: 5,
         directive: '',
       }
@@ -123,6 +132,8 @@ function baseline(level: HarnessLevel, kind: HarnessKind, risk: HarnessRisk): Or
         spec: code ? 'reviewed' : 'none',
         tests: code ? 'first' : 'none',
         fanout: 'crew',
+        // Security / high-risk always full dual-blind quality.
+        quality: kind === 'security' || risk === 'high' || code ? 'full' : 'none',
         expectedPoints: 8,
         directive: '',
       }
@@ -162,6 +173,12 @@ const FANOUT_TEXT: Record<FanOut, string> = {
     'fan out to parallel subagents ONLY if scope splits into independent pieces — set EACH subagent’s model explicitly (they inherit yours otherwise: mem_3432)',
   crew: 'run a crew (`prjct crew`): leader + implementer + review lenses. Set EACH subagent’s model (Explore→fast, implementer→frontier, reviewers→balanced) — they inherit your expensive model unless you fix it',
 }
+const QUALITY_TEXT: Record<QualityCeremony, string> = {
+  none: 'no judgment tax (trivial)',
+  standard:
+    'quality auto: ledger opened; follow injected `prjct judgment next` card (one review + batch challenge)',
+  full: 'quality auto: ledger opened; follow injected next card (RED+BLUE dual-blind + batch refuters)',
+}
 const MODEL_HINT: Record<ModelTier, string> = {
   fast: 'fast/cheap model (e.g. haiku)',
   balanced: 'balanced model (e.g. sonnet)',
@@ -182,10 +199,10 @@ function renderDirective(level: HarnessLevel, kind: HarnessKind, plan: Orchestra
   const effortNote =
     plan.effort === 'high' ? ', HIGH effort' : plan.effort === 'low' ? ', low effort' : ''
   if (level === 'H0') {
-    return `Orchestrate (${level} ${kind}): trivial — do it directly on a ${MODEL_HINT[plan.model]}${effortNote}. ${SPEC_TEXT[plan.spec]}, ${TEST_TEXT[plan.tests]}, ${FANOUT_TEXT[plan.fanout]}. Don’t burn frontier tokens on this.`
+    return `Orchestrate (${level} ${kind}): trivial — do it directly on a ${MODEL_HINT[plan.model]}${effortNote}. ${SPEC_TEXT[plan.spec]}, ${TEST_TEXT[plan.tests]}, ${FANOUT_TEXT[plan.fanout]}. ${QUALITY_TEXT[plan.quality]}. Don’t burn frontier tokens on this. ${SHIP_USER_ONLY}`
   }
   const forecast = level === 'H2' || level === 'H3' ? ` ${FORECAST_TEXT}` : ''
-  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}.${forecast}`
+  return `Orchestrate (${level} ${kind}/${plan.model}${effortNote}): ${SPEC_TEXT[plan.spec]}; ${TEST_TEXT[plan.tests]}; ${FANOUT_TEXT[plan.fanout]}; ${QUALITY_TEXT[plan.quality]}.${forecast} ${SHIP_USER_ONLY}`
 }
 
 /**

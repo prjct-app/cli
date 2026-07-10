@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.39.0] - 2026-07-10
+
+### Added
+- quality orchestrator P0: auto ledger + inject; ship suggest with text confirm
+
 ## [3.38.0] - 2026-07-09
 
 ### Added

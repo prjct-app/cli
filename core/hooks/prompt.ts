@@ -183,6 +183,20 @@ export async function buildProjectState(
       } catch {
         /* best-effort — the trigger is advisory context, never a blocker */
       }
+
+      // Quality orchestrator inject — next card when ledger open / incomplete.
+      // Never suggests prjct ship (human-only).
+      try {
+        const { qualityInjectForProject } = await import('../services/judgment-orchestrator')
+        const q = qualityInjectForProject(config.projectId)
+        if (q) {
+          lines.push('')
+          lines.push(q)
+          hasContent = true
+        }
+      } catch {
+        /* advisory */
+      }
     }
     const others = overview.all.filter((v) => !v.isCurrent)
     if (others.length > 0) {

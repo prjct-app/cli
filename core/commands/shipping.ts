@@ -139,13 +139,14 @@ export class ShippingCommands extends PrjctCommandsBase {
         /* package check is best-effort */
       }
 
-      // Precision-gated judgment ship gate (steroids vs gentle-ai 4R prose):
-      // intensity from delivery-geometry; code-strict hard-blocks without
-      // ledger.approved; soft packs get a reminder only.
+      // Precision-gated judgment ship gate (human-invoked ship only — never
+      // auto-ship). Intensity standard|full hard-blocks without ledger.approved.
+      // Override: --no-spec-gate with explicit user consent only.
       try {
         const { intensityFromChangeset, judgmentShipVerdict } = await import(
           '../services/precision-judgment'
         )
+        const { shipRequiresQuality } = await import('../services/judgment-orchestrator')
         const { computeCommittedChangeset } = await import('../services/delivery-geometry')
         const { judgmentLedgerStorage } = await import('../storage/judgment-ledger-storage')
         const cs = await computeCommittedChangeset(projectPath)
@@ -157,7 +158,8 @@ export class ShippingCommands extends PrjctCommandsBase {
           { files: cs?.files ?? 0, loc: cs?.loc ?? 0 },
           signals
         )
-        const codeStrict = shipConfig?.sdd?.mode === 'strict' && shipConfig?.tdd?.mode === 'strict'
+        // Hard gate whenever quality is required (not only code-strict packs).
+        const codeStrict = shipRequiresQuality(intensity)
         const ledger = judgmentLedgerStorage.get(projectId)
         const jv = judgmentShipVerdict({
           codeStrict,

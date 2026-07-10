@@ -309,6 +309,24 @@ export async function startTask(
     )
   }
 
+  // Quality orchestrator: auto-open judgment ledger when required (never ship).
+  try {
+    const { ensureJudgmentLedger, intensityFromQuality } = await import('./judgment-orchestrator')
+    if (orchestration.quality !== 'none') {
+      await ensureJudgmentLedger({
+        projectId,
+        projectPath,
+        signals: {
+          harnessLevel: harness.level,
+          harnessKind: harness.kind,
+        },
+        forceIntensity: intensityFromQuality(orchestration.quality),
+      })
+    }
+  } catch {
+    /* quality ensure is best-effort — never block work start */
+  }
+
   // Estimation loop (write side): store the triage's size estimate on the
   // typed row; completion compares it against the ACTUAL diff so velocity can
   // learn the dev's estimation bias per classification. Best-effort.
