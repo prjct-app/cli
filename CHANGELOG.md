@@ -7,11 +7,6 @@
 ### Added
 - credential pre-secrets MUST (no PPID) + inert cloud workflow pull
 
-## [3.37.0] - 2026-07-09
-
-### Added
-- credential pre-secrets MUST (no PPID) + inert cloud workflow pull
-
 ## [3.36.0] - 2026-07-09
 
 ### Features
