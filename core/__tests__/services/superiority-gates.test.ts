@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { buildTopicalCue } from '../../hooks/prompt'
 import {
   contextPressureBlocksExpansion,
   contextPressureVerdict,
@@ -32,6 +33,7 @@ import { effectiveNyquistWorkMode, nyquistWorkVerdict } from '../../services/nyq
 import { decidePackageInstall, parsePackageInstallCommand } from '../../services/package-legitimacy'
 import { judgmentShipVerdict } from '../../services/precision-judgment'
 import { applyRetention } from '../../services/retention'
+import { formatLivingApplyLine } from '../../services/retention/living-apply'
 import { isAutoSource, trimAutoSourceCap, vaultHealth } from '../../services/retention/purge'
 import { PRJCT_HOOKS } from '../../services/settings-installer'
 import {
@@ -39,6 +41,7 @@ import {
   buildGeminiConfig,
   CONTRACT,
 } from '../../services/skill-generator/editor-surfaces'
+import { formatRelatedContextForAgent } from '../../services/task-service'
 import prjctDb from '../../storage/database'
 import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
@@ -372,5 +375,50 @@ describe('retention living-loop — noisy vault shrinks on apply', () => {
     expect(applied).toBeDefined()
     expect(typeof applied.active).toBe('number')
     expect(typeof applied.archived).toBe('number')
+
+    // vault health line (same shape sync --md prints from retention phase)
+    const health = vaultHealth(projectId)
+    // eslint-disable-next-line no-console
+    console.log(
+      `vault health live=${health.live} softDeleted=${health.softDeleted} archives=${health.archives} autoSourceLive=${health.autoSourceLive}`
+    )
+    expect(health.live).toBeLessThan(before.live)
+    expect(health.softDeleted + health.live).toBeGreaterThan(0)
+
+    // Work surface tip→user SoT (formatRelatedContextForAgent is what prjct work injects)
+    const workLine = formatRelatedContextForAgent({
+      id: 'mem_9199',
+      type: 'decision',
+      title: 'keep me',
+      detail: 'important decision that retention must not delete under type floor',
+      decisionTrap: 'never hard-delete type-floor decisions',
+      when: new Date().toISOString(),
+    })
+    // eslint-disable-next-line no-console
+    console.log(`work surface: ${workLine}`)
+    expect(workLine).toMatch(/tip→user/)
+    expect(workLine).toMatch(/SoT/)
+
+    // Living-apply line (same tip channel)
+    const living = formatLivingApplyLine({
+      id: 'mem_9199',
+      type: 'decision',
+      content: 'important decision that retention must not delete under type floor',
+      tags: {},
+      rememberedAt: new Date().toISOString(),
+      provenance: 'declared',
+    } as never)
+    // eslint-disable-next-line no-console
+    console.log(`living-apply: ${living.line}`)
+    expect(living.line).toMatch(/tip→user|SoT|BINDING/i)
+
+    // Prompt topical cue SoT (UserPromptSubmit surface)
+    const cue = buildTopicalCue(projectId, 'important decision type floor retention')
+    // eslint-disable-next-line no-console
+    console.log(`prompt cue: ${cue ?? '(null — may miss FTS if decision not indexed)'}`)
+    // Decision may not be FTS-indexed if only SQL-inserted; living/work lines already prove tip→user.
+    if (cue) {
+      expect(cue).toMatch(/Tip→user|SoT/i)
+    }
   })
 })

@@ -14,8 +14,10 @@ import { ShippingCommands } from '../../commands/shipping'
 import { REGISTERED_VERBS_SET } from '../../commands/verb-names'
 import configManager from '../../infrastructure/config-manager'
 import { projectMemory } from '../../memory/project-memory'
+import { specService } from '../../services/spec-service'
 import { startTask } from '../../services/task-service'
 import { prjctDb } from '../../storage/database'
+import { specStorage } from '../../storage/spec-storage'
 import { stateStorage } from '../../storage/state-storage'
 
 async function freshProject(cfg: Record<string, unknown> = {}): Promise<{
@@ -88,6 +90,37 @@ describe('startTask entry-point (discuss-lock + nyquist wiring)', () => {
       expect(r.blocked).not.toMatch(/Discuss-lock/i)
     } else {
       expect(r.ok).toBe(true)
+    }
+  })
+
+  it('blocks H2 work with reviewed spec when ACs are vague (Nyquist via startTask)', async () => {
+    ;({ projectPath, projectId } = await freshProject({
+      sdd: { mode: 'strict' },
+      tdd: { mode: 'strict' },
+    }))
+    // Real spec with prose-only ACs (no verifiable signal)
+    const spec = await specService.create(projectPath, {
+      title: 'Billing fan-out',
+      content: {
+        goal: 'Implement multi-agent fan-out for billing pipeline with durable ownership',
+        acceptance_criteria: ['auth feels solid', 'UX is nicer overall'],
+      },
+      autoContext: false,
+    })
+    const reviewed = specStorage.setStatus(projectId, spec.id, 'reviewed')
+    expect(reviewed?.status).toBe('reviewed')
+
+    const r = await startTask(
+      projectId,
+      projectPath,
+      'implement multi-agent fan-out architecture for billing pipeline',
+      { skipHooks: true, spec: spec.id }
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      // Must be Nyquist from task-service wiring (not discuss-lock — we have reviewed spec)
+      expect(r.blocked).toMatch(/Nyquist/i)
+      expect(r.blocked).not.toMatch(/Discuss-lock/i)
     }
   })
 })
@@ -181,6 +214,52 @@ describe('ShippingCommands.ship entry-point gates', () => {
     })
     if (!allowed.success) {
       expect(String(allowed.error ?? '')).not.toMatch(/Package legitimacy|allow-new-deps/i)
+    }
+  })
+
+  it('hard-blocks large committed diffs without --geometry under deliveryGeometry strict', async () => {
+    ;({ projectPath, projectId } = await freshProject({
+      sdd: { mode: 'off' },
+      deliveryGeometry: { mode: 'strict', locThreshold: 50 },
+      maxTurnsPerCycle: 100,
+    }))
+    gitInitWithPackage(projectPath)
+    // Branch ahead of main with a large committed change (merge-base ≠ HEAD)
+    execFileSync('git', ['branch', '-M', 'main'], { cwd: projectPath, stdio: 'ignore' })
+    execFileSync('git', ['checkout', '-b', 'feat/big'], { cwd: projectPath, stdio: 'ignore' })
+    const big = Array.from({ length: 80 }, (_, i) => `export const line${i} = ${i}`).join('\n')
+    require('node:fs').writeFileSync(path.join(projectPath, 'big-module.ts'), big)
+    execFileSync('git', ['add', 'big-module.ts'], { cwd: projectPath, stdio: 'ignore' })
+    execFileSync('git', ['commit', '-m', 'large change'], { cwd: projectPath, stdio: 'ignore' })
+
+    await stateStorage.startTask(projectId, {
+      id: 'task-geom',
+      description: 'land large change',
+      sessionId: 'sess-geom',
+      turnCount: 1,
+    })
+
+    const blocked = await ship.ship('land large change', projectPath, {
+      md: true,
+      skipHooks: true,
+      noJudgmentGate: true,
+      forcePressure: true,
+      allowNewDeps: true,
+      // no geometry — must hard-block
+    })
+    expect(blocked.success).toBe(false)
+    expect(String(blocked.error ?? '')).toMatch(/Delivery geometry|geometry|--geometry/i)
+
+    const withGeom = await ship.ship('land large change', projectPath, {
+      md: true,
+      skipHooks: true,
+      noJudgmentGate: true,
+      forcePressure: true,
+      allowNewDeps: true,
+      geometry: 'split',
+    })
+    if (!withGeom.success) {
+      expect(String(withGeom.error ?? '')).not.toMatch(/Delivery geometry|--geometry/i)
     }
   })
 
