@@ -65,12 +65,13 @@ export function formatLivingApplyLine(entry: MemoryEntry): LivingApplyLine {
   const liveMod = role === 'suggest' || role === 'sot' ? buildLiveModSuggestion(entry) : undefined
   const roleTag = role === 'sot' ? 'SoT' : role === 'suggest' ? 'SUGGEST' : 'ctx'
   let line = `[${roleTag}·${entry.type}] ${title}  \`${entry.id}\``
+  // tip→user: agent must restate this in the terminal chat (no separate UI).
   if (role === 'sot') {
-    line += ' — BINDING project truth; supersede via `prjct remember` if wrong'
+    line += ' — tip→user · BINDING; supersede via `prjct remember` if wrong'
   } else if (role === 'suggest' && liveMod) {
-    line += ` — ${liveMod.slice(0, 160)}`
+    line += ` — tip→user · ${liveMod.slice(0, 160)}`
   } else if (role === 'suggest') {
-    line += ` — ${actionableClause(entry.content).slice(0, 120)}`
+    line += ` — tip→user · ${actionableClause(entry.content).slice(0, 120)}`
   }
   return { id: entry.id, type: entry.type, role, line, liveMod, files }
 }

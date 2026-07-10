@@ -206,9 +206,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
             : null,
           relatedLines.length > 0
             ? mdSection(
-                'Living knowledge — SoT (binding) · SUGGEST (live mods)',
+                'Living knowledge — SoT · tips (terminal → user)',
                 [
-                  '> **SoT** = project truth — do not contradict without `prjct remember` superseding. **SUGGEST** = apply the live modification when editing.',
+                  '> **You are the tip channel** (no separate UI). On your next reply to the user, surface relevant lines as short terminal tips, then act.',
+                  '> **SoT** = binding project truth — do not contradict without `prjct remember` superseding.',
+                  '> **SUGGEST / tip** = propose the live modification in chat (files + action) and apply when editing.',
                   mdList(relatedLines),
                 ].join('\n')
               )
@@ -256,7 +258,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
           for (const line of riskLines) out.info(`  ${line}`)
         }
         if (relatedLines.length > 0) {
-          out.info('Living knowledge — SoT (binding) · SUGGEST (live mods)')
+          out.info(
+            'Living knowledge — surface as terminal tips to the user (SoT binding · SUGGEST live mods)'
+          )
           for (const line of relatedLines) out.info(`  ${line}`)
         }
         if (likelyFileLines.length > 0) {

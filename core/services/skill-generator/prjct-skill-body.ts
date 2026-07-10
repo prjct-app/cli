@@ -198,7 +198,7 @@ export function buildPrjctSkillReference(): string {
     '| **Wrong cwd, worktree/git accident, merge recovery, or confusing test/env failure** | Re-orient or run `audit` before more edits; do not debug forward over a broken state. |',
     '| **Stuck / circling / user says switch to another agent** | `prjct switch <agent> --reason "…" ` (English why), then **stop editing**. Target runs `prjct accept` and continues the same cycle — do not restart from zero. |',
     '| **Handoff cue in project state (`↔ Handoff pending`)** | Run `prjct accept [hand_id] --md` immediately and continue; ownership is already on the live cycle. |',
-    '| **SoT / Live suggest lines on `work` or prompt** | **SoT** = binding project truth — obey or supersede with `prjct remember`. **SUGGEST** = apply the live modification when you edit those files. Not trivia. |',
+    '| **SoT / Live suggest / tip lines (terminal only — no web UI)** | **Surface them to the user in chat** as a short tip, then act. **SoT** = binding project truth (obey or supersede with `prjct remember`). **SUGGEST/tip** = propose the live change in the terminal and apply when editing. Never swallow tips silently. |',
     '| **Workspace owned by another agent (parallel work)** | `prjct work` auto-isolates to a sibling git worktree — `cd` there. Same-feature rescue uses `switch`, not a new worktree. |',
     '',
     'Model on every dispatch: implementer that writes code → `model: "opus"`; reviewer/judge (`review`/`security`/`investigate`/`audit-spec`) → `model: "sonnet"`; pure routing/orchestration → `model: "haiku"`. A non-implementer inheriting the parent model burns tokens and latency.',

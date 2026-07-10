@@ -167,11 +167,12 @@ export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
   }
   const trimmed =
     salient.length > RELATED_SALIENT_MAX ? `${salient.slice(0, RELATED_SALIENT_MAX - 1)}…` : salient
-  if (role === 'SoT') return `${head} — SoT: ${trimmed}`
+  // Agent surfaces these as terminal tips to the user (no web UI).
+  if (role === 'SoT') return `${head} — tip→user · SoT: ${trimmed}`
   if (role === 'SUGGEST') {
     const files =
       hit.files && hit.files.length > 0 ? ` in \`${hit.files.slice(0, 2).join('`, `')}\`` : ''
-    return `${head} — live suggest${files}: ${trimmed}`
+    return `${head} — tip→user · suggest${files}: ${trimmed}`
   }
   return `${head} — ${trimmed}`
 }

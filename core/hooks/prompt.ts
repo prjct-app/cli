@@ -325,13 +325,14 @@ export function buildTopicalCue(
       hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
     if (!ranked) return null
     if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [ranked.id])
+    // Terminal-only tip channel: agent must relay this to the user in chat.
     if (ranked.type === 'decision' || ranked.type === 'gotcha' || ranked.type === 'fact') {
-      return `> SoT (binding): ${deriveTitle(ranked)}  \`${ranked.id}\` — do not contradict without superseding`
+      return `> Tip→user (SoT): ${deriveTitle(ranked)}  \`${ranked.id}\` — say it briefly in chat; binding — do not contradict without superseding`
     }
     if (ranked.type === 'anti-pattern' || ranked.type === 'pattern') {
-      return `> Live suggest: ${deriveTitle(ranked)}  \`${ranked.id}\` — apply when editing related code`
+      return `> Tip→user (suggest): ${deriveTitle(ranked)}  \`${ranked.id}\` — propose the live change in chat, then apply when editing`
     }
-    return `> Knowledge: ${deriveTitle(ranked)}  \`${ranked.id}\``
+    return `> Tip→user: ${deriveTitle(ranked)}  \`${ranked.id}\``
   } catch {
     return null
   }
