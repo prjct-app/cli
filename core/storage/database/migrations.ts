@@ -2568,6 +2568,41 @@ export const migrations: Migration[] = [
       )
     },
   },
+  {
+    version: 61,
+    name: 'task-handoffs',
+    up: (db: SqliteDatabase) => {
+      // Multi-agent realtime yield/accept bus: when one rig gets stuck,
+      // `prjct switch <agent>` writes a durable handoff; the target pulls
+      // via hooks or `prjct accept`. Who started + why yield live here.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS task_handoffs (
+           id               TEXT PRIMARY KEY,
+           project_id       TEXT NOT NULL,
+           task_id          TEXT NOT NULL,
+           task_description TEXT NOT NULL,
+           from_agent       TEXT NOT NULL,
+           from_identity    TEXT,
+           to_agent         TEXT NOT NULL,
+           reason           TEXT NOT NULL,
+           evidence         TEXT,
+           status           TEXT NOT NULL DEFAULT 'pending'
+                            CHECK (status IN ('pending', 'accepted', 'expired', 'cancelled')),
+           workspace_id     TEXT,
+           worktree_path    TEXT,
+           branch           TEXT,
+           created_at       TEXT NOT NULL,
+           accepted_at      TEXT,
+           accepted_by      TEXT,
+           expires_at       TEXT
+         )`
+      )
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_task_handoffs_pending ON task_handoffs(project_id, status, to_agent)'
+      )
+      db.run('CREATE INDEX IF NOT EXISTS ix_task_handoffs_task ON task_handoffs(task_id)')
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

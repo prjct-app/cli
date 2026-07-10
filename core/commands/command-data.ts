@@ -617,7 +617,8 @@ export const COMMANDS: CommandMeta[] = [
     surface: 'legacy',
     routing: { group: 'product', method: 'handoff' },
     optionSchema: {},
-    description: 'Compatibility alias for `insights continue`',
+    description:
+      'Static continuation brief for another agent. For realtime ownership transfer use `prjct switch <agent> --reason "…"` + `prjct accept`.',
     usage: {
       claude: null,
       terminal: 'prjct handoff codex [--md]',
@@ -630,7 +631,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Gives the next agent the active task, required prjct checks, and high-value memories',
       'Works across Codex, Claude, Gemini, Cursor, OpenCode, Qwen, Kimi, Grok, and unknown future agents',
-      'Makes multi-agent continuity concrete instead of relying on private model memory',
+      'For stuck same-branch rescue with ownership transfer: prjct switch / accept (not this alias)',
     ],
   },
   {
@@ -1093,6 +1094,52 @@ export const COMMANDS: CommandMeta[] = [
       claude: 'p. expand <id>',
       terminal: 'prjct expand <id> ["subtask 1" "subtask 2" ...]',
     },
+  },
+  {
+    name: 'switch',
+    group: 'workGraph',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workGraph', method: 'switch' },
+    optionSchema: { booleans: ['launch'], strings: ['reason'] },
+    params: '<agent>',
+    description:
+      'Yield the active work cycle to another agent runtime (codex/claude/grok/…) with who started + why — realtime handoff for stuck multi-terminal work.',
+    usage: {
+      claude: 'p. switch codex --reason "…"',
+      terminal: 'prjct switch <agent> [--reason "…"] [--launch]',
+    },
+  },
+  {
+    name: 'accept',
+    group: 'workGraph',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workGraph', method: 'accept' },
+    optionSchema: {},
+    params: '[hand_id]',
+    description:
+      'Accept a pending multi-agent handoff: rebind ownership of the live cycle and print the resume brief (who/why/task id).',
+    usage: {
+      claude: 'p. accept [hand_id]',
+      terminal: 'prjct accept [hand_id] [--md]',
+    },
+  },
+  {
+    name: 'handoffs',
+    group: 'workGraph',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workGraph', method: 'handoffs' },
+    optionSchema: {},
+    description: 'List pending and recent multi-agent handoffs for this project.',
+    usage: { claude: 'p. handoffs', terminal: 'prjct handoffs [--md]' },
   },
   {
     name: 'changelog',

@@ -131,15 +131,31 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const risks = outcome.risks ?? []
       const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
 
+      const isolation = outcome.isolation
       if (options.md) {
         const md = mdOutput(
           mdTaskHeader({ description: taskDescription, status: 'active' }),
+          isolation
+            ? mdSection(
+                '⚠ Isolated to worktree (foreign occupant)',
+                mdList([
+                  isolation.reason,
+                  `Was: ${isolation.occupantSummary}`,
+                  `Worktree: \`${isolation.worktreePath}\``,
+                  `Branch: \`${isolation.branch}\``,
+                  `**Next:** \`cd ${isolation.worktreePath}\` and continue there`,
+                ])
+              )
+            : null,
           mdSection(
             'State',
             mdList(
               [
                 `Work cycle: \`${taskId}\``,
                 branch ? `Branch: \`${branch}\`` : null,
+                outcome.ownerAgent
+                  ? `Owner: \`${outcome.ownerAgent}/${outcome.ownerIdentity ?? '?'}\``
+                  : null,
                 linearId ? `Linear: \`${linearId}\`` : null,
                 harness ? `Harness: ${harness.level} ${harness.kind}/${harness.risk}` : null,
                 harness?.expectedEvidence.length
@@ -214,6 +230,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
         console.log(safeTruncate(md, 2000))
       } else {
         out.done(`Work: ${taskDescription}`)
+        if (isolation) {
+          out.warn(isolation.reason)
+          out.info(`Isolated → ${isolation.worktreePath} (${isolation.branch})`)
+          out.info(`Next: cd ${isolation.worktreePath}`)
+        }
+        if (outcome.ownerAgent) {
+          out.info(`Owner: ${outcome.ownerAgent}/${outcome.ownerIdentity ?? '?'}`)
+        }
         if (harness) {
           out.info(`Harness: ${harness.level} ${harness.kind}/${harness.risk}`)
           if (harness.expectedEvidence.length > 0) {

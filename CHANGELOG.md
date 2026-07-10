@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [3.44.0] - 2026-07-10
+
+### Added
+- multi-agent realtime yield/switch handoff + auto-worktree isolation
+- **`prjct switch <agent> [--reason] [--launch]`** — yield the live work cycle to another runtime (codex/claude/grok/…) with durable who/why in SQLite (`task_handoffs`)
+- **`prjct accept [hand_id]`** / **`prjct handoffs`** — accept pending handoff, rebind ownership, resume brief
+- Owner stamping on cycle start (`ownerAgent` / `ownerIdentity` / `ownerSessionId`) so handoffs know who started
+- Auto-worktree isolation when `prjct work` collides with a foreign occupant on main (`multiAgent.autoWorktree`: auto|ask|off)
+- Prompt + SessionStart cues for pending handoffs; desktop notify on yield/accept; optional CLI launch
+- Loop-discipline skill triggers for stuck/switch and parallel worktree isolation
+
 ## [3.42.0] - 2026-07-10
 
 ### Added

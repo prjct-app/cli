@@ -86,6 +86,20 @@ export interface StartTaskOutcome {
    * proactive — scoped to the area the work will actually touch.
    */
   risks?: RiskHit[]
+  /** Multi-agent owner stamped at start. */
+  ownerAgent?: string
+  ownerIdentity?: string
+  /**
+   * When auto-worktree isolation fired: path + branch of the new worktree.
+   * Caller should print `cd <path>` so the agent continues there.
+   */
+  isolation?: {
+    reason: string
+    worktreePath: string
+    branch: string
+    slug: string
+    occupantSummary: string
+  }
 }
 
 /** One predictive-risk hit — a preventive memory tied to a likely file. */
@@ -289,7 +303,56 @@ export async function startTask(
   // its workspaceId, so parallel agents don't clobber a shared currentTask.
   // The main worktree keeps the singular currentTask path (transparent for
   // single-agent use, and the backward-compatible mirror for read paths).
-  const ws = await deriveWorkspace(projectPath)
+  //
+  // Attribution: stamp who started so switch/accept can show "who + why".
+  const { resolveCallerIdentity } = await import('./agent-identity')
+  const owner = resolveCallerIdentity(description)
+
+  let effectivePath = projectPath
+  let isolation: StartTaskOutcome['isolation']
+
+  // Auto-worktree isolation: foreign occupant on this workspace → sibling tree.
+  {
+    const mode = cfg?.multiAgent?.autoWorktree ?? 'auto'
+    try {
+      const { getOccupancy, shouldIsolate, worktreeSlugFromIntent } = await import(
+        './workspace-occupancy'
+      )
+      const occupancy = await getOccupancy(projectId, projectPath, owner)
+      const decision = shouldIsolate(occupancy, mode, description)
+      if (decision.block) {
+        return { ok: false, blocked: decision.reason }
+      }
+      if (decision.isolate && occupancy.isMain) {
+        const { worktreeService } = await import('./worktree-service')
+        const slug = worktreeSlugFromIntent(description)
+        const created = await worktreeService.create(projectPath, slug)
+        await worktreeService.setup(
+          created.path,
+          await worktreeService.getMainWorktree(projectPath)
+        )
+        effectivePath = created.path
+        const occ = decision.occupant
+        isolation = {
+          reason: decision.reason,
+          worktreePath: created.path,
+          branch: created.branch,
+          slug: created.slug,
+          occupantSummary: occ
+            ? `${[occ.ownerAgent, occ.ownerIdentity].filter(Boolean).join('/') || 'other'} · ${occ.taskId.slice(0, 8)} · "${occ.description.slice(0, 60)}"`
+            : 'foreign cycle',
+        }
+      }
+    } catch (err) {
+      // Isolation is best-effort when git fails; fall through to normal start
+      // unless we were in ask/block mode (already returned). Log-free by design.
+      if (err instanceof Error && err.message.includes('already active')) {
+        return { ok: false, blocked: err.message }
+      }
+    }
+  }
+
+  const ws = await deriveWorkspace(effectivePath)
   const workspaceId = ws.isMain ? MAIN_WORKSPACE_ID : ws.workspaceId
   const taskFields = {
     id: taskId,
@@ -298,6 +361,10 @@ export async function startTask(
     linearId,
     linkedSpecId,
     harness,
+    ownerAgent: owner.agent,
+    ownerIdentity: owner.identity,
+    ownerSessionId: owner.sessionId,
+    yieldStatus: 'active' as const,
   }
   if (ws.isMain) {
     await stateStorage.startTask(
@@ -309,7 +376,7 @@ export async function startTask(
       projectId,
       {
         ...taskFields,
-        branch: ws.branch,
+        branch: ws.branch ?? isolation?.branch,
         workspaceId: ws.workspaceId,
         worktreePath: ws.worktreePath,
       } as Parameters<typeof stateStorage.startTaskInWorkspace>[1],
@@ -396,13 +463,14 @@ export async function startTask(
     skipRules: options.skipHooks,
   })
 
-  const branch = await getGitBranch(projectPath).catch(() => '')
+  const branch = isolation?.branch ?? (await getGitBranch(effectivePath).catch(() => ''))
 
   // The superpower: recall what the project already knows about THIS task —
   // past contexts/decisions/traps related to the description — so the agent
   // gets "has this happened before? who? what was decided?" up front, pulled
   // on demand. Reuses the one RAG pipeline (enrichedRecall) so it works over
   // the user's EXISTING memory from day one. Best-effort; never blocks a start.
+  // Prefer main projectPath for indexes (worktree shares vault via .prjct).
   const relatedContext = await recallRelatedContext(projectPath, projectId, description)
   // Work scope: memory (vectorial/FTS) + BM25 + import/co-change graph — constrained
   // list BEFORE the agent greps. Full async path includes semantic blend when enabled.
@@ -420,6 +488,9 @@ export async function startTask(
     linkedSpecId,
     harness,
     orchestration,
+    ownerAgent: owner.agent,
+    ownerIdentity: owner.identity,
+    isolation,
     pipeline: {
       classification: pipelineState.classification,
       station: pipelineState.station,

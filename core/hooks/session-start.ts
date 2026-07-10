@@ -117,8 +117,23 @@ export async function buildSessionContext(
     weakBanner = null
   }
 
+  // Pending multi-agent handoffs — cold-start only (variable; would bust
+  // mid-session prompt cache). Per-turn inject lives in the prompt hook.
+  let handoffCue: string | null = null
+  if (opts.digest) {
+    try {
+      const { formatPendingHandoffCue } = await import('../services/agent-switch')
+      const cue = formatPendingHandoffCue(config.projectId)
+      if (cue) handoffCue = `# prjct: pending handoff\n${cue}`
+    } catch {
+      handoffCue = null
+    }
+  }
+
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness && !vaultNotice && !landCue && !weakBanner) return null
+  if (!persona && !digest && !staleness && !vaultNotice && !landCue && !weakBanner && !handoffCue) {
+    return null
+  }
 
   const sections: string[] = ['# prjct: project context', '']
   if (persona) {
@@ -150,6 +165,10 @@ export async function buildSessionContext(
   if (weakBanner) {
     if (persona || digest || staleness || vaultNotice || landCue) sections.push('')
     sections.push(weakBanner)
+  }
+  if (handoffCue) {
+    if (persona || digest || staleness || vaultNotice || landCue || weakBanner) sections.push('')
+    sections.push(handoffCue)
   }
   return sections.join('\n')
 }

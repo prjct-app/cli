@@ -148,6 +148,26 @@ export interface LocalConfig {
   notify?: { mode: 'on' | 'off' }
 
   /**
+   * Multi-agent coordination (worktree isolation + switch/accept handoff).
+   * Unset ⇒ owner stamping always on; isolation defaults to `auto` when a
+   * foreign cycle occupies the workspace; switch does not spawn target CLIs
+   * unless `switchLaunch` is true or `--launch` is passed.
+   */
+  multiAgent?: {
+    /**
+     * When starting work while another agent owns this workspace:
+     *   - auto — create a sibling git worktree and start the cycle there
+     *   - ask — block with a message telling the agent to isolate or switch
+     *   - off — legacy single-workspace gate only
+     */
+    autoWorktree?: 'auto' | 'ask' | 'off'
+    /** When true, `prjct switch` tries to spawn the target CLI with a resume prompt. */
+    switchLaunch?: boolean
+    /** Pending handoff TTL in hours (default 24). */
+    handoffTtlHours?: number
+  }
+
+  /**
    * Optional semantic-search layer (phase 3). OFF unless `provider` is set —
    * recall stays pure BM25/keyword by default, zero new dependencies.
    *
