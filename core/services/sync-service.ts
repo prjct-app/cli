@@ -482,6 +482,18 @@ class SyncService {
             inboxMerged = triaged.merged
             inboxArchived = triaged.archived
           }
+
+          // Cold purge: vacuum soft-deleted, orphan events, old archives,
+          // auto-source caps. This is where historical bloat actually dies.
+          const { runVaultPurge, vaultHealth } = await import('./retention/purge')
+          const purged = runVaultPurge(this.projectId!, {
+            dryRun,
+            softDeletedPurgeDays: cfg?.retention?.softDeletedPurgeDays,
+            archivePruneDays: cfg?.retention?.archivePruneDays,
+            autoSourceMaxLive: cfg?.retention?.autoSourceMaxLive,
+          })
+          const health = vaultHealth(this.projectId!)
+
           return {
             evaluated: applied.evaluated,
             active: applied.active,
@@ -501,6 +513,13 @@ class SyncService {
               excess: s.excess,
             })),
             referenceSize: applied.referenceSize,
+            vault: {
+              ...health,
+              softDeletedPurged: purged.softDeletedPurged,
+              orphanEventsPurged: purged.orphanEventsPurged,
+              archivesPruned: purged.archivesPruned,
+              autoSourceTrimmed: purged.autoSourceTrimmed,
+            },
           }
         } catch (error) {
           // Best-effort: a scoring/apply failure must never break sync.

@@ -466,4 +466,14 @@ export type { CaptureGateResult } from './capture-gate'
 export { captureGate } from './capture-gate'
 export type { ExcessResult } from './excess'
 export { CAPTURE_MIN_EXCESS, computeExcess, NEAR_DUP_SIM } from './excess'
+export type { PurgeResult, VaultHealth } from './purge'
+export {
+  DEFAULT_SOFT_DELETED_PURGE_DAYS,
+  isAutoSource,
+  purgeOrphanRememberEvents,
+  purgeSoftDeleted,
+  runVaultPurge,
+  trimAutoSourceCap,
+  vaultHealth,
+} from './purge'
 export { buildReferenceModel, isReferenceEligible, REFERENCE_CAP } from './reference-model'

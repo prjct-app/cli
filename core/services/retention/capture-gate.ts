@@ -6,18 +6,21 @@
  * reference model R, low-stakes types (inbox/context/idea/signals) are
  * rejected instead of diluting the vault.
  *
- * High-stakes judgment (decision/gotcha/learning/fact/…) always passes when
- * content is not an exact hash dup — the human/agent asserted it.
+ * Auto-sources (pattern-detector, transcript-auto, skill-miss, friction)
+ * are ALWAYS excess-gated even when typed as learning — they are not
+ * human judgment, they are derived noise.
  *
- * Efficiency: R is built once; gate is sync and best-effort (never throws).
+ * High-stakes judgment WITHOUT auto source always passes when content is
+ * not an exact hash dup.
  */
 
 import type { MemoryEntry, MemoryType } from '../../memory/entries'
 import { projectMemory } from '../../memory/project-memory'
 import { buildReferenceIndex, CAPTURE_MIN_EXCESS, excessAgainstIndex } from './excess'
+import { isAutoSource } from './purge'
 import { buildReferenceModel } from './reference-model'
 
-/** Types that must never be blocked by semantic excess (user/agent judgment). */
+/** Types that must never be blocked by semantic excess — unless auto-source. */
 const ALWAYS_ACCEPT = new Set([
   'decision',
   'gotcha',
@@ -34,6 +37,9 @@ const ALWAYS_ACCEPT = new Set([
   'shipped',
 ])
 
+/** Stricter floor for auto-derived captures. */
+const AUTO_SOURCE_MIN_EXCESS = 0.28
+
 export interface CaptureGateResult {
   accept: boolean
   reason: string
@@ -48,15 +54,18 @@ export interface CaptureGateResult {
 export function captureGate(
   projectId: string,
   type: MemoryType,
-  content: string
+  content: string,
+  tags?: Record<string, string>
 ): CaptureGateResult {
   const trimmed = content.trim()
   if (trimmed.length === 0) {
     return { accept: false, reason: 'empty content' }
   }
 
-  // Judgment always accepted (exact-hash dedup already handled upstream).
-  if (ALWAYS_ACCEPT.has(type)) {
+  const auto = isAutoSource(tags?.source)
+  // Human/agent judgment always accepted (exact-hash dedup upstream).
+  // Auto-sourced "learning" still goes through excess — derived noise.
+  if (ALWAYS_ACCEPT.has(type) && !auto) {
     return { accept: true, reason: 'judgment type — always accept novel content' }
   }
 
@@ -78,13 +87,16 @@ export function captureGate(
 
   const index = buildReferenceIndex(R)
   const ex = excessAgainstIndex(trimmed, index)
+  const floor = auto ? AUTO_SOURCE_MIN_EXCESS : CAPTURE_MIN_EXCESS
 
-  if (ex.exactDup || ex.nearDup || ex.excess < CAPTURE_MIN_EXCESS) {
+  if (ex.exactDup || ex.nearDup || ex.excess < floor) {
     return {
       accept: false,
       reason: ex.exactDup
         ? `redundant exact match of ${ex.nearestId}`
-        : `low excess ${ex.excess.toFixed(2)} vs reference (nearest ${ex.nearestId}, sim ${ex.maxSim.toFixed(2)})`,
+        : auto
+          ? `auto-source low excess ${ex.excess.toFixed(2)} (floor ${floor}) vs R nearest ${ex.nearestId}`
+          : `low excess ${ex.excess.toFixed(2)} vs reference (nearest ${ex.nearestId}, sim ${ex.maxSim.toFixed(2)})`,
       excess: ex.excess,
       nearestId: ex.nearestId,
     }
@@ -92,7 +104,9 @@ export function captureGate(
 
   return {
     accept: true,
-    reason: `excess ${ex.excess.toFixed(2)} above capture floor`,
+    reason: auto
+      ? `auto-source excess ${ex.excess.toFixed(2)} above floor`
+      : `excess ${ex.excess.toFixed(2)} above capture floor`,
     excess: ex.excess,
     nearestId: ex.nearestId,
   }

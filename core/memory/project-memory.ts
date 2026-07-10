@@ -347,7 +347,7 @@ export const projectMemory = {
       // — never drop a capture because the gate failed to load.
       try {
         const { captureGate } = await import('../services/retention/capture-gate')
-        const gate = captureGate(projectId, args.type, args.content)
+        const gate = captureGate(projectId, args.type, args.content, tags)
         if (!gate.accept) {
           return
         }

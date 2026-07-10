@@ -306,6 +306,14 @@ export class AnalysisCommands extends PrjctCommandsBase {
               : ''
           mdStatsObj[`Retention (${mode})`] =
             `${r.active} active · ${r.archive} archive · ${r.delete} delete${acted}`
+          if (r.vault) {
+            const v = r.vault
+            const purged =
+              r.dryRun === false
+                ? ` · purged: softΔ${v.softDeletedPurged ?? 0} orphanΔ${v.orphanEventsPurged ?? 0} archΔ${v.archivesPruned ?? 0} autoΔ${v.autoSourceTrimmed ?? 0}`
+                : ''
+            mdStatsObj.Vault = `${v.live} live · soft-del ${v.softDeleted} · archives ${v.archives} · auto ${v.autoSourceLive}${purged}`
+          }
           if (r.samples.length > 0) {
             retentionSection = mdSection(
               r.dryRun === false

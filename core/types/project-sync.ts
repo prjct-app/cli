@@ -131,6 +131,18 @@ export interface RetentionDryRunSummary {
     excess?: number
   }>
   referenceSize?: number
+  /** Cold purge + vault inventory (sync maintenance). */
+  vault?: {
+    live: number
+    softDeleted: number
+    archives: number
+    rememberEvents: number
+    autoSourceLive: number
+    softDeletedPurged?: number
+    orphanEventsPurged?: number
+    archivesPruned?: number
+    autoSourceTrimmed?: number
+  }
 }
 
 // Sync Result & Context Generator Config
