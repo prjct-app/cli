@@ -16,8 +16,6 @@ import { buildCodexSkill, buildGeminiConfig, CONTRACT } from './skill-generator/
 
 export const CORE_SUPERIORITY_RUNTIMES = ['claude', 'codex', 'gemini', 'cursor', 'grok'] as const
 
-export type SuperiorityRuntime = (typeof CORE_SUPERIORITY_RUNTIMES)[number]
-
 /** Subcommands that must exist for superiority signal delivery via hooks. */
 export const REQUIRED_HOOK_SUBCOMMANDS = [
   'prompt',

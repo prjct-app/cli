@@ -60,12 +60,34 @@ prjct-cli/
 ├── core/           # Core library code
 │   ├── commands/   # CLI command handlers
 │   ├── services/   # Business logic services
-│   ├── types/      # TypeScript type definitions
-│   └── utils/      # Utility functions
-├── templates/      # Command and context templates
+│   ├── storage/    # SQLite persistence
+│   ├── schemas/    # Zod schemas (source of truth)
+│   ├── hooks/      # Passive agent hooks
+│   └── mcp/        # MCP server
+├── templates/      # Packs, skills, global router templates
 ├── bin/            # CLI entry point
+├── docs/           # Architecture & ops docs
 └── scripts/        # Build and deploy scripts
 ```
+
+Deeper walkthrough: [`docs/architecture.md`](docs/architecture.md).
+
+### Developer commands
+
+| Action | Command |
+|--------|---------|
+| Build | `npm run build` |
+| Test | `bun test` |
+| Lint / format | `bun run check` |
+| Dead code | `bun run knip` |
+| Typecheck | `bun run typecheck` |
+
+### Code rules (CI-enforced)
+
+- **No barrel files / re-exports.** Import from the source module.
+- **Schemas are source of truth.** Zod in `core/schemas/`, types via `z.infer`.
+- **All project data in SQLite** via storage modules — not legacy JSON state files.
+- Biome: unused imports/variables are errors.
 
 ## Dependency overrides (`package.json` → `overrides`)
 
@@ -103,6 +125,13 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - `refactor:` - Code refactoring
 - `test:` - Test changes
 - `chore:` - Build/tooling changes
+
+## License of contributions
+
+By submitting a pull request or other contribution, you agree that your
+contribution is licensed under the same **MIT License** as the project
+(see [LICENSE](./LICENSE) and [NOTICE](./NOTICE)). You certify that you have
+the right to submit the work under that license.
 
 ## Questions?
 

@@ -54,4 +54,3 @@ class JudgmentLedgerStorage {
 }
 
 export const judgmentLedgerStorage = new JudgmentLedgerStorage()
-export default judgmentLedgerStorage

@@ -14,7 +14,7 @@
  * - Context: context
  */
 
-import type { AgentInfo } from '../types/agents'
+import type { AgentInfo } from '../types/agent-info'
 import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import type { AnalysisCommands } from './analysis'

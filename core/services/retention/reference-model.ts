@@ -92,11 +92,3 @@ export function buildReferenceModel(entries: MemoryEntry[]): MemoryEntry[] {
   eligible.sort((a, b) => referenceRank(b) - referenceRank(a))
   return eligible.slice(0, REFERENCE_CAP)
 }
-
-/**
- * R without `excludeId` — used when scoring an entry that is itself in R
- * so it is not compared to itself (would force excess → 0).
- */
-export function referenceWithout(r: MemoryEntry[], excludeId: string): MemoryEntry[] {
-  return r.filter((e) => e.id !== excludeId)
-}

@@ -3,8 +3,26 @@
 .config/
 .prjct/
 .claude/
+.cursor/
 website/
-docs/development/
+docs/
+design-notes/
+images/
+HANDOFF-*.md
+AGENTS.md
+CLAUDE.md
+EVALS.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+SECURITY.md
+INSTALL_PROMPT.md
+context7.json
+turbo.json
+knip.json
+lefthook.yml
+biome.json
+bunfig.toml
+CHANGELOG.archive.md
 
 # Packages - exclude dev files
 packages/*/node_modules/

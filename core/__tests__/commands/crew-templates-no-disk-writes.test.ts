@@ -59,17 +59,14 @@ describe('crew templates: no disk-write instructions', () => {
 
   test('leader templates scope the .prjct/ edit-allowlist to prjct.config.json', async () => {
     // Regression guard for the post-2.23.7 client report: the leader and
-    // CLAUDE-leader-mode templates previously said "Edits to `.prjct/`,
-    // docs, configuration, or this file itself → you may edit directly"
-    // which the leader read as license to write audits/checklists/deploys
-    // anywhere under .prjct/. Two invariants every leader template must
-    // satisfy:
+    // Leader templates previously said "Edits to `.prjct/`, docs, ..." which
+    // was read as a free-write zone. Two invariants every leader template
+    // must satisfy:
     //   1. The canonical config file path is named as the allowlist scope.
-    //   2. The bad grant phrase "Edits to `.prjct/`," (broad, comma-grouped
-    //      with other targets) is gone.
+    //   2. The bad grant phrase "Edits to `.prjct/`," is gone.
     const targets = [
-      path.join(CREW_DIR, 'agents', 'leader.md'),
-      path.join(CREW_DIR, 'CLAUDE-leader-mode.md'),
+      path.join(CREW_DIR, 'roles', 'leader.md'),
+      path.join(CREW_DIR, 'leader-mode.md'),
     ]
     for (const file of targets) {
       const content = await fs.readFile(file, 'utf-8')

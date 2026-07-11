@@ -104,17 +104,3 @@ export function buildLivingApplyBlock(
   }
   return out.join('\n')
 }
-
-export function buildLivingApplyCue(entries: MemoryEntry[]): string | null {
-  if (entries.length === 0) return null
-  const ranked = entries.map(formatLivingApplyLine).sort((a, b) => {
-    const rank = (r: LivingRole) => (r === 'sot' ? 0 : r === 'suggest' ? 1 : 2)
-    return rank(a.role) - rank(b.role)
-  })
-  const top = ranked[0]
-  if (!top) return null
-  if (top.role === 'sot')
-    return `> SoT: ${top.line.replace(/^\[SoT·[^\]]+\]\s*/, '').slice(0, 160)}`
-  if (top.role === 'suggest') return `> Suggest: ${(top.liveMod ?? top.line).slice(0, 160)}`
-  return null
-}

@@ -6,8 +6,8 @@
 
 import { AgentError } from '../errors'
 import * as agentDetector from '../infrastructure/agent-detector'
-import ClaudeAgent from '../infrastructure/claude-agent'
-import type { AgentInfo } from '../types/agents'
+import RuntimeClaude from '../infrastructure/runtime-claude'
+import type { AgentInfo } from '../types/agent-info'
 import { defaultAgentRetryPolicy } from '../utils/retry'
 
 // Valid agent types - whitelist for security (prevents path traversal)
@@ -39,7 +39,7 @@ class AgentService {
         throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
       }
 
-      this.agent = new ClaudeAgent()
+      this.agent = new RuntimeClaude()
 
       return this.agent
     }, 'agent-initialization')

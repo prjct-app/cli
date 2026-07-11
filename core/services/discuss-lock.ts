@@ -8,7 +8,6 @@
  */
 
 import type { HarnessLevel } from '../schemas/state'
-import type { LocalConfig } from '../types/config'
 
 export type DiscussLockMode = 'off' | 'advisory' | 'strict'
 
@@ -19,10 +18,6 @@ export interface DiscussLockVerdict {
   message: string
   /** Why the lock applied (telemetry / tests). */
   reason: 'sdd-strict' | 'discuss-h2' | 'none'
-}
-
-export function effectiveDiscussSddMode(config: LocalConfig | null | undefined): DiscussLockMode {
-  return config?.sdd?.mode ?? 'off'
 }
 
 /**

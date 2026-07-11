@@ -16,7 +16,6 @@
 import { execFileSync } from 'node:child_process'
 import { projectMemory } from '../memory/project-memory'
 import { prjctDb } from '../storage/database'
-import { collectActiveTasks } from './task-overview'
 
 const SOURCE_TAG = 'land-auto'
 const TOPIC_KEY = 'session-close'
@@ -185,46 +184,6 @@ export function buildLandHandoffContent(input: LandSynthesisInput): string | nul
   parts.push(`Next implication: ${next}`)
 
   return parts.join(' · ')
-}
-
-/** Async wrapper that fills cycle from active task when omitted. */
-export async function synthesizeLandHandoffFromProject(
-  projectId: string,
-  projectPath: string,
-  extras: Omit<
-    LandSynthesisInput,
-    'projectId' | 'projectPath' | 'cycleDescription' | 'cycleId'
-  > = {}
-): Promise<LandSynthesisResult> {
-  const overview = await collectActiveTasks(projectId, projectPath).catch(() => null)
-  // Prefer explicit extras; fall back to cycle token counters when present.
-  let tokensIn = extras.tokensIn
-  let tokensOut = extras.tokensOut
-  if ((tokensIn == null || tokensOut == null) && overview?.current?.id) {
-    try {
-      const row = prjctDb.get<{ tokens_in: number | null; tokens_out: number | null }>(
-        projectId,
-        'SELECT tokens_in, tokens_out FROM tasks WHERE id = ?',
-        overview.current.id
-      )
-      if (row) {
-        tokensIn = tokensIn ?? row.tokens_in ?? undefined
-        tokensOut = tokensOut ?? row.tokens_out ?? undefined
-      }
-    } catch {
-      /* best-effort */
-    }
-  }
-  return synthesizeLandHandoff({
-    projectId,
-    projectPath,
-    cycleDescription: overview?.current?.description ?? null,
-    cycleId: overview?.current?.id ?? null,
-    ...extras,
-    // Prefer resolved counters (extras first via coalesce above).
-    tokensIn,
-    tokensOut,
-  })
 }
 
 function recentJournal(projectId: string, cycleId: string | null | undefined): string[] {

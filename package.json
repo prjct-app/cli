@@ -56,8 +56,23 @@
     "llm",
     "coding-agents"
   ],
-  "author": "prjct.app",
+  "author": {
+    "name": "Juan José López Lira",
+    "email": "jlopezlira@gmail.com",
+    "url": "https://prjct.app"
+  },
+  "contributors": [
+    {
+      "name": "prjct.app contributors"
+    }
+  ],
   "license": "MIT",
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  ],
   "dependencies": {
     "@clack/prompts": "1.0.0",
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -105,6 +120,7 @@
     "templates/",
     "scripts/install.sh",
     "LICENSE",
+    "NOTICE",
     "README.md",
     "CHANGELOG.md"
   ],

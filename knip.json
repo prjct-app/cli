@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    "bin/prjct.ts",
     "core/index.ts",
     "core/daemon/entry.ts",
     "core/mcp/entry.ts",

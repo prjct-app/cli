@@ -21,7 +21,7 @@ import {
   emptySkillContext,
 } from '../../services/skill-generator/prjct-skill-body'
 
-const CREW_AGENTS_DIR = path.join(__dirname, '../../../templates/crew/agents')
+const CREW_AGENTS_DIR = path.join(__dirname, '../../../templates/crew/roles')
 
 /** Pull `model:` out of the leading `---` frontmatter block. */
 function frontmatterModel(md: string): string | null {
