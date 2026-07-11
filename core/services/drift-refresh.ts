@@ -135,23 +135,27 @@ export function maybeDetachDriftRefresh(input: {
     // Hint to sync that this is continuous-understanding refresh (world model).
     PRJCT_WORLD_MODEL_REFRESH: '1',
   }
+  // Never enable shell mode — PATH/Windows injection surface. Prefer the
+  // running runtime + resolved bin path; fall back to argv-only `prjct`
+  // via execFile semantics (spawn with shell disabled).
   try {
     const child = spawn(process.execPath, [bin, 'sync', '--project', input.projectPath], {
       detached: true,
       stdio: 'ignore',
       cwd: input.projectPath,
       env,
+      shell: false,
     })
     child.unref()
     return true
   } catch {
     try {
-      const child = spawn('prjct', ['sync'], {
+      const child = spawn('prjct', ['sync', '--project', input.projectPath], {
         detached: true,
         stdio: 'ignore',
         cwd: input.projectPath,
         env,
-        shell: true,
+        shell: false,
       })
       child.unref()
       return true

@@ -163,21 +163,38 @@ async function runScriptAction(
   }
   const relativePath = rule.action.slice(SCRIPT_ACTION_PREFIX.length).trim()
   if (!relativePath) throw new Error(`Empty script path in action '${rule.action}'`)
-
-  const scriptPath = path.resolve(projectPath, '.prjct/workflows', relativePath)
-  // Security: keep scripts inside the project's workflows dir. No
-  // traversal via `../..` or absolute paths pointing elsewhere.
-  const workflowsRoot = path.resolve(projectPath, '.prjct/workflows')
-  if (!scriptPath.startsWith(`${workflowsRoot}${path.sep}`) && scriptPath !== workflowsRoot) {
+  // Reject absolute paths and null bytes before resolve — no host-root scripts.
+  if (path.isAbsolute(relativePath) || relativePath.includes('\0')) {
     throw new Error(`Script path escapes workflows dir: ${relativePath}`)
   }
+
+  const workflowsRoot = path.resolve(projectPath, '.prjct/workflows')
+  const candidate = path.resolve(workflowsRoot, relativePath)
+  // relative() + ".." is robust against startsWith prefix tricks; realpath
+  // collapses symlinks that would otherwise jump outside the workflows tree.
+  const relToRoot = path.relative(workflowsRoot, candidate)
+  if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot)) {
+    throw new Error(`Script path escapes workflows dir: ${relativePath}`)
+  }
+  let scriptPath = candidate
   try {
-    await fs.access(scriptPath)
+    scriptPath = await fs.realpath(candidate)
   } catch {
     throw new Error(`Script not found: .prjct/workflows/${relativePath}`)
   }
+  let resolvedRoot = workflowsRoot
+  try {
+    resolvedRoot = await fs.realpath(workflowsRoot)
+  } catch {
+    /* workflows dir missing — realpath of script already failed or will */
+  }
+  const relAfterReal = path.relative(resolvedRoot, scriptPath)
+  if (relAfterReal.startsWith('..') || path.isAbsolute(relAfterReal)) {
+    throw new Error(`Script path escapes workflows dir: ${relativePath}`)
+  }
 
-  await execAsync(`bash ${JSON.stringify(scriptPath)}`, {
+  // execFile — no shell, argv only (script path is a single resolved file).
+  await execFileAsync('bash', [scriptPath], {
     timeout: rule.timeoutMs,
     cwd: projectPath,
     env: {

@@ -141,7 +141,35 @@ if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
           pending.push(fn)
         },
       })
-      for (const fn of pending) await fn().catch(() => undefined)
+      // Detach afterEmit so cold Stop/SessionStart do not block the host.
+      // Prefer a detached self-spawn when we have a script path (mirrors
+      // cold-entry); otherwise await in-process (dev / missing argv[1]).
+      if (pending.length > 0) {
+        const entry = process.argv[1]
+        if (entry && subcommand) {
+          try {
+            const { spawn } = await import('node:child_process')
+            const child = spawn(process.execPath, [entry, 'hook', subcommand], {
+              detached: true,
+              stdio: ['pipe', 'ignore', 'ignore'],
+              cwd: process.cwd(),
+              env: {
+                ...process.env,
+                PRJCT_HOOK_AFTER_EMIT: '1',
+                PRJCT_NO_DAEMON: '1',
+              },
+              shell: false,
+            })
+            child.stdin?.write(stdinPayload)
+            child.stdin?.end()
+            child.unref()
+          } catch {
+            for (const fn of pending) await fn().catch(() => undefined)
+          }
+        } else {
+          for (const fn of pending) await fn().catch(() => undefined)
+        }
+      }
       process.exit(0)
     } catch {
       process.stdout.write('{}\n')

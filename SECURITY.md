@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-The latest minor on `main` plus the previous minor receive security fixes. Older releases are not patched — upgrade with `bun install -g prjct-cli@latest` (or your installer of choice).
+The latest minor on `main` plus the previous minor receive security fixes. Older releases are not patched — upgrade with `npm install -g prjct-cli@latest` (or your installer of choice).
 
 | Version | Supported |
 | ------- | --------- |
-| Latest 2.x | :white_check_mark: |
-| Previous 2.x minor | :white_check_mark: |
-| 1.x and older | :x: |
+| Latest 3.x minor | :white_check_mark: |
+| Previous 3.x minor | :white_check_mark: |
+| 2.x and older | :x: |
 
 ## Security Model
 
@@ -16,22 +16,38 @@ The latest minor on `main` plus the previous minor receive security fixes. Older
 
 prjct-cli is designed with privacy and security as core principles:
 
-- **All data stored locally** in `~/.prjct-cli/` - never transmitted externally
-- **No telemetry or analytics** - we don't track usage
-- **No cloud sync** - your productivity data stays on your machine
-- **No external servers** - works entirely offline (except Claude integration)
+- **Project data lives locally** in `~/.prjct-cli/projects/{id}/` (SQLite) and `.prjct/prjct.config.json` in the repo
+- **No telemetry or analytics** — we don't track usage
+- **Offline by default** — core CLI, hooks, MCP, and SQLite work with no network
+- **Optional cloud sync** — only when the user signs in (`prjct login` / cloud link). Tokens never go in plaintext config files; they use the OS credential store (macOS Keychain, libsecret, Windows Credential Manager). Login fails closed if no secure store is available
+- **Agent host integration** — context is injected into Claude Code / Gemini / Cursor / etc. via local hooks and MCP; those hosts have their own network paths to model providers
+
+### Threat Model (summary)
+
+| Surface | Control |
+| ------- | ------- |
+| Credential material in tool args | PreToolUse `pre-secrets` MUST — deny on pattern match (multi-host, no fragile env) |
+| Secrets in `remember` / capture | Refuse by default unless `--force` |
+| Imported workflow templates | Shell / verify / script rules with `trustSource: imported` are refused |
+| Local workflow `script:` paths | Resolved under `.prjct/workflows/` only (`path.relative` + `realpath`, no shell) |
+| Subprocess spawn | Prefer `execFile` / `spawn(..., { shell: false })`; no free-form `shell: true` on product paths |
+| Daemon IPC | Unix socket mode `0600` (named pipe on Windows) |
+| npm package | Minimal runtime deps, `npm audit` in CI, pinned versions + overrides |
+
+**User-authored local workflow rules** may run shell commands the user (or their agent) defined. That is intentional project automation — treat workflow rules like code you review before enabling. Imported/shared rules cannot shell out without local re-creation.
 
 ### Data Policy
 
-We store: project config (`.prjct/prjct.config.json`), task history (`~/.prjct-cli/projects/{id}/`), and session activity in SQLite. We do **not** store credentials, API keys, source code bodies (only paths for analysis), or personal info beyond the git author name/email already in your commits. `prjct remember` and `prjct capture` refuse content that looks like a secret or like a prompt-injection payload unless invoked with `--force`.
+We store: project config (`.prjct/prjct.config.json`), task history and memory in SQLite under `~/.prjct-cli/`, and session activity. We do **not** store API keys in the project tree. Source code bodies are not bulk-uploaded; analysis keeps paths and derived signals. `prjct remember` and `prjct capture` refuse content that looks like a secret or like a prompt-injection payload unless invoked with `--force`.
+
+When cloud sync is enabled, only entities the user links are exchanged with the prjct cloud API over authenticated channels. Review cloud product docs for retention if you enable it.
 
 ### Dependencies
 
-We use minimal dependencies and audit them regularly:
-
+- Minimal runtime dependency set
 - `npm audit` runs in CI on every push
-- Dependencies are pinned to specific versions
-- No dependencies with known critical vulnerabilities
+- Dependencies pinned; transitive overrides applied when needed
+- No known critical vulnerabilities in the published dependency tree at release time
 
 ## Reporting a Vulnerability
 
@@ -68,16 +84,18 @@ We use minimal dependencies and audit them regularly:
 
 ## Security Best Practices for Users
 
-1. **Keep prjct-cli updated** - Run `npm update -g prjct-cli` regularly
-2. **Review before committing** - Check `.prjct/prjct.config.json` before pushing to public repos
-3. **Avoid storing secrets** - Don't put API keys or passwords in `now.md` or `ideas.md`
-4. **Use .gitignore** - The `.prjct/` directory should be in your `.gitignore` (auto-added by `prjct init`)
+1. **Keep prjct-cli updated** — `npm update -g prjct-cli` (or `prjct upgrade`)
+2. **Review before committing** — Check `.prjct/prjct.config.json` and workflow rules under `.prjct/workflows/` before pushing to public repos
+3. **Avoid storing secrets** — Don't put API keys or passwords in memory captures, specs, or workflow scripts
+4. **Use .gitignore** — `.prjct/` local state should stay out of public remotes when it holds machine-local paths (init helps)
+5. **Treat local shell workflow rules as code** — only enable rules you trust
+6. **Cloud optional** — leave cloud signed out if you want a fully offline install
 
-## Claude Integration Security
+## Agent Host Integration Security
 
-When using prjct-cli with Claude Code or Claude Desktop:
+When using prjct-cli with Claude Code, Gemini CLI, Cursor, Codex, or similar:
 
-- Commands execute locally on your machine
-- Claude only sees the context you provide via slash commands
-- No data is stored on Anthropic's servers beyond standard Claude usage
-- Review [Anthropic's privacy policy](https://www.anthropic.com/privacy) for Claude-specific details
+- Commands and hooks execute **locally** on your machine
+- Hosts only see context prjct injects (hooks / MCP / skill files)
+- Model providers receive whatever the host sends under that host's privacy policy
+- Review your host vendor's privacy policy for model traffic details
