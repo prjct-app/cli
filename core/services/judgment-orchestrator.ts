@@ -125,11 +125,32 @@ export async function ensureJudgmentLedger(input: {
     deliveryTier = undefined
   }
 
+  let scopePaths: string[] | undefined
+  try {
+    const { computeCommittedChangeset } = await import('./delivery-geometry')
+    const cs = await computeCommittedChangeset(input.projectPath)
+    const { execFileAsync } = await import('../utils/exec')
+    if (cs?.base) {
+      const { stdout } = await execFileAsync('git', ['diff', '--name-only', `${cs.base}..HEAD`], {
+        cwd: input.projectPath,
+      })
+      scopePaths = stdout
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    } else if (cs?.dirs?.length) {
+      scopePaths = [...cs.dirs]
+    }
+  } catch {
+    scopePaths = undefined
+  }
+
   const ledger = createLedger({
     target,
     intensity,
     deliveryTier,
     now: getTimestamp(),
+    scopePaths,
   })
   judgmentLedgerStorage.set(input.projectId, ledger)
   const next = buildNextAction(ledger, intensity)
