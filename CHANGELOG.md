@@ -9,6 +9,18 @@
 - **Source renames (product-only naming)**: `host-agents-md` / `host-claude-md` / `runtime-claude` / `agent-info` / `agents-md-discovery`; crew templates under `templates/crew/roles/`; standalone installer `scripts/install-standalone.sh`. Destination host paths (e.g. user-project `CLAUDE.md`, `.claude/agents/`) unchanged — those are host APIs.
 - **Licensing**: MIT © 2024–2026, `NOTICE`, package author/SPDX, CONTRIBUTING contribution clause.
 
+## [3.48.0] - 2026-07-11
+
+### Features
+
+- freeze review scope from git (gentle-ai v1.49) (#547)
+- freeze review scope from git (gentle-ai v1.49)
+
+### Bug Fixes
+
+- feat(judgment): freeze review scope from git (gentle-ai v1.49)
+
+
 ## [3.47.1] - 2026-07-11
 
 ### Bug Fixes
