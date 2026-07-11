@@ -104,6 +104,14 @@ export const JudgmentLedgerSchema = z.object({
     .optional(),
   /** Running precision: verified / (verified + refuted) when enough signal. */
   precisionHint: z.number().min(0).max(1).optional(),
+  /**
+   * Frozen review path set from git at ledger open (gentle-ai v1.49 scope freeze).
+   * Corrections / fix-loop findings outside this set demote to non-blocking follow-up.
+   * Empty/omitted = no freeze (legacy ledgers + non-git workspaces).
+   */
+  scopePaths: z.array(z.string().min(1)).optional(),
+  /** ISO timestamp when scopePaths was frozen (open). */
+  scopeFrozenAt: z.string().optional(),
 })
 export type JudgmentLedger = z.infer<typeof JudgmentLedgerSchema>
 

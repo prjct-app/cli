@@ -15,6 +15,7 @@ import {
   advanceFixRound,
   applyBatchRefutation,
   applyGhostFilter,
+  applyScopeFreeze,
   applySeverityFloor,
   buildNextAction,
   buildReReviewBrief,
@@ -25,6 +26,7 @@ import {
   intensityFromChangeset,
   intensityProtocol,
   markFindings,
+  markFindingsSkippedByScope,
   markLeftoversOpen,
   mergeDualJudges,
   newFindingId,
@@ -162,20 +164,28 @@ export class JudgmentCommands extends PrjctCommandsBase {
     const target =
       targetRaw.trim() || (await defaultTarget(projectPath)) || `changeset-${cs?.base ?? 'local'}`
 
+    // Immutable review scope from git (gentle-ai v1.49) — not caller-authored paths.
+    const scopePaths = await changesetPaths(projectPath, cs?.dirs)
+
     const ledger = createLedger({
       target,
       intensity,
       deliveryTier: tier as DeliveryTier,
       baseSha: cs?.base,
       now: getTimestamp(),
+      scopePaths,
     })
     judgmentLedgerStorage.set(proj.value, ledger)
 
     const protocol = intensityProtocol(intensity)
     const next = buildNextAction(ledger, intensity)
+    const scopeN = ledger.scopePaths?.length ?? 0
     const lines = [
       `Opened ledger \`${ledger.id}\` → intensity **${intensity}** (tier ${tier})`,
       `Target: ${target}`,
+      scopeN > 0
+        ? `Scope freeze: **${scopeN}** path(s) from git (findings outside → follow-up only)`
+        : 'Scope freeze: _none_ (no git paths — freeze inactive until open has a changeset)',
       `Reviewers: ${protocol.reviewers}`,
       `Evidence tax: ${protocol.evidenceTax}`,
       `Max fix rounds: ${ledger.maxFixRounds}`,
@@ -230,7 +240,9 @@ export class JudgmentCommands extends PrjctCommandsBase {
     // Ghost filter — annotate known FPs (never auto-kill)
     const book = judgmentLedgerStorage.getGhosts(proj.value)
     const [tagged] = applyGhostFilter([rawFinding], book)
-    const { findings, finding, deduped } = upsertFinding(ledger.findings, tagged!)
+    // Scope freeze: file outside frozen git path set → non-blocking follow-up.
+    const scoped = applyScopeFreeze(tagged!, ledger.scopePaths)
+    const { findings, finding, deduped } = upsertFinding(ledger.findings, scoped)
     ledger.findings = findings
     ledger.updatedAt = getTimestamp()
     ledger.verdict = 'in_progress'
@@ -240,8 +252,12 @@ export class JudgmentCommands extends PrjctCommandsBase {
       finding.severity !== (sevParsed.data as FindingSeverity)
         ? ` · evidence tax: ${sevParsed.data} → ${finding.severity}`
         : ''
+    const scopeNote =
+      scoped.status === 'info' && tagged!.status !== 'info'
+        ? ' · **out of frozen scope** (follow-up only)'
+        : ''
     const lines = [
-      `${deduped ? 'Merged (DNA dedup)' : 'Added'} ${finding.severity} [${finding.status}] \`${finding.id}\`: ${finding.title}${taxNote}`,
+      `${deduped ? 'Merged (DNA dedup)' : 'Added'} ${finding.severity} [${finding.status}] \`${finding.id}\`: ${finding.title}${taxNote}${scopeNote}`,
       `DNA \`${finding.dna}\` · evidence=${finding.evidenceScore ?? 0}/3 · blast=${finding.blast ?? 0}`,
       finding.knownFalsePositive
         ? '👻 GHOST — previously refuted in this project; challenge hard'
@@ -324,7 +340,9 @@ export class JudgmentCommands extends PrjctCommandsBase {
     )
 
     const book = judgmentLedgerStorage.getGhosts(proj.value)
-    let findings = applyGhostFilter(merged.findings, book)
+    let findings = applyGhostFilter(merged.findings, book).map((f) =>
+      applyScopeFreeze(f, ledger.scopePaths)
+    )
     // Fold into existing ledger via DNA upsert
     for (const f of findings) {
       const r = upsertFinding(ledger.findings, f)
@@ -461,13 +479,13 @@ export class JudgmentCommands extends PrjctCommandsBase {
     const next = advanceFixRound(ledger, getTimestamp())
     judgmentLedgerStorage.set(proj.value, next)
     const brief = buildReReviewBrief(next)
-    const ranked = rankFindingsForFix(next.findings)
+    const ranked = rankFindingsForFix(next.findings, next.scopePaths)
     print(
       options,
       '## Judgment fix-round',
       [
         `Round ${next.fixRound}/${next.maxFixRounds} started.`,
-        `Blast-ranked fix order: ${ranked.map((f) => f.id).join(' → ') || '—'}`,
+        `Blast-ranked fix order (in-scope only): ${ranked.map((f) => f.id).join(' → ') || '—'}`,
         'After fixes: `prjct judgment fixed <ids…>` → `brief` → `verify <ids…>`.',
       ].join('\n')
     )
@@ -486,22 +504,27 @@ export class JudgmentCommands extends PrjctCommandsBase {
     if (!ledger) return failWith('No active ledger — `prjct judgment open` first.', options)
     if (ids.length === 0) return failWith(`${status} requires at least one finding id.`, options)
 
+    const skipped = markFindingsSkippedByScope(ledger, ids, status)
     const next = markFindings(ledger, ids, status, getTimestamp())
     const finalized = finalizeLedger(next, getTimestamp())
     judgmentLedgerStorage.set(proj.value, finalized)
     const card = buildNextAction(finalized, finalized.intensity)
+    const marked = ids.filter((id) => !skipped.includes(id)).length
     print(
       options,
       `## Judgment ${status}`,
       [
-        `Marked ${ids.length} → ${status}. verdict=${finalized.verdict}` +
+        `Marked ${marked} → ${status}. verdict=${finalized.verdict}` +
           (finalized.precisionHint !== undefined
             ? ` precision≈${Math.round(finalized.precisionHint * 100)}%`
             : ''),
+        skipped.length > 0 ? `Skipped out-of-scope (follow-up only): ${skipped.join(', ')}` : '',
         `### Next → \`${card.kind}\`: ${card.directive}`,
-      ].join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
     )
-    return { success: true, ledger: finalized, next: card }
+    return { success: true, ledger: finalized, next: card, skippedScope: skipped }
   }
 
   private async brief(projectPath: string, options: MdOption): Promise<CommandResult> {
@@ -798,6 +821,7 @@ function formatLedger(ledger: {
   maxFixRounds: number
   verdict: string
   precisionHint?: number
+  scopePaths?: string[]
   findings: Array<{
     id: string
     severity: string
@@ -818,6 +842,11 @@ function formatLedger(ledger: {
   ]
   if (ledger.precisionHint !== undefined) {
     lines.push(`- **precision**: ~${Math.round(ledger.precisionHint * 100)}%`)
+  }
+  if (ledger.scopePaths && ledger.scopePaths.length > 0) {
+    lines.push(
+      `- **scope freeze**: ${ledger.scopePaths.length} path(s) — ${ledger.scopePaths.slice(0, 8).join(', ')}${ledger.scopePaths.length > 8 ? '…' : ''}`
+    )
   }
   if (ledger.escalateReason) lines.push(`- **escalate**: ${ledger.escalateReason}`)
   if (ledger.merge) {

@@ -174,7 +174,10 @@ export function blastRank(
   return n
 }
 
-export function rankFindingsForFix(findings: JudgmentFinding[]): JudgmentFinding[] {
+export function rankFindingsForFix(
+  findings: JudgmentFinding[],
+  scopePaths?: readonly string[] | undefined
+): JudgmentFinding[] {
   return [...findings]
     .filter(
       (f) =>
@@ -182,7 +185,9 @@ export function rankFindingsForFix(findings: JudgmentFinding[]): JudgmentFinding
         (f.status === 'stands' ||
           f.status === 'candidate' ||
           f.status === 'open' ||
-          f.status === 'fixed')
+          f.status === 'fixed') &&
+        // When scope freeze is set, out-of-scope findings never enter fix order.
+        pathInScope(f.file, scopePaths)
     )
     .sort((a, b) => (b.blast ?? blastRank(b)) - (a.blast ?? blastRank(a)))
 }
@@ -519,13 +524,33 @@ export function markFindings(
   now: string
 ): JudgmentLedger {
   const idSet = new Set(ids)
-  const findings = ledger.findings.map((f) => (idSet.has(f.id) ? { ...f, status } : f))
+  const findings = ledger.findings.map((f) => {
+    if (!idSet.has(f.id)) return f
+    // Scope freeze: never mark fixed/verified on out-of-scope follow-ups.
+    if ((status === 'fixed' || status === 'verified') && !findingInFixScope(f, ledger.scopePaths)) {
+      return f
+    }
+    return { ...f, status }
+  })
   return {
     ...ledger,
     findings,
     updatedAt: now,
     precisionHint: computePrecisionHint(findings),
   }
+}
+
+/** Ids that were requested for fixed/verified but skipped by scope freeze. */
+export function markFindingsSkippedByScope(
+  ledger: JudgmentLedger,
+  ids: string[],
+  status: Extract<FindingStatus, 'fixed' | 'verified'>
+): string[] {
+  if (status !== 'fixed' && status !== 'verified') return []
+  const idSet = new Set(ids)
+  return ledger.findings
+    .filter((f) => idSet.has(f.id) && !findingInFixScope(f, ledger.scopePaths))
+    .map((f) => f.id)
 }
 
 /** Precision = verified / (verified + refuted). null-ish when no signal → undefined. */
@@ -593,7 +618,8 @@ export function buildReReviewBrief(ledger: JudgmentLedger): ReReviewBrief {
       (f) =>
         isActionableSeverity(f.severity) &&
         (f.status === 'fixed' || f.status === 'stands' || f.status === 'open')
-    )
+    ),
+    ledger.scopePaths
   )
   const findings = ranked.map(({ id, severity, status, title, file, line, blast, dna }) => ({
     id,
@@ -612,13 +638,22 @@ export function buildReReviewBrief(ledger: JudgmentLedger): ReReviewBrief {
     maxFixRounds: ledger.maxFixRounds,
     findings,
     fixOrder: findings.map((f) => f.id),
-    scope:
-      'Re-judge ONLY the persisted ledger findings below plus the fix-diff for those items. ' +
-      'Confirm each fixed finding is actually resolved; report regressions on those lines only. ' +
-      'Fix order is blast-ranked — do not reorder by preference.',
+    scope: (() => {
+      const paths = ledger.scopePaths ?? []
+      const pathHint =
+        paths.length > 0
+          ? ` Frozen scope (${paths.length} paths): ${paths.slice(0, 12).join(', ')}${paths.length > 12 ? '…' : ''}.`
+          : ''
+      return (
+        'Re-judge ONLY the persisted ledger findings below plus the fix-diff for those items. ' +
+        'Confirm each fixed finding is actually resolved; report regressions on those lines only. ' +
+        `Fix order is blast-ranked — do not reorder by preference.${pathHint}`
+      )
+    })(),
     outOfScope:
       'Do NOT reopen the original full PR diff. Do NOT invent new WARNING/SUGGESTION loops. ' +
-      'New BLOCKER/CRITICAL on the fix-diff may be added as candidates (evidence tax + severity floor + challenge still apply).',
+      'Findings whose file is outside the frozen git scope are follow-up only (info) — they do not enter fix loops. ' +
+      'New BLOCKER/CRITICAL on in-scope fix-diff may be added as candidates (evidence tax + severity floor + challenge still apply).',
   }
 }
 
@@ -1041,6 +1076,72 @@ export function upsertFinding(
   return { findings: out, finding: merged, deduped: true }
 }
 
+// ── Scope freeze (gentle-ai v1.49 — immutable git path set) ─────────────────
+
+/** Normalize repo-relative paths for scope membership (posix, no leading ./). */
+export function normalizeScopePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+/g, '/').replace(/\/$/, '').trim()
+}
+
+/**
+ * True when `file` is inside the frozen scope.
+ * Empty/undefined scope → no freeze (everything in-scope) for backward compat.
+ * Findings without a file stay in-scope (evidence tax already demotes vibes blockers).
+ */
+export function pathInScope(
+  file: string | undefined,
+  scopePaths: readonly string[] | undefined
+): boolean {
+  if (!scopePaths || scopePaths.length === 0) return true
+  if (!file || !file.trim()) return true
+  const f = normalizeScopePath(file)
+  if (!f) return true
+  for (const raw of scopePaths) {
+    const s = normalizeScopePath(raw)
+    if (!s) continue
+    if (f === s || f.startsWith(`${s}/`)) return true
+  }
+  return false
+}
+
+/**
+ * Demote out-of-scope findings to non-blocking follow-up (`info`).
+ * Does not invent new severities — preserves title/file for the follow-up trail.
+ */
+export function applyScopeFreeze(
+  finding: JudgmentFinding,
+  scopePaths: readonly string[] | undefined
+): JudgmentFinding {
+  if (pathInScope(finding.file, scopePaths)) return finding
+  if (finding.status === 'info' || finding.status === 'refuted') return finding
+  return {
+    ...finding,
+    status: 'info',
+    evidence:
+      (finding.evidence ? `${finding.evidence} · ` : '') +
+      'out of frozen review scope (follow-up only; does not enter fix loops or block ship)',
+  }
+}
+
+export function applyScopeFreezeAll(
+  findings: JudgmentFinding[],
+  scopePaths: readonly string[] | undefined
+): JudgmentFinding[] {
+  return findings.map((f) => applyScopeFreeze(f, scopePaths))
+}
+
+/**
+ * Whether a finding may enter fix rounds / be marked fixed under the freeze.
+ * In-scope (or no freeze) only.
+ */
+export function findingInFixScope(
+  finding: Pick<JudgmentFinding, 'file' | 'status'>,
+  scopePaths: readonly string[] | undefined
+): boolean {
+  if (finding.status === 'info' || finding.status === 'refuted') return false
+  return pathInScope(finding.file, scopePaths)
+}
+
 // ── Factory ─────────────────────────────────────────────────────────────────
 
 export function newFindingId(): string {
@@ -1058,7 +1159,13 @@ export function createLedger(input: {
   baseSha?: string
   headSha?: string
   now: string
+  /** Git path set frozen at open — empty/omit = no freeze. */
+  scopePaths?: string[]
 }): JudgmentLedger {
+  const scope =
+    input.scopePaths && input.scopePaths.length > 0
+      ? [...new Set(input.scopePaths.map(normalizeScopePath).filter(Boolean))]
+      : undefined
   return {
     id: newLedgerId(),
     target: input.target,
@@ -1072,5 +1179,7 @@ export function createLedger(input: {
     baseSha: input.baseSha,
     headSha: input.headSha,
     deliveryTier: input.deliveryTier,
+    scopePaths: scope,
+    scopeFrozenAt: scope ? input.now : undefined,
   }
 }
