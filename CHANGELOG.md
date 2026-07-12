@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.50.0] - 2026-07-12
+
+### Added
+- Claude ecosystem adopt — trust, tiers, session, packs
+
 ### Features
 
 - **Claude ecosystem adopt (patterns, not products)** — model-agnostic harness organs:
@@ -22,7 +27,6 @@
 
 - performance + stability hardening (#550)
 
-
 ## [3.49.0] - 2026-07-12
 
 ### Features
@@ -32,7 +36,6 @@
 ### Bug Fixes
 
 - project pattern supremacy + mechanical review FP refute (v3.48.0) (#549)
-
 
 ## [3.48.0] - 2026-07-11
 
