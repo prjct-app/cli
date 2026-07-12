@@ -150,6 +150,77 @@ export function applyEvidenceTax(finding: JudgmentFinding): JudgmentFinding {
   }
 }
 
+// ── Mechanical style-hallucination refute ───────────────────────────────────
+// Classic agent FP: "why let? use const" when the binding is mutated (++ / += / =).
+// Code-enforced — not prompt hope. Evidence tax alone cannot catch this class.
+
+/** Prefer-const / let→const claims (ESLint prefer-const hallucination class). */
+export const PREFER_CONST_CLAIM_RE =
+  /\b(prefer[- ]const|use const|should be const|can be const|const instead|instead of let|never reassigned|not reassigned|let\s*→\s*const|change let to const|let is unnecessary|why let|por qu[eé] let)\b/i
+
+/**
+ * Mutation ops that prove `let` is required.
+ * Intentionally excludes plain `=` so `let x = 0` declarations in evidence
+ * do not false-positive a legitimate prefer-const claim.
+ */
+export const BINDING_REASSIGN_RE = /(\+\+|--|\+=|-=|\*=|\/=|%=|\|\|=|&&=|\?\?=)/
+
+export function isPreferConstClaim(text: string): boolean {
+  return PREFER_CONST_CLAIM_RE.test(text)
+}
+
+export function textShowsBindingReassignment(text: string): boolean {
+  return BINDING_REASSIGN_RE.test(text)
+}
+
+/**
+ * Kill prefer-const hallucinations mechanically.
+ *
+ * 1. Claim + reassignment in title/evidence → status=refuted (never enters fix loops)
+ * 2. Prefer-const without file:line+snippet (evidenceScore < 3) → suggestion/info
+ *    (must prove the binding is write-once by quoting the scope)
+ */
+export function applyMechanicalStyleRefute(finding: JudgmentFinding): JudgmentFinding {
+  const blob = `${finding.title}\n${finding.evidence ?? ''}`
+  if (!isPreferConstClaim(blob)) return finding
+
+  if (textShowsBindingReassignment(blob)) {
+    const note =
+      '[MECHANICAL REFUTE: prefer-const claim but reassignment (++/+=/=) appears in the claim/evidence — agent hallucination; `let` is required]'
+    return {
+      ...finding,
+      status: 'refuted',
+      severity: 'suggestion',
+      evidence: finding.evidence ? `${finding.evidence}\n${note}` : note,
+      evidenceScore: evidenceScore(finding),
+      dna: finding.dna ?? findingDna(finding),
+      blast: 0,
+    }
+  }
+
+  // No reassignment shown — still demand full locus (file+line+snippet) or drop to info.
+  const score = evidenceScore(finding)
+  if (score < 3) {
+    const note =
+      '[STYLE TAX: prefer-const requires file:line + snippet proving the binding is never reassigned; title-only nits are noise]'
+    return applyEvidenceTax({
+      ...finding,
+      severity: 'suggestion',
+      status: 'info',
+      evidence: finding.evidence ? `${finding.evidence}\n${note}` : note,
+    })
+  }
+
+  return finding
+}
+
+/** Pipeline used by judgment add/merge: severity floor → evidence tax → mechanical style. */
+export function prepareFinding(finding: JudgmentFinding): JudgmentFinding {
+  // Import cycle-safe: applySeverityFloor is defined later — call order at runtime is fine
+  // after full module init. Callers may pass already-floored findings.
+  return applyMechanicalStyleRefute(applyEvidenceTax(finding))
+}
+
 // ── Blast-radius rank (fix order) ──────────────────────────────────────────
 
 const SEV_WEIGHT: Record<FindingSeverity, number> = {
@@ -695,9 +766,9 @@ export interface NextActionCard {
 }
 
 const RED_CHARTER =
-  'RED (attack): assume the change is hostile. Hunt production killers — races, auth holes, data loss, silent fail. Prefer over-calling; blue + refuters will kill FPs. Output severity + file:line + 1-line repro.'
+  'RED (attack): assume the change is hostile. Hunt production killers — races, auth holes, data loss, silent fail. Prefer over-calling; blue + refuters will kill FPs. Output severity + file:line + 1-line repro. NEVER flag let→const without reading the full binding scope — if ++/+=/= mutates it, that finding is a HALLUCINATION (do not report).'
 const BLUE_CHARTER =
-  'BLUE (defense): assume the author is competent. Only report defects you can reproduce from the code. Challenge red overclaims. Same schema: severity + file:line + evidence.'
+  'BLUE (defense): assume the author is competent. Only report defects you can reproduce from the code. Challenge red overclaims. Same schema: severity + file:line + evidence. Kill style nits that ignore mutations (let+currentStreak++ is correct; prefer-const is false).'
 
 export function buildNextAction(
   ledger: JudgmentLedger | null,

@@ -4,10 +4,14 @@
 
 ## [3.48.0] - 2026-07-11
 
-### Added
+### Features
 
-- dominance harness market leadership creative improvements
+- **Dynasty program** (#548): public harness Δ, content-bound stamp, SoT hard-bind H2+, trap-surface SLO, impact-ranked next, geometry-at-intent, skill diet ≤900, cycle budget card, land Rho dry-run, one-breath install, doctor --fix
+- **Project pattern supremacy** (#549): match house style; upgrade only real anti-patterns; work alignment brief; mechanical prefer-const refute when reassignment present
+- freeze review scope from git (gentle-ai v1.49) (#547)
+
 ### Changed
+
 - **Repo hygiene (complete)**: knip-clean; no repo-local AGENTS/CLAUDE/Copilot/MCP harness; dead template docs removed; contributor architecture in `CONTRIBUTING.md` + `docs/`.
 - **Source renames (product-only naming)**: `host-agents-md` / `host-claude-md` / `runtime-claude` / `agent-info` / `agents-md-discovery`; crew templates under `templates/crew/roles/`; standalone installer `scripts/install-standalone.sh`. Destination host paths (e.g. user-project `CLAUDE.md`, `.claude/agents/`) unchanged — those are host APIs.
 - **Licensing**: MIT © 2024–2026, `NOTICE`, package author/SPDX, CONTRIBUTING contribution clause.
