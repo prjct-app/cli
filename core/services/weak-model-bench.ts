@@ -15,6 +15,7 @@ import { getHarnessSurface, listHarnessSurfaces } from '../infrastructure/harnes
 import { DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
+import { contentBoundDriftVerdict, stampFromContents } from './content-bound-stamp'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
 import {
   applyEvidenceTax,
@@ -214,6 +215,37 @@ export function runWeakModelBench(): WeakBenchReport {
     const dnaA = findingDna({ title: 'Auth hole', file: 'a.ts', line: 10 })
     const dnaB = findingDna({ title: 'auth hole!', file: 'a.ts', line: 12 })
     push('judgment DNA stable', dnaA === dnaB, dnaA)
+  }
+
+  // Content-bound approve stamp (Dynasty D2 / gentle-ai v2 residual)
+  {
+    const s = stampFromContents(
+      [
+        { path: 'core/a.ts', content: 'export const a = 1\n' },
+        { path: 'core/b.ts', content: 'export const b = 2\n' },
+      ],
+      { stampedAt: 't0' }
+    )
+    const s2 = stampFromContents(
+      [
+        { path: 'core/b.ts', content: 'export const b = 2\n' },
+        { path: 'core/a.ts', content: 'export const a = 1\n' },
+      ],
+      { stampedAt: 't1' }
+    )
+    push('content-bound tree stable', s.treeHash === s2.treeHash, s.treeHash.slice(0, 12))
+    const drift = contentBoundDriftVerdict({
+      stamp: s,
+      currentTreeHash: stampFromContents([{ path: 'core/a.ts', content: 'CHANGED' }], {
+        stampedAt: 't2',
+      }).treeHash,
+      hard: true,
+    })
+    push(
+      'content-bound drift blocks',
+      drift.blocked && drift.reason === 'drift',
+      `reason=${drift.reason}`
+    )
   }
 
   const passed = checks.filter((c) => c.ok).length

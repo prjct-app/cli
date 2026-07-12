@@ -59,6 +59,7 @@ describe('harness score', () => {
     expect(md).toContain('Multi-runtime wire')
     expect(md).toContain('Organic feel')
     expect(md).toContain('Public harness Δ')
+    expect(md).toContain('Content-bound approve')
   })
 
   it('embeds Dynasty delta + outcomes sections when provided', () => {

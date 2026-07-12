@@ -235,6 +235,29 @@ export class ShippingCommands extends PrjctCommandsBase {
           return { success: false, error: jv.message }
         }
         if (jv.message) console.log(jv.message)
+
+        // Content-bound stamp (Dynasty D2): approved treeHash must still match
+        // workspace paths — post-approve edits force re-judgment.
+        if (ledger?.contentBound?.treeHash && !options.noJudgmentGate) {
+          try {
+            const { contentBoundDriftVerdict, currentTreeHashForStamp } = await import(
+              '../services/content-bound-stamp'
+            )
+            const current = await currentTreeHashForStamp(projectPath, ledger.contentBound)
+            const cv = contentBoundDriftVerdict({
+              stamp: ledger.contentBound,
+              currentTreeHash: current,
+              hard: codeStrict,
+              override: false,
+            })
+            if (cv.blocked) {
+              return { success: false, error: cv.message }
+            }
+            if (cv.message) console.log(cv.message)
+          } catch {
+            /* content-bound best-effort */
+          }
+        }
       } catch {
         /* judgment gate is best-effort — never crash ship on lookup */
       }
