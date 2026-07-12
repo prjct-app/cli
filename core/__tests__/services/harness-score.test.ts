@@ -58,6 +58,18 @@ describe('harness score', () => {
     expect(md).toContain('SQLite')
     expect(md).toContain('Multi-runtime wire')
     expect(md).toContain('Organic feel')
+    expect(md).toContain('Public harness Δ')
+  })
+
+  it('embeds Dynasty delta + outcomes sections when provided', () => {
+    const md = renderHarnessScoreMd(computeHarnessScore(), {
+      deltaMd: '## Harness Δ (bare vs prjct)\n\n| Metric | Bare | With prjct | Pass |\n',
+      outcomesMd: '## Dynasty outcomes (project)\n\n| Signal | Measured | Note |\n',
+    })
+    expect(md).toContain('Harness Δ (bare vs prjct)')
+    expect(md).toContain('Dynasty outcomes (project)')
+    // Δ appears before competitive dust
+    expect(md.indexOf('Harness Δ')).toBeLessThan(md.indexOf('Competitive dust'))
   })
 
   it('can include multi-runtime organic criterion when probed', () => {

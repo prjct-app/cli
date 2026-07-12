@@ -236,6 +236,7 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Memory hygiene | grow forever | files pile | grow forever | **SUPERIOR: Rho excess vs R + distill-hard-delete + close** |',
     '| Multi-runtime wire | one eco | Claude-first | plugin per host | **SUPERIOR: one install → Claude+Codex+Gemini+Cursor+Grok** |',
     '| Organic feel | install prompts | `/plan` ceremony | manual MCP | **SUPERIOR: passive hooks; agent never re-learns the OS** |',
+    '| Public harness Δ | none / demo only | none | none | **SUPERIOR: bare vs prjct intent+footprint table in score + CI gate** |',
     `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
     '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',
@@ -245,7 +246,13 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
 
 export function renderHarnessScoreMd(
   report: HarnessScoreReport,
-  options: { coverageMd?: string } = {}
+  options: {
+    coverageMd?: string
+    /** Pure bare-vs-harness Δ table (from computeHarnessDelta). */
+    deltaMd?: string
+    /** Project-scoped closed-loop / retention / tokens (optional). */
+    outcomesMd?: string
+  } = {}
 ): string {
   const rows = report.criteria.map(
     (c) => `| ${c.name} | ${c.score} | ${c.status} | ${c.slo} | ${c.measured} |`
@@ -268,6 +275,8 @@ export function renderHarnessScoreMd(
     `- Routing body: ${report.defaults.routingBytes} bytes`,
     `- Providers: ${report.defaults.providerCount}`,
     '',
+    options.deltaMd ?? '',
+    options.outcomesMd ?? '',
     options.coverageMd ?? '',
     renderCompetitiveDustMd(report),
   ].join('\n')

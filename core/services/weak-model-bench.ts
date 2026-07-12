@@ -24,7 +24,12 @@ import {
 } from './precision-judgment'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
 import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
-import { buildDemoRows, routeIntent, routeIntentBare } from './weak-frontier-demo'
+import {
+  buildDemoRows,
+  computeHarnessDelta,
+  routeIntent,
+  routeIntentBare,
+} from './weak-frontier-demo'
 
 export interface WeakBenchCheck {
   name: string
@@ -135,6 +140,15 @@ export function runWeakModelBench(): WeakBenchReport {
     'weak-vs-frontier demo',
     demoFail.length === 0,
     `${demo.length - demoFail.length}/${demo.length} demo SLOs`
+  )
+
+  // Dynasty public proof weapon — same Δ table as `prjct harness score`
+  const delta = computeHarnessDelta()
+  push('harness delta all-green', delta.allGreen, delta.line)
+  push(
+    'harness delta intent gap',
+    delta.intentDeltaPp >= delta.minIntentDeltaPp && delta.harnessHits > delta.bareHits,
+    `+${delta.intentDeltaPp}pp (min +${delta.minIntentDeltaPp}) harness ${delta.harnessHits}/${delta.fixtureCount} vs bare ${delta.bareHits}/${delta.fixtureCount}`
   )
 
   // Multi-runtime wire is structural (adapters exist) — not live disk probe

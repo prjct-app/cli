@@ -18,6 +18,7 @@ import {
   renderRigList,
 } from '../services/harness-rigs'
 import { computeHarnessScore, renderHarnessScoreMd } from '../services/harness-score'
+import { computeHarnessDelta, renderHarnessDeltaMd } from '../services/weak-frontier-demo'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -32,16 +33,19 @@ export class HarnessCommands extends PrjctCommandsBase {
       // presence is gated by weak-model-bench, not ~/.claude probes on runners.
       const coverage = await probeHarnessCoverage(projectPath)
       const report = computeHarnessScore()
-      let closedLoopLine: string | null = null
-      let tokenLine: string | null = null
+      const delta = computeHarnessDelta()
+      let outcomesMd: string | null = null
+      let outcomesLine: string | null = null
       let weakLine: string | null = null
       try {
         const projectId = await configManager.getProjectId(projectPath)
         if (projectId) {
-          const { buildClosedLoopHealth } = await import('../services/closed-loop-health')
-          closedLoopLine = buildClosedLoopHealth(projectId).line
-          const { buildTokenEconomics } = await import('../services/token-economics')
-          tokenLine = buildTokenEconomics(projectId).line
+          const { buildDynastyOutcomes, renderDynastyOutcomesMd } = await import(
+            '../services/dynasty-outcomes'
+          )
+          const outcomes = buildDynastyOutcomes(projectId)
+          outcomesMd = renderDynastyOutcomesMd(outcomes)
+          outcomesLine = outcomes.line
           const cfg = await configManager.readConfig(projectPath)
           const { effectiveWeakModelMode, weakModelOneLiner } = await import(
             '../services/weak-model-mode'
@@ -49,17 +53,16 @@ export class HarnessCommands extends PrjctCommandsBase {
           if (effectiveWeakModelMode(cfg) === 'on') weakLine = weakModelOneLiner()
         }
       } catch {
-        closedLoopLine = null
+        outcomesMd = null
+        outcomesLine = null
       }
       if (options.md) {
         const md = renderHarnessScoreMd(report, {
           coverageMd: renderHarnessCoverageMd(coverage),
+          deltaMd: renderHarnessDeltaMd(delta),
+          outcomesMd: outcomesMd ?? undefined,
         })
-        const extras = [
-          closedLoopLine ? `## Closed-loop judgment\n\n${closedLoopLine}` : '',
-          tokenLine ? `## Token economics\n\n${tokenLine}` : '',
-          weakLine ? `## Weak-model mode\n\n${weakLine}` : '',
-        ]
+        const extras = [weakLine ? `## Weak-model mode\n\n${weakLine}` : '']
           .filter(Boolean)
           .join('\n\n')
         console.log(extras ? `${md}\n\n${extras}\n` : md)
@@ -70,11 +73,11 @@ export class HarnessCommands extends PrjctCommandsBase {
           const mark = c.status === 'green' ? '✓' : c.status === 'amber' ? '△' : '✗'
           console.log(`  ${mark} ${c.name}: ${c.score} — ${c.measured}`)
         }
+        console.log(delta.line)
         console.log(
           `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%) — advisory`
         )
-        if (closedLoopLine) console.log(closedLoopLine)
-        if (tokenLine) console.log(tokenLine)
+        if (outcomesLine) console.log(outcomesLine)
         if (weakLine) console.log(weakLine)
       }
       return {
@@ -84,6 +87,8 @@ export class HarnessCommands extends PrjctCommandsBase {
         criteria: report.criteria,
         organicPct: coverage.organicPct,
         liveRuntimes: coverage.liveCount,
+        harnessDeltaPass: delta.allGreen,
+        intentDeltaPp: delta.intentDeltaPp,
       }
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }
