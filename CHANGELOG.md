@@ -6,6 +6,13 @@
 
 - **Daemon performance + stability**: spawn single-flight lock kills concurrent bind races (`Failed to listen` / `chmod ENOENT`); hook vs command request lanes (no HOL-block of Claude hooks); graceful drain on shutdown; absorb uncaught errors with capped respawn; hook client timeout 5s (shim parity); version drift only when global is strictly newer semver; self-respawn only on code mtime reload; richer `daemon status` (version, RSS, active, absorbed errors)
 
+## [3.49.1] - 2026-07-12
+
+### Bug Fixes
+
+- performance + stability hardening (#550)
+
+
 ## [3.49.0] - 2026-07-12
 
 ### Features
