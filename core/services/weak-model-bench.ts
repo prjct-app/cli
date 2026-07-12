@@ -16,6 +16,7 @@ import { DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
 import { contentBoundDriftVerdict, stampFromContents } from './content-bound-stamp'
+import { buildCycleBudgetCard } from './cycle-budget-card'
 import { candidatesFromPreventive } from './decision-conflict'
 import { intentGeometryVerdict } from './delivery-geometry'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
@@ -358,6 +359,23 @@ export function runWeakModelBench(): WeakBenchReport {
       explicitGeometry: 'split',
     })
     push('intent-geometry override', !igOk.blocked && igOk.reason === 'has-geometry', igOk.reason)
+  }
+
+  // Skill floor + cycle budget (Dynasty D5)
+  {
+    push('skill diet ≤900', skillTok <= 900, `${skillTok} tok (Dynasty floor ≤900)`)
+    const card = buildCycleBudgetCard({
+      turns: 0,
+      turnLimit: 15,
+      tokensSpent: 0,
+      tokenBudget: 50_000,
+      pressureLevel: 'ok',
+    })
+    push(
+      'cycle budget card',
+      card.line.includes('Cycle budget') && card.line.includes('turns 0/15'),
+      card.line
+    )
   }
 
   const passed = checks.filter((c) => c.ok).length

@@ -37,8 +37,9 @@ export interface HarnessScoreReport {
 
 /** Absolute budgets the harness must hold. */
 export const WORLD_CLASS = {
-  skillTokensMax: 1500,
-  skillTokensAmber: 2000,
+  /** Dynasty D5 floor — always-on skill diet (was 1500). */
+  skillTokensMax: 900,
+  skillTokensAmber: 1200,
   routingBodyBytesMax: 400,
   routingBodyBytesAmber: 600,
   mcpDefaultTier: 'core' as const,
@@ -167,7 +168,7 @@ export function computeHarnessScore(
     criterion(
       'enforced-defaults',
       'Code-enforced lean defaults',
-      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 1500 ? 5 : 2,
+      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 900 ? 5 : 2,
       'MCP core default + skill budget in code',
       `tier=${DEFAULT_MCP_TOOL_TIER}; skillMax=${WORLD_CLASS.skillTokensMax}`
     ),
@@ -242,6 +243,8 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Trap-before-edit | optional heads-up | none | none | **SUPERIOR: 100% trap-id surface SLO in pre-edit inject** |',
     '| Impact-ranked next | FIFO backlog | ROADMAP.md | none | **SUPERIOR: unblocks × world-model blast × SoT pressure + why line** |',
     '| Geometry-at-intent | ship-only size | ceremony | none | **SUPERIOR: large H2+/H3 plans split|single before code** |',
+    '| Always-on skill diet | unmeasured dump | skill flood | dump | **SUPERIOR: ≤900 tok skill + workflows.md progressive disclosure** |',
+    '| Land Rho loop | grow forever | files pile | grow forever | **SUPERIOR: land dry-run would archive/delete + vault mass line** |',
     `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
     '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',

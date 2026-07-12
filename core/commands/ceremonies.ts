@@ -386,6 +386,21 @@ export class CeremonyCommands extends PrjctCommandsBase {
     if (receipt?.wrote && receipt.summary) {
       lines.push(`- [x] ${receipt.summary} (tags: source:land-receipt · capture:receipt-v1).`, '')
     }
+
+    // Dynasty D5: Rho dry-run — show memory mass Δ so vault never grows silently.
+    let rhoLine: string | null = null
+    try {
+      const { runLandRhoDryRun } = await import('../services/land-rho')
+      const rho = runLandRhoDryRun(proj.value)
+      if (rho) {
+        rhoLine = rho.line
+        if (options.md) lines.push(rho.md)
+        else lines.push(`- [x] ${rho.line}`, '')
+      }
+    } catch {
+      /* best-effort */
+    }
+
     todo.push(
       'Team share (optional): `prjct memory export` → commit `.prjct/memory-export/` → clone → `prjct memory import`.'
     )
@@ -397,6 +412,7 @@ export class CeremonyCommands extends PrjctCommandsBase {
       handoff: handoff?.wrote ?? false,
       receipt: receipt?.wrote ?? false,
       receiptSummary: receipt?.summary ?? null,
+      rhoDryRun: rhoLine,
     }
   }
 

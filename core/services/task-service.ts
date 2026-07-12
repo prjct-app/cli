@@ -86,6 +86,8 @@ export interface StartTaskOutcome {
    * proactive — scoped to the area the work will actually touch.
    */
   risks?: RiskHit[]
+  /** Dynasty D5: one-shot cycle budget line printed at work start. */
+  cycleBudget?: string | null
   /** Multi-agent owner stamped at start. */
   ownerAgent?: string
   ownerIdentity?: string
@@ -539,6 +541,25 @@ export async function startTask(
   // will touch, so the trap is surfaced at planning, not after it bites.
   const risks = recallRisksForFiles(projectId, likelyFiles)
 
+  // Dynasty D5: cycle budget card ONCE at work start (not every turn).
+  let cycleBudget: string | null = null
+  try {
+    const { buildCycleBudgetCard } = await import('./cycle-budget-card')
+    const { contextPressureVerdict } = await import('./context-pressure')
+    const pressure = contextPressureVerdict(cfg, { turnCount: 0, tokensIn: 0, tokensOut: 0 })
+    const card = buildCycleBudgetCard({
+      turns: 0,
+      turnLimit: cfg?.maxTurnsPerCycle ?? pressure.limit,
+      tokensSpent: 0,
+      tokenBudget: cfg?.maxTokensPerCycle ?? null,
+      pressureLevel: pressure.level,
+    })
+    cycleBudget = card.line
+    console.log(card.line)
+  } catch {
+    /* budget card best-effort */
+  }
+
   return {
     ok: true,
     taskId,
@@ -562,6 +583,7 @@ export async function startTask(
     relatedContext,
     likelyFiles,
     risks,
+    cycleBudget,
   }
 }
 

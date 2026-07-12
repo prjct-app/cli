@@ -1,8 +1,8 @@
 /**
  * Canonical `prjct` skill body.
  *
- * Shape: Use when · What's here · Gotchas. Always-on budget ≤1500 tokens;
- * methodology and full verb map live in workflows.md (pull on demand).
+ * Shape: Use when · What's here · Gotchas. Always-on budget ≤900 tokens
+ * (Dynasty D5); methodology and full verb map live in workflows.md.
  */
 
 import { formatProjectHeader, formatRichContext } from './formatters'
@@ -60,6 +60,7 @@ export function buildPrjctSkill(ctx: SkillContext): string {
 }
 
 export function buildPrjctSkillBody(ctx: SkillContext): string {
+  // Dynasty D5: always-on skill ≤900 tok (empty). Methodology → workflows.md.
   return [
     '# prjct',
     '',
@@ -78,17 +79,10 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '- Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.',
     '- Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.',
     '',
-    '### Multi-agent cast names',
+    '### Cast + file scope (MUST)',
     '',
-    'When orchestration says multi-agent / crew, it prints a **Cast** (e.g. explore→Popper · implement→Copernicus · review→McClintock). Use those names as `description` labels when you spawn subagents and as `prjct claim <id> --as <Name>` so the cast stays legible across the cycle.',
-    '',
-    '### File scope BEFORE Grep/Glob (MUST)',
-    '',
-    'Before exploring the tree with Grep/Glob/find, resolve a **constrained file list** from prjct:',
-    '1. `prjct work "<intent>"` already injects **Work scope** (memory vector/FTS + BM25 code index + import/co-change graph).',
-    '2. Or call MCP `prjct_relevant_files` / CLI `prjct context memory <topic>` + read paths tagged on hits.',
-    '3. Expand neighbors/traps with `prjct guard <file>` or MCP `prjct_impact_analysis` — not a full-repo walk.',
-    '4. Only if scope is empty after `prjct sync`: then narrow Grep. Never start with a blind tree walk when prjct has indexes.',
+    '- Multi-agent Cast names (explore→Popper · implement→Copernicus · review→McClintock): use as `description` / `prjct claim --as <Name>`.',
+    '- Before Grep/Glob: Work scope from `prjct work`, MCP `prjct_relevant_files`, or `prjct context memory` + `prjct guard <file>`. No blind tree walk when indexes exist.',
     '',
     '### Core verbs (Tier 1=auto · 2=confirm)',
     '',
@@ -98,21 +92,20 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '| complex goals/stakes | `prjct intent` · `intent audit` | 2 |',
     '| recall knowledge | `prjct search` / `context memory` | 1 |',
     '| save judgment | `prjct remember <type> "…"` | 1 |',
-    '| file scope before Grep | work injects scope · MCP `prjct_relevant_files` · `guard <file>` | 1 |',
-    '| traps before edit | `prjct guard <file>` | 1 |',
+    '| file scope / traps | work scope · `guard <file>` · MCP relevant_files | 1 |',
     '| ship | `prjct ship` | 2 |',
     '| next / frontier | `prjct next --md` · `ready` · `claim` · `phases` | 1 |',
     '| metrics | `prjct insights` · `performance` | 1 |',
-    '| land session | `prjct land` / remember context Session close | 1 |',
+    '| land session | `prjct land` | 1 |',
     '| test-first / intent-first | `prjct tdd` · `prjct sdd` (off\\|assist\\|strict) | 1 |',
     '| workflows / packs | `prjct workflow list` · `prjct seed list` | 1 |',
     '',
-    '`prjct work` is the single normal entrypoint. Trivial work proceeds directly; substantive work follows a persisted intent + tests before implementation when required. Full verb map, loop-discipline triggers, model policy, decision-briefs, and quality workflows live in `workflows.md` — pull on demand.',
+    '`prjct work` is the single normal entrypoint. Trivial work proceeds directly; substantive work follows a persisted intent + tests before implementation when required. Full verb map, loop-discipline, model policy → `workflows.md` (pull on demand).',
     '',
     '### Knowledge',
     '',
-    '- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. Source of truth: SQLite via tools; config at `.prjct/prjct.config.json`.',
-    '- On close: living context synthesis (model-authored) — field list + example in `workflows.md`. Land before session end: `prjct remember context "Session close: …"`; `--tags topic:<key>` upserts.',
+    '- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; config at `.prjct/prjct.config.json`.',
+    '- Close: `prjct land` (auto hand-off) or `prjct remember context "Session close: …"`.',
     '',
     '### Routing',
     '',
