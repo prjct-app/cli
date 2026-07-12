@@ -21,6 +21,8 @@ import {
   recordConflictEvent,
 } from '../services/decision-conflict'
 import { loopGuardVerdict } from '../services/loop-guard'
+import { sotBindVerdict } from '../services/sot-bind'
+import { formatTrapSurfaceMessage } from '../services/trap-surface-slo'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
 import { conflictModeWithWeakModel } from '../services/weak-model-mode'
 import { stateStorage } from '../storage/state-storage'
@@ -58,6 +60,16 @@ function clearPreventiveCache(): void {
 }
 
 function headsUpMessage(hits: MemoryEntry[], base: string): string {
+  // Dynasty trap-before-edit: every trap id MUST appear (trap-surface SLO).
+  const trapFmt = formatTrapSurfaceMessage(
+    base,
+    hits.map((e) => ({
+      id: e.id,
+      type: preventiveLabel(e),
+      title: `${deriveTitle(e)} — ${flatDetail(e.content)}`,
+    }))
+  )
+  if (trapFmt) return safeTruncate(trapFmt, MAX_CHARS)
   const lines = [`# prjct: heads-up before editing \`${base}\``, '']
   lines.push(
     `${hits.length} preventive memory entr${hits.length === 1 ? 'y' : 'ies'} recorded against this file:`
@@ -101,6 +113,22 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
 
   if (budgetExceeded(started)) return null
 
+  // H1 SoT soft-bind warn (when not already conflict-warn)
+  try {
+    const task = await stateStorage.getCurrentTask(config.projectId)
+    const sot = sotBindVerdict({
+      harnessLevel: task?.harness?.level ?? null,
+      candidates,
+      overriddenIds: overrides,
+      fileLabel: base,
+    })
+    if (sot.action === 'warn' && sot.message) {
+      return safeTruncate(sot.message, MAX_CHARS)
+    }
+  } catch {
+    /* best-effort */
+  }
+
   if (verdict.action === 'warn' && verdict.message) {
     // warn is ephemeral — not persisted (recordConflictEvent no-ops warn)
     void recordConflictEvent(
@@ -114,7 +142,8 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
   }
 
   // mode=off or gate none: classic heads-up (deny already handled in decide)
-  if (mode === 'off' || verdict.action === 'none') {
+  // Trap-surface SLO: always list every preventive id when present.
+  if (mode === 'off' || verdict.action === 'none' || hits.length > 0) {
     return headsUpMessage(hits, base)
   }
 
@@ -122,7 +151,7 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
 }
 
 /**
- * Hard loop guard + conflict deny. Shares recall cache with build.
+ * Hard loop guard + conflict deny + H2+ SoT hard-bind. Shares recall cache with build.
  */
 async function decideHardStop(
   projectPath: string,
@@ -133,8 +162,9 @@ async function decideHardStop(
     const config = await configManager.readConfig(projectPath)
     if (!config?.projectId) return null
 
+    const task = await stateStorage.getCurrentTask(config.projectId)
+
     if (config.maxTurnsPerCycle) {
-      const task = await stateStorage.getCurrentTask(config.projectId)
       const verdict = loopGuardVerdict(config, task)
       if (verdict.stopped) return { deny: verdict.message }
     }
@@ -142,18 +172,33 @@ async function decideHardStop(
     if (!filePath) return null
     if (budgetExceeded(started, CONFLICT_HARD_CAP_MS)) return null
 
-    const mode = conflictModeWithWeakModel(config)
-    if (mode !== 'strict') return null
-
     const hits = recallPreventiveOnce(config.projectId, filePath)
     if (hits.length === 0) return null
     if (budgetExceeded(started, CONFLICT_HARD_CAP_MS)) return null
 
     const overrides = loadConflictOverrides(config.projectId)
     const base = filePath.split('/').pop() ?? filePath
+    const candidates = candidatesFromPreventive(hits)
+
+    // Dynasty SoT hard-bind: H2+ denies high-confidence decision/gotcha/fact
+    // even when conflictMode is off/advisory (living SoT is code-enforced).
+    const sot = sotBindVerdict({
+      harnessLevel: task?.harness?.level ?? null,
+      candidates,
+      overriddenIds: overrides,
+      fileLabel: base,
+    })
+    if (sot.action === 'deny' && sot.message) {
+      void recordConflictEvent(projectPath, config.projectId, 'deny', sot.memoryIds, sot.reason)
+      return { deny: sot.message }
+    }
+
+    const mode = conflictModeWithWeakModel(config)
+    if (mode !== 'strict') return null
+
     const conflict = decisionConflictVerdict({
       mode,
-      candidates: candidatesFromPreventive(hits),
+      candidates,
       overriddenIds: overrides,
       fileLabel: base,
     })

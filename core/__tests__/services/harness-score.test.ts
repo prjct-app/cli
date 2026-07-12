@@ -60,6 +60,8 @@ describe('harness score', () => {
     expect(md).toContain('Organic feel')
     expect(md).toContain('Public harness Δ')
     expect(md).toContain('Content-bound approve')
+    expect(md).toContain('SoT hard-bind')
+    expect(md).toContain('Trap-before-edit')
   })
 
   it('embeds Dynasty delta + outcomes sections when provided', () => {

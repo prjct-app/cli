@@ -16,6 +16,7 @@ import { DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
 import { contentBoundDriftVerdict, stampFromContents } from './content-bound-stamp'
+import { candidatesFromPreventive } from './decision-conflict'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
 import {
   applyEvidenceTax,
@@ -25,6 +26,8 @@ import {
 } from './precision-judgment'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
 import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
+import { sotBindVerdict } from './sot-bind'
+import { formatTrapSurfaceMessage, trapSurfaceSlo } from './trap-surface-slo'
 import {
   buildDemoRows,
   computeHarnessDelta,
@@ -246,6 +249,31 @@ export function runWeakModelBench(): WeakBenchReport {
       drift.blocked && drift.reason === 'drift',
       `reason=${drift.reason}`
     )
+  }
+
+  // SoT hard-bind + trap-before-edit SLO (Dynasty D3)
+  {
+    const sotCand = candidatesFromPreventive([
+      {
+        id: 'mem_sot_bench',
+        type: 'gotcha',
+        content: 'Never delete worktree with unpushed commits without check',
+      },
+    ])
+    const h2 = sotBindVerdict({ harnessLevel: 'H2', candidates: sotCand })
+    push(
+      'sot-bind H2 denies',
+      h2.action === 'deny' && h2.reason === 'h2-sot-deny',
+      `action=${h2.action}`
+    )
+    const h0 = sotBindVerdict({ harnessLevel: 'H0', candidates: sotCand })
+    push('sot-bind H0 open', h0.action === 'none', `action=${h0.action}`)
+    const trapMsg = formatTrapSurfaceMessage('x.ts', [
+      { id: 'mem_t1', type: 'gotcha', title: 'trap one' },
+      { id: 'mem_t2', type: 'decision', title: 'trap two' },
+    ])
+    const slo = trapSurfaceSlo({ trapIds: ['mem_t1', 'mem_t2'], message: trapMsg })
+    push('trap-surface SLO 100%', slo.ok && slo.rate === 1, slo.line)
   }
 
   const passed = checks.filter((c) => c.ok).length
