@@ -131,6 +131,22 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const risks = outcome.risks ?? []
       const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
 
+      // Project pattern supremacy: match house style; upgrade only real anti-patterns.
+      const { buildAlignmentBrief } = await import('../services/project-alignment')
+      const patternHits = related.filter((h) => h.type === 'pattern' || h.pattern)
+      const antiHits = related.filter((h) => h.type === 'anti-pattern' || h.antiPattern)
+      const alignment = buildAlignmentBrief({
+        patterns: patternHits.map((h) => ({
+          title: h.title,
+          content: h.pattern || h.detail,
+        })),
+        antiPatterns: antiHits.map((h) => ({
+          title: h.title,
+          content: h.antiPattern || h.detail,
+        })),
+        neighborHint: likelyFiles[0]?.path ?? null,
+      })
+
       const isolation = outcome.isolation
       if (options.md) {
         const md = mdOutput(
@@ -204,6 +220,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 mdList(riskLines)
               )
             : null,
+          mdSection('Project alignment', alignment.md),
           relatedLines.length > 0
             ? mdSection(
                 'Living knowledge — SoT · tips (terminal → user)',
@@ -253,6 +270,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           }
         }
         if (orchestration) out.info(orchestration.directive)
+        out.info(alignment.line)
         if (riskLines.length > 0) {
           out.info('⚠ Risk — what bit us in this area before (read before you edit)')
           for (const line of riskLines) out.info(`  ${line}`)

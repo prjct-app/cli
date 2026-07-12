@@ -14,7 +14,9 @@ import { computeCommittedChangeset, type DeliveryTier } from '../services/delive
 import {
   advanceFixRound,
   applyBatchRefutation,
+  applyEvidenceTax,
   applyGhostFilter,
+  applyMechanicalStyleRefute,
   applyScopeFreeze,
   applySeverityFloor,
   buildNextAction,
@@ -237,9 +239,12 @@ export class JudgmentCommands extends PrjctCommandsBase {
       judge: flags.judge ?? flags.j,
     })
 
+    // Evidence tax + mechanical style refute (prefer-const + ++ = hallucination)
+    const taxed = applyMechanicalStyleRefute(applyEvidenceTax(rawFinding))
+
     // Ghost filter — annotate known FPs (never auto-kill)
     const book = judgmentLedgerStorage.getGhosts(proj.value)
-    const [tagged] = applyGhostFilter([rawFinding], book)
+    const [tagged] = applyGhostFilter([taxed], book)
     // Scope freeze: file outside frozen git path set → non-blocking follow-up.
     const scoped = applyScopeFreeze(tagged!, ledger.scopePaths)
     const { findings, finding, deduped } = upsertFinding(ledger.findings, scoped)
@@ -252,19 +257,25 @@ export class JudgmentCommands extends PrjctCommandsBase {
       finding.severity !== (sevParsed.data as FindingSeverity)
         ? ` · evidence tax: ${sevParsed.data} → ${finding.severity}`
         : ''
+    const mechNote =
+      finding.status === 'refuted' && /MECHANICAL REFUTE/i.test(finding.evidence ?? '')
+        ? ' · ⚡ mechanical refute (prefer-const hallucination)'
+        : ''
     const scopeNote =
       scoped.status === 'info' && tagged!.status !== 'info'
         ? ' · **out of frozen scope** (follow-up only)'
         : ''
     const lines = [
-      `${deduped ? 'Merged (DNA dedup)' : 'Added'} ${finding.severity} [${finding.status}] \`${finding.id}\`: ${finding.title}${taxNote}${scopeNote}`,
+      `${deduped ? 'Merged (DNA dedup)' : 'Added'} ${finding.severity} [${finding.status}] \`${finding.id}\`: ${finding.title}${taxNote}${mechNote}${scopeNote}`,
       `DNA \`${finding.dna}\` · evidence=${finding.evidenceScore ?? 0}/3 · blast=${finding.blast ?? 0}`,
       finding.knownFalsePositive
         ? '👻 GHOST — previously refuted in this project; challenge hard'
         : '',
-      finding.status === 'info'
-        ? '→ info only (will not enter fix loops)'
-        : '→ candidate (must survive batch challenge before fix)',
+      finding.status === 'refuted'
+        ? '→ REFUTED by code (will not enter fix loops)'
+        : finding.status === 'info'
+          ? '→ info only (will not enter fix loops)'
+          : '→ candidate (must survive batch challenge before fix)',
     ].filter(Boolean)
     print(options, '## Judgment add', lines.join('\n'))
     return { success: true, finding, ledger, deduped }
@@ -341,7 +352,7 @@ export class JudgmentCommands extends PrjctCommandsBase {
 
     const book = judgmentLedgerStorage.getGhosts(proj.value)
     let findings = applyGhostFilter(merged.findings, book).map((f) =>
-      applyScopeFreeze(f, ledger.scopePaths)
+      applyScopeFreeze(applyMechanicalStyleRefute(applyEvidenceTax(f)), ledger.scopePaths)
     )
     // Fold into existing ledger via DNA upsert
     for (const f of findings) {

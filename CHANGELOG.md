@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+## [3.48.0] - 2026-07-11
+
 ### Added
 
+- judgment mechanical refute prefer-const hallucination when reassignment present
 ### Changed
 - **Repo hygiene (complete)**: knip-clean; no repo-local AGENTS/CLAUDE/Copilot/MCP harness; dead template docs removed; contributor architecture in `CONTRIBUTING.md` + `docs/`.
 - **Source renames (product-only naming)**: `host-agents-md` / `host-claude-md` / `runtime-claude` / `agent-info` / `agents-md-discovery`; crew templates under `templates/crew/roles/`; standalone installer `scripts/install-standalone.sh`. Destination host paths (e.g. user-project `CLAUDE.md`, `.claude/agents/`) unchanged — those are host APIs.
@@ -35,7 +38,6 @@
 - strip non-product agent harness from repo tree
 - repo hygiene — dead code, root cruft, solid MIT licensing
 
-
 ## [3.47.0] - 2026-07-10
 
 ### Added
@@ -58,7 +60,6 @@
 
 - align tip→user tests + ship as v3.45.0
 
-
 ## [3.45.0] - 2026-07-10
 
 ### Added
@@ -78,7 +79,6 @@
 - real Rho excess vs reference model R
 - complete retention plan — apply, inbox triage, done-trigger, selective embed
 - retention score service + sync dry-run report (PR1 of value-based cleanup)
-
 
 ## [3.44.0] - 2026-07-10
 

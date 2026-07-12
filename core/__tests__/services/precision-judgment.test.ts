@@ -10,6 +10,7 @@ import {
   applyBatchRefutation,
   applyEvidenceTax,
   applyGhostFilter,
+  applyMechanicalStyleRefute,
   applyScopeFreeze,
   applyScopeFreezeAll,
   applySeverityFloor,
@@ -27,6 +28,7 @@ import {
   intensityProtocol,
   isActionableSeverity,
   isHotPath,
+  isPreferConstClaim,
   judgmentShipVerdict,
   markFindings,
   markFindingsSkippedByScope,
@@ -39,6 +41,7 @@ import {
   refutePanelSize,
   resolveRefuteVotes,
   routeIntensity,
+  textShowsBindingReassignment,
   upsertFinding,
 } from '../../services/precision-judgment'
 
@@ -107,6 +110,64 @@ describe('evidence tax', () => {
     )
     expect(f.severity).toBe('blocker')
     expect(f.evidenceScore).toBe(3)
+  })
+})
+
+describe('mechanical prefer-const hallucination refute', () => {
+  it('detects prefer-const claims including Spanish "por que let"', () => {
+    expect(isPreferConstClaim('prefer const for currentStreak')).toBe(true)
+    expect(isPreferConstClaim('por que let?')).toBe(true)
+    expect(isPreferConstClaim('null deref in auth')).toBe(false)
+  })
+
+  it('detects mutation operators (not plain declaration =)', () => {
+    expect(textShowsBindingReassignment('currentStreak++')).toBe(true)
+    expect(textShowsBindingReassignment('n += 1')).toBe(true)
+    expect(textShowsBindingReassignment('const x = 1')).toBe(false) // declaration only
+    expect(textShowsBindingReassignment('let x = 0; return x')).toBe(false)
+    expect(textShowsBindingReassignment('no mutation here')).toBe(false)
+  })
+
+  it('auto-refutes prefer-const when evidence shows ++ (screenshot class)', () => {
+    const f = applyMechanicalStyleRefute(
+      finding({
+        id: 'fp1',
+        severity: 'suggestion',
+        title: 'prefer const for currentStreak — why let?',
+        file: 'streak.ts',
+        line: 206,
+        evidence: 'let currentStreak = 0; … currentStreak++ on each active day',
+      })
+    )
+    expect(f.status).toBe('refuted')
+    expect(f.evidence).toMatch(/MECHANICAL REFUTE/i)
+  })
+
+  it('taxes prefer-const without file:line+snippet to info', () => {
+    const f = applyMechanicalStyleRefute(
+      finding({
+        id: 'fp2',
+        severity: 'warning',
+        title: 'use const instead of let',
+      })
+    )
+    expect(f.status).toBe('info')
+    expect(f.severity).toBe('suggestion')
+  })
+
+  it('does not touch real production findings', () => {
+    const f = applyMechanicalStyleRefute(
+      finding({
+        id: 'real',
+        severity: 'blocker',
+        title: 'race on shared counter',
+        file: 'x.ts',
+        line: 10,
+        evidence: 'two writers increment without lock',
+      })
+    )
+    expect(f.status).toBe('candidate')
+    expect(f.severity).toBe('blocker')
   })
 })
 
