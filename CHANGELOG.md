@@ -13,6 +13,13 @@
 - **Usefulness rerank** — `decayedScores` accepts candidate IDs so FTS rerank no longer full-scans `memory_usefulness`.
 - **Typo suggestions** — `findClosestCommand` uses full COMMANDS manifest (bin-only verbs included) + length early-exit.
 
+## [3.50.1] - 2026-07-12
+
+### Performance
+
+- fix harness GTD capture + hot-path efficiency (#553)
+
+
 ## [3.50.0] - 2026-07-12
 
 ### Added
