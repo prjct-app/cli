@@ -22,6 +22,13 @@ describe('tiered MCP tool loading (PRJCT_MCP_TOOLS)', () => {
     expect(all).toBeGreaterThan(standard)
   })
 
+  it('core stays lean (schema-tax budget)', async () => {
+    const core = await toolCount('core')
+    // mem×5 + project×5 = 10 after slim (typed/cost/signals/skills off-core)
+    expect(core).toBeLessThanOrEqual(12)
+    expect(core).toBeGreaterThanOrEqual(8)
+  })
+
   it('unset and garbage default to core; all remains opt-in', async () => {
     const core = await toolCount('core')
     expect(await toolCount(undefined)).toBe(core)

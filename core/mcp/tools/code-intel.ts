@@ -14,7 +14,7 @@ import {
   loadMatrix,
 } from '../../domain/git-cochange'
 import { scoreFromSeeds as importScore, indexImports, loadGraph } from '../../domain/import-graph'
-import { resolveProjectId } from '../resolve'
+import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
@@ -28,7 +28,7 @@ export function registerCodeIntelTools(server: McpServer) {
     'prjct_impact_analysis',
     'Given changed files, find affected files via import graph + affected domains',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       changedFiles: z
         .array(z.string())
         .describe('List of changed file paths (relative to project root)'),
@@ -76,7 +76,7 @@ export function registerCodeIntelTools(server: McpServer) {
     'prjct_import_graph',
     'Import graph stats + file neighbors (imports/importers). Pass a file for its neighbors, omit for graph stats.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       file: z.string().optional().describe('File path to get neighbors for (omit for graph stats)'),
       rebuild: z.boolean().optional().default(false).describe('Force rebuild the import graph'),
     },
@@ -87,7 +87,7 @@ export function registerCodeIntelTools(server: McpServer) {
 
         let graph = args.rebuild ? null : loadGraph(projectId)
         if (!graph) {
-          graph = await indexImports(args.projectPath, projectId)
+          graph = await indexImports(resolveProjectPath(args.projectPath), projectId)
         }
 
         if (args.file) {
@@ -121,7 +121,7 @@ export function registerCodeIntelTools(server: McpServer) {
     'prjct_cochange',
     'Files that historically change together (Jaccard similarity from git history)',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       seedFiles: z.array(z.string()).describe('Seed files to find co-change partners for'),
       rebuild: z.boolean().optional().default(false).describe('Force rebuild the co-change matrix'),
       maxResults: z.number().optional().default(10).describe('Max results (default 10)'),
@@ -138,7 +138,7 @@ export function registerCodeIntelTools(server: McpServer) {
 
         let index = args.rebuild ? null : loadMatrix(projectId)
         if (!index) {
-          index = await indexCoChanges(args.projectPath, projectId)
+          index = await indexCoChanges(resolveProjectPath(args.projectPath), projectId)
         }
 
         const scores = cochangeScore(args.seedFiles, index).slice(0, args.maxResults)
@@ -167,7 +167,7 @@ export function registerCodeIntelTools(server: McpServer) {
     'prjct_related_context',
     'Combined: import neighbors + co-change partners for seed files',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       seedFiles: z.array(z.string()).describe('Seed files to find related context for'),
       maxResults: z.number().optional().default(15).describe('Max results (default 15)'),
     },

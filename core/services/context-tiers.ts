@@ -26,6 +26,8 @@ import type { SkillContext } from './skill-generator/types'
  */
 export const L0_SKILL_TOKENS_MAX = 900
 export const L0_ROUTING_BYTES_MAX = 400
+/** Default MCP ListTools surface (core tier) — schema tokens every session. */
+export const MCP_TOOLS_CORE_MAX = 12
 
 export type ContextTierId = 'L0' | 'L1' | 'L2' | 'L3'
 

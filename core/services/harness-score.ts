@@ -12,6 +12,7 @@ import {
   CONTEXT_TIERS,
   L0_ROUTING_BYTES_MAX,
   L0_SKILL_TOKENS_MAX,
+  MCP_TOOLS_CORE_MAX,
   measureL0Budget,
 } from './context-tiers'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
@@ -49,7 +50,8 @@ export const WORLD_CLASS = {
   routingBodyBytesMax: L0_ROUTING_BYTES_MAX,
   routingBodyBytesAmber: 600,
   mcpDefaultTier: 'core' as const,
-  mcpToolsCoreMax: 20,
+  /** Core ListTools budget after MCP schema slim (was 20). */
+  mcpToolsCoreMax: MCP_TOOLS_CORE_MAX,
   providerMapsMin: 6,
   meanGreen: 4.5,
   minCriterionGreen: 4,

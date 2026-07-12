@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Performance
+
+- **MCP schema slim (ListTools tax)**: default core surface **19 → 10 tools**; `projectPath` optional (cwd / `PRJCT_PROJECT_PATH`); typed record verbs + cost/signals/skills/developer/tiers/artifacts moved to `PRJCT_MCP_TOOLS=standard|all`; shorter server instructions. CLI parity unchanged.
+
 ### Bug Fixes
 
 - **Routing: `prjct harness score` no longer GTD-captures to inbox** — `harness` was implemented in bin-commands but missing from `BIN_ONLY_COMMANDS`, so multi-word GTD rewrote it to `capture` whenever the daemon path ran. Registered as bin-only + completeness test so handlers cannot outlive the allowlist again.
