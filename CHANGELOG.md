@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Features
+
+- **Claude ecosystem adopt (patterns, not products)** — model-agnostic harness organs:
+  - **Trust boundary** (`core/services/trust-boundary.ts`): single gate for secrets, prompt-injection, package install, imported workflow rules; wired into pre-secrets/pre-package/remember/capture/MCP/projectMemory SoT + workflow-engine
+  - **Alignment card** mid-cycle MUST inject (loop / context-pressure / quality / stuck) on UserPromptSubmit
+  - **Context cache tiers L0–L3** contract + live L0 budget; `prjct context tiers --md`, harness criterion `context-tiers`
+  - **Safe artifacts** audit surface (judgment, ships, handoffs, checkpoints, session continuity); `prjct context artifacts --md`
+  - **Managed session continuity**: land stamps `session:continuity`; prime restores resume card; SessionStart cold cue; MCP `prjct_session_resume`
+  - **Pack marketplace-lite**: semver + integrity hash, `seed catalog` / `seed verify`, activation receipts in `packs:installs`
+
 ### Bug Fixes
 
 - **Daemon performance + stability**: spawn single-flight lock kills concurrent bind races (`Failed to listen` / `chmod ENOENT`); hook vs command request lanes (no HOL-block of Claude hooks); graceful drain on shutdown; absorb uncaught errors with capped respawn; hook client timeout 5s (shim parity); version drift only when global is strictly newer semver; self-respawn only on code mtime reload; richer `daemon status` (version, RSS, active, absorbed errors)

@@ -87,48 +87,32 @@ export async function buildProjectState(
           '  ↳ Before session end: `prjct land` · hand-off `prjct remember context "Session close: …"`'
         )
       }
-      // Loop control — count the turns spent on this cycle (best-effort write,
-      // resets when a new cycle starts) so the harness can tell a grind from
-      // honest iteration.
+      // Loop control — count turns; hard signals feed the alignment card
+      // (Claude ZT / constitutional mid-cycle). Soft goal discipline stays here.
       let turns = 0
-      let guardMessage = ''
+      let loopVerdict: ReturnType<typeof loopGuardVerdict> | null = null
+      let currentTask: Awaited<ReturnType<typeof stateStorage.getCurrentTask>> = null
       try {
         turns = await stateStorage.bumpTurnCount(config.projectId)
-        const task = await stateStorage.getCurrentTask(config.projectId)
-        // Hard guard (config.maxTurnsPerCycle) reads the SAME verdict the
-        // edit-deny uses, so the message and the block never disagree.
-        guardMessage = loopGuardVerdict(config, task).message
+        currentTask = await stateStorage.getCurrentTask(config.projectId)
+        // Hard guard (config.maxTurnsPerCycle) — SAME verdict as edit-deny.
+        loopVerdict = loopGuardVerdict(config, currentTask)
       } catch {
         /* best-effort — never block the state block on the counter */
       }
-      if (guardMessage) {
-        // HARD tier — the cycle exceeded the configured turn budget. The
-        // pre-edit hook denies further edits on hosts that honor it; here we
-        // say it forcefully for every rig.
-        lines.push(`  ${guardMessage}`)
-      } else if (turns >= STUCK_TURN_THRESHOLD) {
-        // Escalation: a frontier model would have re-planned by now; say it
-        // explicitly so a weaker rig breaks the loop instead of grinding.
-        lines.push(
-          `  ⚠ ${turns} turns on this cycle and it is still open. If you are not nearly done, STOP looping: split it, ship the slice that works, or check in with the user — then \`prjct status done\`. A re-plan beats another grinding turn.`
-        )
-      } else {
-        // Goal discipline — the loop control a frontier model self-applies,
-        // given explicitly every turn so a weaker / non-agentic rig stays
-        // agentic: anchor the objective, check progress, escalate not loop.
+      if (!loopVerdict?.stopped && turns < STUCK_TURN_THRESHOLD) {
+        // Goal discipline — frontier self-control, given to weaker rigs every turn.
         lines.push(
           '  ↳ Stay on this goal. Each turn, before acting: is this step ADVANCING it? If you have hit the same wall twice, or you are exploring rather than progressing, STOP — re-plan, split the cycle, or ask the user. Do not loop; finish the cycle, then `prjct status done`.'
         )
       }
       hasContent = true
 
-      // Token budget (opt-in via config.maxTokensPerCycle): the tokens-side
-      // twin of the turn budget. The Stop hook writes cumulative usage onto
-      // the active task every turn, so this reads a fresh total for free.
+      // Token budget (opt-in via config.maxTokensPerCycle): soft twin of turn budget.
       try {
         const budget = config.maxTokensPerCycle ?? 0
         if (budget > 0) {
-          const task = await stateStorage.getCurrentTask(config.projectId)
+          const task = currentTask ?? (await stateStorage.getCurrentTask(config.projectId))
           const spent = (task?.tokensIn ?? 0) + (task?.tokensOut ?? 0)
           if (spent >= budget) {
             lines.push(
@@ -144,29 +128,7 @@ export async function buildProjectState(
         /* budget is advisory — never block the state block */
       }
 
-      // Context-pressure (GSD utilization guard, host-agnostic): turn/token
-      // ratio → land/prime discipline before the window rots.
-      try {
-        const { contextPressureVerdict } = await import('../services/context-pressure')
-        const task = await stateStorage.getCurrentTask(config.projectId)
-        const pressure = contextPressureVerdict(config, task)
-        if (pressure.level === 'critical') {
-          lines.push(
-            `  ⛔ Context pressure critical (~${Math.round(pressure.ratio * 100)}%). \`prjct land\` + fresh window + \`prjct prime\` — do not keep expanding this thread.`
-          )
-        } else if (pressure.level === 'warn') {
-          lines.push(
-            `  ⚠ Context pressure (~${Math.round(pressure.ratio * 100)}%). Prefer finishing + land over more exploration.`
-          )
-        }
-      } catch {
-        /* advisory */
-      }
-
-      // Delegation trigger — the multi-file write rule, ENFORCED by counting
-      // (not just stated in a skill): when this cycle has edited 4+ distinct
-      // files, say so with the concrete move. Uses the post_edit event trail
-      // the PostToolUse hook already records; fires once per threshold band.
+      // Delegation trigger — multi-file write rule (advisory count).
       try {
         const startedIso = overview.current.startedAt
         if (startedIso) {
@@ -184,18 +146,29 @@ export async function buildProjectState(
         /* best-effort — the trigger is advisory context, never a blocker */
       }
 
-      // Quality orchestrator inject — next card when ledger open / incomplete.
-      // Never suggests prjct ship (human-only).
+      // Alignment card — unified MUST mid-cycle checks (loop / pressure / quality /
+      // stuck). One named block agents treat as constitutional, not scattered cues.
       try {
+        const { contextPressureVerdict } = await import('../services/context-pressure')
+        const { buildAlignmentCard } = await import('../services/alignment-card')
         const { qualityInjectForProject } = await import('../services/judgment-orchestrator')
-        const q = qualityInjectForProject(config.projectId)
-        if (q) {
+        const task = currentTask ?? (await stateStorage.getCurrentTask(config.projectId))
+        const pressure = contextPressureVerdict(config, task)
+        const qualityInject = qualityInjectForProject(config.projectId)
+        const card = buildAlignmentCard({
+          loop: loopVerdict,
+          pressure,
+          qualityInject,
+          turns,
+          stuckThreshold: STUCK_TURN_THRESHOLD,
+        })
+        if (card.markdown) {
           lines.push('')
-          lines.push(q)
+          lines.push(card.markdown)
           hasContent = true
         }
       } catch {
-        /* advisory */
+        /* advisory — never brick the state block */
       }
     }
     const others = overview.all.filter((v) => !v.isCurrent)

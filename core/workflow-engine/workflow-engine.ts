@@ -78,15 +78,10 @@ async function runStatusTransition(
 }
 
 async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<void> {
-  // Imported (shared-template) rules aren't auto-executed yet — a future
-  // release will add an approval prompt. For now, fail loud so a template
-  // registry can't sneak arbitrary shell onto a user's machine.
-  if (rule.trustSource === 'imported') {
-    throw new Error(
-      `Refusing to run imported rule without approval: ${rule.description || rule.action}. ` +
-        'Re-create the rule locally if you trust it.'
-    )
-  }
+  // Trust boundary: imported (cloud/shared-template) rules never auto-execute.
+  const { evaluateWorkflowRuleExecutable } = await import('../services/trust-boundary')
+  const trust = evaluateWorkflowRuleExecutable(rule.trustSource, rule.description || rule.action)
+  if (!trust.allow) throw new Error(trust.denyMessage)
   await execAsync(rule.action, {
     timeout: rule.timeoutMs,
     cwd: projectPath,
@@ -116,11 +111,9 @@ export async function detectVerifyCommand(projectPath: string): Promise<string |
 }
 
 async function runVerifyAction(rule: WorkflowRule, projectPath: string): Promise<void> {
-  if (rule.trustSource === 'imported') {
-    throw new Error(
-      `Refusing to run imported verify rule without approval: ${rule.description || rule.action}.`
-    )
-  }
+  const { evaluateWorkflowRuleExecutable } = await import('../services/trust-boundary')
+  const trust = evaluateWorkflowRuleExecutable(rule.trustSource, rule.description || rule.action)
+  if (!trust.allow) throw new Error(trust.denyMessage)
   let command = rule.action.slice(VERIFY_ACTION_PREFIX.length).trim()
   if (!command) throw new Error(`Empty command in verify action '${rule.action}'`)
   if (command === 'auto') {
@@ -156,11 +149,9 @@ async function runScriptAction(
   projectPath: string,
   whenCtx: WhenContext
 ): Promise<void> {
-  if (rule.trustSource === 'imported') {
-    throw new Error(
-      `Refusing to run imported script rule without approval: ${rule.description || rule.action}.`
-    )
-  }
+  const { evaluateWorkflowRuleExecutable } = await import('../services/trust-boundary')
+  const trust = evaluateWorkflowRuleExecutable(rule.trustSource, rule.description || rule.action)
+  if (!trust.allow) throw new Error(trust.denyMessage)
   const relativePath = rule.action.slice(SCRIPT_ACTION_PREFIX.length).trim()
   if (!relativePath) throw new Error(`Empty script path in action '${rule.action}'`)
   // Reject absolute paths and null bytes before resolve — no host-root scripts.

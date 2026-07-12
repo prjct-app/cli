@@ -242,4 +242,6 @@ export type ContextToolOutput =
   | { tool: 'memory'; result: MemoryToolOutput }
   | { tool: 'learnings'; result: MemoryToolOutput }
   | { tool: 'skills'; result: { markdown: string } }
+  | { tool: 'tiers'; result: { markdown: string; [key: string]: unknown } }
+  | { tool: 'artifacts'; result: { markdown: string; [key: string]: unknown } }
   | { tool: 'error'; result: { error: string; code: string } }

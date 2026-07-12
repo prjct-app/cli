@@ -14,6 +14,7 @@ import { projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { readLastStatus, resolveActiveTask, setTaskStatus } from '../services/task-service'
+import { evaluateMemoryContent } from '../services/trust-boundary'
 import { recordTaskTokenUsage } from '../services/work-cost-service'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
@@ -21,8 +22,6 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
-import { scanForPromptInjection } from '../utils/prompt-injection'
-import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 import { requireActiveTask, requireProject } from './guards'
 
@@ -221,21 +220,18 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       }
       const { type, content } = parsed
 
-      const secretHits = scanForSecrets(content)
-      if (secretHits.length > 0 && !options.force) {
-        const hit = secretHits.join(', ')
-        out.fail(
-          `refusing to store memory that looks like a secret (${hit}). Re-run with --force if intentional.`
-        )
-        return { success: false, error: 'Secret-like content detected' }
-      }
-
-      const injectionHits = scanForPromptInjection(content)
-      if (injectionHits.length > 0 && !options.force) {
-        out.fail(
-          `refusing to store memory that looks like prompt injection (${injectionHits.join(', ')}). Entries are inlined into LLM context — re-run with --force if intentional.`
-        )
-        return { success: false, error: 'Prompt-injection-like content detected' }
+      const trust = evaluateMemoryContent(content, { force: options.force })
+      if (!trust.allow) {
+        out.fail(trust.denyMessage)
+        return {
+          success: false,
+          error:
+            trust.kind === 'secrets'
+              ? 'Secret-like content detected'
+              : trust.kind === 'prompt_injection'
+                ? 'Prompt-injection-like content detected'
+                : trust.reason,
+        }
       }
 
       const tags = parseFlagTags(options.tags)
@@ -247,6 +243,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
           tags,
           projectId: 'global-kb',
           requireWrite: true,
+          force: options.force,
         })
         const msg = `remembered ${type} (GLOBAL — cross-project): ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`
         if (options.md) console.log(`✓ ${msg}`)
@@ -293,6 +290,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         tags: finalTags,
         source: active?.id,
         requireWrite: true,
+        force: options.force,
       })
 
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)

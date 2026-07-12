@@ -31,9 +31,8 @@ import { enrichedRecall } from '../../memory/enriched-recall'
 import { BASE_MEMORY_TYPES, type MemoryType } from '../../memory/entries'
 import { formatMemoryMd } from '../../memory/format'
 import { projectMemory } from '../../memory/project-memory'
+import { evaluateMemoryContent } from '../../services/trust-boundary'
 import { recordSurfacedForActiveTask } from '../../services/usefulness/surface-attribution'
-import { scanForPromptInjection } from '../../utils/prompt-injection'
-import { scanForSecrets } from '../../utils/secret-scanner'
 import { resolveProjectId } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
@@ -87,25 +86,18 @@ export function registerMemoryTools(server: McpServer) {
           }
         }
 
-        const secretHits = scanForSecrets(args.content)
-        if (secretHits.length > 0 && !args.force) {
+        const trust = evaluateMemoryContent(args.content, { force: args.force })
+        if (!trust.allow) {
           return {
             content: [
               {
                 type: 'text',
-                text: `Refused — content looks like a secret (${secretHits.join(', ')}). Re-call with force=true if intentional.`,
-              },
-            ],
-          }
-        }
-
-        const injectionHits = scanForPromptInjection(args.content)
-        if (injectionHits.length > 0 && !args.force) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Refused — content looks like prompt injection (${injectionHits.join(', ')}). Memory entries are inlined into LLM context. Re-call with force=true if intentional.`,
+                text:
+                  trust.kind === 'secrets'
+                    ? `Refused — content looks like a secret (${trust.hits.join(', ')}). Re-call with force=true if intentional.`
+                    : trust.kind === 'prompt_injection'
+                      ? `Refused — content looks like prompt injection (${trust.hits.join(', ')}). Memory entries are inlined into LLM context. Re-call with force=true if intentional.`
+                      : `Refused — ${trust.denyMessage}`,
               },
             ],
           }
@@ -116,6 +108,7 @@ export function registerMemoryTools(server: McpServer) {
           content: args.content,
           tags: args.tags ?? {},
           source: args.source,
+          force: args.force,
         })
         return {
           content: [{ type: 'text', text: `Saved ${typeStr}: ${args.content.slice(0, 80)}` }],
@@ -136,24 +129,18 @@ export function registerMemoryTools(server: McpServer) {
     tags: Record<string, string> = {}
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     await resolveProjectId(projectPath)
-    const secretHits = scanForSecrets(content)
-    if (secretHits.length > 0) {
+    const trust = evaluateMemoryContent(content)
+    if (!trust.allow) {
       return {
         content: [
           {
             type: 'text',
-            text: `Refused — content looks like a secret (${secretHits.join(', ')}). Use prjct_mem_save with force=true if intentional.`,
-          },
-        ],
-      }
-    }
-    const injectionHits = scanForPromptInjection(content)
-    if (injectionHits.length > 0) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Refused — content looks like prompt injection (${injectionHits.join(', ')}). Use prjct_mem_save with force=true if intentional.`,
+            text:
+              trust.kind === 'secrets'
+                ? `Refused — content looks like a secret (${trust.hits.join(', ')}). Use prjct_mem_save with force=true if intentional.`
+                : trust.kind === 'prompt_injection'
+                  ? `Refused — content looks like prompt injection (${trust.hits.join(', ')}). Use prjct_mem_save with force=true if intentional.`
+                  : `Refused — ${trust.denyMessage}`,
           },
         ],
       }

@@ -219,12 +219,12 @@ export class CeremonyCommands extends PrjctCommandsBase {
   }
 
   /**
-   * Session-open bundle: one pull instead of four.
+   * Session-open bundle: managed-session resume + developer grounding.
    *
    * Brutal bar vs fresh-context harnesses (e.g. GSD): a new window with
-   * `prjct prime` must already *be* this developer on this project — cycle +
-   * frontier + standing rules + top traps — not just a task list. Deeper
-   * recall stays on demand so tokens stay lean.
+   * `prjct prime` must already *be* this developer on this project — last land
+   * stamp, session-close hand-off, cycle + frontier + standing rules + traps.
+   * Deeper recall stays on demand so tokens stay lean.
    */
   async prime(
     _input: string | null = null,
@@ -233,23 +233,48 @@ export class CeremonyCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     const proj = await requireProject(projectPath, options)
     if (!proj.ok) return proj.result
-    const lines = ['# Prime', '']
     const overview = await collectActiveTasks(proj.value, projectPath).catch(() => null)
+
+    // Managed session resume card (land → prime continuity).
+    let journal: string[] = []
     if (overview?.current) {
-      lines.push(`**Active cycle:** ${overview.current.description}`)
-      const journal = prjctDb.query<{ content: string }>(
-        proj.value,
-        'SELECT content FROM task_log WHERE task_id = ? ORDER BY id DESC LIMIT 3',
-        overview.current.id
-      )
-      for (const j of journal.reverse()) lines.push(`  ↳ ${j.content.slice(0, 110)}`)
-    } else {
-      lines.push('**No active cycle.**')
+      journal = prjctDb
+        .query<{ content: string }>(
+          proj.value,
+          'SELECT content FROM task_log WHERE task_id = ? ORDER BY id DESC LIMIT 3',
+          overview.current.id
+        )
+        .map((j) => j.content)
+        .reverse()
     }
+    const { loadSessionContinuity, loadLastSessionCloseContent, formatSessionResumeCard } =
+      await import('../services/session-continuity')
+    const stamp = loadSessionContinuity(proj.value)
+    const sessionClose = loadLastSessionCloseContent(proj.value)
+    let pendingHandoffCue: string | null = null
+    try {
+      const { formatPendingHandoffCue } = await import('../services/agent-switch')
+      pendingHandoffCue = formatPendingHandoffCue(proj.value)
+    } catch {
+      pendingHandoffCue = null
+    }
+    const lines: string[] = [
+      formatSessionResumeCard({
+        stamp,
+        liveCycleDescription: overview?.current?.description ?? null,
+        liveCycleId: overview?.current?.id ?? null,
+        journal,
+        sessionCloseContent: sessionClose,
+        pendingHandoffCue,
+      }),
+      '',
+    ]
+
     const ready = workGraph.ready(proj.value, { limit: 5 })
     if (ready.length > 0) {
-      lines.push('', '**Ready frontier:**')
+      lines.push('**Ready frontier:**')
       for (const i of ready) lines.push(`- \`${i.id.slice(0, 8)}\` ${i.description.slice(0, 90)}`)
+      lines.push('')
     }
 
     // Apply-loop: push developer model + traps into every fresh window.
@@ -261,11 +286,12 @@ export class CeremonyCommands extends PrjctCommandsBase {
       })
       const rules = extractDeveloperRules(pool, PRIME_DEV_RULES)
       if (rules.length > 0) {
-        lines.push('', '**Act as this developer:**')
+        lines.push('**Act as this developer:**')
         for (const r of rules) {
           const tag = r.kind === 'preference' ? 'said' : 'showed'
           lines.push(`- ${r.rule.slice(0, 140)} _(${tag})_`)
         }
+        lines.push('')
       }
     } catch {
       // Best-effort — prime never fails for missing memory.
@@ -276,10 +302,11 @@ export class CeremonyCommands extends PrjctCommandsBase {
         limit: PRIME_TRAPS,
       })
       if (traps.length > 0) {
-        lines.push('', '**Top traps (do not re-pay):**')
+        lines.push('**Top traps (do not re-pay):**')
         for (const t of traps) {
           lines.push(`- ${deriveTitle(t).slice(0, 100)} \`${t.id}\``)
         }
+        lines.push('')
       }
     } catch {
       // ignore
@@ -298,23 +325,29 @@ export class CeremonyCommands extends PrjctCommandsBase {
           cycle && 'tokensOut' in cycle ? (cycle as { tokensOut?: number }).tokensOut : undefined,
         maxTokensPerCycle: cfg?.maxTokensPerCycle ?? null,
       })
-      lines.push('', `**${econ.line}**`)
+      lines.push(`**${econ.line}**`)
       const { effectiveWeakModelMode, weakModelOneLiner } = await import(
         '../services/weak-model-mode'
       )
       if (effectiveWeakModelMode(cfg) === 'on') {
-        lines.push('', `**${weakModelOneLiner()}**`)
+        lines.push(`**${weakModelOneLiner()}**`)
       }
     } catch {
       /* best-effort */
     }
 
-    lines.push(
-      '',
-      'Default surface: `work` + `ship` (user text confirm). Pull deeper on demand: `prjct brief` · `prjct search "<q>"` · `prjct guard <file>`.'
-    )
-    console.log(lines.join('\n'))
-    return { success: true }
+    console.log(`${lines.join('\n').trimEnd()}\n`)
+    const { isContinuityFresh } = await import('../services/session-continuity')
+    return {
+      success: true,
+      continuity: stamp
+        ? {
+            landedAt: stamp.landedAt,
+            cycleId: stamp.cycleId,
+            fresh: isContinuityFresh(stamp),
+          }
+        : null,
+    }
   }
 
   /** Session-close checklist — land the plane before the context dies. */
@@ -347,6 +380,37 @@ export class CeremonyCommands extends PrjctCommandsBase {
       cycleDescription: overview?.current?.description ?? null,
       cycleId: overview?.current?.id ?? null,
     }).catch(() => null)
+
+    // Managed session stamp — next `prjct prime` restores this SoT.
+    let continuityStamp: import('../services/session-continuity').SessionContinuityStamp | null =
+      null
+    try {
+      const { default: configManager } = await import('../infrastructure/config-manager')
+      const cfg = await configManager.readConfig(projectPath).catch(() => null)
+      const { stateStorage } = await import('../storage/state-storage')
+      const task = overview?.current
+        ? await stateStorage.getCurrentTask(proj.value).catch(() => null)
+        : null
+      const { stampSessionContinuity, formatLandContinuityFooter } = await import(
+        '../services/session-continuity'
+      )
+      continuityStamp = stampSessionContinuity({
+        projectId: proj.value,
+        projectPath,
+        config: cfg,
+        cycleId: overview?.current?.id ?? null,
+        cycleDescription: overview?.current?.description ?? null,
+        turns: task?.turnCount ?? null,
+        tokensIn: task?.tokensIn ?? null,
+        tokensOut: task?.tokensOut ?? null,
+        handoffWrote: handoff?.wrote ?? false,
+        receiptWrote: receipt?.wrote ?? false,
+        handoffContent: handoff?.content ?? null,
+      })
+      void formatLandContinuityFooter
+    } catch {
+      continuityStamp = null
+    }
 
     if (overview?.current) {
       todo.push(
@@ -404,7 +468,14 @@ export class CeremonyCommands extends PrjctCommandsBase {
     todo.push(
       'Team share (optional): `prjct memory export` → commit `.prjct/memory-export/` → clone → `prjct memory import`.'
     )
+    todo.push('Next window: `prjct prime --md` (managed session resume — not a blank chat).')
     lines.push(...todo.map((t) => `- [ ] ${t}`))
+
+    if (continuityStamp) {
+      const { formatLandContinuityFooter } = await import('../services/session-continuity')
+      lines.push(formatLandContinuityFooter(continuityStamp))
+    }
+
     console.log(lines.join('\n'))
     return {
       success: true,
@@ -413,6 +484,9 @@ export class CeremonyCommands extends PrjctCommandsBase {
       receipt: receipt?.wrote ?? false,
       receiptSummary: receipt?.summary ?? null,
       rhoDryRun: rhoLine,
+      continuity: continuityStamp
+        ? { landedAt: continuityStamp.landedAt, key: 'session:continuity' }
+        : null,
     }
   }
 

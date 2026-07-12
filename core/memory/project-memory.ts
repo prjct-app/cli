@@ -293,11 +293,39 @@ export const projectMemory = {
       projectId?: string
       /** For user-facing remember commands, the event write is the operation. */
       requireWrite?: boolean
+      /**
+       * Bypass trust-boundary secrets/injection checks (CLI `--force` /
+       * MCP force=true). Default false — SoT defense-in-depth so detector
+       * paths cannot write secrets either.
+       */
+      force?: boolean
     }
   ): Promise<void> {
     const tags = args.tags ?? {}
     const provenance = args.provenance ?? 'declared'
     const contentHash = memoryFingerprint(args.content)
+
+    // Trust boundary (Claude ZT / mem_5430): secrets + prompt-injection
+    // refuse at SoT, not only at CLI/MCP. Silent drop matches captureGate.
+    // requireWrite throws so user-facing verbs fail loud if a caller skipped
+    // the edge check.
+    {
+      let evaluateMemoryContent:
+        | typeof import('../services/trust-boundary')['evaluateMemoryContent']
+        | null = null
+      try {
+        ;({ evaluateMemoryContent } = await import('../services/trust-boundary'))
+      } catch {
+        /* module unavailable — never brick auto-capture paths */
+      }
+      if (evaluateMemoryContent) {
+        const trust = evaluateMemoryContent(args.content, { force: args.force })
+        if (!trust.allow) {
+          if (args.requireWrite) throw new Error(trust.denyMessage)
+          return
+        }
+      }
+    }
 
     // Resolve the project once and reuse it for both the dedup guard and the
     // sync publish below (each used to read + parse the config independently).

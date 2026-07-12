@@ -8,10 +8,10 @@
 
 import configManager from '../infrastructure/config-manager'
 import {
-  decidePackageInstall,
   loadKnownDependencyNames,
   parsePackageInstallCommand,
 } from '../services/package-legitimacy'
+import { evaluatePackageInstallTrust } from '../services/trust-boundary'
 import { type HookIo, runHook } from './_runner'
 
 interface HookInput {
@@ -53,16 +53,12 @@ export function runPrePackageHook(projectPath: string = process.cwd(), io?: Hook
           if (!parsed) return null
 
           const known = await loadKnownDependencyNames(projectPath)
-          const decision = decidePackageInstall(parsed.packages, known)
-          if (!decision.risky || !decision.message) return null
+          const verdict = evaluatePackageInstallTrust(parsed.packages, known)
+          if (verdict.allow) return null
 
           const config = await configManager.readConfig(projectPath).catch(() => null)
           if (!isStrictPackageMode(config)) return null
-          return {
-            deny:
-              `⛔ ${decision.message}\n` +
-              `Install denied (strict pack). Verify packages before adding them.`,
-          }
+          return { deny: verdict.denyMessage }
         } catch {
           return null
         }
@@ -73,11 +69,12 @@ export function runPrePackageHook(projectPath: string = process.cwd(), io?: Hook
           const parsed = parsePackageInstallCommand(cmd)
           if (!parsed) return null
           const known = await loadKnownDependencyNames(projectPath)
-          const decision = decidePackageInstall(parsed.packages, known)
-          if (!decision.risky || !decision.message) return null
+          const verdict = evaluatePackageInstallTrust(parsed.packages, known)
+          if (verdict.allow) return null
           const config = await configManager.readConfig(projectPath).catch(() => null)
           if (isStrictPackageMode(config)) return null
-          return `# prjct: package legitimacy (advisory)\n${decision.message}`
+          const msg = verdict.decision?.message ?? verdict.denyMessage
+          return `# prjct: package legitimacy (advisory)\n${msg}`
         } catch {
           return null
         }

@@ -24,8 +24,56 @@ import { safeMcpCall } from './error-handler'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type S = any
 
-export function registerProjectTools(server: McpServer) {
+/**
+ * @param options.extended — standard/all tiers only: context_tiers + safe_artifacts
+ *   stay off the default core surface so L0 MCP schema stays ≤20 tools.
+ */
+export function registerProjectTools(server: McpServer, options: { extended?: boolean } = {}) {
   const s: S = server
+
+  // Core: managed session resume (high-value land→prime continuity).
+  s.tool(
+    'prjct_session_resume',
+    'Managed session resume card (land→prime continuity): last land stamp, open cycle, session-close hand-off, next actions. Prefer this after a fresh window instead of re-discovering from chat.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_session_resume', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const overview = await collectActiveTasks(projectId, args.projectPath)
+      const { loadSessionContinuity, loadLastSessionCloseContent, formatSessionResumeCard } =
+        await import('../../services/session-continuity')
+      const stamp = loadSessionContinuity(projectId)
+      let journal: string[] = []
+      if (overview.current) {
+        const { prjctDb } = await import('../../storage/database')
+        journal = prjctDb
+          .query<{ content: string }>(
+            projectId,
+            'SELECT content FROM task_log WHERE task_id = ? ORDER BY id DESC LIMIT 3',
+            overview.current.id
+          )
+          .map((j) => j.content)
+          .reverse()
+      }
+      let pendingHandoffCue: string | null = null
+      try {
+        const { formatPendingHandoffCue } = await import('../../services/agent-switch')
+        pendingHandoffCue = formatPendingHandoffCue(projectId)
+      } catch {
+        pendingHandoffCue = null
+      }
+      const md = formatSessionResumeCard({
+        stamp,
+        liveCycleDescription: overview.current?.description ?? null,
+        liveCycleId: overview.current?.id ?? null,
+        journal,
+        sessionCloseContent: loadLastSessionCloseContent(projectId),
+        pendingHandoffCue,
+      })
+      return { content: [{ type: 'text', text: md }] }
+    })
+  )
 
   s.tool(
     'prjct_task_status',
@@ -445,4 +493,36 @@ export function registerProjectTools(server: McpServer) {
       }
     })
   )
+
+  // Standard+ only — keep default core MCP schema lean (≤20 tools).
+  if (options.extended) {
+    s.tool(
+      'prjct_context_tiers',
+      'Context cache tiers L0–L3 contract: what loads always vs session vs pull vs cold. Never stuff L2/L3 into L0. Includes live L0 skill/routing budget.',
+      {
+        projectPath: z.string().describe('Project directory path'),
+      },
+      safeMcpCall('prjct_context_tiers', async (_args: { projectPath: string }) => {
+        const { formatContextTiersMd } = await import('../../services/context-tiers')
+        return { content: [{ type: 'text', text: formatContextTiersMd() }] }
+      })
+    )
+
+    s.tool(
+      'prjct_safe_artifacts',
+      'List controlled agent-output artifacts: judgment ledger, ship receipts, pending handoffs, context checkpoints, session continuity stamp. Audit surface — not a markdown vault.',
+      {
+        projectPath: z.string().describe('Project directory path'),
+        limit: z.number().int().min(1).max(20).optional().describe('Max per kind (default 5)'),
+      },
+      safeMcpCall('prjct_safe_artifacts', async (args: { projectPath: string; limit?: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const { listSafeArtifacts, formatSafeArtifactsMd } = await import(
+          '../../services/safe-artifacts'
+        )
+        const report = await listSafeArtifacts(projectId, { limit: args.limit })
+        return { content: [{ type: 'text', text: formatSafeArtifactsMd(report) }] }
+      })
+    )
+  }
 }
