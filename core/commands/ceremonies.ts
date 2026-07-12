@@ -336,7 +336,7 @@ export class CeremonyCommands extends PrjctCommandsBase {
       /* best-effort */
     }
 
-    console.log(lines.join('\n').trimEnd() + '\n')
+    console.log(`${lines.join('\n').trimEnd()}\n`)
     const { isContinuityFresh } = await import('../services/session-continuity')
     return {
       success: true,

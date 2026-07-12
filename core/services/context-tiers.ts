@@ -182,7 +182,7 @@ export function formatContextTiersMd(
     for (const c of t.contents) lines.push(`- ${c}`)
     lines.push('')
   }
-  return lines.join('\n').trimEnd() + '\n'
+  return `${lines.join('\n').trimEnd()}\n`
 }
 
 /** Machine-readable payload (JSON CLI / MCP). */

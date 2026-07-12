@@ -48,32 +48,28 @@ const DEFAULT_STUCK = 15
 export function buildAlignmentCard(input: AlignmentCardInput): AlignmentCard {
   const cues: string[] = []
   const blocks: string[] = []
-  let level: AlignmentLevel = 'ok'
-
-  const escalate = (next: AlignmentLevel) => {
-    if (next === 'hard') level = 'hard'
-    else if (next === 'warn' && level === 'ok') level = 'warn'
-  }
+  let hard = false
+  let warn = false
 
   if (input.loop?.stopped && input.loop.message) {
-    escalate('hard')
+    hard = true
     cues.push('loop-hard-stop')
     blocks.push(input.loop.message)
   }
 
   if (input.pressure?.level === 'critical' && input.pressure.cue) {
-    escalate('hard')
+    hard = true
     cues.push('context-pressure-critical')
     // cue already has header; keep body lines
     blocks.push(input.pressure.cue)
   } else if (input.pressure?.level === 'warn' && input.pressure.cue) {
-    escalate('warn')
+    warn = true
     cues.push('context-pressure-warn')
     blocks.push(input.pressure.cue)
   }
 
   if (input.qualityInject?.trim()) {
-    escalate(level === 'hard' ? 'hard' : 'warn')
+    warn = true
     cues.push('quality-ledger')
     blocks.push(input.qualityInject.trim())
   }
@@ -81,7 +77,7 @@ export function buildAlignmentCard(input: AlignmentCardInput): AlignmentCard {
   const turns = input.turns ?? 0
   const stuck = input.stuckThreshold ?? DEFAULT_STUCK
   if (!input.loop?.stopped && turns >= stuck) {
-    escalate('warn')
+    warn = true
     cues.push('stuck-cycle')
     blocks.push(
       `⚠ ${turns} turns on this cycle and it is still open. If you are not nearly done, STOP looping: split it, ship the slice that works, or check in with the user — then \`prjct status done\`. A re-plan beats another grinding turn.`
@@ -92,6 +88,7 @@ export function buildAlignmentCard(input: AlignmentCardInput): AlignmentCard {
     return { level: 'ok', markdown: null, cues: [] }
   }
 
+  const level: AlignmentLevel = hard ? 'hard' : warn ? 'warn' : 'ok'
   const header =
     level === 'hard' ? '# prjct: alignment (MUST — hard gate)' : '# prjct: alignment (mid-cycle)'
 
