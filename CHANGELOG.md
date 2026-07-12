@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [3.49.0] - 2026-07-12
+
+### Features
+
+- Dynasty program — unbridgeable moat (v3.48.0) (#548)
+
+### Bug Fixes
+
+- project pattern supremacy + mechanical review FP refute (v3.48.0) (#549)
+
+
 ## [3.48.0] - 2026-07-11
 
 ### Features
