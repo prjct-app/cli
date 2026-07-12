@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **Routing: `prjct harness score` no longer GTD-captures to inbox** — `harness` was implemented in bin-commands but missing from `BIN_ONLY_COMMANDS`, so multi-word GTD rewrote it to `capture` whenever the daemon path ran. Registered as bin-only + completeness test so handlers cannot outlive the allowlist again.
+
+### Performance
+
+- **Lazy hook runners** — Stop/embeddings/transcript graph no longer loads for prompt/pre-edit cold spawns (`hooks/registry.ts` dynamic import per event).
+- **UserPromptSubmit hot path** — `bumpTurnCount` returns post-bump task (one write, no second read); owner from task; parallel queue/ship/inbox/handoff/git; parallel alignment imports.
+- **Usefulness rerank** — `decayedScores` accepts candidate IDs so FTS rerank no longer full-scans `memory_usefulness`.
+- **Typo suggestions** — `findClosestCommand` uses full COMMANDS manifest (bin-only verbs included) + length early-exit.
+
 ## [3.50.0] - 2026-07-12
 
 ### Added
