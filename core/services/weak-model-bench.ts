@@ -17,7 +17,9 @@ import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
 import { contentBoundDriftVerdict, stampFromContents } from './content-bound-stamp'
 import { candidatesFromPreventive } from './decision-conflict'
+import { intentGeometryVerdict } from './delivery-geometry'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
+import { rankByFactors, scoreReadyFactors } from './impact-ready'
 import {
   applyEvidenceTax,
   buildNextAction,
@@ -274,6 +276,88 @@ export function runWeakModelBench(): WeakBenchReport {
     ])
     const slo = trapSurfaceSlo({ trapIds: ['mem_t1', 'mem_t2'], message: trapMsg })
     push('trap-surface SLO 100%', slo.ok && slo.rate === 1, slo.line)
+  }
+
+  // Impact-ranked next + geometry-at-intent (Dynasty D4)
+  {
+    const high = scoreReadyFactors({
+      unblocks: 2,
+      priorityPts: 25,
+      ageDays: 1,
+      impactNeighbors: 2,
+      impactTraps: 1,
+      sotPressure: 1,
+    })
+    const low = scoreReadyFactors({
+      unblocks: 0,
+      priorityPts: 50,
+      ageDays: 10,
+      impactNeighbors: 0,
+      impactTraps: 0,
+      sotPressure: 0,
+    })
+    push('impact-rank unblocks wins', high > low, `high=${high} low=${low}`)
+    const ranked = rankByFactors([
+      {
+        id: 'low',
+        description: 'low',
+        type: null,
+        priority: 'high',
+        section: null,
+        claimedBy: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        unblocks: 0,
+        factors: {
+          unblocks: 0,
+          priorityPts: 50,
+          ageDays: 10,
+          impactNeighbors: 0,
+          impactTraps: 0,
+          sotPressure: 0,
+        },
+      },
+      {
+        id: 'high',
+        description: 'high',
+        type: null,
+        priority: 'medium',
+        section: null,
+        claimedBy: null,
+        createdAt: '2026-07-01T00:00:00.000Z',
+        unblocks: 3,
+        factors: {
+          unblocks: 3,
+          priorityPts: 25,
+          ageDays: 1,
+          impactNeighbors: 1,
+          impactTraps: 0,
+          sotPressure: 0,
+        },
+      },
+    ])
+    push('impact-rank order', ranked[0]?.id === 'high', `top=${ranked[0]?.id}`)
+    push(
+      'impact-rank why line',
+      Boolean(ranked[0]?.why?.startsWith('why next:')),
+      ranked[0]?.why ?? ''
+    )
+    const ig = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      harnessRisk: 'high',
+      mode: 'strict',
+      explicitGeometry: null,
+    })
+    push(
+      'intent-geometry H3 strict blocks',
+      ig.blocked && ig.reason === 'h2-intent-strict',
+      `reason=${ig.reason}`
+    )
+    const igOk = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      mode: 'strict',
+      explicitGeometry: 'split',
+    })
+    push('intent-geometry override', !igOk.blocked && igOk.reason === 'has-geometry', igOk.reason)
   }
 
   const passed = checks.filter((c) => c.ok).length

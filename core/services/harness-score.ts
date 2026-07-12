@@ -240,6 +240,8 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Content-bound approve | content-hash review | phase files | none | **SUPERIOR: path+blob treeHash on judgment approve; ship drifts re-approve** |',
     '| SoT hard-bind H2+ | prompt BINDING | ceremony | none | **SUPERIOR: pre-edit deny on decision/gotcha/fact without supersede/override** |',
     '| Trap-before-edit | optional heads-up | none | none | **SUPERIOR: 100% trap-id surface SLO in pre-edit inject** |',
+    '| Impact-ranked next | FIFO backlog | ROADMAP.md | none | **SUPERIOR: unblocks × world-model blast × SoT pressure + why line** |',
+    '| Geometry-at-intent | ship-only size | ceremony | none | **SUPERIOR: large H2+/H3 plans split|single before code** |',
     `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
     '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',

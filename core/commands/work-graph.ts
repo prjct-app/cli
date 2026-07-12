@@ -13,6 +13,7 @@
  */
 
 import { acceptAgentHandoff, switchAgent } from '../services/agent-switch'
+import { rankReadyWithImpact } from '../services/impact-ready'
 import { buildTaskHarness } from '../services/task-harness'
 import { orchestrationFor } from '../services/task-orchestration'
 import { type DepType, workGraph } from '../services/work-graph'
@@ -42,7 +43,9 @@ export class WorkGraphCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     const proj = await requireProject(projectPath, options)
     if (!proj.ok) return proj.result
-    const items = workGraph.ready(proj.value)
+    const base = workGraph.ready(proj.value)
+    // Dynasty D4: re-rank by unblocks × world-model impact × SoT pressure.
+    const items = rankReadyWithImpact(proj.value, base)
     if (items.length === 0) {
       const msg =
         'Nothing ready — the backlog is empty or fully blocked. `prjct phases --md` shows why.'
@@ -52,21 +55,29 @@ export class WorkGraphCommands extends PrjctCommandsBase {
     }
     if (options.md) {
       const lines = [
-        `# Ready frontier — ${items.length} unblocked item(s)`,
+        `# Ready frontier — ${items.length} unblocked item(s) (impact-ranked)`,
         '',
-        '| Id | Item | Priority | Unblocks | Claimed |',
-        '|---|---|---|---:|---|',
+        '| Id | Item | Priority | Unblocks | Score | Claimed |',
+        '|---|---|---|---:|---:|---|',
       ]
       for (const i of items) {
         lines.push(
-          `| \`${i.id.slice(0, 8)}\` | ${i.description.slice(0, 90)} | ${i.priority ?? '-'} | ${i.unblocks} | ${i.claimedBy ?? '—'} |`
+          `| \`${i.id.slice(0, 8)}\` | ${i.description.slice(0, 80)} | ${i.priority ?? '-'} | ${i.unblocks} | ${Math.round(i.impactScore)} | ${i.claimedBy ?? '—'} |`
         )
       }
-      lines.push('', 'Claim before working: `prjct claim <id>`. Full id via `prjct sync --md`.')
+      lines.push(
+        '',
+        `Top rationale: ${items[0]?.why ?? '—'}`,
+        '',
+        'Claim before working: `prjct claim <id>`. Full id via `prjct sync --md`.'
+      )
       console.log(lines.join('\n'))
     } else {
-      out.info(`${items.length} ready item(s):`)
-      for (const i of items) out.info(`  • [${i.id.slice(0, 8)}] ${i.description.slice(0, 80)}`)
+      out.info(`${items.length} ready item(s) (impact-ranked):`)
+      for (const i of items) {
+        out.info(`  • [${i.id.slice(0, 8)}] ${i.description.slice(0, 80)}`)
+      }
+      if (items[0]?.why) out.info(`  ${items[0].why}`)
     }
     return { success: true, ready: items.length, items }
   }
@@ -78,7 +89,12 @@ export class WorkGraphCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     const proj = await requireProject(projectPath, options)
     if (!proj.ok) return proj.result
-    const item = workGraph.next(proj.value)
+    // Impact-ordered: top unclaimed after re-rank (not pure SQL age/priority).
+    const ranked = rankReadyWithImpact(
+      proj.value,
+      workGraph.ready(proj.value, { unclaimedOnly: true, limit: 20 })
+    )
+    const item = ranked[0] ?? null
     if (!item) {
       const msg = 'No unclaimed ready work. `prjct ready --md` for the frontier.'
       if (options.md) console.log(`> ${msg}`)
@@ -93,7 +109,8 @@ export class WorkGraphCommands extends PrjctCommandsBase {
       const lines = [
         `# Next: ${item.description}`,
         '',
-        `- Id: \`${item.id}\` · priority: ${item.priority ?? '-'} · unblocks ${item.unblocks} item(s)`,
+        `- Id: \`${item.id}\` · priority: ${item.priority ?? '-'} · unblocks ${item.unblocks} item(s) · impactScore ${Math.round(item.impactScore)}`,
+        `- ${item.why}`,
         `- Orchestration: ${plan.model}/${plan.effort} · spec: ${plan.spec} · tests: ${plan.tests} · fan-out: ${plan.fanout} · ~${plan.expectedPoints} pt`,
         '',
         `Claim it: \`prjct claim ${item.id}\` — then \`prjct work "${item.description.slice(0, 60)}"\``,
@@ -101,8 +118,9 @@ export class WorkGraphCommands extends PrjctCommandsBase {
       console.log(lines.join('\n'))
     } else {
       out.info(`next: [${item.id.slice(0, 8)}] ${item.description}`)
+      out.info(`  ${item.why}`)
     }
-    return { success: true, next: item, orchestration: plan }
+    return { success: true, next: item, orchestration: plan, why: item.why }
   }
 
   async claim(

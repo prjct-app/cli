@@ -42,7 +42,7 @@
     "bench:weak-model": "bun scripts/bench-weak-model.ts",
     "demo:weak-vs-frontier": "bun scripts/demo-weak-vs-frontier.ts",
     "harness:score": "bun bin/prjct.ts harness score --md",
-    "gate:dominance": "bun test core/__tests__/services/weak-model-bench.test.ts core/__tests__/services/weak-frontier-demo.test.ts core/__tests__/services/harness-score.test.ts core/__tests__/services/dynasty-outcomes.test.ts core/__tests__/services/content-bound-stamp.test.ts core/__tests__/services/sot-bind.test.ts core/__tests__/services/trap-surface-slo.test.ts && bun run bench:weak-model && bun run demo:weak-vs-frontier"
+    "gate:dominance": "bun test core/__tests__/services/weak-model-bench.test.ts core/__tests__/services/weak-frontier-demo.test.ts core/__tests__/services/harness-score.test.ts core/__tests__/services/dynasty-outcomes.test.ts core/__tests__/services/content-bound-stamp.test.ts core/__tests__/services/sot-bind.test.ts core/__tests__/services/trap-surface-slo.test.ts core/__tests__/services/impact-ready.test.ts core/__tests__/services/delivery-geometry.test.ts && bun run bench:weak-model && bun run demo:weak-vs-frontier"
   },
   "keywords": [
     "claude-code",

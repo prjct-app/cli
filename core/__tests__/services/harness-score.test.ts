@@ -62,6 +62,8 @@ describe('harness score', () => {
     expect(md).toContain('Content-bound approve')
     expect(md).toContain('SoT hard-bind')
     expect(md).toContain('Trap-before-edit')
+    expect(md).toContain('Impact-ranked next')
+    expect(md).toContain('Geometry-at-intent')
   })
 
   it('embeds Dynasty delta + outcomes sections when provided', () => {
