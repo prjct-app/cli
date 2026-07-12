@@ -112,6 +112,25 @@ export const JudgmentLedgerSchema = z.object({
   scopePaths: z.array(z.string().min(1)).optional(),
   /** ISO timestamp when scopePaths was frozen (open). */
   scopeFrozenAt: z.string().optional(),
+  /**
+   * Content-bound stamp at approve (gentle-ai v2 residual): path+blob treeHash.
+   * Ship re-hashes the same path set; drift forces re-approve.
+   */
+  contentBound: z
+    .object({
+      version: z.literal(1),
+      treeHash: z.string().min(8),
+      pathCount: z.number().int().min(0),
+      paths: z.array(
+        z.object({
+          path: z.string().min(1),
+          blobHash: z.string().min(1),
+        })
+      ),
+      stampedAt: z.string().min(1),
+      headSha: z.string().optional(),
+    })
+    .optional(),
 })
 export type JudgmentLedger = z.infer<typeof JudgmentLedgerSchema>
 

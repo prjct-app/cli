@@ -11,6 +11,8 @@ import {
   decisionConflictVerdict,
   effectiveConflictMode,
 } from '../../services/decision-conflict'
+import { sotBindVerdict } from '../../services/sot-bind'
+import { formatTrapSurfaceMessage, trapSurfaceSlo } from '../../services/trap-surface-slo'
 
 describe('pre-edit conflict wiring contracts', () => {
   test('empty preventive → no deny', () => {
@@ -64,5 +66,30 @@ describe('pre-edit conflict wiring contracts', () => {
     const started = Date.now() - (CONFLICT_HARD_CAP_MS + 10)
     expect(budgetExceeded(started)).toBe(true)
     // Caller returns null deny when budgetExceeded — contract of pre-edit decideHardStop.
+  })
+
+  test('H2 SoT bind denies even when conflictMode is off', () => {
+    // Dynasty: living SoT is code-enforced independent of conflictMode pack.
+    const mode = effectiveConflictMode({ projectId: 'p', dataPath: 'x' })
+    expect(mode).toBe('off')
+    const cand = candidatesFromPreventive([
+      {
+        id: 'mem_sot',
+        type: 'decision',
+        content: 'Always use discuss-lock before H2 feature code',
+      },
+    ])
+    expect(decisionConflictVerdict({ mode, candidates: cand }).action).toBe('none')
+    const sot = sotBindVerdict({ harnessLevel: 'H2', candidates: cand })
+    expect(sot.action).toBe('deny')
+  })
+
+  test('trap surface message satisfies SLO for all preventive ids', () => {
+    const hits = [
+      { id: 'mem_1', type: 'gotcha', title: 'trap a' },
+      { id: 'mem_2', type: 'gotcha', title: 'trap b' },
+    ]
+    const msg = formatTrapSurfaceMessage('file.ts', hits)
+    expect(trapSurfaceSlo({ trapIds: hits.map((h) => h.id), message: msg }).ok).toBe(true)
   })
 })

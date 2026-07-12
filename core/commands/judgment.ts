@@ -644,15 +644,30 @@ export class JudgmentCommands extends PrjctCommandsBase {
     const ledger = judgmentLedgerStorage.get(proj.value)
     if (!ledger) return failWith('No active ledger — `prjct judgment open` first.', options)
 
+    const stampApprove = async (l: typeof ledger) => {
+      try {
+        const { shortHash, stampForApprove } = await import('../services/content-bound-stamp')
+        const now = getTimestamp()
+        const stamp = await stampForApprove(projectPath, l.scopePaths, now)
+        l.contentBound = stamp
+        return stamp.pathCount > 0
+          ? ` · content-bound tree=${shortHash(stamp.treeHash)} (${stamp.pathCount} paths)`
+          : ' · content-bound (empty scope)'
+      } catch {
+        return ''
+      }
+    }
+
     // Empty ledger: agent attests reviewers ran and found nothing (explicit approve).
     if (ledger.findings.length === 0) {
       ledger.verdict = 'approved'
       ledger.updatedAt = getTimestamp()
+      const stampBit = await stampApprove(ledger)
       judgmentLedgerStorage.set(proj.value, ledger)
       print(
         options,
         '## Judgment APPROVED',
-        `Ledger \`${ledger.id}\` APPROVED (empty review attestation). Ship gate will pass.`
+        `Ledger \`${ledger.id}\` APPROVED (empty review attestation)${stampBit}. Ship gate will pass.`
       )
       return { success: true, ledger, verdict: 'approved', emptyAttestation: true }
     }
@@ -674,6 +689,7 @@ export class JudgmentCommands extends PrjctCommandsBase {
         options
       )
     }
+    const stampBit = await stampApprove(finalized)
     judgmentLedgerStorage.set(proj.value, finalized)
     print(
       options,
@@ -682,7 +698,7 @@ export class JudgmentCommands extends PrjctCommandsBase {
         (finalized.precisionHint !== undefined
           ? ` · precision≈${Math.round(finalized.precisionHint * 100)}%`
           : '') +
-        '. Ship gate will pass.'
+        `${stampBit}. Ship gate will pass.`
     )
     return { success: true, ledger: finalized, verdict: 'approved' }
   }

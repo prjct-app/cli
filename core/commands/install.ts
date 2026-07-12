@@ -61,11 +61,36 @@ export class InstallCommands extends PrjctCommandsBase {
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
       const msg = `installed Claude hooks adapter: ${result.hooksWritten} new, ${result.alreadyPresent} already present${prunedNote} (total ${total} hooks)`
+      // Dynasty D6: one-breath ritual + harness Δ proof (no second install path).
+      const runtimesWired = [
+        codexHooks || codexConfig ? 'codex' : null,
+        geminiConfig ? 'gemini' : null,
+        cursorHooks ? 'cursor' : null,
+        kimiConfig ? 'kimi' : null,
+        'claude',
+      ].filter((x): x is string => Boolean(x))
+      let deltaLine: string | null = null
+      try {
+        const { computeHarnessDelta } = await import('../services/weak-frontier-demo')
+        deltaLine = computeHarnessDelta().line
+      } catch {
+        deltaLine = null
+      }
+      const { buildOneBreathReport } = await import('../services/one-breath-install')
+      const ritual = buildOneBreathReport({
+        claudeHooksNew: result.hooksWritten,
+        claudeHooksPresent: result.alreadyPresent,
+        projectSurface: Boolean(projectSurfaces),
+        runtimesWired: [...new Set(runtimesWired)],
+        liveCount: coverage.liveCount,
+        detectedCount: coverage.detectedCount,
+        organicPct: coverage.organicPct,
+        deltaLine,
+      })
       if (options.md) {
         console.log(
           [
-            `# prjct install`,
-            ``,
+            ritual.md,
             `## Universal project surface`,
             projectSurfaces
               ? `- AGENTS.md: ${projectSurfaces.agentsMd.action}`
@@ -127,11 +152,12 @@ export class InstallCommands extends PrjctCommandsBase {
             renderHarnessCoverageMd(coverage),
             `> One install · one SQLite brain · every agent surface. That is the moat — not more skills.`,
             `> Grok inherits Claude. Codex/Gemini/Cursor get native adapters. Trust Codex hooks once via \`/hooks\`.`,
-            `> Only \`_prjctManaged: true\` entries were touched.`,
+            `> Gaps? \`prjct doctor --fix\`. Only \`_prjctManaged: true\` entries were touched.`,
           ].join('\n')
         )
       } else {
-        out.done(msg)
+        out.done(ritual.line)
+        out.info(msg)
         out.info(`settings: ${result.settingsPath}`)
         if (projectSurfaces) {
           out.info(`AGENTS.md: ${projectSurfaces.agentsMd.action}`)
@@ -174,6 +200,8 @@ export class InstallCommands extends PrjctCommandsBase {
         out.info(
           `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`
         )
+        if (deltaLine) out.info(deltaLine)
+        if (!ritual.organicOk) out.info('Organic gaps remain — run `prjct doctor --fix`')
       }
       return {
         success: true,
@@ -182,6 +210,8 @@ export class InstallCommands extends PrjctCommandsBase {
         detectedRuntimes: detected.length,
         organicPct: coverage.organicPct,
         liveRuntimes: coverage.liveCount,
+        oneBreath: ritual.line,
+        organicOk: ritual.organicOk,
         codexConfig: codexConfig
           ? {
               path: codexConfig.path,

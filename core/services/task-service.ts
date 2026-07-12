@@ -86,6 +86,8 @@ export interface StartTaskOutcome {
    * proactive — scoped to the area the work will actually touch.
    */
   risks?: RiskHit[]
+  /** Dynasty D5: one-shot cycle budget line printed at work start. */
+  cycleBudget?: string | null
   /** Multi-agent owner stamped at start. */
   ownerAgent?: string
   ownerIdentity?: string
@@ -281,34 +283,47 @@ export async function startTask(
     }
   }
 
-  // Delivery-geometry gate: large working tree requires an explicit strategy.
+  // Delivery-geometry gate: large working tree OR large H2+ intent (Dynasty D4).
   {
     const mode = cfg?.deliveryGeometry?.mode ?? 'off'
-    if (mode === 'strict' || mode === 'advisory') {
-      try {
-        const { existsSync } = await import('node:fs')
-        const path = await import('node:path')
-        // Skip when there is no git dir (tests, non-repos) — never hang cold paths.
-        if (existsSync(path.join(projectPath, '.git'))) {
-          const {
-            computeWorkingTreeChangeset,
-            geometryOf,
-            tierOf,
-            geometryBlockMessage,
-            NORMAL_MAX_LOC,
-          } = await import('./delivery-geometry')
-          const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
-          const cs = await computeWorkingTreeChangeset(projectPath)
-          if (cs && cs.loc >= threshold) {
-            const geometry = geometryOf(tierOf(cs))
-            if (mode === 'strict' && !options.geometry) {
-              return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
-            }
-          }
+    try {
+      const { existsSync } = await import('node:fs')
+      const path = await import('node:path')
+      const {
+        computeWorkingTreeChangeset,
+        geometryOf,
+        tierOf,
+        geometryBlockMessage,
+        intentGeometryVerdict,
+        NORMAL_MAX_LOC,
+      } = await import('./delivery-geometry')
+      const harnessPreview = buildTaskHarness(description)
+      let treeLarge = false
+      let cs: Awaited<ReturnType<typeof computeWorkingTreeChangeset>> = null
+      if (existsSync(path.join(projectPath, '.git'))) {
+        const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
+        cs = await computeWorkingTreeChangeset(projectPath)
+        treeLarge = Boolean(cs && cs.loc >= threshold)
+        // Legacy path: strict + fat tree without --geometry still hard-blocks.
+        if (mode === 'strict' && treeLarge && cs && !options.geometry) {
+          const geometry = geometryOf(tierOf(cs))
+          return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
         }
-      } catch {
-        /* geometry is best-effort — never block on git errors */
       }
+      // Geometry-at-intent: H2+/H3 plan delivery shape before code.
+      const ig = intentGeometryVerdict({
+        harnessLevel: harnessPreview.level,
+        harnessRisk: harnessPreview.risk,
+        mode,
+        explicitGeometry: options.geometry ?? null,
+        treeLarge,
+      })
+      if (ig.blocked) {
+        return { ok: false, blocked: ig.message ?? 'Delivery geometry required at intent.' }
+      }
+      if (ig.message) console.log(ig.message)
+    } catch {
+      /* geometry is best-effort — never block on git errors */
     }
   }
 
@@ -526,6 +541,25 @@ export async function startTask(
   // will touch, so the trap is surfaced at planning, not after it bites.
   const risks = recallRisksForFiles(projectId, likelyFiles)
 
+  // Dynasty D5: cycle budget card ONCE at work start (not every turn).
+  let cycleBudget: string | null = null
+  try {
+    const { buildCycleBudgetCard } = await import('./cycle-budget-card')
+    const { contextPressureVerdict } = await import('./context-pressure')
+    const pressure = contextPressureVerdict(cfg, { turnCount: 0, tokensIn: 0, tokensOut: 0 })
+    const card = buildCycleBudgetCard({
+      turns: 0,
+      turnLimit: cfg?.maxTurnsPerCycle ?? pressure.limit,
+      tokensSpent: 0,
+      tokenBudget: cfg?.maxTokensPerCycle ?? null,
+      pressureLevel: pressure.level,
+    })
+    cycleBudget = card.line
+    console.log(card.line)
+  } catch {
+    /* budget card best-effort */
+  }
+
   return {
     ok: true,
     taskId,
@@ -549,6 +583,7 @@ export async function startTask(
     relatedContext,
     likelyFiles,
     risks,
+    cycleBudget,
   }
 }
 

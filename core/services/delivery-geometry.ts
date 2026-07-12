@@ -126,6 +126,85 @@ export function geometryBlockMessage(cs: Changeset, geometry: DeliveryGeometry):
   )
 }
 
+export interface IntentGeometryVerdict {
+  blocked: boolean
+  message: string | null
+  reason:
+    | 'none'
+    | 'not-large'
+    | 'has-geometry'
+    | 'h2-intent-advisory'
+    | 'h2-intent-strict'
+    | 'tree-strict'
+  geometry: DeliveryGeometry
+}
+
+/**
+ * Geometry-at-intent (Dynasty D4 / C3): large H2+ work must choose delivery
+ * geometry *before* code — not only at ship or when the working tree is already fat.
+ *
+ * largeSurface = predicted (H3 / H2+high risk / multi-surface feature) OR tree already large.
+ * mode off → still advisory nudge on large H2+ (never hard-block).
+ * mode strict → hard-block without `--geometry`.
+ */
+export function intentGeometryVerdict(input: {
+  harnessLevel: 'H0' | 'H1' | 'H2' | 'H3' | string
+  /** high | medium | low | unknown — from task harness risk */
+  harnessRisk?: string | null
+  mode: 'off' | 'advisory' | 'strict'
+  explicitGeometry?: DeliveryGeometry | null
+  /** Working tree already past LOC threshold */
+  treeLarge?: boolean
+}): IntentGeometryVerdict {
+  const level = input.harnessLevel
+  const highRisk = input.harnessRisk === 'high'
+  // Large H2+ surface: H3 always, H2+high-risk, or working tree already fat.
+  const predictedLarge = level === 'H3' || (level === 'H2' && highRisk)
+  const largeSurface = Boolean(input.treeLarge) || predictedLarge
+
+  const geometry: DeliveryGeometry =
+    level === 'H3' || highRisk || input.treeLarge ? 'split' : 'single'
+
+  if (input.explicitGeometry) {
+    return {
+      blocked: false,
+      message: null,
+      reason: 'has-geometry',
+      geometry: input.explicitGeometry,
+    }
+  }
+
+  if (!largeSurface) {
+    return { blocked: false, message: null, reason: 'not-large', geometry: 'direct' }
+  }
+
+  const msg =
+    `Delivery geometry (intent): ${level}` +
+    (highRisk ? ' high-risk' : '') +
+    (input.treeLarge ? ' + large working tree' : '') +
+    ` → plan as \`${geometry}\` before coding. ` +
+    `Pass \`prjct work "<intent>" --geometry split|single|direct\` ` +
+    `(or stamp geometry on the linked intent/spec). ` +
+    `Dynasty: geometry is first-class plan, not only a ship-time afterthought.`
+
+  if (input.mode === 'strict') {
+    return {
+      blocked: true,
+      message: msg,
+      reason: input.treeLarge ? 'tree-strict' : 'h2-intent-strict',
+      geometry,
+    }
+  }
+
+  // off + advisory: always nudge on large H2+/tree (never hard-block)
+  return {
+    blocked: false,
+    message: `⚠️  ${msg}`,
+    reason: 'h2-intent-advisory',
+    geometry,
+  }
+}
+
 export interface ShipGeometryVerdict {
   blocked: boolean
   message: string | null

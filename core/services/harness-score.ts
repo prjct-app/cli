@@ -37,8 +37,9 @@ export interface HarnessScoreReport {
 
 /** Absolute budgets the harness must hold. */
 export const WORLD_CLASS = {
-  skillTokensMax: 1500,
-  skillTokensAmber: 2000,
+  /** Dynasty D5 floor — always-on skill diet (was 1500). */
+  skillTokensMax: 900,
+  skillTokensAmber: 1200,
   routingBodyBytesMax: 400,
   routingBodyBytesAmber: 600,
   mcpDefaultTier: 'core' as const,
@@ -167,7 +168,7 @@ export function computeHarnessScore(
     criterion(
       'enforced-defaults',
       'Code-enforced lean defaults',
-      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 1500 ? 5 : 2,
+      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 900 ? 5 : 2,
       'MCP core default + skill budget in code',
       `tier=${DEFAULT_MCP_TOOL_TIER}; skillMax=${WORLD_CLASS.skillTokensMax}`
     ),
@@ -236,6 +237,15 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Memory hygiene | grow forever | files pile | grow forever | **SUPERIOR: Rho excess vs R + distill-hard-delete + close** |',
     '| Multi-runtime wire | one eco | Claude-first | plugin per host | **SUPERIOR: one install → Claude+Codex+Gemini+Cursor+Grok** |',
     '| Organic feel | install prompts | `/plan` ceremony | manual MCP | **SUPERIOR: passive hooks; agent never re-learns the OS** |',
+    '| Public harness Δ | none / demo only | none | none | **SUPERIOR: bare vs prjct intent+footprint table in score + CI gate** |',
+    '| Content-bound approve | content-hash review | phase files | none | **SUPERIOR: path+blob treeHash on judgment approve; ship drifts re-approve** |',
+    '| SoT hard-bind H2+ | prompt BINDING | ceremony | none | **SUPERIOR: pre-edit deny on decision/gotcha/fact without supersede/override** |',
+    '| Trap-before-edit | optional heads-up | none | none | **SUPERIOR: 100% trap-id surface SLO in pre-edit inject** |',
+    '| Impact-ranked next | FIFO backlog | ROADMAP.md | none | **SUPERIOR: unblocks × world-model blast × SoT pressure + why line** |',
+    '| Geometry-at-intent | ship-only size | ceremony | none | **SUPERIOR: large H2+/H3 plans split|single before code** |',
+    '| Always-on skill diet | unmeasured dump | skill flood | dump | **SUPERIOR: ≤900 tok skill + workflows.md progressive disclosure** |',
+    '| Land Rho loop | grow forever | files pile | grow forever | **SUPERIOR: land dry-run would archive/delete + vault mass line** |',
+    '| One-breath install | multi-path prompts | ceremony | plugin per host | **SUPERIOR: one install → board + Δ proof; doctor --fix heals** |',
     `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
     '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',
@@ -245,7 +255,13 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
 
 export function renderHarnessScoreMd(
   report: HarnessScoreReport,
-  options: { coverageMd?: string } = {}
+  options: {
+    coverageMd?: string
+    /** Pure bare-vs-harness Δ table (from computeHarnessDelta). */
+    deltaMd?: string
+    /** Project-scoped closed-loop / retention / tokens (optional). */
+    outcomesMd?: string
+  } = {}
 ): string {
   const rows = report.criteria.map(
     (c) => `| ${c.name} | ${c.score} | ${c.status} | ${c.slo} | ${c.measured} |`
@@ -268,6 +284,8 @@ export function renderHarnessScoreMd(
     `- Routing body: ${report.defaults.routingBytes} bytes`,
     `- Providers: ${report.defaults.providerCount}`,
     '',
+    options.deltaMd ?? '',
+    options.outcomesMd ?? '',
     options.coverageMd ?? '',
     renderCompetitiveDustMd(report),
   ].join('\n')
