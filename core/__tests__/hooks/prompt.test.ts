@@ -118,9 +118,11 @@ describe('UserPromptSubmit — project state', () => {
       startedAt: new Date().toISOString(),
       sessionId: 's',
     } as Parameters<typeof stateStorage.startTask>[1])
-    expect(await stateStorage.bumpTurnCount(projectId)).toBe(1)
-    expect(await stateStorage.bumpTurnCount(projectId)).toBe(2)
-    expect(await stateStorage.bumpTurnCount(projectId)).toBe(3)
+    expect((await stateStorage.bumpTurnCount(projectId)).count).toBe(1)
+    expect((await stateStorage.bumpTurnCount(projectId)).count).toBe(2)
+    const third = await stateStorage.bumpTurnCount(projectId)
+    expect(third.count).toBe(3)
+    expect(third.task?.turnCount).toBe(3)
   })
 
   it('surfaces dirty working tree counts', async () => {

@@ -109,15 +109,24 @@ class StateStorage extends StorageManager<StateJson> {
    * UserPromptSubmit hook so the state block can escalate a stuck loop. A new
    * cycle starts with no turnCount, so it resets naturally.
    */
-  async bumpTurnCount(projectId: string): Promise<number> {
-    const resultRef: { count: number } = { count: 0 }
+  /**
+   * Bump turn counter and return count + the post-bump task (avoids a second
+   * read on the UserPromptSubmit hot path).
+   */
+  async bumpTurnCount(projectId: string): Promise<{ count: number; task: CurrentTask | null }> {
+    const resultRef: { count: number; task: CurrentTask | null } = {
+      count: 0,
+      task: null,
+    }
     await this.update(projectId, (state) => {
       if (!state.currentTask) return state
       const next = (state.currentTask.turnCount ?? 0) + 1
+      const task = { ...state.currentTask, turnCount: next }
       resultRef.count = next
-      return { ...state, currentTask: { ...state.currentTask, turnCount: next } }
+      resultRef.task = task
+      return { ...state, currentTask: task }
     })
-    return resultRef.count
+    return resultRef
   }
 
   /**
