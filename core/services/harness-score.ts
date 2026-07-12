@@ -245,6 +245,7 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Geometry-at-intent | ship-only size | ceremony | none | **SUPERIOR: large H2+/H3 plans split|single before code** |',
     '| Always-on skill diet | unmeasured dump | skill flood | dump | **SUPERIOR: ≤900 tok skill + workflows.md progressive disclosure** |',
     '| Land Rho loop | grow forever | files pile | grow forever | **SUPERIOR: land dry-run would archive/delete + vault mass line** |',
+    '| One-breath install | multi-path prompts | ceremony | plugin per host | **SUPERIOR: one install → board + Δ proof; doctor --fix heals** |',
     `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
     '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',

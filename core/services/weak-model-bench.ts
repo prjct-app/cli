@@ -19,8 +19,10 @@ import { contentBoundDriftVerdict, stampFromContents } from './content-bound-sta
 import { buildCycleBudgetCard } from './cycle-budget-card'
 import { candidatesFromPreventive } from './decision-conflict'
 import { intentGeometryVerdict } from './delivery-geometry'
+import { planDoctorHeal } from './doctor-heal'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
 import { rankByFactors, scoreReadyFactors } from './impact-ready'
+import { buildOneBreathReport } from './one-breath-install'
 import {
   applyEvidenceTax,
   buildNextAction,
@@ -375,6 +377,38 @@ export function runWeakModelBench(): WeakBenchReport {
       'cycle budget card',
       card.line.includes('Cycle budget') && card.line.includes('turns 0/15'),
       card.line
+    )
+  }
+
+  // One-breath install + doctor heal plan (Dynasty D6)
+  {
+    const ritual = buildOneBreathReport({
+      claudeHooksNew: 1,
+      claudeHooksPresent: 10,
+      projectSurface: true,
+      runtimesWired: ['claude', 'codex'],
+      liveCount: 2,
+      detectedCount: 2,
+      organicPct: 100,
+      deltaLine: 'Harness Δ: PASS',
+    })
+    push(
+      'one-breath install PASS',
+      ritual.organicOk && ritual.line.includes('One-breath'),
+      ritual.line
+    )
+    const heal = planDoctorHeal({
+      hooksInstalled: 5,
+      hooksExpected: 12,
+      liveCount: 1,
+      detectedCount: 3,
+      organicPct: 33,
+      hasProject: true,
+    })
+    push(
+      'doctor heal plans repairs',
+      heal.neededCount >= 2 && heal.actions.some((a) => a.id === 'claude-hooks' && a.needed),
+      heal.line
     )
   }
 

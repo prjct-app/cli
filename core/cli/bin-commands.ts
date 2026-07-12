@@ -522,7 +522,10 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
   } else if (args[0] === 'doctor') {
     const done = await ctx.trackSession('doctor')
     const { doctorService } = await import('../services/doctor-service')
-    const exitCode = await doctorService.run(process.cwd())
+    const fix = args.includes('--fix') || args.includes('--heal')
+    const exitCode = fix
+      ? await doctorService.heal(process.cwd())
+      : await doctorService.run(process.cwd())
     process.exitCode = exitCode
     done()
   } else if (args[0] === 'uninstall') {

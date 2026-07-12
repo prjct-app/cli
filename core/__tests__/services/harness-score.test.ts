@@ -66,6 +66,7 @@ describe('harness score', () => {
     expect(md).toContain('Geometry-at-intent')
     expect(md).toContain('Always-on skill diet')
     expect(md).toContain('Land Rho loop')
+    expect(md).toContain('One-breath install')
   })
 
   it('embeds Dynasty delta + outcomes sections when provided', () => {
