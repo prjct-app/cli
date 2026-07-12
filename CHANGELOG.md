@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.50.2] - 2026-07-12
+
+### Added
+- perf: routing fix + MCP schema slim (19→10 tools)
+
 ### Performance
 
 - **MCP schema slim (ListTools tax)**: default core surface **19 → 10 tools**; `projectPath` optional (cwd / `PRJCT_PROJECT_PATH`); typed record verbs + cost/signals/skills/developer/tiers/artifacts moved to `PRJCT_MCP_TOOLS=standard|all`; shorter server instructions. CLI parity unchanged.
@@ -22,7 +27,6 @@
 ### Performance
 
 - fix harness GTD capture + hot-path efficiency (#553)
-
 
 ## [3.50.0] - 2026-07-12
 
