@@ -17,6 +17,13 @@
 - **Usefulness rerank** — `decayedScores` accepts candidate IDs so FTS rerank no longer full-scans `memory_usefulness`.
 - **Typo suggestions** — `findClosestCommand` uses full COMMANDS manifest (bin-only verbs included) + length early-exit.
 
+## [3.50.2] - 2026-07-12
+
+### Performance
+
+- slim core ListTools 19→10 tools (#554)
+
+
 ## [3.50.1] - 2026-07-12
 
 ### Performance
