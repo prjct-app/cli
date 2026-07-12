@@ -33,7 +33,7 @@ import { formatMemoryMd } from '../../memory/format'
 import { projectMemory } from '../../memory/project-memory'
 import { evaluateMemoryContent } from '../../services/trust-boundary'
 import { recordSurfacedForActiveTask } from '../../services/usefulness/surface-attribution'
-import { resolveProjectId } from '../resolve'
+import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to any to avoid deep type
@@ -42,14 +42,18 @@ type S = any
 
 const TYPE_DESCRIPTIONS = `Base types: ${BASE_MEMORY_TYPES.join(', ')}. Any lowercase identifier is accepted (e.g. "recipe", "okr").`
 
-export function registerMemoryTools(server: McpServer) {
+/**
+ * @param options.extended — standard+ only: typed record verbs (decision/gotcha/…)
+ *   that alias mem_save. Keep them off core ListTools to cut schema tokens.
+ */
+export function registerMemoryTools(server: McpServer, options: { extended?: boolean } = {}) {
   const s: S = server
 
   s.tool(
     'prjct_mem_save',
     `Save a memory entry. Author content in ENGLISH regardless of the conversation language. ${TYPE_DESCRIPTIONS} Evolving topic? add tags.topic (stable key) — prjct UPSERTS by topic key, superseding prior versions instead of accumulating. Secret-like content is refused unless force=true.`,
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       type: z.string().describe('Memory type (fact/decision/learning/... or user-defined)'),
       content: z.string().describe('The memory content. Freeform text.'),
       tags: z
@@ -103,7 +107,8 @@ export function registerMemoryTools(server: McpServer) {
           }
         }
 
-        await projectMemory.remember(args.projectPath, {
+        const projectPath = resolveProjectPath(args.projectPath)
+        await projectMemory.remember(resolveProjectPath(projectPath), {
           type: typeStr,
           content: args.content,
           tags: args.tags ?? {},
@@ -117,134 +122,11 @@ export function registerMemoryTools(server: McpServer) {
     )
   )
 
-  // --- Narrow typed memory verbs (the "addCost not eval" principle) ---
-  // Each gives the model typed slots instead of one freeform `content` blob +
-  // open tags, so the entry's structure is unambiguous at the call site. They
-  // compose the typed fields into a single memory entry; `prjct_mem_save`
-  // remains the generic escape hatch for anything that doesn't fit.
-  async function saveTyped(
-    projectPath: string,
-    type: MemoryType,
-    content: string,
-    tags: Record<string, string> = {}
-  ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-    await resolveProjectId(projectPath)
-    const trust = evaluateMemoryContent(content)
-    if (!trust.allow) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text:
-              trust.kind === 'secrets'
-                ? `Refused — content looks like a secret (${trust.hits.join(', ')}). Use prjct_mem_save with force=true if intentional.`
-                : trust.kind === 'prompt_injection'
-                  ? `Refused — content looks like prompt injection (${trust.hits.join(', ')}). Use prjct_mem_save with force=true if intentional.`
-                  : `Refused — ${trust.denyMessage}`,
-          },
-        ],
-      }
-    }
-    await projectMemory.remember(projectPath, { type, content, tags })
-    return { content: [{ type: 'text', text: `Saved ${type}: ${content.slice(0, 80)}` }] }
-  }
-
-  s.tool(
-    'prjct_record_decision',
-    'Record a DECISION: what was decided, why, and the alternatives considered. Author in ENGLISH.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-      decision: z.string().describe('What was decided (the choice itself)'),
-      rationale: z.string().optional().describe('Why this was chosen'),
-      alternatives: z.array(z.string()).optional().describe('Options considered and rejected'),
-    },
-    safeMcpCall(
-      'prjct_record_decision',
-      async (args: {
-        projectPath: string
-        decision: string
-        rationale?: string
-        alternatives?: string[]
-      }) => {
-        const parts = [args.decision]
-        if (args.rationale) parts.push(`\nWhy: ${args.rationale}`)
-        if (args.alternatives?.length)
-          parts.push(`\nAlternatives considered: ${args.alternatives.join('; ')}`)
-        return saveTyped(args.projectPath, 'decision', parts.join(''))
-      }
-    )
-  )
-
-  s.tool(
-    'prjct_record_gotcha',
-    'Record a GOTCHA: a trap/footgun, its symptom, and the fix. Tag the file so `prjct guard` surfaces it before edits.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-      symptom: z.string().describe('What goes wrong / how it manifests'),
-      fix: z.string().describe('How to avoid or fix it'),
-      file: z.string().optional().describe('File path this gotcha applies to (powers prjct guard)'),
-    },
-    safeMcpCall(
-      'prjct_record_gotcha',
-      async (args: { projectPath: string; symptom: string; fix: string; file?: string }) => {
-        const content = `${args.symptom}\nFix: ${args.fix}`
-        return saveTyped(args.projectPath, 'gotcha', content, args.file ? { file: args.file } : {})
-      }
-    )
-  )
-
-  s.tool(
-    'prjct_record_learning',
-    'Record a LEARNING: a claim discovered during the work and the evidence for it. Author in ENGLISH.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-      claim: z.string().describe('What was learned'),
-      evidence: z.string().optional().describe('What supports it (observation, file, result)'),
-    },
-    safeMcpCall(
-      'prjct_record_learning',
-      async (args: { projectPath: string; claim: string; evidence?: string }) => {
-        const content = args.evidence ? `${args.claim}\nEvidence: ${args.evidence}` : args.claim
-        return saveTyped(args.projectPath, 'learning', content)
-      }
-    )
-  )
-
-  s.tool(
-    'prjct_record_fact',
-    'Record a FACT: a stable statement about a subject in the project. Author in ENGLISH.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-      subject: z.string().describe('What the fact is about'),
-      statement: z.string().describe('The fact itself'),
-    },
-    safeMcpCall(
-      'prjct_record_fact',
-      async (args: { projectPath: string; subject: string; statement: string }) => {
-        return saveTyped(args.projectPath, 'fact', `${args.subject}: ${args.statement}`, {
-          subject: args.subject,
-        })
-      }
-    )
-  )
-
-  s.tool(
-    'prjct_capture_inbox',
-    'Capture a quick INBOX note (idea/bug/todo) for later triage. No structure required.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-      text: z.string().describe('The note to capture'),
-    },
-    safeMcpCall('prjct_capture_inbox', async (args: { projectPath: string; text: string }) => {
-      return saveTyped(args.projectPath, 'inbox', args.text)
-    })
-  )
-
   s.tool(
     'prjct_mem_list',
     'Recall memory entries as compact one-line cues (id + type + truncated body). Pull a full body on demand by id (`prjct context memory <id>`). Optional filters: topic (keyword across content + tag values), types, tags, limit.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       topic: z.string().optional().describe('Keyword to match over content + tag values'),
       types: z.array(z.string()).optional().describe('Restrict to these types'),
       tags: z
@@ -267,7 +149,7 @@ export function registerMemoryTools(server: McpServer) {
         // blend, usefulness rerank, link expansion, ship attribution).
         // Subagents reach memory through THIS tool — a plain recency
         // recall here gave them strictly worse retrieval than the CLI.
-        const entries = await enrichedRecall(args.projectPath, projectId, {
+        const entries = await enrichedRecall(resolveProjectPath(args.projectPath), projectId, {
           topic: args.topic,
           types: args.types as MemoryType[] | undefined,
           tags: args.tags,
@@ -286,7 +168,7 @@ export function registerMemoryTools(server: McpServer) {
     'prjct_mem_similar',
     'Find memory entries similar to a free-text description. Keyword-based, best-effort. Returns compact one-line cues; pull a full body by id on demand.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       description: z.string().describe('Free-text description to find similar memories for'),
       limit: z.number().optional().default(10).describe('Max results (default 10)'),
     },
@@ -298,7 +180,7 @@ export function registerMemoryTools(server: McpServer) {
         // beat the old shared-keyword `similar()` heuristic. Link
         // expansion off — similarity asks "does this exist?", not "give
         // me its whole neighborhood".
-        const entries = await enrichedRecall(args.projectPath, projectId, {
+        const entries = await enrichedRecall(resolveProjectPath(args.projectPath), projectId, {
           topic: args.description,
           limit: args.limit ?? 10,
           expandLinks: false,
@@ -319,7 +201,7 @@ export function registerMemoryTools(server: McpServer) {
     'prjct_guard',
     'Anticipation: before editing a file, get the preventive memory recorded against it — gotchas, anti-patterns, recurring bugs only. Empty result means clear to edit. Pull this instead of guessing what might break.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       file: z.string().describe('File to check (absolute or repo-relative)'),
       limit: z.number().optional().default(3).describe('Max preventive entries (default 3)'),
     },
@@ -349,10 +231,10 @@ export function registerMemoryTools(server: McpServer) {
     'prjct_mem_forget',
     'Remove a memory entry by id. Ids are stable — pull them from `prjct_mem_list`.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Memory id (e.g. "mem_42" or "ship_7")'),
     },
-    safeMcpCall('prjct_mem_forget', async (args: { projectPath: string; id: string }) => {
+    safeMcpCall('prjct_mem_forget', async (args: { projectPath?: string; id: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const removed = projectMemory.forget(projectId, args.id)
       return {
@@ -365,6 +247,132 @@ export function registerMemoryTools(server: McpServer) {
           },
         ],
       }
+    })
+  )
+
+  // --- Typed memory verbs (standard+) — alias mem_save; keep off core ListTools. ---
+  if (!options.extended) return
+
+  async function saveTyped(
+    projectPath: string | undefined,
+    type: MemoryType,
+    content: string,
+    tags: Record<string, string> = {}
+  ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+    const path = resolveProjectPath(projectPath)
+    await resolveProjectId(path)
+    const trust = evaluateMemoryContent(content)
+    if (!trust.allow) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              trust.kind === 'secrets'
+                ? `Refused — content looks like a secret (${trust.hits.join(', ')}). Use prjct_mem_save with force=true if intentional.`
+                : trust.kind === 'prompt_injection'
+                  ? `Refused — content looks like prompt injection (${trust.hits.join(', ')}). Use prjct_mem_save with force=true if intentional.`
+                  : `Refused — ${trust.denyMessage}`,
+          },
+        ],
+      }
+    }
+    await projectMemory.remember(path, { type, content, tags })
+    return { content: [{ type: 'text', text: `Saved ${type}: ${content.slice(0, 80)}` }] }
+  }
+
+  s.tool(
+    'prjct_record_decision',
+    'Record a DECISION: what was decided, why, and alternatives. Author in ENGLISH. (Or use prjct_mem_save type=decision.)',
+    {
+      projectPath: optionalProjectPath,
+      decision: z.string().describe('What was decided'),
+      rationale: z.string().optional().describe('Why'),
+      alternatives: z.array(z.string()).optional().describe('Rejected options'),
+    },
+    safeMcpCall(
+      'prjct_record_decision',
+      async (args: {
+        projectPath?: string
+        decision: string
+        rationale?: string
+        alternatives?: string[]
+      }) => {
+        const parts = [args.decision]
+        if (args.rationale) parts.push(`\nWhy: ${args.rationale}`)
+        if (args.alternatives?.length)
+          parts.push(`\nAlternatives considered: ${args.alternatives.join('; ')}`)
+        return saveTyped(args.projectPath, 'decision', parts.join(''))
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_record_gotcha',
+    'Record a GOTCHA (trap + fix). Tag file for prjct_guard. (Or prjct_mem_save type=gotcha.)',
+    {
+      projectPath: optionalProjectPath,
+      symptom: z.string().describe('What goes wrong'),
+      fix: z.string().describe('How to avoid/fix'),
+      file: z.string().optional().describe('File path for guard'),
+    },
+    safeMcpCall(
+      'prjct_record_gotcha',
+      async (args: { projectPath?: string; symptom: string; fix: string; file?: string }) => {
+        return saveTyped(
+          args.projectPath,
+          'gotcha',
+          `${args.symptom}\nFix: ${args.fix}`,
+          args.file ? { file: args.file } : {}
+        )
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_record_learning',
+    'Record a LEARNING + evidence. Author in ENGLISH. (Or prjct_mem_save type=learning.)',
+    {
+      projectPath: optionalProjectPath,
+      claim: z.string().describe('What was learned'),
+      evidence: z.string().optional().describe('Supporting observation'),
+    },
+    safeMcpCall(
+      'prjct_record_learning',
+      async (args: { projectPath?: string; claim: string; evidence?: string }) => {
+        const content = args.evidence ? `${args.claim}\nEvidence: ${args.evidence}` : args.claim
+        return saveTyped(args.projectPath, 'learning', content)
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_record_fact',
+    'Record a FACT about a subject. Author in ENGLISH. (Or prjct_mem_save type=fact.)',
+    {
+      projectPath: optionalProjectPath,
+      subject: z.string().describe('Subject'),
+      statement: z.string().describe('The fact'),
+    },
+    safeMcpCall(
+      'prjct_record_fact',
+      async (args: { projectPath?: string; subject: string; statement: string }) => {
+        return saveTyped(args.projectPath, 'fact', `${args.subject}: ${args.statement}`, {
+          subject: args.subject,
+        })
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_capture_inbox',
+    'Quick INBOX capture for later triage. (Or prjct_mem_save type=inbox.)',
+    {
+      projectPath: optionalProjectPath,
+      text: z.string().describe('Note text'),
+    },
+    safeMcpCall('prjct_capture_inbox', async (args: { projectPath?: string; text: string }) => {
+      return saveTyped(args.projectPath, 'inbox', args.text)
     })
   )
 }

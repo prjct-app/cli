@@ -1,11 +1,31 @@
 /**
- * Project ID resolution for MCP tools.
+ * Project path/ID resolution for MCP tools.
  *
- * Resolves projectPath → projectId using configManager.
+ * Schema tax: every tool used to require `projectPath` in ListTools JSON.
+ * Path is now optional — defaults to PRJCT_PROJECT_PATH / MCP server cwd.
  */
 
+import { z } from 'zod'
 import configManager from '../infrastructure/config-manager'
 
-export async function resolveProjectId(projectPath: string): Promise<string> {
-  return configManager.getProjectId(projectPath)
+/** Shared schema field — omit on single-project MCP installs. */
+export const optionalProjectPath = z
+  .string()
+  .optional()
+  .describe('Project root. Omit to use PRJCT_PROJECT_PATH or the MCP server cwd.')
+
+/**
+ * Resolve filesystem project root for a tool call.
+ * Order: explicit arg → PRJCT_PROJECT_PATH → process.cwd().
+ */
+export function resolveProjectPath(explicit?: string | null): string {
+  const e = explicit?.trim()
+  if (e) return e
+  const env = process.env.PRJCT_PROJECT_PATH?.trim() || process.env.PRJCT_CWD?.trim()
+  if (env) return env
+  return process.cwd()
+}
+
+export async function resolveProjectId(projectPath?: string | null): Promise<string> {
+  return configManager.getProjectId(resolveProjectPath(projectPath))
 }

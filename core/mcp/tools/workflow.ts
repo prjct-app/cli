@@ -8,7 +8,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { customWorkflowStorage } from '../../storage/custom-workflow-storage'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
-import { resolveProjectId } from '../resolve'
+import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
@@ -22,7 +22,7 @@ export function registerWorkflowTools(server: McpServer) {
     'prjct_workflow_rules',
     'The gates/hooks/steps registered for a command (task, ship, …). Check before running a lifecycle verb so a gate never surprises you mid-action.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       command: z.string().describe('Command name (task, done, ship, sync, etc.)'),
     },
     safeMcpCall('prjct_workflow_rules', async (args: { projectPath: string; command: string }) => {
@@ -59,7 +59,7 @@ export function registerWorkflowTools(server: McpServer) {
     'prjct_workflow_list',
     'Every workflow this project registered (built-in + custom). Use to discover what `prjct workflow run <name>` can execute here.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
     },
     safeMcpCall('prjct_workflow_list', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
@@ -87,14 +87,14 @@ export function registerWorkflowTools(server: McpServer) {
     'prjct_workflow_status',
     'Where the active work cycle sits in its workflow/gates (state + rules currently in force). Read when deciding whether done/ship is allowed next.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
     },
     safeMcpCall('prjct_workflow_status', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       // Workspace-aware: surface THIS worktree's task (main → currentTask,
       // child worktree → its activeTasks[] slot), not just the main slot.
       const { resolveActiveTask } = await import('../../services/task-service')
-      const currentTask = await resolveActiveTask(projectId, args.projectPath)
+      const currentTask = await resolveActiveTask(projectId, resolveProjectPath(args.projectPath))
       const allRules = workflowRuleStorage.getAllRules(projectId)
 
       const parts: string[] = ['## Workflow Status']

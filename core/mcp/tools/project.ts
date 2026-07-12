@@ -17,7 +17,7 @@ import { formatRelatedContextForAgent, setTaskStatus, startTask } from '../../se
 import { recordTaskTokenUsage } from '../../services/work-cost-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
-import { resolveProjectId } from '../resolve'
+import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
@@ -36,11 +36,11 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
     'prjct_session_resume',
     'Managed session resume card (land→prime continuity): last land stamp, open cycle, session-close hand-off, next actions. Prefer this after a fresh window instead of re-discovering from chat.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
     },
     safeMcpCall('prjct_session_resume', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const overview = await collectActiveTasks(projectId, args.projectPath)
+      const overview = await collectActiveTasks(projectId, resolveProjectPath(args.projectPath))
       const { loadSessionContinuity, loadLastSessionCloseContent, formatSessionResumeCard } =
         await import('../../services/session-continuity')
       const stamp = loadSessionContinuity(projectId)
@@ -79,11 +79,11 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
     'prjct_task_status',
     'The active AI Agile work cycle (description, branch, when it started) plus queued work. Read this to see what is in progress before starting new work.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
     },
     safeMcpCall('prjct_task_status', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const overview = await collectActiveTasks(projectId, args.projectPath)
+      const overview = await collectActiveTasks(projectId, resolveProjectPath(args.projectPath))
       const queue = await queueStorage.getActiveTasks(projectId)
 
       const parts: string[] = []
@@ -118,7 +118,7 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
     'prjct_task_start',
     'Start an AI Agile work cycle. Fires before/after workflow gates and memory logging through the compatibility task backend; a gate may block the start. Pass linked_spec_id only when a durable intent/spec brief is required. Use when the user begins concrete work.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       description: z.string().describe('What the work cycle is — a short intent phrase'),
       linked_spec_id: z
         .string()
@@ -138,10 +138,15 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
         skip_hooks?: boolean
       }) => {
         const projectId = await resolveProjectId(args.projectPath)
-        const outcome = await startTask(projectId, args.projectPath, args.description, {
-          spec: args.linked_spec_id,
-          skipHooks: args.skip_hooks,
-        })
+        const outcome = await startTask(
+          projectId,
+          resolveProjectPath(args.projectPath),
+          args.description,
+          {
+            spec: args.linked_spec_id,
+            skipHooks: args.skip_hooks,
+          }
+        )
         if (!outcome.ok) {
           return { content: [{ type: 'text', text: outcome.blocked ?? 'Work start was blocked.' }] }
         }
@@ -193,14 +198,18 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
     'prjct_task_set_status',
     'Change the active work cycle status. Records the transition and drives the workflow state machine. "active"/"resume" promotes paused work back to focus. To report token usage use the dedicated prjct_cost_add tool — this verb only transitions state.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       status: z
         .enum(['done', 'completed', 'paused', 'active', 'resume', 'in_progress'])
         .describe('New status'),
     },
     safeMcpCall('prjct_task_set_status', async (args: { projectPath: string; status: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const outcome = await setTaskStatus(projectId, args.projectPath, args.status)
+      const outcome = await setTaskStatus(
+        projectId,
+        resolveProjectPath(args.projectPath),
+        args.status
+      )
       if (!outcome.ok) {
         const text =
           outcome.reason === 'unsupported'
@@ -222,77 +231,10 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
   )
 
   s.tool(
-    'prjct_cost_add',
-    "Report a work cycle's token usage so prjct can measure cost/ROI. A narrow, typed verb — any agent (Claude, Codex, Gemini, …) passes its own counts. Pass model/runtime when known; mark isEstimated=true if the counts are not exact provider usage.",
-    {
-      projectPath: z.string().describe('Project directory path'),
-      tokensIn: z.number().describe('Total input tokens this cycle consumed'),
-      tokensOut: z.number().describe('Total output tokens this cycle produced'),
-      model: z
-        .string()
-        .optional()
-        .describe('Model id when the runtime exposes it (e.g. claude-opus-4-8)'),
-      runtime: z.string().optional().describe('Runtime/host: claude | codex | gemini | …'),
-      isEstimated: z
-        .boolean()
-        .optional()
-        .describe('True when the counts are an estimate, not exact provider usage. Default false.'),
-      workCycleId: z
-        .string()
-        .optional()
-        .describe('Work cycle/task id; defaults to the active cycle when omitted'),
-    },
-    safeMcpCall(
-      'prjct_cost_add',
-      async (args: {
-        projectPath: string
-        tokensIn: number
-        tokensOut: number
-        model?: string
-        runtime?: string
-        isEstimated?: boolean
-        workCycleId?: string
-      }) => {
-        const projectId = await resolveProjectId(args.projectPath)
-        let taskId = args.workCycleId
-        if (!taskId) {
-          const { resolveActiveTask } = await import('../../services/task-service')
-          const active = await resolveActiveTask(projectId, args.projectPath)
-          taskId = active?.id
-        }
-        if (!taskId) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: 'No work cycle to attribute cost to (pass workCycleId or start a cycle).',
-              },
-            ],
-          }
-        }
-        recordTaskTokenUsage(projectId, taskId, args.tokensIn, args.tokensOut, {
-          model: args.model,
-          runtime: args.runtime,
-          isEstimated: args.isEstimated ?? false,
-          source: 'mcp',
-        })
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Recorded ${args.tokensIn} in / ${args.tokensOut} out${args.model ? ` (${args.model})` : ''} for ${taskId}.`,
-            },
-          ],
-        }
-      }
-    )
-  )
-
-  s.tool(
     'prjct_analysis',
     'The stored project analysis: architecture, stack, patterns, anti-patterns, conventions, tech-debt, and insights. Read this instead of re-deriving the architecture from source. Pass mode:"archive" for the history of superseded analyses.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       mode: z
         .enum(['active', 'archive'])
         .optional()
@@ -421,88 +363,124 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
     )
   )
 
-  // `prjct_patterns` was removed — it was a strict subset of `prjct_mem_list`
-  // (recall with types=[decision, pattern, anti-pattern, gotcha]). One fewer
-  // tool schema in the client's context every turn; callers pass the `types`
-  // filter to `prjct_mem_list` for the same result.
-
-  // `prjct_developer` + `prjct_signals` replace the vault-only `developer.md`
-  // and `signals.md` read surfaces (WS-A: vault is off by default, so this
-  // synthesis must be queryable through a tool, not Read/Glob over markdown).
-  s.tool(
-    'prjct_developer',
-    'The synthesized developer profile — stated preferences (feedback) + friction lessons. Read this to act as the developer would without being told each time.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-    },
-    safeMcpCall('prjct_developer', async (args: { projectPath: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const { projectMemory } = await import('../../memory/project-memory')
-      const { buildDeveloperProfile } = await import('../../services/developer-profile')
-      const { renderDeveloperEvolution } = await import('../../services/developer-evolution')
-      const entries = projectMemory.allEntriesForIndex(projectId)
-      const body = buildDeveloperProfile(entries)
-      // Weekly typed snapshots: how the profile + delivery velocity have
-      // evolved over time (developer_profile_snapshots).
-      const evolution = renderDeveloperEvolution(projectId)
-      const text =
-        [body, evolution].filter(Boolean).join('\n\n') ||
-        'No developer profile yet — capture `feedback` memories as preferences emerge.'
-      return {
-        content: [{ type: 'text', text }],
-      }
-    })
-  )
-
-  s.tool(
-    'prjct_signals',
-    'Machine signals dashboard — hot files, recurring patterns, skill-misses, friction. Transient telemetry to act on, then let expire (not durable knowledge).',
-    {
-      projectPath: z.string().describe('Project directory path'),
-    },
-    safeMcpCall('prjct_signals', async (args: { projectPath: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const { projectMemory } = await import('../../memory/project-memory')
-      const { buildSignalsFile, isSignalEntry } = await import('../../services/signals-digest')
-      const signals = projectMemory.allEntriesForIndex(projectId).filter(isSignalEntry)
-      const body = buildSignalsFile(signals, { boundary: 'llm' })
-      return {
-        content: [{ type: 'text', text: body ?? 'No active signals.' }],
-      }
-    })
-  )
-
-  // Cross-rig skill discovery ("index of paths, not summaries"): agents on
-  // MCP-only rigs (Cursor, Windsurf, ...) resolve the catalog here and pass
-  // EXACT SKILL.md paths to their subagents — never a generated digest.
-  s.tool(
-    'prjct_skills',
-    'Skill index: every available agent skill (project + global roots) with name, description, and the EXACT SKILL.md path. Resolve once, pass paths to subagents — they read the originals.',
-    {
-      projectPath: z.string().describe('Project directory path'),
-    },
-    safeMcpCall('prjct_skills', async (args: { projectPath: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const { refreshSkillIndex, renderSkillIndex } = await import('../../services/skill-index')
-      await refreshSkillIndex(projectId, args.projectPath)
-      const body = renderSkillIndex(projectId)
-      return {
-        content: [
-          { type: 'text', text: body ?? 'No skills found in project or global skill roots.' },
-        ],
-      }
-    })
-  )
-
-  // Standard+ only — keep default core MCP schema lean (≤20 tools).
+  // Standard+ only — cut ListTools token tax on default core (≤12 tools).
+  // CLI parity: prjct cost, prjct context, prjct seed skills, etc.
   if (options.extended) {
     s.tool(
-      'prjct_context_tiers',
-      'Context cache tiers L0–L3 contract: what loads always vs session vs pull vs cold. Never stuff L2/L3 into L0. Includes live L0 skill/routing budget.',
+      'prjct_cost_add',
+      'Record cycle token usage (cost/ROI). Pass model/runtime when known.',
       {
-        projectPath: z.string().describe('Project directory path'),
+        projectPath: optionalProjectPath,
+        tokensIn: z.number().describe('Input tokens'),
+        tokensOut: z.number().describe('Output tokens'),
+        model: z.string().optional().describe('Model id'),
+        runtime: z.string().optional().describe('Host: claude | codex | gemini | …'),
+        isEstimated: z.boolean().optional().describe('True if estimated. Default false.'),
+        workCycleId: z.string().optional().describe('Task id; defaults to active cycle'),
       },
-      safeMcpCall('prjct_context_tiers', async (_args: { projectPath: string }) => {
+      safeMcpCall(
+        'prjct_cost_add',
+        async (args: {
+          projectPath?: string
+          tokensIn: number
+          tokensOut: number
+          model?: string
+          runtime?: string
+          isEstimated?: boolean
+          workCycleId?: string
+        }) => {
+          const path = resolveProjectPath(args.projectPath)
+          const projectId = await resolveProjectId(path)
+          let taskId = args.workCycleId
+          if (!taskId) {
+            const { resolveActiveTask } = await import('../../services/task-service')
+            const active = await resolveActiveTask(projectId, path)
+            taskId = active?.id
+          }
+          if (!taskId) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'No work cycle to attribute cost to (pass workCycleId or start a cycle).',
+                },
+              ],
+            }
+          }
+          recordTaskTokenUsage(projectId, taskId, args.tokensIn, args.tokensOut, {
+            model: args.model,
+            runtime: args.runtime,
+            isEstimated: args.isEstimated ?? false,
+            source: 'mcp',
+          })
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Recorded ${args.tokensIn} in / ${args.tokensOut} out${args.model ? ` (${args.model})` : ''} for ${taskId}.`,
+              },
+            ],
+          }
+        }
+      )
+    )
+
+    s.tool(
+      'prjct_developer',
+      'Synthesized developer profile (feedback + friction). Act as this developer would.',
+      { projectPath: optionalProjectPath },
+      safeMcpCall('prjct_developer', async (args: { projectPath?: string }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const { projectMemory } = await import('../../memory/project-memory')
+        const { buildDeveloperProfile } = await import('../../services/developer-profile')
+        const { renderDeveloperEvolution } = await import('../../services/developer-evolution')
+        const entries = projectMemory.allEntriesForIndex(projectId)
+        const body = buildDeveloperProfile(entries)
+        const evolution = renderDeveloperEvolution(projectId)
+        const text =
+          [body, evolution].filter(Boolean).join('\n\n') ||
+          'No developer profile yet — capture `feedback` memories as preferences emerge.'
+        return { content: [{ type: 'text', text }] }
+      })
+    )
+
+    s.tool(
+      'prjct_signals',
+      'Machine signals: hot files, skill-misses, friction (transient telemetry).',
+      { projectPath: optionalProjectPath },
+      safeMcpCall('prjct_signals', async (args: { projectPath?: string }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const { projectMemory } = await import('../../memory/project-memory')
+        const { buildSignalsFile, isSignalEntry } = await import('../../services/signals-digest')
+        const signals = projectMemory.allEntriesForIndex(projectId).filter(isSignalEntry)
+        const body = buildSignalsFile(signals, { boundary: 'llm' })
+        return { content: [{ type: 'text', text: body ?? 'No active signals.' }] }
+      })
+    )
+
+    s.tool(
+      'prjct_skills',
+      'Skill index: name + description + EXACT SKILL.md path for subagent dispatch.',
+      { projectPath: optionalProjectPath },
+      safeMcpCall('prjct_skills', async (args: { projectPath?: string }) => {
+        const path = resolveProjectPath(args.projectPath)
+        const projectId = await resolveProjectId(path)
+        const { refreshSkillIndex, renderSkillIndex } = await import('../../services/skill-index')
+        await refreshSkillIndex(projectId, path)
+        const body = renderSkillIndex(projectId)
+        return {
+          content: [
+            { type: 'text', text: body ?? 'No skills found in project or global skill roots.' },
+          ],
+        }
+      })
+    )
+
+    s.tool(
+      'prjct_context_tiers',
+      'Context cache tiers L0–L3 + live L0 budget. Never stuff L2 into L0.',
+      { projectPath: optionalProjectPath },
+      safeMcpCall('prjct_context_tiers', async () => {
         const { formatContextTiersMd } = await import('../../services/context-tiers')
         return { content: [{ type: 'text', text: formatContextTiersMd() }] }
       })
@@ -510,19 +488,22 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
 
     s.tool(
       'prjct_safe_artifacts',
-      'List controlled agent-output artifacts: judgment ledger, ship receipts, pending handoffs, context checkpoints, session continuity stamp. Audit surface — not a markdown vault.',
+      'Audit agent outputs: judgment, ships, handoffs, checkpoints, session stamp.',
       {
-        projectPath: z.string().describe('Project directory path'),
+        projectPath: optionalProjectPath,
         limit: z.number().int().min(1).max(20).optional().describe('Max per kind (default 5)'),
       },
-      safeMcpCall('prjct_safe_artifacts', async (args: { projectPath: string; limit?: number }) => {
-        const projectId = await resolveProjectId(args.projectPath)
-        const { listSafeArtifacts, formatSafeArtifactsMd } = await import(
-          '../../services/safe-artifacts'
-        )
-        const report = await listSafeArtifacts(projectId, { limit: args.limit })
-        return { content: [{ type: 'text', text: formatSafeArtifactsMd(report) }] }
-      })
+      safeMcpCall(
+        'prjct_safe_artifacts',
+        async (args: { projectPath?: string; limit?: number }) => {
+          const projectId = await resolveProjectId(args.projectPath)
+          const { listSafeArtifacts, formatSafeArtifactsMd } = await import(
+            '../../services/safe-artifacts'
+          )
+          const report = await listSafeArtifacts(projectId, { limit: args.limit })
+          return { content: [{ type: 'text', text: formatSafeArtifactsMd(report) }] }
+        }
+      )
     )
   }
 }
