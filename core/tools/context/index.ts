@@ -58,6 +58,35 @@ export async function runContextTool(
         }
       }
 
+      case 'tiers': {
+        // Context cache tiers L0–L3 contract + live L0 budget measurement.
+        const { buildContextTiersReport, formatContextTiersJson, formatContextTiersMd } =
+          await import('../../services/context-tiers')
+        const report = buildContextTiersReport()
+        return {
+          tool: 'tiers',
+          result: {
+            markdown: formatContextTiersMd(report),
+            ...formatContextTiersJson(report),
+          },
+        }
+      }
+
+      case 'artifacts': {
+        // Safe artifact repo — judgment, ships, handoffs, checkpoints.
+        const { listSafeArtifacts, formatSafeArtifactsJson, formatSafeArtifactsMd } = await import(
+          '../../services/safe-artifacts'
+        )
+        const report = await listSafeArtifacts(projectId)
+        return {
+          tool: 'artifacts',
+          result: {
+            markdown: formatSafeArtifactsMd(report),
+            ...formatSafeArtifactsJson(report),
+          },
+        }
+      }
+
       case 'help':
         return {
           tool: 'error',
@@ -183,6 +212,14 @@ SUBTOOLS:
 
   learnings [topic]
     Shortcut for the learnings slice (learning / anti-pattern / gotcha).
+
+  tiers
+    Context cache tiers L0–L3 contract + live L0 budget (skill/routing).
+    Agents: never stuff L2/L3 into L0 — pull L2 on demand.
+
+  artifacts
+    Safe artifact repo: judgment ledger, ship receipts, handoffs, checkpoints.
+    Audit what agents produced and under which gates (not a markdown vault).
 
 NOTE: File-oriented subtools (files, signatures, imports, recent,
 summary) were removed in alpha.12 — Claude has Glob/Grep/Read/git

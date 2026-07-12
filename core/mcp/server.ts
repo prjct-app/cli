@@ -34,6 +34,8 @@ Use when the user describes work, asks for project memory, or wants to improve d
 - **Workflows and gates** registered in this project (can be run, listed, edited). They are the quality engine of the work cycle, not a task board.
 - **Code intelligence** helpers (impact, related context) for navigating repos.
 - **Patterns and performance signals** detected by analysis.
+- **Managed session resume** (\`prjct_session_resume\` / \`prjct prime\`) — land stamps continuity; next window restores cycle + hand-off.
+- **Context tiers / safe artifacts** (MCP tier standard+) — \`prjct_context_tiers\`, \`prjct_safe_artifacts\`; also CLI \`prjct context tiers|artifacts --md\`.
 
 ## Gotchas
 
@@ -69,7 +71,8 @@ export function createServer(): McpServer {
 
   const tier = resolveTier()
   registerMemoryTools(server)
-  registerProjectTools(server)
+  // Core keeps a lean schema; extended project tools (tiers/artifacts) on standard+.
+  registerProjectTools(server, { extended: tier !== 'core' })
   if (tier === 'core') return server
 
   registerFileTools(server)

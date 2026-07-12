@@ -8,6 +8,12 @@ import { Buffer } from 'node:buffer'
 import { createServer, DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
+import {
+  CONTEXT_TIERS,
+  L0_ROUTING_BYTES_MAX,
+  L0_SKILL_TOKENS_MAX,
+  measureL0Budget,
+} from './context-tiers'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
 import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
 import type { SkillContext } from './skill-generator/types'
@@ -37,10 +43,10 @@ export interface HarnessScoreReport {
 
 /** Absolute budgets the harness must hold. */
 export const WORLD_CLASS = {
-  /** Dynasty D5 floor — always-on skill diet (was 1500). */
-  skillTokensMax: 900,
+  /** Dynasty D5 floor — always-on skill diet (was 1500). Lockstep with L0_* in context-tiers. */
+  skillTokensMax: L0_SKILL_TOKENS_MAX,
   skillTokensAmber: 1200,
-  routingBodyBytesMax: 400,
+  routingBodyBytesMax: L0_ROUTING_BYTES_MAX,
   routingBodyBytesAmber: 600,
   mcpDefaultTier: 'core' as const,
   mcpToolsCoreMax: 20,
@@ -158,6 +164,18 @@ export function computeHarnessScore(
       'skill points at workflows.md',
       hasWorkflowsPointer ? 'skill → workflows.md' : 'missing pointer'
     ),
+    (() => {
+      const l0 = measureL0Budget(options.skillCtx)
+      const tierCount = CONTEXT_TIERS.length
+      const score = l0.ok && tierCount === 4 ? 5 : l0.ok ? 4 : tierCount === 4 ? 2 : 1
+      return criterion(
+        'context-tiers',
+        'Context cache tiers L0–L3',
+        score,
+        '4 named tiers + L0 skill/routing SLOs',
+        `${tierCount} tiers; L0 skill=${l0.skillTokens}tok routing=${l0.routingBytes}B ${l0.ok ? 'ok' : 'OVER'}`
+      )
+    })(),
     criterion(
       'model-ssot',
       'Model policy SSOT',
@@ -244,6 +262,7 @@ export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
     '| Impact-ranked next | FIFO backlog | ROADMAP.md | none | **SUPERIOR: unblocks × world-model blast × SoT pressure + why line** |',
     '| Geometry-at-intent | ship-only size | ceremony | none | **SUPERIOR: large H2+/H3 plans split|single before code** |',
     '| Always-on skill diet | unmeasured dump | skill flood | dump | **SUPERIOR: ≤900 tok skill + workflows.md progressive disclosure** |',
+    '| Context cache tiers | host cache only | thrash windows | dump | **SUPERIOR: L0–L3 named contract + L0 budget + safe artifacts** |',
     '| Land Rho loop | grow forever | files pile | grow forever | **SUPERIOR: land dry-run would archive/delete + vault mass line** |',
     '| One-breath install | multi-path prompts | ceremony | plugin per host | **SUPERIOR: one install → board + Δ proof; doctor --fix heals** |',
     `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,

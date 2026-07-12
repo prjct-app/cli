@@ -130,8 +130,30 @@ export async function buildSessionContext(
     }
   }
 
+  // Managed session continuity — cold start only (variable stamp time).
+  let continuityCue: string | null = null
+  if (opts.digest) {
+    try {
+      const { loadSessionContinuity, formatContinuitySessionCue } = await import(
+        '../services/session-continuity'
+      )
+      continuityCue = formatContinuitySessionCue(loadSessionContinuity(config.projectId))
+    } catch {
+      continuityCue = null
+    }
+  }
+
   // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness && !vaultNotice && !landCue && !weakBanner && !handoffCue) {
+  if (
+    !persona &&
+    !digest &&
+    !staleness &&
+    !vaultNotice &&
+    !landCue &&
+    !weakBanner &&
+    !handoffCue &&
+    !continuityCue
+  ) {
     return null
   }
 
@@ -169,6 +191,12 @@ export async function buildSessionContext(
   if (handoffCue) {
     if (persona || digest || staleness || vaultNotice || landCue || weakBanner) sections.push('')
     sections.push(handoffCue)
+  }
+  if (continuityCue) {
+    if (persona || digest || staleness || vaultNotice || landCue || weakBanner || handoffCue) {
+      sections.push('')
+    }
+    sections.push(continuityCue)
   }
   return sections.join('\n')
 }

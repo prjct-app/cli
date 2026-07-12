@@ -250,7 +250,19 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       } else {
         const { runContextTool } = await import('../tools/context')
         const result = await runContextTool(contextArgs, projectId, projectPath)
-        console.log(JSON.stringify(result, null, 2))
+        // tiers / artifacts prefer markdown for agents when --md is set
+        if (
+          mdMode &&
+          (result.tool === 'tiers' || result.tool === 'artifacts') &&
+          result.result &&
+          typeof result.result === 'object' &&
+          'markdown' in result.result &&
+          typeof (result.result as { markdown?: unknown }).markdown === 'string'
+        ) {
+          console.log((result.result as { markdown: string }).markdown)
+        } else {
+          console.log(JSON.stringify(result, null, 2))
+        }
         process.exitCode = result.tool === 'error' ? 1 : 0
       }
       done()
@@ -278,8 +290,12 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       result = await cmd.remove(rest || null, process.cwd(), { md: mdMode })
     else if (sub === 'list') result = await cmd.list(null, process.cwd(), { md: mdMode })
     else if (sub === 'suggest') result = await cmd.suggest(null, process.cwd(), { md: mdMode })
+    else if (sub === 'catalog') result = await cmd.catalog(null, process.cwd(), { md: mdMode })
+    else if (sub === 'verify') result = await cmd.verify(null, process.cwd(), { md: mdMode })
     else {
-      console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
+      console.error(
+        `Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest, catalog, verify.`
+      )
     }
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'context-save') {

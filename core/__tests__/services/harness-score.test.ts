@@ -39,6 +39,7 @@ describe('harness score', () => {
     expect(report.criteria.every((c) => c.score >= 3)).toBe(true)
     expect(report.criteria.find((c) => c.id === 'skill-tokens')?.status).toBe('green')
     expect(report.criteria.find((c) => c.id === 'mcp-default')?.status).toBe('green')
+    expect(report.criteria.find((c) => c.id === 'context-tiers')?.status).toBe('green')
     expect(report.programDone).toBe(true)
   })
 
@@ -67,6 +68,7 @@ describe('harness score', () => {
     expect(md).toContain('Always-on skill diet')
     expect(md).toContain('Land Rho loop')
     expect(md).toContain('One-breath install')
+    expect(md).toContain('Context cache tiers')
   })
 
   it('embeds Dynasty delta + outcomes sections when provided', () => {

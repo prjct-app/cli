@@ -31,6 +31,11 @@ export interface HookSignal {
 export interface PackManifest {
   name: string
   description: string
+  /**
+   * Semver of this pack definition (marketplace-lite integrity).
+   * Bump when memory types, slots, or defaults change.
+   */
+  version: string
   /** Starting persona if the user accepts suggestions. */
   suggestedPersona?: {
     role: string
@@ -63,6 +68,7 @@ export interface PackManifest {
 export const PACK_MANIFESTS: Record<string, PackManifest> = {
   code: {
     name: 'code',
+    version: '1.1.0',
     description: 'Coding work: features, bugs, refactors, TDD, shipping.',
     suggestedPersona: {
       role: 'DEV',
@@ -92,6 +98,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   'code-strict': {
     name: 'code-strict',
+    version: '1.1.0',
     description: 'Ship-grade coding: SDD+TDD strict, delivery-geometry gate, forced land. Opt-in.',
     suggestedPersona: {
       role: 'DEV',
@@ -115,6 +122,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   daily: {
     name: 'daily',
+    version: '1.0.0',
     description: 'Day-to-day capture + review. GTD-style inbox + weekly review.',
     memoryTypes: ['inbox', 'todo', 'idea'],
     workflowSlots: {
@@ -127,6 +135,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   pm: {
     name: 'pm',
+    version: '1.0.0',
     description: 'Product Management: specs, user interviews, roadmap, backlog triage.',
     suggestedPersona: {
       role: 'PM',
@@ -153,6 +162,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   founder: {
     name: 'founder',
+    version: '1.0.0',
     description: 'Founder ops: strategy, fundraising, hiring, stakeholder comms.',
     suggestedPersona: {
       role: 'Founder',
@@ -178,6 +188,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   lean: {
     name: 'lean',
+    version: '1.0.0',
     description: 'Anti-over-engineering: minimal-code review, debt ledger, intensity modes.',
     memoryTypes: ['over-engineering', 'lean-debt'],
     workflowSlots: {
@@ -199,6 +210,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   research: {
     name: 'research',
+    version: '1.0.0',
     description: 'Research: deep-dives, literature review, competitive scans.',
     suggestedPersona: {
       role: 'Research',

@@ -18,12 +18,11 @@
  */
 
 import { projectMemory } from '../memory/project-memory'
+import { evaluateMemoryContent } from '../services/trust-boundary'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
-import { scanForPromptInjection } from '../utils/prompt-injection'
-import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 
 export class CaptureCommands extends PrjctCommandsBase {
@@ -47,20 +46,18 @@ export class CaptureCommands extends PrjctCommandsBase {
 
       const text = content.trim()
 
-      const secretHits = scanForSecrets(text)
-      if (secretHits.length > 0 && !options.force) {
-        out.fail(
-          `refusing to capture content that looks like a secret (${secretHits.join(', ')}). Re-run with --force if intentional.`
-        )
-        return { success: false, error: 'Secret-like content detected' }
-      }
-
-      const injectionHits = scanForPromptInjection(text)
-      if (injectionHits.length > 0 && !options.force) {
-        out.fail(
-          `refusing to capture content that looks like prompt injection (${injectionHits.join(', ')}). Captures are inlined into LLM context — re-run with --force if intentional.`
-        )
-        return { success: false, error: 'Prompt-injection-like content detected' }
+      const trust = evaluateMemoryContent(text, { force: options.force })
+      if (!trust.allow) {
+        out.fail(trust.denyMessage)
+        return {
+          success: false,
+          error:
+            trust.kind === 'secrets'
+              ? 'Secret-like content detected'
+              : trust.kind === 'prompt_injection'
+                ? 'Prompt-injection-like content detected'
+                : trust.reason,
+        }
       }
 
       const tags = parseFlagTags(options.tags)
