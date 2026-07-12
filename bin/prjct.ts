@@ -94,15 +94,20 @@ if (_fastCommand === 'hook' && process.env.PRJCT_NO_DAEMON !== '1') {
     const stdinPayload = await readAllStdin(1000)
     try {
       const { sendRequest } = await import('../core/daemon/client')
+      const { HOOK_REQUEST_TIMEOUT_MS } = await import('../core/daemon/protocol')
       const crypto = await import('node:crypto')
-      const response = await sendRequest({
-        id: crypto.randomUUID(),
-        command: 'hook',
-        args: subcommand ? [subcommand] : [],
-        options: {},
-        cwd: process.cwd(),
-        stdin: stdinPayload,
-      })
+      // 5s fail-soft — matches production shim; never stall Claude for 30s.
+      const response = await sendRequest(
+        {
+          id: crypto.randomUUID(),
+          command: 'hook',
+          args: subcommand ? [subcommand] : [],
+          options: {},
+          cwd: process.cwd(),
+          stdin: stdinPayload,
+        },
+        { timeoutMs: HOOK_REQUEST_TIMEOUT_MS }
+      )
       // `retry` = daemon code is stale; the hook did NOT run there. Fall
       // through to in-process execution below so the hook always runs on the
       // fresh code (this was the original "stale daemon caches old hook code"
