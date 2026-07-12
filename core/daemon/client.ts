@@ -14,7 +14,14 @@ import { connect } from 'node:net'
 import path from 'node:path'
 import type { DaemonRequest, DaemonResponse, DaemonStatus } from '../types/daemon'
 import { isBunAvailable } from '../utils/runtime'
-import { DAEMON_PATHS, encodeMessage, isDaemonNamedPipe } from './protocol'
+import {
+  COMMAND_REQUEST_TIMEOUT_MS,
+  DAEMON_PATHS,
+  encodeMessage,
+  HOOK_REQUEST_TIMEOUT_MS,
+  isDaemonNamedPipe,
+} from './protocol'
+import { releaseSpawnLock, tryAcquireSpawnLock } from './startup-lock'
 
 /**
  * Check if the daemon is running (socket file exists + responds to ping)
@@ -28,14 +35,18 @@ export async function isDaemonRunning(): Promise<boolean> {
   if (!namedPipe && !fs.existsSync(socketPath)) return false
 
   // Verify: can we actually connect and get a response?
+  // Short timeout — a hung daemon must not stall spawn/health for 30s.
   try {
-    const response = await sendRequest({
-      id: crypto.randomUUID(),
-      command: '__ping',
-      args: [],
-      options: {},
-      cwd: process.cwd(),
-    })
+    const response = await sendRequest(
+      {
+        id: crypto.randomUUID(),
+        command: '__ping',
+        args: [],
+        options: {},
+        cwd: process.cwd(),
+      },
+      { timeoutMs: 1_000 }
+    )
     return response.success
   } catch {
     // Socket exists but daemon is dead — stale socket. Named pipes are not unlinkable files.
@@ -88,10 +99,25 @@ export async function getDaemonStatus(): Promise<DaemonStatus> {
   return { running: false }
 }
 
+export interface SendRequestOptions {
+  /** Override the default timeout (commands 30s, hooks should pass HOOK_REQUEST_TIMEOUT_MS). */
+  timeoutMs?: number
+}
+
 /**
- * Send a command to the daemon and return the response
+ * Send a command to the daemon and return the response.
+ * Default timeout is 30s for CLI commands. Callers serving hooks MUST pass
+ * `timeoutMs: HOOK_REQUEST_TIMEOUT_MS` (5s) so a hung daemon cannot stall
+ * the host agent for half a minute.
  */
-export function sendRequest(request: DaemonRequest): Promise<DaemonResponse> {
+export function sendRequest(
+  request: DaemonRequest,
+  options: SendRequestOptions = {}
+): Promise<DaemonResponse> {
+  const timeoutMs =
+    options.timeoutMs ??
+    (request.command === 'hook' ? HOOK_REQUEST_TIMEOUT_MS : COMMAND_REQUEST_TIMEOUT_MS)
+
   return new Promise((resolve, reject) => {
     const socketPath = DAEMON_PATHS.socket()
     const socket = connect(socketPath)
@@ -104,7 +130,7 @@ export function sendRequest(request: DaemonRequest): Promise<DaemonResponse> {
         socket.destroy()
         reject(new Error('Daemon request timed out'))
       }
-    }, 30_000) // 30s timeout for command execution
+    }, timeoutMs)
 
     socket.on('connect', () => {
       socket.write(encodeMessage(request))
@@ -112,6 +138,17 @@ export function sendRequest(request: DaemonRequest): Promise<DaemonResponse> {
 
     socket.on('data', (chunk) => {
       buffer += chunk.toString()
+
+      // Guard against a runaway response (malformed / hostile peer).
+      if (buffer.length > 8 * 1024 * 1024) {
+        if (!resolved) {
+          resolved = true
+          clearTimeout(timeout)
+          socket.destroy()
+          reject(new Error('Daemon response too large'))
+        }
+        return
+      }
 
       const newlineIdx = buffer.indexOf('\n')
       if (newlineIdx !== -1) {
@@ -263,62 +300,102 @@ export function forceKillDaemon(): boolean {
  * - Dev mode: raw TypeScript via bun (core/daemon/entry.ts exists)
  * - Production (from dist/bin/): compiled JS adjacent (../daemon/entry.mjs)
  * - Production (from bin/): compiled JS in dist/ (dist/daemon/entry.mjs)
+ *
+ * Single-flight: in-process promise coalesce + exclusive spawn lock file so
+ * concurrent hooks/CLI clients never race the Unix socket bind (production
+ * symptom: "Failed to listen" / "chmod ENOENT" storms in daemon.log).
  */
+/** In-process single-flight so one CLI process never double-spawns. */
+let _spawnInFlight: Promise<boolean> | null = null
+
 export async function spawnDaemon(): Promise<boolean> {
-  const { spawn } = await import('node:child_process')
-
-  // Resolve daemon entry: prefer source (dev) → compiled (production)
-  const srcPath = path.join(__dirname, 'entry.ts')
-  // When running from dist/bin/, the daemon is at ../daemon/entry.mjs
-  const distPathAdjacent = path.join(__dirname, '..', 'daemon', 'entry.mjs')
-  // When running from bin/, the daemon is at dist/daemon/entry.mjs
-  const distPath = path.join(__dirname, '..', 'dist', 'daemon', 'entry.mjs')
-
-  let entryPath: string
-  let runtime: string
-  const preferBun = process.platform !== 'win32' && isBunAvailable()
-
-  if (fs.existsSync(srcPath)) {
-    // Dev mode: use raw TypeScript with bun
-    entryPath = srcPath
-    runtime = 'bun'
-  } else if (fs.existsSync(distPathAdjacent)) {
-    // Production (running from dist/): prefer bun if available
-    entryPath = distPathAdjacent
-    runtime = preferBun ? 'bun' : 'node'
-  } else if (fs.existsSync(distPath)) {
-    // Production (running from bin/): prefer bun if available
-    entryPath = distPath
-    runtime = preferBun ? 'bun' : 'node'
-  } else {
-    return false
-  }
-
-  const runDir = DAEMON_PATHS.runDir()
-  fs.mkdirSync(runDir, { recursive: true })
-
-  const logPath = DAEMON_PATHS.log()
-  const logFd = fs.openSync(logPath, 'a')
-
-  const child = spawn(runtime, [entryPath], {
-    detached: true,
-    stdio: ['ignore', logFd, logFd],
-    // The daemon entry sets PRJCT_IN_DAEMON itself before any consumer
-    // code runs, so we just inherit the parent env.
-    env: process.env,
+  if (_spawnInFlight) return _spawnInFlight
+  _spawnInFlight = spawnDaemonExclusive().finally(() => {
+    _spawnInFlight = null
   })
+  return _spawnInFlight
+}
 
-  child.unref()
-  fs.closeSync(logFd)
+async function spawnDaemonExclusive(): Promise<boolean> {
+  // Already up — nothing to do (cheap; avoids the lock entirely).
+  if (await isDaemonRunning()) return true
 
-  // Poll until daemon is live (up to 3s, especially important after updates)
-  const deadline = Date.now() + 3000
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    if (await isDaemonRunning()) return true
+  const lock = tryAcquireSpawnLock()
+  if (!lock) {
+    // Another process is mid-spawn — wait for it to come up instead of
+    // racing the socket (production logs: Failed to listen / chmod ENOENT).
+    return await waitUntilDaemonRunning(3_000)
   }
 
-  return false
+  try {
+    // Re-check under the lock: the winner of a prior race may already be live.
+    if (await isDaemonRunning()) return true
+
+    const { spawn } = await import('node:child_process')
+
+    // Resolve daemon entry: prefer source (dev) → compiled (production)
+    const srcPath = path.join(__dirname, 'entry.ts')
+    // When running from dist/bin/, the daemon is at ../daemon/entry.mjs
+    const distPathAdjacent = path.join(__dirname, '..', 'daemon', 'entry.mjs')
+    // When running from bin/, the daemon is at dist/daemon/entry.mjs
+    const distPath = path.join(__dirname, '..', 'dist', 'daemon', 'entry.mjs')
+
+    let entryPath: string
+    let runtime: string
+    const preferBun = process.platform !== 'win32' && isBunAvailable()
+
+    if (fs.existsSync(srcPath)) {
+      // Dev mode: use raw TypeScript with bun
+      entryPath = srcPath
+      runtime = 'bun'
+    } else if (fs.existsSync(distPathAdjacent)) {
+      // Production (running from dist/): prefer bun if available
+      entryPath = distPathAdjacent
+      runtime = preferBun ? 'bun' : 'node'
+    } else if (fs.existsSync(distPath)) {
+      // Production (running from bin/): prefer bun if available
+      entryPath = distPath
+      runtime = preferBun ? 'bun' : 'node'
+    } else {
+      return false
+    }
+
+    const runDir = DAEMON_PATHS.runDir()
+    fs.mkdirSync(runDir, { recursive: true })
+
+    const logPath = DAEMON_PATHS.log()
+    const logFd = fs.openSync(logPath, 'a')
+
+    const child = spawn(runtime, [entryPath], {
+      detached: true,
+      stdio: ['ignore', logFd, logFd],
+      // The daemon entry sets PRJCT_IN_DAEMON itself before any consumer
+      // code runs, so we just inherit the parent env.
+      env: process.env,
+    })
+
+    child.unref()
+    fs.closeSync(logFd)
+
+    return await waitUntilDaemonRunning(3_000)
+  } finally {
+    releaseSpawnLock(lock)
+  }
+}
+
+/**
+ * Poll for a live daemon with short early intervals (hooks care about the
+ * first ~100ms) then back off. Caps at `budgetMs`.
+ */
+async function waitUntilDaemonRunning(budgetMs: number): Promise<boolean> {
+  const deadline = Date.now() + budgetMs
+  let delay = 40
+  while (Date.now() < deadline) {
+    if (await isDaemonRunning()) return true
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    delay = Math.min(delay * 2, 250)
+  }
+  return isDaemonRunning()
 }
 
 /**

@@ -7,7 +7,19 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { decideRestart } from '../../daemon/staleness'
+import { decideRestart, isStrictlyNewerVersion } from '../../daemon/staleness'
+
+describe('isStrictlyNewerVersion', () => {
+  test('detects upgrades and ignores equal/older/non-semver', () => {
+    expect(isStrictlyNewerVersion('3.49.0', '3.48.0')).toBe(true)
+    expect(isStrictlyNewerVersion('3.48.1', '3.48.0')).toBe(true)
+    expect(isStrictlyNewerVersion('4.0.0', '3.99.99')).toBe(true)
+    expect(isStrictlyNewerVersion('3.48.0', '3.48.0')).toBe(false)
+    expect(isStrictlyNewerVersion('3.47.0', '3.48.0')).toBe(false)
+    expect(isStrictlyNewerVersion('not-a-version', '3.48.0')).toBe(false)
+    expect(isStrictlyNewerVersion('v3.50.0', '3.49.0')).toBe(true)
+  })
+})
 
 const NEVER = () => false
 const ALWAYS = () => true

@@ -73,10 +73,24 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
         const uptime = status.uptime ? Math.round(status.uptime / 1000) : 0
         const stale = (status as unknown as Record<string, unknown>).stale
         console.log(`Daemon running (PID ${status.pid})${stale ? ' ⚠ STALE' : ''}`)
+        if (status.version) console.log(`  Version: ${status.version}`)
         console.log(`  Uptime: ${uptime}s`)
         console.log(`  Commands served: ${status.commandsServed ?? 0}`)
+        if (typeof status.activeRequests === 'number') {
+          console.log(`  Active requests: ${status.activeRequests}`)
+        }
+        if (typeof status.memoryRss === 'number') {
+          const mb = Math.round(status.memoryRss / 1024 / 1024)
+          console.log(`  Memory (RSS): ${mb} MB`)
+        }
         if (status.lastActivity) {
           console.log(`  Last activity: ${status.lastActivity}`)
+        }
+        if (status.restartPending) {
+          console.log(`  ${chalk.yellow(`Restart pending (${status.restartReason ?? 'unknown'})`)}`)
+        }
+        if (typeof status.absorbedErrors === 'number' && status.absorbedErrors > 0) {
+          console.log(`  Absorbed errors: ${status.absorbedErrors}`)
         }
         if (stale) {
           console.log(
