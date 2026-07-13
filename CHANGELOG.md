@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.52.0] - 2026-07-13
+
+### Added
+- KISS/DRY dead code cleanup after portable L0 skill
+
 ## [3.51.0] - 2026-07-13
 
 ### Added
