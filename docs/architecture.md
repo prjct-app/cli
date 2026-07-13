@@ -234,16 +234,16 @@ steps, zero fixed pipelines.
 - **Biome errors are blocking.** Do not commit code with lint errors.
 - **Schemas are source of truth.** Define with Zod, infer TypeScript types.
 
-## Skill System & Curation Principles (from X post analysis, 2026-07)
-Insights from the post on high-leverage skills captured in project memory (`prjct context memory skill-curation`).
+## Skill System & Curation Principles
+High-leverage skill patterns captured in project memory (`prjct context memory skill-curation`).
 
 **Key patterns integrated**:
 - TDD applied to skill creation (baseline test without guidance, write minimal skill, refactor with rationalization tables, red flags and checklists).
-- Skill Discovery Optimization: Rich "Use when..." descriptions focused on triggers (no workflow spoilers), keywords for search, strict token budgets (<200 words for core skills).
-- New curated skill: `templates/skills/systematic-debugging/SKILL.md` (4-phase process: reproduce, isolate, root cause, verify + prevent; pairs perfectly with `tdd`, `review` and `guard`).
+- Rich "Use when..." descriptions focused on triggers (no workflow spoilers), keywords for search, strict token budgets (<200 words for core skills).
+- New curated skill: `templates/skills/systematic-debugging/SKILL.md` (4-phase process: reproduce, isolate, root cause, verify + prevent; pairs with `tdd`, `review` and `guard`).
 
 **Changes shipped**:
-- Updated core prjct skill (L0) with explicit anti-bloat rules, curation guidance and reference to the new skill.
+- Updated core prjct skill (L0) with explicit anti-bloat rules and reference to the new skill.
 - Regenerated all templates.
 - Documented in architecture for future reference.
 

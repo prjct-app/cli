@@ -6,7 +6,7 @@ description: Use when encountering flaky tests, race conditions, hanging process
 # Systematic Debugging
 
 ## Overview
-**Systematic debugging is root-cause analysis, not guess-and-check.** It follows a repeatable 4-phase process to eliminate assumptions, reproduce the failure reliably, isolate the exact cause, and verify the fix. Inspired by Superpowers and prjct's emphasis on evidence over claims. **Always pair with test-driven-development and verification-before-completion.**
+**Systematic debugging is root-cause analysis, not guess-and-check.** It follows a repeatable 4-phase process to eliminate assumptions, reproduce the failure reliably, isolate the exact cause, and verify the fix. **Always pair with test-driven-development and verification-before-completion.**
 
 **Core principle:** "If you didn't reproduce it reliably and isolate the root cause, you haven't fixed it — you've just hidden it."
 
@@ -28,7 +28,7 @@ description: Use when encountering flaky tests, race conditions, hanging process
 
 2. **Isolate (Binary Search)**  
    Divide and conquer: comment out halves of code, use git bisect, or binary search on commits/variables.  
-   Ask: "What is the smallest change that triggers the failure?" Use `git-cochange` or prjct domain tools if available.
+   Ask: "What is the smallest change that triggers the failure?"
 
 3. **Root Cause (Why-Why-Why)**  
    Apply 5-Whys + defense-in-depth. Identify the exact faulty assumption (e.g. "assumed network always available").  
@@ -69,12 +69,6 @@ description: Use when encountering flaky tests, race conditions, hanging process
 - Skipping reproduction in clean environment.
 - Over-debugging without binary search (wastes time).
 
-## Integration with prjct
-- Use inside `prjct work` or `prjct tdd`.
-- Pair with `review` subagent for verification.
-- Capture every root cause: `prjct remember gotcha "..."`.
-- See captured memory `superpowers` for full TDD-for-skills methodology.
+**TDD for this skill itself:** Baseline test any new debugging scenario WITHOUT this skill first.
 
-**TDD for this skill itself:** Baseline test any new debugging scenario WITHOUT this skill first. Measure if agent follows systematic process vs. guessing.
-
-This skill makes debugging predictable and teachable. Follow the procedure — no exceptions.
+Follow the procedure — no exceptions.
