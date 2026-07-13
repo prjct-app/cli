@@ -234,19 +234,19 @@ steps, zero fixed pipelines.
 - **Biome errors are blocking.** Do not commit code with lint errors.
 - **Schemas are source of truth.** Define with Zod, infer TypeScript types.
 
-## Skill System & External Inspirations (from X post analysis, 2026-07)
-Analysis of [@prajwaltomar_ post](https://x.com/prajwaltomar_/status/2074095215422705805) and repos (obra/superpowers, onewave-ai/claude-skills, anthropics/skills) captured in project memory (`prjct context memory superpowers`).
+## Skill System & Curation Principles (from X post analysis, 2026-07)
+Insights from the post on high-leverage skills captured in project memory (`prjct context memory skill-curation`).
 
-**Key patterns adopted**:
-- **TDD-for-skills** (Superpowers `writing-skills`): Baseline pressure-test *without* skill, write minimal SKILL.md, refactor with rationalization tables + red flags + checklists.
-- **SDO (Skill Discovery Optimization)**: Rich "Use when..." descriptions (triggers only, no workflow summary), keywords, token efficiency (<200 words for core skills), cross-references.
-- New curated skill: `templates/skills/systematic-debugging/SKILL.md` (4-phase reproduce/isolate/root-cause/verify, pairs with `tdd`/`review`/`guard`).
+**Key patterns integrated**:
+- TDD applied to skill creation (baseline test without guidance, write minimal skill, refactor with rationalization tables, red flags and checklists).
+- Skill Discovery Optimization: Rich "Use when..." descriptions focused on triggers (no workflow spoilers), keywords for search, strict token budgets (<200 words for core skills).
+- New curated skill: `templates/skills/systematic-debugging/SKILL.md` (4-phase process: reproduce, isolate, root cause, verify + prevent; pairs perfectly with `tdd`, `review` and `guard`).
 
 **Changes shipped**:
-- Updated `core/services/skill-generator/prjct-skill-body.ts` + regenerated templates with anti-bloat rules and reference to new skill.
-- Core prjct L0 skill now explicitly warns against skill bloat and promotes curation + TDD-for-skills.
-- Aligns with prjct invariants: memory-first (`remember learning/gotcha`), pattern supremacy (adapt, don't copy), work cycles as unit of progress.
+- Updated core prjct skill (L0) with explicit anti-bloat rules, curation guidance and reference to the new skill.
+- Regenerated all templates.
+- Documented in architecture for future reference.
 
-Future: YAML `triggers`/`procedure` in generator, GitHub skill packs in `command-installer.ts`/`packs/`, expanded eval harness. See `docs/analysis-verification.md` for testing skills.
+This strengthens our skill system: memory-first, pattern-focused, high-signal curation without dilution. Future work can expand YAML structure and installer flows while staying lean.
 
-This makes prjct the superior "AI Agile OS" — persistent memory, MCP, isolated subagents, and curated high-leverage skills beat raw skill loading.
+See captured memories for full details.
