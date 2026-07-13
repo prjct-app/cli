@@ -239,14 +239,12 @@ High-leverage skill patterns captured in project memory (`prjct context memory s
 
 **Key patterns integrated**:
 - TDD applied to skill creation (baseline test without guidance, write minimal skill, refactor with rationalization tables, red flags and checklists).
-- Rich "Use when..." descriptions focused on triggers (no workflow spoilers), keywords for search, strict token budgets (<200 words for core skills).
-- New curated skill: `templates/skills/systematic-debugging/SKILL.md` (4-phase process: reproduce, isolate, root cause, verify + prevent; pairs with `tdd`, `review` and `guard`).
+- Rich "Use when..." descriptions focused on triggers, keywords for search, strict token budgets.
+- Systematic debugging workflow (4-phase process that pairs with existing `tdd` and `review`).
 
 **Changes shipped**:
-- Updated core prjct skill (L0) with explicit anti-bloat rules and reference to the new skill.
-- Regenerated all templates.
-- Documented in architecture for future reference.
+- Updated core prjct skill (L0) with explicit anti-bloat and curation rules.
+- Regenerated templates.
+- Added systematic debugging as a curated template skill.
 
-This strengthens our skill system: memory-first, pattern-focused, high-signal curation without dilution. Future work can expand YAML structure and installer flows while staying lean.
-
-See captured memories for full details.
+This strengthens our skill system while keeping it lean and memory-first.

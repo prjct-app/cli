@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.53.0] - 2026-07-13
+
+### Added
+- skill curation from post analysis
+
 ## [3.52.0] - 2026-07-13
 
 ### Added
