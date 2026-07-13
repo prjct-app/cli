@@ -5,7 +5,7 @@
  * (Dynasty D5); methodology and full verb map live in workflows.md.
  */
 
-import { formatProjectHeader, formatRichContext } from './formatters'
+import { formatProjectHeader } from './formatters'
 import type { SkillContext } from './types'
 
 export const PRJCT_SKILL_DESCRIPTION =
@@ -60,7 +60,13 @@ export function buildPrjctSkill(ctx: SkillContext): string {
 }
 
 export function buildPrjctSkillBody(ctx: SkillContext): string {
-  // Dynasty D5: always-on skill ≤900 tok (empty). Methodology → workflows.md.
+  // Dynasty D5: always-on skill ≤900 tok. Methodology → workflows.md.
+  // L0 is portable: install path always passes emptySkillContext so
+  // multi-project sync cannot poison the global skill. If a non-empty
+  // ctx is passed (tests/helpers), still prefer portable baseline for
+  // the always-on body — project facts belong in L1 SessionStart.
+  const portable = emptySkillContext()
+  const headerCtx = ctx.projectName ? portable : ctx
   return [
     '# prjct',
     '',
@@ -70,8 +76,9 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     "## What's here",
     '',
-    formatProjectHeader(ctx),
-    formatRichContext(ctx),
+    formatProjectHeader(headerCtx),
+    // Never bake formatRichContext into L0 — ships/velocity/patterns are
+    // project-scoped and stale across syncs of different repos.
     '',
     '### Agent contract',
     '',
@@ -79,6 +86,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '- Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.',
     '- Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.',
     '- **Pattern supremacy:** style source = THIS repo (neighbor + `search`/`context memory`/Work scope). Sound pattern → **match**. Shit pattern → **propose upgrade**, do not spread garbage or foreign linter taste. Never make the client tutor basics already in the tree.',
+    '- **Skill ≠ project identity.** If skill and cwd disagree, trust cwd + `prjct context --md`.',
     '',
     '### Cast + file scope (MUST)',
     '',
@@ -195,7 +203,7 @@ export function buildPrjctSkillReference(): string {
     '| **SoT / Live suggest / tip lines (terminal only — no web UI)** | **Surface them to the user in chat** as a short tip, then act. **SoT** = binding project truth (obey or supersede with `prjct remember`). **SUGGEST/tip** = propose the live change in the terminal and apply when editing. Never swallow tips silently. |',
     '| **Workspace owned by another agent (parallel work)** | `prjct work` auto-isolates to a sibling git worktree — `cd` there. Same-feature rescue uses `switch`, not a new worktree. |',
     '',
-    'Model on every dispatch: implementer that writes code → `model: "opus"`; reviewer/judge (`review`/`security`/`investigate`/`audit-spec`) → `model: "sonnet"`; pure routing/orchestration → `model: "haiku"`. A non-implementer inheriting the parent model burns tokens and latency.',
+    'Model policy is **capability class**, not a single host vocabulary. Implementer that writes code → max-tier model; reviewer/judge (`review`/`security`/`investigate`/`audit-spec`) → mid-tier; pure routing/orchestration → fast tier. Host mapping examples: Claude Code `opus` / `sonnet` / `haiku`; other hosts use their equivalent. A non-implementer inheriting the parent max model burns tokens and latency.',
     '',
     '## Spec pipeline — the stations (COMPLEX work only)',
     '',
@@ -269,15 +277,15 @@ export function buildPrjctSkillReference(): string {
     '',
     'Workflows that read many files (`review`, `security`, `investigate`, `audit`) MUST dispatch the read-and-analyze step as a subagent via the Agent tool with `subagent_type: "general-purpose"`. The subagent runs in a fresh context window and returns only the conclusion — the parent does not accumulate intermediate file reads. Without this, the parent\'s context fills with diffs, source files, and memory excerpts, leaving little budget for the user\'s actual conversation.',
     '',
-    "**Model policy (perf — non-negotiable).** A subagent inherits the parent's model + effort UNLESS you set `model:` in the Agent call. Orchestrators and reviewers do NOT implement — running them on the parent's max model is exactly why a single task used to crawl through every agent. Set the model explicitly on every dispatch:",
+    "**Model policy (perf — non-negotiable).** A subagent inherits the parent's model + effort UNLESS you set `model:` in the Agent call. Orchestrators and reviewers do NOT implement — running them on the parent's max model is exactly why a single task used to crawl through every agent. Set the model explicitly on every dispatch (host vocabulary may differ — Claude examples below):",
     '',
-    '- **Implementer** (the agent that writes code) → `model: "opus"`, full effort. ONLY this role gets max.',
-    '- **Reviewers / judgment** (`review`, `security`, `investigate`, and the `audit-spec` review specialists) → `model: "sonnet"`. Strong reasoning, ~no quality loss for judging a diff, far faster than Opus-max.',
-    '- **Pure orchestration / routing** (crew leader, any fan-out step that only routes) → `model: "haiku"`.',
+    '- **Implementer** (the agent that writes code) → max-tier (`model: "opus"` on Claude Code), full effort. ONLY this role gets max.',
+    '- **Reviewers / judgment** (`review`, `security`, `investigate`, and the `audit-spec` review specialists) → mid-tier (`model: "sonnet"` on Claude Code). Strong reasoning for judging a diff; far cheaper than max.',
+    '- **Pure orchestration / routing** (crew leader, any fan-out step that only routes) → fast tier (`model: "haiku"` on Claude Code).',
     '',
     'In every non-implementer subagent prompt, add one line: "Apply decent, not exhaustive, effort — you are reviewing/orchestrating: return the verdict, do not over-deliberate." Effort is prompt guidance (the Agent tool has no effort param); `model:` is the concrete lever — never omit it for a non-implementer.',
     '',
-    '**Fan out implementers when subtasks are independent.** One implementer is the floor, not a cap. When work splits into 2+ parts that touch DISJOINT files, dispatch one `implementer` per part IN THE SAME MESSAGE (one Agent block each) so they run in parallel — each `model: "opus"`, each handed its own non-overlapping file scope by you. If you cannot carve disjoint scopes (two parts would edit the same file), do NOT parallelize — run them sequentially; parallel writes to one file clobber each other. After the fan-out returns, compose the review specialists the combined diff raises (architecture + the lenses the change touches — the same set `prjct spec audit` selects), one specialist per concern over the whole diff, not one generic reviewer per implementer. Only fan out for genuine independence — parallel `opus` implementers are the most expensive spawn, so match the count to the work, never pad it.',
+    '**Fan out implementers when subtasks are independent.** One implementer is the floor, not a cap. When work splits into 2+ parts that touch DISJOINT files, dispatch one `implementer` per part IN THE SAME MESSAGE (one Agent block each) so they run in parallel — each max-tier model, each handed its own non-overlapping file scope by you. If you cannot carve disjoint scopes (two parts would edit the same file), do NOT parallelize — run them sequentially; parallel writes to one file clobber each other. After the fan-out returns, compose the review specialists the combined diff raises (architecture + the lenses the change touches — the same set `prjct spec audit` selects), one specialist per concern over the whole diff, not one generic reviewer per implementer. Only fan out for genuine independence — parallel max-tier implementers are the most expensive spawn, so match the count to the work, never pad it.',
     '',
     '**Crew mode reconciliation.** If this project has crew mode installed (`.claude/agents/leader.md` present, or a `prjct:crew` block in CLAUDE.md), the TRIAGE-FIRST "go direct" rule does NOT mean the main session writes code itself — it means triage happens INSIDE the leader: a trivial change is a 1-implementer dispatch (no spec), not a reason to skip the crew. In a crew project, ANY code/test work routes through the leader → implementer(s) → reviewer; the main session never edits source directly. "Go direct" still governs non-code turns (captures, memory, Q&A) — those need no subagent at all.',
     '',

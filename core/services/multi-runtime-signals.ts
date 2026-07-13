@@ -12,7 +12,9 @@
 
 import { BENCHMARK_HARNESS_SURFACES } from '../infrastructure/harness-surfaces'
 import { PRJCT_HOOKS } from './settings-installer'
+import { skillBodyHasProjectStamp } from './skill-generator'
 import { buildCodexSkill, buildGeminiConfig, CONTRACT } from './skill-generator/editor-surfaces'
+import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
 
 export const CORE_SUPERIORITY_RUNTIMES = ['claude', 'codex', 'gemini', 'cursor', 'grok'] as const
 
@@ -88,10 +90,20 @@ export function multiRuntimeInstallParityReport(): {
 
   const codexSkill = buildCodexSkill()
   const geminiCfg = buildGeminiConfig()
+  const claudeSkill = buildPrjctSkill(emptySkillContext())
   const codexHasLoop = codexSkill.includes(CONTRACT.loop)
   const geminiHasLoop = geminiCfg.includes(CONTRACT.loop)
   if (!codexHasLoop) missing.push('codex skill missing CONTRACT.loop')
   if (!geminiHasLoop) missing.push('gemini config missing CONTRACT.loop')
+  if (!codexSkill.includes(CONTRACT.identity)) {
+    missing.push('codex skill missing CONTRACT.identity')
+  }
+  if (skillBodyHasProjectStamp(claudeSkill)) {
+    missing.push('claude L0 skill is project-stamped (multi-project poison)')
+  }
+  if (!claudeSkill.includes('cwd-scoped') && !claudeSkill.includes('portable')) {
+    missing.push('claude L0 skill missing portable baseline')
+  }
 
   const grok = BENCHMARK_HARNESS_SURFACES.find((s) => s.runtimeId === 'grok')
   const grokInheritsClaude =

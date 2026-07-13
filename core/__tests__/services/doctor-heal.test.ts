@@ -45,4 +45,30 @@ describe('doctor-heal plan', () => {
     })
     expect(p.actions.find((a) => a.id === 'claude-hooks')?.needed).toBe(false)
   })
+
+  it('needs portable-skills heal when skill is project-stamped', () => {
+    const p = planDoctorHeal({
+      hooksInstalled: 12,
+      hooksExpected: 12,
+      liveCount: 4,
+      detectedCount: 4,
+      organicPct: 100,
+      hasProject: true,
+      skillPoisoned: true,
+    })
+    expect(p.actions.find((a) => a.id === 'portable-skills')?.needed).toBe(true)
+  })
+
+  it('skips portable-skills when skill is clean', () => {
+    const p = planDoctorHeal({
+      hooksInstalled: 12,
+      hooksExpected: 12,
+      liveCount: 4,
+      detectedCount: 4,
+      organicPct: 100,
+      hasProject: true,
+      skillPoisoned: false,
+    })
+    expect(p.actions.find((a) => a.id === 'portable-skills')?.needed).toBe(false)
+  })
 })
