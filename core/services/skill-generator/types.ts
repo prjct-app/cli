@@ -1,49 +1,8 @@
 /**
- * Shared types for the skill generator.
+ * Types for the portable multi-host skill installer.
  *
- * Lives here (not in `core/types/`) because they are tightly coupled to
- * the generator implementation — moving them would require re-exports
- * (forbidden in this codebase).
+ * L0 skill is project-agnostic — no SkillContext / rich project payload.
  */
-
-import type { ProjectCommands } from '../../types/project-sync'
-
-export interface SkillContext {
-  // Basics
-  projectName: string
-  stack: string
-  branch: string
-  commands: ProjectCommands
-  projectId: string
-
-  // Rich data from SQLite. State is rendered counts-only (see
-  // formatState) — task/backlog DESCRIPTIONS deliberately never enter
-  // the skill body, so this type carries none.
-  version: string
-  fileCount: number
-  patterns: { name: string; description: string; location?: string }[]
-  antiPatterns: { issue: string; file: string; suggestion: string; severity: string }[]
-  recentShipped: { name: string; type: string; duration?: string; filesChanged?: number }[]
-  velocity: { avgPoints?: number; trend?: string; accuracy?: number } | null
-  backlogCount: number
-  knownGotchas: string[]
-
-  // Task state (from stateStorage)
-  pausedTasks: { description: string; pausedAt: string }[]
-  // Counts
-  ideasCount: number
-  shippedCount: number
-
-  // User behavior patterns (from aggregated feedback)
-  userPatterns: string[]
-}
-
-export interface ConditionContext {
-  backlogCount: number
-  completedTaskCount: number
-  pausedTaskCount: number
-  hasActiveTask: boolean
-}
 
 export interface SkillDefinition {
   name: string
@@ -51,16 +10,13 @@ export interface SkillDefinition {
   allowedTools: string[]
   /** Whether users can invoke this skill directly (default true) */
   userInvocable?: boolean
-  /** Return true if the skill should be generated */
-  condition: (ctx: ConditionContext) => boolean
-  /** Generate the skill body content */
-  body: (ctx: SkillContext) => string
+  /** Generate the skill body (always portable L0) */
+  body: () => string
   /**
-   * Optional deep-methodology reference written next to SKILL.md and pulled
-   * on demand (progressive disclosure) — keeps heavy material out of the
-   * always-in-context body. Requires `referenceFile`.
+   * Deep methodology written next to SKILL.md and pulled on demand
+   * (progressive disclosure). Requires `referenceFile`.
    */
   reference?: () => string
-  /** Filename for `reference` content within the skill dir (e.g. `workflows.md`). */
+  /** Filename for `reference` within the skill dir (e.g. `workflows.md`). */
   referenceFile?: string
 }

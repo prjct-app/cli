@@ -14,7 +14,7 @@ import { BENCHMARK_HARNESS_SURFACES } from '../infrastructure/harness-surfaces'
 import { PRJCT_HOOKS } from './settings-installer'
 import { skillBodyHasProjectStamp } from './skill-generator'
 import { buildCodexSkill, buildGeminiConfig, CONTRACT } from './skill-generator/editor-surfaces'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 
 export const CORE_SUPERIORITY_RUNTIMES = ['claude', 'codex', 'gemini', 'cursor', 'grok'] as const
 
@@ -90,7 +90,7 @@ export function multiRuntimeInstallParityReport(): {
 
   const codexSkill = buildCodexSkill()
   const geminiCfg = buildGeminiConfig()
-  const claudeSkill = buildPrjctSkill(emptySkillContext())
+  const claudeSkill = buildPrjctSkill()
   const codexHasLoop = codexSkill.includes(CONTRACT.loop)
   const geminiHasLoop = geminiCfg.includes(CONTRACT.loop)
   if (!codexHasLoop) missing.push('codex skill missing CONTRACT.loop')

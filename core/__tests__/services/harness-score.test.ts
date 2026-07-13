@@ -7,7 +7,7 @@ import {
   WORLD_CLASS,
 } from '../../services/harness-score'
 import { MINIMAL_ROUTING_BODY } from '../../services/routing-block'
-import { buildPrjctSkill, emptySkillContext } from '../../services/skill-generator/prjct-skill-body'
+import { buildPrjctSkill } from '../../services/skill-generator/prjct-skill-body'
 import { countTokens } from '../../tools/context/token-counter'
 
 describe('harness score', () => {
@@ -16,9 +16,7 @@ describe('harness score', () => {
   })
 
   it('keeps always-on skill under the token SLO', () => {
-    expect(countTokens(buildPrjctSkill(emptySkillContext()))).toBeLessThanOrEqual(
-      WORLD_CLASS.skillTokensMax
-    )
+    expect(countTokens(buildPrjctSkill())).toBeLessThanOrEqual(WORLD_CLASS.skillTokensMax)
   })
 
   it('keeps routing body under the byte SLO', () => {

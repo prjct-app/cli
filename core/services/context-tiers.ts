@@ -17,8 +17,7 @@
 import { Buffer } from 'node:buffer'
 import { countTokens } from '../tools/context/token-counter'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
-import type { SkillContext } from './skill-generator/types'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 
 /**
  * L0 budgets — keep in lockstep with WORLD_CLASS in harness-score.ts.
@@ -107,8 +106,8 @@ export interface L0BudgetMeasurement {
 }
 
 /** Measure live L0 footprint (skill + routing) against harness SLOs. */
-export function measureL0Budget(skillCtx?: SkillContext): L0BudgetMeasurement {
-  const skill = buildPrjctSkill(skillCtx ?? emptySkillContext())
+export function measureL0Budget(): L0BudgetMeasurement {
+  const skill = buildPrjctSkill()
   const skillTokens = countTokens(skill)
   const routingBytes = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
   const skillOk = skillTokens <= L0_SKILL_TOKENS_MAX
@@ -131,10 +130,10 @@ export interface ContextTiersReport {
   rule: string
 }
 
-export function buildContextTiersReport(skillCtx?: SkillContext): ContextTiersReport {
+export function buildContextTiersReport(): ContextTiersReport {
   return {
     tiers: CONTEXT_TIERS,
-    l0: measureL0Budget(skillCtx),
+    l0: measureL0Budget(),
     rule: 'Never stuff L2/L3 into L0. Pull L2 on demand; L3 only explicitly.',
   }
 }
