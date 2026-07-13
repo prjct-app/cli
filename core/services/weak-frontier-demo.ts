@@ -10,7 +10,7 @@ import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 
 export interface DemoRow {
   capability: string
@@ -108,7 +108,7 @@ export function computeHarnessDelta(): HarnessDeltaReport {
   const harnessRate = harnessHits / fixtureCount
   const bareRate = bareHits / fixtureCount
   const intentDeltaPp = Math.round((harnessRate - bareRate) * 1000) / 10
-  const skillTokens = countTokens(buildPrjctSkill(emptySkillContext()))
+  const skillTokens = countTokens(buildPrjctSkill())
   const routingBytes = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
   const score = computeHarnessScore()
   const mcpTools = score.defaults.mcpToolCountDefault
@@ -200,7 +200,7 @@ export function renderHarnessDeltaMd(delta: HarnessDeltaReport = computeHarnessD
 }
 
 export function buildDemoRows(): DemoRow[] {
-  const skillTok = countTokens(buildPrjctSkill(emptySkillContext()))
+  const skillTok = countTokens(buildPrjctSkill())
   const routingB = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
   const score = computeHarnessScore()
   const providers = Object.keys(PROVIDER_CAPABILITY_MODELS).length

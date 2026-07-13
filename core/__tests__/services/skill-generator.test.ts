@@ -12,98 +12,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { SKILL_DEFINITIONS, SkillGenerator } from '../../services/skill-generator'
-import type { ConditionContext, SkillContext } from '../../services/skill-generator/types'
+import {
+  SKILL_DEFINITIONS,
+  SkillGenerator,
+  skillBodyHasProjectStamp,
+} from '../../services/skill-generator'
 import { countTokens } from '../../tools/context/token-counter'
-import type { ProjectSyncResult } from '../../types/project-sync'
-
-function makeSyncResult(overrides: Partial<ProjectSyncResult> = {}): ProjectSyncResult {
-  return {
-    success: true,
-    projectId: 'test-project-id',
-    cliVersion: '2.0.0-alpha.11',
-    git: {
-      branch: 'feat/alpha11',
-      commits: 100,
-      contributors: 3,
-      hasChanges: true,
-      stagedFiles: [],
-      modifiedFiles: [],
-      untrackedFiles: [],
-      recentCommits: [],
-      weeklyCommits: 5,
-    },
-    stats: {
-      fileCount: 200,
-      version: '2.0.0',
-      name: 'my-app',
-      ecosystem: 'JavaScript',
-      projectType: 'enterprise',
-      languages: ['TypeScript'],
-      frameworks: ['Hono'],
-    },
-    commands: {
-      install: 'npm install',
-      test: 'npm test',
-      build: 'npm run build',
-      dev: 'npm run dev',
-      lint: 'npm run lint',
-      format: 'npm run format',
-    },
-    stack: {
-      hasFrontend: false,
-      hasBackend: true,
-      hasDatabase: true,
-      hasDocker: false,
-      hasTesting: true,
-      frontendType: null,
-      frameworks: ['Hono'],
-    },
-    ...overrides,
-  }
-}
-
-function makeRichContext(): Partial<
-  Omit<SkillContext, 'projectName' | 'stack' | 'branch' | 'commands' | 'projectId'>
-> {
-  return {
-    version: '2.0.0',
-    fileCount: 200,
-    patterns: [
-      {
-        name: 'Storage Layer Abstraction',
-        description: 'Consistent StorageManager base class',
-        location: 'core/storage/',
-      },
-    ],
-    antiPatterns: [
-      {
-        issue: 'Unbounded any type',
-        file: 'multiple',
-        suggestion: 'Use explicit types',
-        severity: 'high',
-      },
-    ],
-    recentShipped: [{ name: 'Static context removal', type: 'refactor', duration: '3h' }],
-    velocity: { avgPoints: 21, trend: 'stable', accuracy: 78 },
-    backlogCount: 5,
-    knownGotchas: ['SQLite WAL mode can cause locking in parallel tests'],
-    pausedTasks: [],
-    ideasCount: 7,
-    shippedCount: 15,
-    userPatterns: ['Always uses bun instead of npm'],
-  }
-}
-
-function makeConditionContext(overrides: Partial<ConditionContext> = {}): ConditionContext {
-  return {
-    backlogCount: 0,
-    completedTaskCount: 0,
-    pausedTaskCount: 0,
-    hasActiveTask: false,
-    ...overrides,
-  }
-}
 
 describe('GLOBAL_CLAUDE_MD_CONTENT (command-installer)', () => {
   it('does not contain authoritarian instructions or dead references', async () => {
@@ -141,10 +55,6 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(SKILL_DEFINITIONS[0].name).toBe('prjct')
     })
 
-    it('is unconditional — always generated', () => {
-      expect(SKILL_DEFINITIONS[0].condition(makeConditionContext())).toBe(true)
-    })
-
     it('is user-invocable', () => {
       expect(SKILL_DEFINITIONS[0].userInvocable ?? true).toBe(true)
     })
@@ -152,14 +62,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
 
   describe('generateAndInstall', () => {
     it('generates the `prjct` skill (Claude full + compact fan-out)', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       expect(result.generated.some((g) => g.name === 'prjct')).toBe(true)
       expect(result.generated.some((g) => g.path.includes('.claude/skills/prjct'))).toBe(true)
       expect(result.skipped).toHaveLength(0)
     })
 
     it('writes SKILL.md at the expected path', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const skill = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       expect(skill).toBeDefined()
       expect(skill!.path).toContain('.claude/skills/')
@@ -172,7 +82,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     async function readClaudeSkill(): Promise<string> {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       expect(claude).toBeDefined()
       return fs.readFile(claude!.path, 'utf-8')
@@ -215,7 +125,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('keeps loop-discipline triggers + model quick-ref in the pulled reference', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       const dir = path.dirname(claude!.path)
@@ -263,7 +173,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('is project-agnostic — never embeds project name/stack/branch (multi-project isolation)', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       expect(claude).toBeDefined()
       const content = await fs.readFile(claude!.path, 'utf-8')
@@ -275,7 +185,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('frontmatter has valid Claude Code native format', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).toStartWith('---\n')
@@ -286,56 +196,18 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(secondDash).toBeGreaterThan(0)
     })
 
-    it('multi-project sync isolation: project A then B never stamps either name into L0', async () => {
-      await generator.generateAndInstall(
-        makeSyncResult({
-          stats: {
-            fileCount: 10,
-            version: '1.0.0',
-            name: 'project-alpha',
-            ecosystem: 'Python',
-            projectType: 'app',
-            languages: ['Python'],
-            frameworks: [],
-          },
-        })
-      )
-      await generator.generateAndInstall(
-        makeSyncResult({
-          stats: {
-            fileCount: 99,
-            version: '0.0.0',
-            name: 'project-beta',
-            ecosystem: 'TypeScript',
-            projectType: 'cli',
-            languages: ['TypeScript'],
-            frameworks: ['Hono'],
-          },
-          git: {
-            branch: 'fix/pins-account-products-state',
-            commits: 1,
-            contributors: 1,
-            hasChanges: false,
-            stagedFiles: [],
-            modifiedFiles: [],
-            untrackedFiles: [],
-            recentCommits: [],
-            weeklyCommits: 0,
-          },
-        })
-      )
+    it('multi-project sync isolation: repeated install never stamps project names into L0', async () => {
+      await generator.generateAndInstall()
+      await generator.generateAndInstall()
       const skillPath = path.join(tmpHome, '.claude', 'skills', 'prjct', 'SKILL.md')
       const content = await fs.readFile(skillPath, 'utf-8')
       expect(content).not.toContain('project-alpha')
-      expect(content).not.toContain('project-beta')
-      expect(content).not.toContain('fix/pins-account-products-state')
       expect(content).not.toContain('## Recent Deliveries')
-      const { skillBodyHasProjectStamp } = await import('../../services/skill-generator')
       expect(skillBodyHasProjectStamp(content)).toBe(false)
     })
 
     it('fans out compact portable skill to Codex/Gemini host dirs', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const compactPaths = result.generated
         .filter((g) => g.name === 'prjct-compact')
         .map((g) => g.path)
@@ -349,12 +221,8 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   })
 
   describe('rich context isolation (never in L0)', () => {
-    it('ignores richContext — patterns/ships stay out of global skill', async () => {
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext(),
-        makeRichContext()
-      )
+    it('never embeds rich project sections in global skill', async () => {
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).not.toContain('Storage Layer Abstraction')
@@ -365,7 +233,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('omits rich sections when empty (and when rich is provided)', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).not.toContain('## Patterns')
@@ -376,7 +244,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
 
   describe('anti-harness enforcement', () => {
     async function readClaude(): Promise<string> {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       return fs.readFile(claude!.path, 'utf-8')
     }
@@ -412,14 +280,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   // SKILL.md points to it without inlining it.
   describe('deep-methodology reference (workflows.md)', () => {
     async function readReference(): Promise<string> {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const dir = path.dirname(claude!.path)
       return fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
     }
 
     it('writes workflows.md next to SKILL.md', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const dir = path.dirname(claude!.path)
       const exists = await fs
@@ -430,7 +298,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('keeps SKILL.md lean — points at the reference, does not inline it', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).toContain('workflows.md')
@@ -441,11 +309,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('keeps the always-loaded SKILL.md under the token budget', async () => {
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext(),
-        makeRichContext()
-      )
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       // ≤1500 tok always-on. Full verb map + methodology live in workflows.md.
@@ -517,7 +381,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   // Verb intent map — always-on carries a CORE table; full map in workflows.md.
   describe('verb intent map (UX phase 1)', () => {
     async function claudeSkillAndRef(): Promise<{ content: string; ref: string }> {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       const content = await fs.readFile(claude!.path, 'utf-8')
       const ref = await fs.readFile(path.join(path.dirname(claude!.path), 'workflows.md'), 'utf-8')
@@ -571,7 +435,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   // the old per-tier sections into a tight list in the lean body).
   describe('routing protocol (UX phase 2)', () => {
     async function claudeBody(): Promise<string> {
-      const result = await generator.generateAndInstall(makeSyncResult())
+      const result = await generator.generateAndInstall()
       const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
       return fs.readFile(claude!.path, 'utf-8')
     }

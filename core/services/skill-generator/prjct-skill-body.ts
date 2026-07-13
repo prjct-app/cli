@@ -1,12 +1,10 @@
 /**
- * Canonical `prjct` skill body.
+ * Canonical portable `prjct` skill body (L0).
  *
- * Shape: Use when · What's here · Gotchas. Always-on budget ≤900 tokens
- * (Dynasty D5); methodology and full verb map live in workflows.md.
+ * Always project-agnostic — identity is SessionStart / `prjct context --md`.
+ * Shape: Use when · What's here · Gotchas. Budget ≤900 tok (Dynasty D5);
+ * methodology → workflows.md.
  */
-
-import { formatProjectHeader } from './formatters'
-import type { SkillContext } from './types'
 
 export const PRJCT_SKILL_DESCRIPTION =
   'AI Agile OS for coding agents: intent briefs, RAG context, synthesized memory, guardrails, performance, and ships. Run the prjct verb yourself; use `prjct work` normally.'
@@ -23,28 +21,9 @@ export const PRJCT_SKILL_ALLOWED_TOOLS = [
 
 export const PRJCT_SKILL_REFERENCE_FILE = 'workflows.md'
 
-/** Empty ctx for the baseline template; `prjct sync` fills project data. */
-export function emptySkillContext(): SkillContext {
-  return {
-    projectName: '',
-    stack: '',
-    branch: '',
-    commands: { install: '', build: '', test: '', lint: '', dev: '', format: '' },
-    projectId: '',
-    version: '',
-    fileCount: 0,
-    patterns: [],
-    antiPatterns: [],
-    recentShipped: [],
-    velocity: null,
-    backlogCount: 0,
-    knownGotchas: [],
-    pausedTasks: [],
-    ideasCount: 0,
-    shippedCount: 0,
-    userPatterns: [],
-  }
-}
+/** Portable "What's here" — never project name/stack/branch. */
+export const PORTABLE_WHATS_HERE =
+  'Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct context --md`). Uninitialized tree: suggest `prjct init` once, then run the verb.'
 
 export function buildPrjctSkillFrontmatter(): string {
   const tools = PRJCT_SKILL_ALLOWED_TOOLS.map((t) => `"${t}"`).join(', ')
@@ -55,18 +34,11 @@ user-invocable: true
 ---`
 }
 
-export function buildPrjctSkill(ctx: SkillContext): string {
-  return `${buildPrjctSkillFrontmatter()}\n\n${buildPrjctSkillBody(ctx)}\n`
+export function buildPrjctSkill(): string {
+  return `${buildPrjctSkillFrontmatter()}\n\n${buildPrjctSkillBody()}\n`
 }
 
-export function buildPrjctSkillBody(ctx: SkillContext): string {
-  // Dynasty D5: always-on skill ≤900 tok. Methodology → workflows.md.
-  // L0 is portable: install path always passes emptySkillContext so
-  // multi-project sync cannot poison the global skill. If a non-empty
-  // ctx is passed (tests/helpers), still prefer portable baseline for
-  // the always-on body — project facts belong in L1 SessionStart.
-  const portable = emptySkillContext()
-  const headerCtx = ctx.projectName ? portable : ctx
+export function buildPrjctSkillBody(): string {
   return [
     '# prjct',
     '',
@@ -76,9 +48,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     "## What's here",
     '',
-    formatProjectHeader(headerCtx),
-    // Never bake formatRichContext into L0 — ships/velocity/patterns are
-    // project-scoped and stale across syncs of different repos.
+    PORTABLE_WHATS_HERE,
     '',
     '### Agent contract',
     '',

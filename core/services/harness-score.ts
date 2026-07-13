@@ -16,8 +16,7 @@ import {
   measureL0Budget,
 } from './context-tiers'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
-import type { SkillContext } from './skill-generator/types'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 
 export interface HarnessCriterion {
   id: string
@@ -100,13 +99,12 @@ function countDefaultTools(): number {
 
 export function computeHarnessScore(
   options: {
-    skillCtx?: SkillContext
     /** Live multi-runtime organic grade from probeHarnessCoverage (0–5). */
     multiRuntimeOrganicGrade?: number
     multiRuntimeOrganicMeasured?: string
   } = {}
 ): HarnessScoreReport {
-  const skill = buildPrjctSkill(options.skillCtx ?? emptySkillContext())
+  const skill = buildPrjctSkill()
   const skillTokens = countTokens(skill)
   const routingBytes = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
   const providerNames = Object.keys(PROVIDER_CAPABILITY_MODELS)
@@ -167,7 +165,7 @@ export function computeHarnessScore(
       hasWorkflowsPointer ? 'skill → workflows.md' : 'missing pointer'
     ),
     (() => {
-      const l0 = measureL0Budget(options.skillCtx)
+      const l0 = measureL0Budget()
       const tierCount = CONTEXT_TIERS.length
       const score = l0.ok && tierCount === 4 ? 5 : l0.ok ? 4 : tierCount === 4 ? 2 : 1
       return criterion(
@@ -329,4 +327,4 @@ export function renderHarnessScoreMd(
   ].join('\n')
 }
 
-export { buildPrjctSkill, emptySkillContext }
+export { buildPrjctSkill }

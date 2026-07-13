@@ -30,7 +30,7 @@ import {
   judgmentShipVerdict,
 } from './precision-judgment'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 import { sotBindVerdict } from './sot-bind'
 import { formatTrapSurfaceMessage, trapSurfaceSlo } from './trap-surface-slo'
 import {
@@ -79,7 +79,7 @@ export function runWeakModelBench(): WeakBenchReport {
     checks.push({ name, ok, detail })
   }
 
-  const skillTok = countTokens(buildPrjctSkill(emptySkillContext()))
+  const skillTok = countTokens(buildPrjctSkill())
   push(
     'skill always-on',
     skillTok <= WORLD_CLASS.skillTokensMax,
