@@ -77,6 +77,7 @@ export function buildPrjctSkillBody(): string {
     '| metrics | `prjct insights` · `performance` | 1 |',
     '| land session | `prjct land` | 1 |',
     '| test-first / intent-first | `prjct tdd` · `prjct sdd` (off\\|assist\\|strict) | 1 |',
+    '| systematic debugging | `systematic-debugging` skill (new from Superpowers analysis) | 1 |',
     '| workflows / packs | `prjct workflow list` · `prjct seed list` | 1 |',
     '',
     '`prjct work` is the single normal entrypoint. Trivial work proceeds directly; substantive work follows a persisted intent + tests before implementation when required. Full verb map, loop-discipline, model policy → `workflows.md` (pull on demand).',
@@ -95,6 +96,7 @@ export function buildPrjctSkillBody(): string {
     '## Gotchas',
     '',
     '- Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.',
+    '- **Skill curation (from X post + obra/superpowers)**: Bloat dilutes context/performance. Curate to ~10 high-leverage skills. Use `create-skill` for on-demand. Adopt TDD-for-skills (baseline pressure test WITHOUT skill first, then write, refactor loopholes with rationalization tables + red flags). See `prjct context memory superpowers`. Token efficiency critical (<200 words for frequent skills).',
     '- Worktree: remove only after PR *merged*, from main tree, never `--force` over dirty/unpushed work.',
     '',
   ].join('\n')
