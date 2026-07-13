@@ -36,6 +36,8 @@ Before reading source code or running broad searches for ANY question about the 
 
 Only fall through to source/repo reading when prjct does not contain the answer.
 
+**Skill ≠ project identity.** The prjct skill is a portable multi-LLM contract (L0). Live name/stack/branch come from SessionStart + \`prjct context --md\` for **this cwd**. If skill text and the tree disagree, trust the cwd and the tree.
+
 ## Capture analyses BACK to prjct
 
 When you complete substantive work — analysis, decision, learning, gotcha — persist it: \`prjct remember <decision|learning|gotcha|fact> "..."\` or \`prjct capture "<text>" --tags k:v\`. **Author every entry in ENGLISH**, whatever language the user speaks. **Default to capturing — under-capture is the failure mode that makes prjct useless.** The full verb map and task workflow live in the \`prjct\` skill.

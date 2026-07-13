@@ -15,6 +15,7 @@ export type HealActionId =
   | 'claude-hooks'
   | 'multi-runtime-wire'
   | 'agent-surfaces'
+  | 'portable-skills'
   | 'organic-board'
 
 export interface HealAction {
@@ -51,6 +52,8 @@ export function planDoctorHeal(input: {
   detectedCount: number
   organicPct: number
   hasProject: boolean
+  /** True when global Claude skill embeds project identity (poison). */
+  skillPoisoned?: boolean
 }): HealPlan {
   const actions: HealAction[] = [
     {
@@ -80,6 +83,15 @@ export function planDoctorHeal(input: {
       reason: input.hasProject
         ? 'explicit surface refresh (clean-repo opt-in)'
         : 'no project — skip surfaces',
+    },
+    {
+      id: 'portable-skills',
+      label: 'Rewrite portable multi-host skills (clear project stamp)',
+      needed: input.skillPoisoned === true,
+      reason:
+        input.skillPoisoned === true
+          ? 'global skill has project identity (multi-project poison)'
+          : 'skills portable',
     },
     {
       id: 'organic-board',
@@ -116,6 +128,20 @@ export async function applyDoctorHeal(
 
   let coverage = await probeHarnessCoverage(projectPath).catch(() => null)
   const projectId = await configManager.getProjectId(projectPath).catch(() => null)
+
+  let skillPoisoned = false
+  try {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const os = await import('node:os')
+    const { skillBodyHasProjectStamp } = await import('./skill-generator')
+    const skillPath = path.join(os.homedir(), '.claude', 'skills', 'prjct', 'SKILL.md')
+    const body = await fs.readFile(skillPath, 'utf-8').catch(() => null)
+    skillPoisoned = body ? skillBodyHasProjectStamp(body) : false
+  } catch {
+    skillPoisoned = false
+  }
+
   const plan = planDoctorHeal({
     hooksInstalled,
     hooksExpected,
@@ -123,6 +149,7 @@ export async function applyDoctorHeal(
     detectedCount: coverage?.detectedCount ?? 0,
     organicPct: coverage?.organicPct ?? 0,
     hasProject: Boolean(projectId),
+    skillPoisoned,
   })
 
   for (const action of plan.actions) {
@@ -133,6 +160,10 @@ export async function applyDoctorHeal(
     try {
       if (action.id === 'claude-hooks') {
         await installHooks()
+        applied.push(action.id)
+      } else if (action.id === 'portable-skills') {
+        const { skillGenerator } = await import('./skill-generator')
+        await skillGenerator.generateAndInstall()
         applied.push(action.id)
       } else if (action.id === 'multi-runtime-wire') {
         // Mirror install.ts: wire every detected host

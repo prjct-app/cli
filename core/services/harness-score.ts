@@ -192,6 +192,23 @@ export function computeHarnessScore(
       'MCP core default + skill budget in code',
       `tier=${DEFAULT_MCP_TOOL_TIER}; skillMax=${WORLD_CLASS.skillTokensMax}`
     ),
+    (() => {
+      // Multi-project isolation: L0 skill must never carry project identity.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { skillBodyHasProjectStamp } =
+        require('./skill-generator') as typeof import('./skill-generator')
+      const portable = !skillBodyHasProjectStamp(skill)
+      const hasBaseline =
+        skill.includes('cwd-scoped') || skill.includes('Portable L0') || skill.includes('portable')
+      const score = portable && hasBaseline ? 5 : portable ? 3 : 1
+      return criterion(
+        'skill-isolation',
+        'Multi-project skill isolation',
+        score,
+        'global L0 skill project-agnostic',
+        portable ? 'portable L0 (no project stamp)' : 'PROJECT-STAMPED (poison risk)'
+      )
+    })(),
   ]
 
   // Optional: live organic multi-runtime board (probed by harness score / install).

@@ -143,8 +143,14 @@ export async function buildSessionContext(
     }
   }
 
-  // Nothing to say (no persona, no knowledge, no drift) → stay silent.
+  // L1 cwd identity — NEVER from the global skill (multi-project poison).
+  // Always emit when we have projectId so the model never trusts a foreign
+  // skill stamp over this cwd (branch can change; acceptable on resume).
+  const identity = await buildProjectIdentityLine(projectPath, config.projectId)
+
+  // Nothing to say (no identity, persona, knowledge, drift) → stay silent.
   if (
+    !identity &&
     !persona &&
     !digest &&
     !staleness &&
@@ -158,6 +164,11 @@ export async function buildSessionContext(
   }
 
   const sections: string[] = ['# prjct: project context', '']
+
+  if (identity) {
+    sections.push(identity, '')
+  }
+
   if (persona) {
     // One advisory line only — the recall verbs already live in the skill's
     // Primitives section; repeating them here cost tokens on every cold
@@ -484,6 +495,39 @@ function formatPersona(persona: ProjectPersona): string {
     lines.push(`Active packs: ${persona.packs.join(', ')}`)
   }
   return lines.join('\n')
+}
+
+/**
+ * Cwd-scoped project identity for L1 inject. Global skills stay portable;
+ * this is the only place agents should learn "which repo am I in?".
+ */
+export async function buildProjectIdentityLine(
+  projectPath: string,
+  projectId: string
+): Promise<string | null> {
+  try {
+    const path = await import('node:path')
+    const { execFileAsync } = await import('../utils/exec')
+    const name = path.basename(projectPath)
+    let branch = ''
+    try {
+      const { stdout } = await execFileAsync('git', ['branch', '--show-current'], {
+        cwd: projectPath,
+      })
+      branch = stdout.trim()
+    } catch {
+      branch = ''
+    }
+    const shortId = projectId.length > 12 ? `${projectId.slice(0, 8)}…` : projectId
+    const parts = [`## Project identity (cwd)`, `- **${name}** · id \`${shortId}\``]
+    if (branch) parts.push(`- Branch: \`${branch}\``)
+    parts.push(
+      '- Skill is portable L0 — if skill text names another project, ignore it; trust this block + `prjct context --md`.'
+    )
+    return parts.join('\n')
+  } catch {
+    return null
+  }
 }
 
 /**

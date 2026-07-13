@@ -34,7 +34,7 @@ function emit(relParts: string[], content: string): void {
   console.log(`  → templates/${relParts.join('/')} (${Buffer.byteLength(content, 'utf-8')} bytes)`)
 }
 
-// Canonical Claude skill (full, project-aware at sync; baseline here).
+// Canonical Claude skill — always portable L0 (no project stamp; multi-LLM safe).
 emit(['skills', 'prjct', 'SKILL.md'], buildPrjctSkill(emptySkillContext()))
 
 // Compact non-Claude surfaces — generated from the same contract SSOT so they

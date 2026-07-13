@@ -9,9 +9,18 @@
 import type { ProjectCommands } from '../../types/project-sync'
 import type { SkillContext } from './types'
 
+/**
+ * L0 skill header — **portable only**. Project identity must never enter
+ * the global skill (multi-project last-writer poison). Live name/stack/branch
+ * come from SessionStart (L1) and `prjct context --md`.
+ *
+ * When ctx.projectName is set (legacy callers / L1 helpers), still formats
+ * a header — but skill install always passes emptySkillContext().
+ */
 export function formatProjectHeader(ctx: SkillContext): string {
   if (!ctx.projectName) {
-    return 'Baseline skill (no project in cwd). On first real intent, suggest `prjct init` once — then run the verb. `prjct sync` regenerates this with project context.'
+    // Keep lean (L0 ≤900 tok). Identity lives in SessionStart + `prjct context --md`.
+    return 'Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct context --md`). Uninitialized tree: suggest `prjct init` once, then run the verb.'
   }
   return `# ${ctx.projectName}
 ${ctx.stack} | ${ctx.fileCount} files | v${ctx.version} | Branch: ${ctx.branch}`

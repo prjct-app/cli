@@ -66,7 +66,7 @@ describe('SessionStart — understanding staleness', () => {
     expect(r).toContain('12 commits')
   })
 
-  it('stays silent when the sync is current (no drift → no nag)', async () => {
+  it('stays silent on drift when the sync is current (identity still ok)', async () => {
     const head = git('rev-parse --short HEAD')
     prjctDb.setDoc(projectId, 'project', {
       name: 'x',
@@ -74,7 +74,10 @@ describe('SessionStart — understanding staleness', () => {
       lastSyncCommit: head, // synced AT head → zero commits since
     })
     const r = await buildSessionContext(repo, cfg, { digest: false })
-    // No persona, no digest, no drift → the block is silent.
-    expect(r).toBeNull()
+    // No persona, no digest, no drift → identity only (L1 cwd), no staleness nag.
+    expect(r).not.toBeNull()
+    expect(r).toContain('## Project identity (cwd)')
+    expect(r).not.toContain('Understanding may be stale')
+    expect(r).not.toContain('commits since')
   })
 })

@@ -151,28 +151,35 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   })
 
   describe('generateAndInstall', () => {
-    it('generates the `prjct` skill', async () => {
+    it('generates the `prjct` skill (Claude full + compact fan-out)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      expect(result.generated).toHaveLength(1)
-      expect(result.generated[0].name).toBe('prjct')
+      expect(result.generated.some((g) => g.name === 'prjct')).toBe(true)
+      expect(result.generated.some((g) => g.path.includes('.claude/skills/prjct'))).toBe(true)
       expect(result.skipped).toHaveLength(0)
     })
 
     it('writes SKILL.md at the expected path', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const skill = result.generated[0]
-      expect(skill.path).toContain('.claude/skills/')
-      expect(skill.path).toEndWith('/SKILL.md')
+      const skill = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      expect(skill).toBeDefined()
+      expect(skill!.path).toContain('.claude/skills/')
+      expect(skill!.path).toEndWith('/SKILL.md')
       const exists = await fs
-        .access(skill.path)
+        .access(skill!.path)
         .then(() => true)
         .catch(() => false)
       expect(exists).toBe(true)
     })
 
-    it('skill body includes the canonical anti-harness sections', async () => {
+    async function readClaudeSkill(): Promise<string> {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      expect(claude).toBeDefined()
+      return fs.readFile(claude!.path, 'utf-8')
+    }
+
+    it('skill body includes the canonical anti-harness sections', async () => {
+      const content = await readClaudeSkill()
       expect(content).toContain('## Use when')
       expect(content).toContain("## What's here")
       expect(content).toContain('### Agent contract')
@@ -180,8 +187,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('surfaces the opt-in tdd + sdd verbs in the always-loaded body', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaudeSkill()
       expect(content).toContain('`prjct tdd`')
       expect(content).toMatch(/test-first|TDD/)
       expect(content).toContain('`prjct sdd`')
@@ -189,8 +195,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('teaches the sovereign knowledge base so agents pull it, never inject it', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaudeSkill()
       // KB facets are first-class, capturable, and discoverable to any rig.
       for (const facet of ['identity', 'voice', 'glossary', 'framework']) {
         expect(content).toContain(facet)
@@ -202,8 +207,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('frames work as the single entrypoint for transparent AI Agile orchestration', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaudeSkill()
       expect(content).toContain('`prjct work` is the single normal entrypoint')
       expect(content).toContain('Trivial work proceeds directly')
       expect(content).toMatch(/persisted intent|tests before implementation/)
@@ -212,8 +216,9 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
 
     it('keeps loop-discipline triggers + model quick-ref in the pulled reference', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const dir = path.dirname(result.generated[0].path)
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
+      const dir = path.dirname(claude!.path)
       const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
 
       expect(content).toContain('workflows.md')
@@ -229,19 +234,18 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(ref).toContain('commit / push / open a PR')
       expect(ref).toContain('worktree/git accident')
       expect(ref).toContain('`model: "sonnet"`')
+      expect(ref).toMatch(/capability class|host vocabulary|Claude Code/i)
     })
 
     it('states the portable agent contract for Claude and GPT', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaudeSkill()
       expect(content).toContain('prjct remembers project state and shows the path')
       expect(content).toContain('Agents decide HOW with native tools and judgment')
       expect(content).toContain('Treat prjct output as durable signals')
     })
 
     it('exposes v3 primitives (work, intent, remember, context, workflow, seed)', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaudeSkill()
       expect(content).toContain('prjct work')
       expect(content).toContain('prjct intent')
       expect(content).toContain('prjct remember')
@@ -251,25 +255,29 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('points knowledge access at tools, not the vault', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaudeSkill()
       // Vault retired as a default read surface — the skill routes to tools.
       expect(content).not.toContain('.prjct/wiki/_generated/')
       expect(content).toContain('prjct context memory')
       expect(content).toContain('.prjct/prjct.config.json')
     })
 
-    it('includes project name, stack, and branch in the body', async () => {
+    it('is project-agnostic — never embeds project name/stack/branch (multi-project isolation)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('my-app')
-      expect(content).toContain('TypeScript')
-      expect(content).toContain('feat/alpha11')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      expect(claude).toBeDefined()
+      const content = await fs.readFile(claude!.path, 'utf-8')
+      expect(content).not.toContain('my-app')
+      expect(content).not.toContain('feat/alpha11')
+      expect(content).not.toMatch(/^\s*# my-app/m)
+      expect(content).toMatch(/portable|cwd-scoped/i)
+      expect(content).toContain('Skill ≠ project identity')
     })
 
     it('frontmatter has valid Claude Code native format', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).toStartWith('---\n')
       expect(content).toContain('description:')
       expect(content).toContain('allowed-tools:')
@@ -278,58 +286,88 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(secondDash).toBeGreaterThan(0)
     })
 
-    it('regenerates on every call (picks up new branch)', async () => {
-      await generator.generateAndInstall(makeSyncResult())
-      const result2 = await generator.generateAndInstall(
+    it('multi-project sync isolation: project A then B never stamps either name into L0', async () => {
+      await generator.generateAndInstall(
         makeSyncResult({
+          stats: {
+            fileCount: 10,
+            version: '1.0.0',
+            name: 'project-alpha',
+            ecosystem: 'Python',
+            projectType: 'app',
+            languages: ['Python'],
+            frameworks: [],
+          },
+        })
+      )
+      await generator.generateAndInstall(
+        makeSyncResult({
+          stats: {
+            fileCount: 99,
+            version: '0.0.0',
+            name: 'project-beta',
+            ecosystem: 'TypeScript',
+            projectType: 'cli',
+            languages: ['TypeScript'],
+            frameworks: ['Hono'],
+          },
           git: {
-            branch: 'fix/different',
-            commits: 100,
-            contributors: 3,
+            branch: 'fix/pins-account-products-state',
+            commits: 1,
+            contributors: 1,
             hasChanges: false,
             stagedFiles: [],
             modifiedFiles: [],
             untrackedFiles: [],
             recentCommits: [],
-            weeklyCommits: 5,
+            weeklyCommits: 0,
           },
         })
       )
-      const content = await fs.readFile(result2.generated[0].path, 'utf-8')
-      expect(content).toContain('fix/different')
-      expect(content).not.toContain('feat/alpha11')
+      const skillPath = path.join(tmpHome, '.claude', 'skills', 'prjct', 'SKILL.md')
+      const content = await fs.readFile(skillPath, 'utf-8')
+      expect(content).not.toContain('project-alpha')
+      expect(content).not.toContain('project-beta')
+      expect(content).not.toContain('fix/pins-account-products-state')
+      expect(content).not.toContain('## Recent Deliveries')
+      const { skillBodyHasProjectStamp } = await import('../../services/skill-generator')
+      expect(skillBodyHasProjectStamp(content)).toBe(false)
+    })
+
+    it('fans out compact portable skill to Codex/Gemini host dirs', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const compactPaths = result.generated
+        .filter((g) => g.name === 'prjct-compact')
+        .map((g) => g.path)
+      expect(compactPaths.length).toBeGreaterThanOrEqual(1)
+      expect(compactPaths.some((p) => p.includes('.codex/skills'))).toBe(true)
+      const sample = await fs.readFile(compactPaths[0], 'utf-8')
+      expect(sample).toContain('RAG-backed')
+      expect(sample).toMatch(/portable|context --md/i)
+      expect(sample).not.toContain('my-app')
     })
   })
 
-  describe('rich context injection', () => {
-    it('includes patterns from analysis', async () => {
+  describe('rich context isolation (never in L0)', () => {
+    it('ignores richContext — patterns/ships stay out of global skill', async () => {
       const result = await generator.generateAndInstall(
         makeSyncResult(),
         makeConditionContext(),
         makeRichContext()
       )
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      expect(content).toContain('Storage Layer Abstraction')
-    })
-
-    it('State is counts-only — no task description text (token diet R3)', async () => {
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext(),
-        makeRichContext()
-      )
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // Task DESCRIPTIONS are stale by the next sync and duplicated by the
-      // per-turn prompt hook — the body must never bake them in.
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
+      expect(content).not.toContain('Storage Layer Abstraction')
+      expect(content).not.toContain('## Patterns')
+      expect(content).not.toContain('## Velocity')
+      expect(content).not.toContain('## Recent Deliveries')
       expect(content).not.toContain('Wire alpha.11 hooks')
-      expect(content).toContain('## State')
-      expect(content).toContain('detail via `prjct context --md`')
     })
 
-    it('omits rich sections gracefully when empty', async () => {
+    it('omits rich sections when empty (and when rich is provided)', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      // Empty project → no Patterns / Anti-Patterns / Velocity blocks
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).not.toContain('## Patterns')
       expect(content).not.toContain('## Anti-Patterns')
       expect(content).not.toContain('## Velocity')
@@ -337,9 +375,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   })
 
   describe('anti-harness enforcement', () => {
-    it('contains no numbered "do X then Y" steps', async () => {
+    async function readClaude(): Promise<string> {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      return fs.readFile(claude!.path, 'utf-8')
+    }
+
+    it('contains no numbered "do X then Y" steps', async () => {
+      const content = await readClaude()
       // No "1. ", "2. ", "3. " in the body (outside the frontmatter /
       // data blocks). Keep the check conservative — just look for the
       // numbered-step pattern with a verb that suggests prescription.
@@ -349,16 +392,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('contains no BLOCKING / MANDATORY directives', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaude()
       expect(content).not.toContain('BLOCKING')
       expect(content).not.toContain('MANDATORY')
       expect(content).not.toContain('## Constraints')
     })
 
     it('contains no "Pre-flight" ceremony', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await readClaude()
       expect(content).not.toContain('Pre-flight')
     })
   })
@@ -372,13 +413,15 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   describe('deep-methodology reference (workflows.md)', () => {
     async function readReference(): Promise<string> {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const dir = path.dirname(result.generated[0].path)
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const dir = path.dirname(claude!.path)
       return fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
     }
 
     it('writes workflows.md next to SKILL.md', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const dir = path.dirname(result.generated[0].path)
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const dir = path.dirname(claude!.path)
       const exists = await fs
         .access(path.join(dir, 'workflows.md'))
         .then(() => true)
@@ -388,7 +431,8 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
 
     it('keeps SKILL.md lean — points at the reference, does not inline it', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
       expect(content).toContain('workflows.md')
       // Heavy methodology must NOT sit in the always-in-context body.
       expect(content).not.toContain('### Subagent dispatch')
@@ -402,7 +446,8 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
         makeConditionContext(),
         makeRichContext()
       )
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
       // ≤1500 tok always-on. Full verb map + methodology live in workflows.md.
       expect(countTokens(content)).toBeLessThanOrEqual(1500)
     })
@@ -471,11 +516,16 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
 
   // Verb intent map — always-on carries a CORE table; full map in workflows.md.
   describe('verb intent map (UX phase 1)', () => {
-    it('declares a compact core verb table always-on + full map in reference', async () => {
+    async function claudeSkillAndRef(): Promise<{ content: string; ref: string }> {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const dir = path.dirname(result.generated[0].path)
-      const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
+      const ref = await fs.readFile(path.join(path.dirname(claude!.path), 'workflows.md'), 'utf-8')
+      return { content, ref }
+    }
+
+    it('declares a compact core verb table always-on + full map in reference', async () => {
+      const { content, ref } = await claudeSkillAndRef()
       expect(content).toContain('### Core verbs')
       expect(content).toMatch(/you run the verb|never types/)
       expect(content).toContain('| Signal | Verb | T |')
@@ -494,8 +544,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('explicitly tells the model NOT to make the user type commands', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const { content } = await claudeSkillAndRef()
       expect(content).toMatch(/never types|run the verb/i)
       // Skill description carries the same contract.
       const description = content.split('description:')[1]?.split('\n')[0] ?? ''
@@ -503,10 +552,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('teaches living context synthesis via pull reference (not always-on dump)', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
-      const dir = path.dirname(result.generated[0].path)
-      const ref = await fs.readFile(path.join(dir, 'workflows.md'), 'utf-8')
+      const { content, ref } = await claudeSkillAndRef()
       expect(content).toMatch(/living context|Session close/i)
       expect(ref).toContain('Living context synthesis')
       expect(ref).toContain('same model that just executed the task')
@@ -524,9 +570,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
   // Routing protocol — three tiers based on blast radius (condensed from
   // the old per-tier sections into a tight list in the lean body).
   describe('routing protocol (UX phase 2)', () => {
-    it('declares the three-tier routing protocol by blast radius', async () => {
+    async function claudeBody(): Promise<string> {
       const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      return fs.readFile(claude!.path, 'utf-8')
+    }
+
+    it('declares the three-tier routing protocol by blast radius', async () => {
+      const content = await claudeBody()
       expect(content).toContain('### Routing')
       expect(content).toContain('Tier 1 — auto-execute')
       expect(content).toContain('Tier 2 — confirm')
@@ -534,8 +585,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('groups memory / guard / insights / performance into Tier 1', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await claudeBody()
       const tier1 = content.split('Tier 1 — auto-execute')[1]?.split('Tier 2 —')[0] ?? ''
       expect(tier1).toContain('search')
       expect(tier1).toContain('remember')
@@ -545,8 +595,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('groups work / intent / ship into Tier 2 (confirm once)', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await claudeBody()
       const tier2 = content.split('Tier 2 — confirm')[1]?.split('Tier 3 —')[0] ?? ''
       expect(tier2).toContain('work')
       expect(tier2).toContain('intent')
@@ -554,8 +603,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('refuses pausing on routine captures and shipping without user OK', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const content = await claudeBody()
       expect(content).toMatch(/do not ask permission to save|auto-execute/i)
       expect(content).toMatch(/Never ship without user OK/)
     })

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.51.0] - 2026-07-13
+
+### Added
+- portable multi-LLM L0 skill isolation — no global project stamp
+
 ## [3.50.2] - 2026-07-12
 
 ### Added
@@ -27,7 +32,6 @@
 ### Performance
 
 - slim core ListTools 19→10 tools (#554)
-
 
 ## [3.50.1] - 2026-07-12
 
