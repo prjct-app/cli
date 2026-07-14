@@ -43,6 +43,21 @@ describe('buildAlignmentCard', () => {
     expect(card.markdown).toMatch(/CONTEXT PRESSURE/)
   })
 
+  it('hard level on warn context pressure (compact path mandatory at ≥60%)', () => {
+    const card = buildAlignmentCard({
+      pressure: {
+        level: 'warn',
+        turns: 9,
+        limit: 15,
+        ratio: 0.6,
+        cue: '# prjct: context pressure (~60%) — compact path\nMandatory close plan.',
+      },
+    })
+    expect(card.level).toBe('hard')
+    expect(card.cues).toContain('context-pressure-warn')
+    expect(card.markdown).toMatch(/compact path|land/)
+  })
+
   it('warn on stuck turns without hard loop', () => {
     const card = buildAlignmentCard({
       turns: 16,

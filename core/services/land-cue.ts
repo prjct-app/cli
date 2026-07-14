@@ -37,16 +37,36 @@ export async function buildLandCue(
 
   if (overview?.current) {
     const title = overview.current.description.slice(0, 60)
+    // Load turn/token counters from live state — ActiveTaskView is display-only.
+    let turnCount: number | undefined
+    let tokensIn: number | undefined
+    let tokensOut: number | undefined
+    try {
+      const { stateStorage } = await import('../storage/state-storage')
+      const live = overview.current.isCurrent
+        ? await stateStorage.getCurrentTask(projectId).catch(() => null)
+        : null
+      // Prefer main currentTask when this workspace is main; child worktrees
+      // may only have description — still surface land cue without false pressure.
+      turnCount = live?.turnCount
+      tokensIn = live?.tokensIn
+      tokensOut = live?.tokensOut
+    } catch {
+      /* pressure falls back to description-only (level ok if no turns) */
+    }
     const pressure = contextPressureVerdict(config, {
       description: overview.current.description,
+      turnCount,
+      tokensIn,
+      tokensOut,
     })
-    const hard = mode === 'strict' || pressure.level === 'critical'
+    const hard = mode === 'strict' || pressure.level === 'critical' || pressure.level === 'warn'
     const head = hard ? `# prjct: LAND REQUIRED before context dies` : `# prjct: land the plane`
     lines.push(
       head,
       `Open cycle: "${title}${overview.current.description.length > 60 ? '…' : ''}"`,
       hard
-        ? 'Before ending the session: `prjct status done` or `prjct log "…"`, then `prjct land` (auto-synthesizes the Session close hand-off — no manual remember).'
+        ? 'Before ending the session: `prjct status done` or `prjct log "…"`, then `prjct land` (auto-synthesizes the Session close hand-off — no manual remember). Next window: `prjct prime`.'
         : 'Before ending the session: `prjct land` (auto hand-off + judgment receipt) · optional `prjct memory export` for the team.'
     )
     if (pressure.cue) lines.push('', pressure.cue)

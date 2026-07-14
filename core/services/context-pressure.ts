@@ -65,6 +65,7 @@ export function contextPressureVerdict(
       ratio: effective,
       cue: `# prjct: CONTEXT PRESSURE (critical ~${Math.round(effective * 100)}%) — HARD GATE
 Session is full — STOP expanding scope. \`prjct ship\` is blocked until you \`prjct land\` then \`/clear\` or new window + \`prjct prime\`.
+Compact path (MUST): (1) finish or pause the open slice (2) \`prjct land\` (3) fresh window + \`prjct prime\` — do NOT re-research from zero.
 Fresh compound judgment (SQLite) beats GSD fresh-window thrash. Override ship only with explicit consent: \`prjct ship --force-pressure\`.`,
     }
   }
@@ -75,8 +76,12 @@ Fresh compound judgment (SQLite) beats GSD fresh-window thrash. Override ship on
       turns,
       limit,
       ratio: effective,
-      cue: `# prjct: context pressure (~${Math.round(effective * 100)}%)
-Mandatory close plan: finish the slice, \`prjct land\`, no more exploration in this window.`,
+      cue: `# prjct: context pressure (~${Math.round(effective * 100)}%) — compact path
+Context budget low. Mandatory close plan THIS window:
+1. Finish the current slice only (no new exploration / no multi-file rabbit holes)
+2. \`prjct land\` before context dies
+3. Next window: \`prjct prime\` (not a blank chat)
+Do not open broad Grep/Glob or spawn research subagents until after land+prime.`,
     }
   }
 
@@ -86,4 +91,26 @@ Mandatory close plan: finish the slice, \`prjct land\`, no more exploration in t
 /** Critical pressure blocks ship / expansion — superior to banner-only guards. */
 export function contextPressureBlocksExpansion(v: ContextPressureVerdict): boolean {
   return v.level === 'critical'
+}
+
+/**
+ * Host-agnostic one-liner for statusline / doctor / Codex status_line.
+ * Empty string when ok (no noise on the chrome).
+ */
+export function contextPressureStatusLine(v: ContextPressureVerdict): string {
+  if (v.level === 'critical') {
+    return `ctx:${Math.round(v.ratio * 100)}% CRITICAL → land then prime`
+  }
+  if (v.level === 'warn') {
+    return `ctx:${Math.round(v.ratio * 100)}% → land/prime soon`
+  }
+  return ''
+}
+
+/**
+ * True when agents MUST take the compact path (land → fresh → prime)
+ * before expanding scope — warn OR critical.
+ */
+export function contextPressureRequiresCompactPath(v: ContextPressureVerdict): boolean {
+  return v.level === 'warn' || v.level === 'critical'
 }

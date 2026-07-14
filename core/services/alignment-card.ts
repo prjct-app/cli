@@ -63,7 +63,8 @@ export function buildAlignmentCard(input: AlignmentCardInput): AlignmentCard {
     // cue already has header; keep body lines
     blocks.push(input.pressure.cue)
   } else if (input.pressure?.level === 'warn' && input.pressure.cue) {
-    warn = true
+    // Warn is still mid-cycle hard-steer: compact path is mandatory at ≥60%.
+    hard = true
     cues.push('context-pressure-warn')
     blocks.push(input.pressure.cue)
   }
