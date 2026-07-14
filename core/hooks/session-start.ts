@@ -108,10 +108,67 @@ export async function buildSessionContext(
     landCue = null
   }
 
-  // Nothing to say (no persona, no knowledge, no drift) → stay silent.
-  if (!persona && !digest && !staleness && !vaultNotice && !landCue) return null
+  // Weak-model product mode banner (apuesta 7).
+  let weakBanner: string | null = null
+  try {
+    const { effectiveWeakModelMode, weakModelBanner } = await import('../services/weak-model-mode')
+    if (effectiveWeakModelMode(config) === 'on') weakBanner = weakModelBanner()
+  } catch {
+    weakBanner = null
+  }
+
+  // Pending multi-agent handoffs — cold-start only (variable; would bust
+  // mid-session prompt cache). Per-turn inject lives in the prompt hook.
+  let handoffCue: string | null = null
+  if (opts.digest) {
+    try {
+      const { formatPendingHandoffCue } = await import('../services/agent-switch')
+      const cue = formatPendingHandoffCue(config.projectId)
+      if (cue) handoffCue = `# prjct: pending handoff\n${cue}`
+    } catch {
+      handoffCue = null
+    }
+  }
+
+  // Managed session continuity — cold start only (variable stamp time).
+  let continuityCue: string | null = null
+  if (opts.digest) {
+    try {
+      const { loadSessionContinuity, formatContinuitySessionCue } = await import(
+        '../services/session-continuity'
+      )
+      continuityCue = formatContinuitySessionCue(loadSessionContinuity(config.projectId))
+    } catch {
+      continuityCue = null
+    }
+  }
+
+  // L1 cwd identity — NEVER from the global skill (multi-project poison).
+  // Always emit when we have projectId so the model never trusts a foreign
+  // skill stamp over this cwd (branch can change; acceptable on resume).
+  const identity = await buildProjectIdentityLine(projectPath, config.projectId)
+
+  // Nothing to say (no identity, persona, knowledge, drift) → stay silent.
+  if (
+    !identity &&
+    !persona &&
+    !digest &&
+    !staleness &&
+    !vaultNotice &&
+    !landCue &&
+    !weakBanner &&
+    !handoffCue &&
+    !continuityCue
+  ) {
+    return null
+  }
 
   const sections: string[] = ['# prjct: project context', '']
+
+  if (identity) {
+    sections.push(identity, '')
+  }
+
   if (persona) {
     // One advisory line only — the recall verbs already live in the skill's
     // Primitives section; repeating them here cost tokens on every cold
@@ -138,6 +195,20 @@ export async function buildSessionContext(
     if (persona || digest || staleness || vaultNotice) sections.push('')
     sections.push(landCue)
   }
+  if (weakBanner) {
+    if (persona || digest || staleness || vaultNotice || landCue) sections.push('')
+    sections.push(weakBanner)
+  }
+  if (handoffCue) {
+    if (persona || digest || staleness || vaultNotice || landCue || weakBanner) sections.push('')
+    sections.push(handoffCue)
+  }
+  if (continuityCue) {
+    if (persona || digest || staleness || vaultNotice || landCue || weakBanner || handoffCue) {
+      sections.push('')
+    }
+    sections.push(continuityCue)
+  }
   return sections.join('\n')
 }
 
@@ -159,22 +230,43 @@ async function buildStalenessNotice(
     if (!warning) return null
     // Continuous understanding: detach a lightweight sync so the map
     // refreshes without GSD-style full map-codebase thrash every phase.
+    // SUPERIOR: stamp schedule/apply so we don't warn forever after refresh.
+    let refreshScheduled = false
+    let stamp: import('../services/drift-refresh').DriftRefreshStamp = {}
     try {
       const path = await import('node:path')
       const os = await import('node:os')
-      const { maybeDetachDriftRefresh } = await import('../services/drift-refresh')
+      const { maybeDetachDriftRefresh, readDriftStamp, formatDriftNotice, driftStaleResolved } =
+        await import('../services/drift-refresh')
       const cliHome = process.env.PRJCT_CLI_HOME
         ? path.resolve(process.env.PRJCT_CLI_HOME)
         : path.join(os.homedir(), '.prjct-cli')
-      maybeDetachDriftRefresh({
+      stamp = readDriftStamp(cliHome)
+      // If a recent apply already cleared staleness presentation, say so once.
+      if (driftStaleResolved(stamp)) {
+        return formatDriftNotice({
+          warning,
+          commitsSinceSync: status.commitsSinceSync,
+          stamp,
+          refreshScheduled: false,
+        })
+      }
+      refreshScheduled = maybeDetachDriftRefresh({
         projectPath,
         cliHome,
         commitsSinceSync: status.commitsSinceSync,
       })
+      stamp = readDriftStamp(cliHome)
+      return formatDriftNotice({
+        warning,
+        commitsSinceSync: status.commitsSinceSync,
+        stamp,
+        refreshScheduled,
+      })
     } catch {
       /* never block SessionStart */
     }
-    return `**Understanding may be stale:** ${warning} — architecture/risks map from last sync; a background refresh was scheduled when drift is large. Prefer \`prjct sync\` before big calls if this notice persists.`
+    return `**Understanding may be stale:** ${warning} — run \`prjct sync\` before big calls.`
   } catch {
     return null
   }
@@ -403,6 +495,39 @@ function formatPersona(persona: ProjectPersona): string {
     lines.push(`Active packs: ${persona.packs.join(', ')}`)
   }
   return lines.join('\n')
+}
+
+/**
+ * Cwd-scoped project identity for L1 inject. Global skills stay portable;
+ * this is the only place agents should learn "which repo am I in?".
+ */
+export async function buildProjectIdentityLine(
+  projectPath: string,
+  projectId: string
+): Promise<string | null> {
+  try {
+    const path = await import('node:path')
+    const { execFileAsync } = await import('../utils/exec')
+    const name = path.basename(projectPath)
+    let branch = ''
+    try {
+      const { stdout } = await execFileAsync('git', ['branch', '--show-current'], {
+        cwd: projectPath,
+      })
+      branch = stdout.trim()
+    } catch {
+      branch = ''
+    }
+    const shortId = projectId.length > 12 ? `${projectId.slice(0, 8)}…` : projectId
+    const parts = [`## Project identity (cwd)`, `- **${name}** · id \`${shortId}\``]
+    if (branch) parts.push(`- Branch: \`${branch}\``)
+    parts.push(
+      '- Skill is portable L0 — if skill text names another project, ignore it; trust this block + `prjct context --md`.'
+    )
+    return parts.join('\n')
+  } catch {
+    return null
+  }
 }
 
 /**

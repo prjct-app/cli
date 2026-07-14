@@ -110,10 +110,37 @@ export function readOwnPackageVersion(): string | null {
 }
 
 /**
- * Best-effort detection that a newer `prjct-cli` has been installed globally
- * while this daemon is still running. Returns `true` only when we can
- * positively identify a mismatch — on any lookup failure we return `false`
- * (daemon keeps running; no false positives).
+ * True when `candidate` is a strictly greater semver than `baseline`.
+ * Pre-release / build metadata are ignored; non-semver strings compare equal
+ * (no drift) so we never false-positive restart on weird labels.
+ */
+export function isStrictlyNewerVersion(candidate: string, baseline: string): boolean {
+  const parse = (v: string): number[] | null => {
+    const core = v.trim().replace(/^v/i, '').split('-')[0].split('+')[0]
+    const parts = core.split('.').map((p) => Number.parseInt(p, 10))
+    if (parts.length < 1 || parts.some((n) => Number.isNaN(n))) return null
+    while (parts.length < 3) parts.push(0)
+    return parts.slice(0, 3)
+  }
+  const a = parse(candidate)
+  const b = parse(baseline)
+  if (!a || !b) return false
+  for (let i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return true
+    if (a[i] < b[i]) return false
+  }
+  return false
+}
+
+/**
+ * Best-effort detection that a *newer* `prjct-cli` has been installed globally
+ * while this daemon is still running. Returns `true` only when the global
+ * install is strictly greater than our own version — on any lookup failure we
+ * return `false` (daemon keeps running; no false positives).
+ *
+ * Equality → fine. Global older than own (monorepo ahead of published, or a
+ * local build) → not drift; thrashing a 3.49 monorepo daemon because the
+ * machine still has 3.48 on PATH was a production-log footgun in reverse.
  */
 export function isGlobalVersionDrifted(ownVersion: string | null): boolean {
   if (!ownVersion) return false
@@ -144,7 +171,7 @@ export function isGlobalVersionDrifted(ownVersion: string | null): boolean {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
         if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
-          return pkg.version !== ownVersion
+          return isStrictlyNewerVersion(pkg.version, ownVersion)
         }
       } catch {
         /* keep walking */

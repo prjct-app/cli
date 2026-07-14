@@ -303,8 +303,8 @@ if(cmd==="hook"){
     if(process.stdin.isTTY){sendHook(sub,"")}else{let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>sendHook(sub,d));process.stdin.on("error",()=>sendHook(sub,d));setTimeout(()=>sendHook(sub,d),1000)}
   }else{
     // Cold path (daemon disabled/unreachable): run the hook from the dedicated
-    // ~136KB hooks bundle, NOT the ~936KB core. cold-entry reads argv+stdin and
-    // exits, awaiting afterEmit (byte-identical output to the old core path).
+    // hooks bundle, NOT the full core. cold-entry emits host JSON then detaches
+    // afterEmit into a worker (PRJCT_HOOK_AFTER_EMIT) so Stop does not block.
     import("./prjct-hooks.mjs").catch(()=>{process.stdout.write("{}\\n");process.exit(0)})
   }
 }else if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){

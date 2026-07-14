@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { stateStorage } from '../../storage/state-storage'
 import { findRelevantFiles } from '../../tools/context/files-tool'
 import { extractSignatures } from '../../tools/context/signatures-tool'
-import { resolveProjectId } from '../resolve'
+import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
@@ -21,28 +21,71 @@ export function registerFileTools(server: McpServer) {
 
   s.tool(
     'prjct_relevant_files',
-    'Files most relevant to a query, ranked by keyword/path match, domain, and git recency. Use to scope where work likely lives before reading the tree.',
+    'MUST call before Grep/Glob tree walks. Resolves a constrained work scope via prjct: memory (FTS + semantic embeddings when enabled) + code BM25 index + import graph + co-change. Prefer this over scanning the repo.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       query: z.string().describe('Task or query to find relevant files for'),
       maxFiles: z.number().optional().default(10).describe('Max files to return'),
     },
     safeMcpCall(
       'prjct_relevant_files',
       async (args: { projectPath: string; query: string; maxFiles: number }) => {
-        const result = await findRelevantFiles(args.query, args.projectPath, {
+        // Prefer unified work-scope (memory vector/FTS + index + graph).
+        try {
+          const projectId = await resolveProjectId(args.projectPath)
+          if (projectId) {
+            const { resolveWorkScope, formatWorkScopeBlock } = await import(
+              '../../services/work-scope'
+            )
+            const scope = await resolveWorkScope(
+              resolveProjectPath(args.projectPath),
+              projectId,
+              args.query,
+              args.maxFiles
+            )
+            if (scope.files.length > 0) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: [
+                      formatWorkScopeBlock(scope.files, {
+                        indexesReady: scope.indexesReady,
+                        memorySeeds: scope.sources.memorySeeds,
+                      }),
+                      '',
+                      `_sources: memorySeeds=${scope.sources.memorySeeds} indexHits=${scope.sources.indexHits} graphNeighbors=${scope.sources.graphNeighbors}_`,
+                    ].join('\n'),
+                  },
+                ],
+              }
+            }
+          }
+        } catch {
+          /* fall through to live scan */
+        }
+
+        // Fallback: live path scan (only when indexes/memory empty).
+        const result = await findRelevantFiles(args.query, resolveProjectPath(args.projectPath), {
           maxFiles: args.maxFiles,
           minScore: 0.1,
         })
 
         if (result.files.length === 0) {
-          return { content: [{ type: 'text', text: 'No relevant files found.' }] }
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No relevant files found. Run `prjct sync` to rebuild indexes, then retry. Prefer `prjct context memory <topic>` over Grep/Glob.',
+              },
+            ],
+          }
         }
 
         const lines = result.files.map(
           (f) => `- \`${f.path}\` (score: ${Math.round(f.score * 100)}%) — ${f.reasons.join(', ')}`
         )
-        const text = `## Relevant Files (${result.files.length}/${result.metrics.filesScanned} scanned)\n\n${lines.join('\n')}`
+        const text = `## Relevant Files (fallback scan ${result.files.length}/${result.metrics.filesScanned})\n\n> Prefer re-running after \`prjct sync\` so memory+BM25+graph scope is used.\n\n${lines.join('\n')}`
         return { content: [{ type: 'text', text }] }
       }
     )
@@ -52,7 +95,7 @@ export function registerFileTools(server: McpServer) {
     'prjct_signatures',
     'Function/class signatures of a file without bodies (~90% fewer tokens). Use to map an unfamiliar file before deciding whether to Read it fully.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       filePath: z.string().describe('Relative file path to extract signatures from'),
     },
     safeMcpCall('prjct_signatures', async (args: { projectPath: string; filePath: string }) => {
@@ -87,7 +130,7 @@ export function registerFileTools(server: McpServer) {
     'prjct_history',
     'Recently completed tasks and how they ended. Use to learn what was just done before continuing related work.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       limit: z.number().optional().default(10).describe('Max results'),
     },
     safeMcpCall('prjct_history', async (args: { projectPath: string; limit: number }) => {

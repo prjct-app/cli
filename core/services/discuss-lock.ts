@@ -8,7 +8,6 @@
  */
 
 import type { HarnessLevel } from '../schemas/state'
-import type { LocalConfig } from '../types/config'
 
 export type DiscussLockMode = 'off' | 'advisory' | 'strict'
 
@@ -19,10 +18,6 @@ export interface DiscussLockVerdict {
   message: string
   /** Why the lock applied (telemetry / tests). */
   reason: 'sdd-strict' | 'discuss-h2' | 'none'
-}
-
-export function effectiveDiscussSddMode(config: LocalConfig | null | undefined): DiscussLockMode {
-  return config?.sdd?.mode ?? 'off'
 }
 
 /**
@@ -55,8 +50,8 @@ export function discussLockVerdict(input: {
       reason,
       message:
         reason === 'sdd-strict'
-          ? 'Strict SDD: an intent/spec is required before work. Run `prjct intent "<title>"`, pass `prjct audit-spec <id>`, then `prjct work --spec <id>`. (Relax with `prjct sdd advisory` or `off`.)'
-          : `Discuss-lock (${harnessLevel}): lock product decisions before code. Run \`prjct intent "<title>"\` → \`prjct audit-spec <id>\` → \`prjct work --spec <id>\`. (This is advisory SDD on H2+ — GSD discuss-before-plan, code-enforced. Relax: \`prjct sdd off\`.)`,
+          ? 'Strict SDD: an intent/spec is required before work. Run `prjct intent "<title>"`, pass `prjct audit-spec <id>`, then `prjct work --spec <id>`. (Relax with `prjct sdd advisory` or `off`.) SUPERIOR to GSD discuss theater: code-enforced, SQLite-backed.'
+          : `Discuss-lock (${harnessLevel}): lock product decisions before code. Run \`prjct intent "<title>"\` → \`prjct audit-spec <id>\` → \`prjct work --spec <id>\`. SUPERIOR to GSD discuss-before-plan: code-enforced on H2+, not markdown ceremony. Relax: \`prjct sdd off\`.`,
     }
   }
 

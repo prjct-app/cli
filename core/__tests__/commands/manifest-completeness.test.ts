@@ -52,6 +52,34 @@ describe('command manifest — completeness', () => {
     expect(REGISTERED_VERBS_SET.has('upgrade')).toBe(true)
   })
 
+  test('every bin-commands handler is allowlisted (no GTD capture fallthrough)', async () => {
+    // Handlers live as `args[0] === 'verb'` branches. If a verb is handled but
+    // missing from BIN_ONLY_COMMANDS, multi-word GTD rewrites it to capture
+    // before the cold path can run (harness score → inbox bug class).
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    // process.cwd() is the package root under `bun test` from repo root.
+    const src = await fs.readFile(path.join(process.cwd(), 'core/cli/bin-commands.ts'), 'utf-8')
+    const handlers = new Set<string>()
+    for (const m of src.matchAll(/args\[0\]\s*===\s*'([a-z][a-z0-9:-]*)'/g)) {
+      handlers.add(m[1]!)
+    }
+    // Flag aliases handled in the same file
+    for (const m of src.matchAll(/args\[0\]\s*===\s*'(-{1,2}[a-z]+)'/g)) {
+      handlers.add(m[1]!)
+    }
+    const missing = [...handlers].filter(
+      (v) => !BIN_COMMANDS_SET.has(v) && !REGISTERED_VERBS_SET.has(v)
+    )
+    expect(missing).toEqual([])
+  })
+
+  test('harness is bin-only so GTD never captures "harness score"', () => {
+    expect(BIN_COMMANDS_SET.has('harness')).toBe(true)
+    const meta = COMMANDS.find((c) => c.name === 'harness')
+    expect(meta?.routingMode).toBe('bin-only')
+  })
+
   test('schema-covered commands declare routing (the generic path needs a handler)', () => {
     const broken = COMMANDS.filter((c) => c.optionSchema && !c.routing).map((c) => c.name)
     expect(broken).toEqual([])

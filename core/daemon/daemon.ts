@@ -11,9 +11,10 @@
  * - Single process for CLI + HTTP API
  */
 
+import { spawn as spawnProcess } from 'node:child_process'
 import fs from 'node:fs'
 import type { Server, Socket } from 'node:net'
-import { createServer as createNetServer } from 'node:net'
+import { createServer as createNetServer, connect as netConnect } from 'node:net'
 import { PrjctCommands } from '../commands/commands'
 import { resetGroupLoaders } from '../commands/register'
 import { commandRegistry } from '../commands/registry'
@@ -30,8 +31,10 @@ import {
   IDLE_TIMEOUT_MS,
   isDaemonNamedPipe,
   MAX_BUFFER_SIZE,
+  SHUTDOWN_DRAIN_MS,
 } from './protocol'
 import { daemonRequestJournal } from './request-journal'
+import { daemonRequestLanes } from './request-lanes'
 import {
   decideRestart,
   isCodeStale as detectStaleCode,
@@ -41,6 +44,7 @@ import {
   resolveEntryPath,
   rotateLog,
 } from './staleness'
+import { decideListenFailure } from './startup-lock'
 
 /** Run WAL checkpoint every N requests to reclaim disk space */
 const WAL_CHECKPOINT_INTERVAL = 50
@@ -57,22 +61,16 @@ const VERSION_DRIFT_CHECK_MIN_MS = 1000
 /** How often the daemon re-checks npm for a newer published version. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
 
+/** Cap absorbed crash handlers so a tight loop cannot pin the process forever. */
+const MAX_ABSORBED_ERRORS = 50
+
 let ipcServer: Server | null = null
 let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
 let ownVersion: string | null = null
 let lastDriftCheckMs = 0
 let updateTimer: ReturnType<typeof setInterval> | null = null
-
-// Serializes command execution. handleRequestInner patches the GLOBAL
-// console.log/error to capture a command's output; with concurrent socket
-// connections (state.activeRequests can exceed 1) two requests would
-// cross-capture each other's output and whichever finishes first would
-// restore the real console while the other is still mid-command. Chaining
-// through one promise makes command execution strictly one-at-a-time —
-// SQLite is single-writer anyway and commands are short, so the throughput
-// cost is negligible next to the correctness win.
-let _requestChain: Promise<unknown> = Promise.resolve()
+let shuttingDown = false
 
 export async function startDaemon(options: { foreground?: boolean }): Promise<void> {
   // Flag child services can check to know they're running under the
@@ -87,18 +85,37 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
 
   fs.mkdirSync(runDir, { recursive: true })
 
-  // Check if daemon is already running
+  // Cross-process single-flight lives in spawnDaemon() (client-side lock).
+  // Here we only refuse if a live PID already owns the endpoint; lost listen
+  // races exit 0 via decideListenFailure when a peer is healthy.
   if (fs.existsSync(pidPath)) {
     const existingPid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10)
     if (isProcessRunning(existingPid)) {
-      console.error(`Daemon already running (PID ${existingPid})`)
-      process.exit(1)
+      console.log(`Daemon already running (PID ${existingPid})`)
+      process.exit(0)
     }
-    fs.unlinkSync(pidPath)
+    try {
+      fs.unlinkSync(pidPath)
+    } catch {
+      /* ignore */
+    }
   }
 
   // Clean up stale Unix socket. Windows named pipes are not filesystem entries.
-  if (!namedPipe && fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
+  // Never unlink if a live peer is already serving (protects against the
+  // classic "steal the Unix socket under a live listener" race).
+  if (!namedPipe && fs.existsSync(socketPath)) {
+    const peerAlive = await peerDaemonHealthy(socketPath, pidPath)
+    if (peerAlive) {
+      console.log('Daemon already serving — yielding')
+      process.exit(0)
+    }
+    try {
+      fs.unlinkSync(socketPath)
+    } catch {
+      /* ignore */
+    }
+  }
 
   rotateLog()
 
@@ -124,7 +141,11 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     entryMtime,
     activeRequests: 0,
     restartPending: false,
+    restartReason: null,
+    absorbedErrors: 0,
   }
+
+  installCrashHandlers()
 
   // Self-heal hooks + global CLAUDE.md when the binary moved past the
   // last sync. Best-effort: failures must never block daemon startup.
@@ -158,8 +179,18 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   ipcServer = createNetServer((socket) => handleConnection(socket))
 
   ipcServer.listen(socketPath, () => {
-    if (!namedPipe) fs.chmodSync(socketPath, 0o600)
-    fs.writeFileSync(pidPath, String(process.pid))
+    if (!namedPipe) {
+      try {
+        if (fs.existsSync(socketPath)) fs.chmodSync(socketPath, 0o600)
+      } catch {
+        // Race with a dying peer unlinking the socket — non-fatal if we still listen.
+      }
+    }
+    try {
+      fs.writeFileSync(pidPath, String(process.pid))
+    } catch (err) {
+      console.error('Failed to write daemon pid file:', (err as Error).message)
+    }
 
     console.log(`prjct daemon started (PID ${process.pid})`)
     console.log(`  Socket: ${socketPath}`)
@@ -173,12 +204,30 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   })
 
   ipcServer.on('error', (err) => {
-    console.error('Daemon socket error:', err.message)
-    shutdown(1)
+    const code = (err as NodeJS.ErrnoException).code
+    void (async () => {
+      const peerHealthy = await peerDaemonHealthy(socketPath, pidPath)
+      const decision = decideListenFailure({
+        errorCode: code,
+        errorMessage: err.message,
+        peerHealthy,
+      })
+      console.error(
+        decision.exitCode === 0
+          ? `Daemon listen race lost (${decision.reason}) — peer is healthy`
+          : `Daemon socket error: ${err.message}`
+      )
+      // Don't call full shutdown (would unlink a peer's socket). Just exit.
+      process.exit(decision.exitCode)
+    })()
   })
 
-  process.on('SIGTERM', () => shutdown(0))
-  process.on('SIGINT', () => shutdown(0))
+  process.on('SIGTERM', () => {
+    void shutdown(0)
+  })
+  process.on('SIGINT', () => {
+    void shutdown(0)
+  })
   process.on('SIGHUP', () => {
     // Refresh BOTH dispatch paths: the explicit-case instance below AND the
     // registry's lazy group memos (schema-covered commands kept pre-reload
@@ -196,6 +245,93 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
       // Not available in all runtimes (e.g. Bun)
     }
   }
+}
+
+/**
+ * Best-effort check that another daemon is already serving (or a live PID
+ * owns the endpoint). Used to exit 0 on lost spawn races instead of
+ * cascading fatal errors.
+ */
+async function peerDaemonHealthy(socketPath: string, pidPath: string): Promise<boolean> {
+  const namedPipe = isDaemonNamedPipe(socketPath)
+  if (!namedPipe && !fs.existsSync(socketPath)) {
+    if (fs.existsSync(pidPath)) {
+      const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10)
+      return !Number.isNaN(pid) && isProcessRunning(pid)
+    }
+    return false
+  }
+
+  // Light connect + ping without importing the full client (avoids cycles).
+  return await new Promise<boolean>((resolve) => {
+    const sock = netConnect(socketPath)
+    let done = false
+    const finish = (ok: boolean) => {
+      if (done) return
+      done = true
+      try {
+        sock.destroy()
+      } catch {
+        /* ignore */
+      }
+      resolve(ok)
+    }
+    const t = setTimeout(() => finish(false), 400)
+    sock.on('connect', () => {
+      sock.write(
+        encodeMessage({
+          id: 'startup-peer-check',
+          command: '__ping',
+          args: [],
+          options: {},
+          cwd: process.cwd(),
+        })
+      )
+    })
+    sock.on('data', (chunk: Buffer) => {
+      try {
+        const line = chunk.toString().split('\n')[0]
+        const msg = JSON.parse(line) as DaemonResponse
+        clearTimeout(t)
+        finish(msg.success === true)
+      } catch {
+        clearTimeout(t)
+        finish(false)
+      }
+    })
+    sock.on('error', () => {
+      clearTimeout(t)
+      finish(false)
+    })
+  })
+}
+
+function installCrashHandlers(): void {
+  process.on('unhandledRejection', (reason) => {
+    if (!state) return
+    state.absorbedErrors++
+    console.error(
+      `Daemon absorbed unhandledRejection (${state.absorbedErrors}):`,
+      reason instanceof Error ? reason.message : String(reason)
+    )
+    if (state.absorbedErrors >= MAX_ABSORBED_ERRORS) {
+      console.error('Daemon absorbed-error cap reached — shutting down for clean respawn')
+      void shutdown(1, { respawn: true })
+    }
+  })
+
+  process.on('uncaughtException', (err) => {
+    if (!state) {
+      console.error('Daemon uncaughtException before init:', err.message)
+      process.exit(1)
+      return
+    }
+    state.absorbedErrors++
+    console.error(`Daemon absorbed uncaughtException (${state.absorbedErrors}):`, err.message)
+    // A true uncaughtException can leave the process in an undefined state.
+    // Drain + exit (and self-respawn for warm recovery) rather than keep serving.
+    void shutdown(1, { respawn: true })
+  })
 }
 
 function handleConnection(socket: Socket): void {
@@ -273,6 +409,10 @@ function markStaleIfNeeded(command: string): void {
 
   if (decision.restart) {
     state.restartPending = true
+    // Local rebuild → safe to self-respawn the same entry path.
+    // Global version drift → must NOT self-respawn (this binary is the stale
+    // one); the fresh client falls through and spawns the new install.
+    state.restartReason = codeStale ? 'code' : 'drift'
     console.log(
       codeStale
         ? 'Build change detected — daemon will restart; request runs on fresh code.'
@@ -291,6 +431,16 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
     }
   }
 
+  if (shuttingDown && request.command !== 'daemon' && request.command !== '__ping') {
+    return {
+      id: request.id,
+      success: false,
+      exitCode: 1,
+      retry: true,
+      stderr: 'daemon is shutting down — running directly',
+    }
+  }
+
   // Detect staleness BEFORE serving so no request is ever answered by an
   // outdated build.
   markStaleIfNeeded(request.command)
@@ -303,7 +453,9 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   if (state.restartPending && request.command !== 'daemon' && request.command !== '__ping') {
     if (state.activeRequests === 0) {
       console.log('Daemon shutting down for code reload...')
-      setImmediate(() => shutdown(0))
+      setImmediate(() => {
+        void shutdown(0, { respawn: state?.restartReason === 'code' })
+      })
     }
     return {
       id: request.id,
@@ -317,23 +469,19 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   return daemonRequestJournal.run(request, async () => {
     state!.activeRequests++
     try {
-      // Run strictly after any in-flight command (see _requestChain). The
-      // catch arms keep the chain alive if a prior request rejected.
-      const run = _requestChain.then(
-        () => handleRequestInner(request),
-        () => handleRequestInner(request)
-      )
-      _requestChain = run.then(
-        () => undefined,
-        () => undefined
-      )
-      return await run
+      // Hooks use a separate lane so a long CLI command cannot head-of-line
+      // block Claude Code's Prompt/Stop path. Commands stay exclusive because
+      // they patch global console.log/error for output capture.
+      const lane = request.command === 'hook' ? 'hook' : 'command'
+      return await daemonRequestLanes.run(lane, () => handleRequestInner(request))
     } finally {
       state!.activeRequests--
       if (state!.restartPending && state!.activeRequests === 0) {
         console.log('Daemon shutting down for code reload...')
         // Defer to next tick so the response finishes flushing to the client.
-        setImmediate(() => shutdown(0))
+        setImmediate(() => {
+          void shutdown(0, { respawn: state?.restartReason === 'code' })
+        })
       }
     }
   })
@@ -463,6 +611,12 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
   const subcommand = request.args[0]
 
   if (subcommand === 'status') {
+    let memoryRss: number | undefined
+    try {
+      memoryRss = process.memoryUsage().rss
+    } catch {
+      memoryRss = undefined
+    }
     return {
       id: request.id,
       success: true,
@@ -476,6 +630,12 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
         lastActivity: state ? new Date(state.lastActivity).toISOString() : null,
         registeredCommands: commandRegistry.list().length,
         stale: state ? detectStaleCode(state.entryPath, state.entryMtime) : false,
+        version: ownVersion,
+        memoryRss,
+        activeRequests: state?.activeRequests ?? 0,
+        restartPending: state?.restartPending ?? false,
+        restartReason: state?.restartReason ?? null,
+        absorbedErrors: state?.absorbedErrors ?? 0,
       },
     }
   }
@@ -487,7 +647,9 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
       exitCode: 0,
       stdout: 'Daemon stopping...',
     }
-    setTimeout(() => shutdown(0), 100)
+    setTimeout(() => {
+      void shutdown(0)
+    }, 100)
     return response
   }
 
@@ -500,21 +662,52 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
 }
 
 function resetIdleTimer(): void {
-  if (!state) return
+  if (!state || shuttingDown) return
 
   if (state.idleTimer) clearTimeout(state.idleTimer)
 
   state.idleTimer = setTimeout(() => {
     console.log(`Daemon idle for ${state!.idleTimeoutMs / 1000 / 60} minutes, shutting down`)
-    shutdown(0)
+    void shutdown(0)
   }, state.idleTimeoutMs)
 
   // Don't keep the process alive just for the timer
   if (state.idleTimer.unref) state.idleTimer.unref()
 }
 
-function shutdown(exitCode: number): void {
+/**
+ * Graceful shutdown: stop accepting work, wait briefly for in-flight
+ * requests to finish, then tear down. Optionally self-respawn (only safe
+ * for local rebuild reloads — never for version drift).
+ */
+async function shutdown(exitCode: number, opts: { respawn?: boolean } = {}): Promise<void> {
+  if (shuttingDown) return
+  shuttingDown = true
   console.log('Daemon shutting down...')
+
+  // Stop accepting new connections immediately.
+  if (ipcServer) {
+    try {
+      ipcServer.close()
+    } catch {
+      /* ignore */
+    }
+    ipcServer = null
+  }
+
+  // Drain in-flight work so a mid-command exit doesn't leave partial state
+  // without a response. Cap the wait so a stuck request cannot pin us forever.
+  if (state && state.activeRequests > 0) {
+    const deadline = Date.now() + SHUTDOWN_DRAIN_MS
+    while (state.activeRequests > 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 25))
+    }
+    if (state.activeRequests > 0) {
+      console.log(
+        `Daemon drain timeout with ${state.activeRequests} active request(s) — forcing exit`
+      )
+    }
+  }
 
   // Close realtime connections before tearing down storage.
   try {
@@ -529,12 +722,11 @@ function shutdown(exitCode: number): void {
     updateTimer = null
   }
 
-  if (ipcServer) {
-    ipcServer.close()
-    ipcServer = null
+  try {
+    prjctDb.close()
+  } catch {
+    /* ignore */
   }
-
-  prjctDb.close()
 
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
@@ -553,5 +745,51 @@ function shutdown(exitCode: number): void {
     /* ignore */
   }
 
+  // Self-respawn only when the same entry path now has fresher code (local
+  // rebuild). Version drift must leave the process down so a client running
+  // the NEW binary can spawn the correct install.
+  if (opts.respawn && state?.restartReason !== 'drift') {
+    scheduleSelfRespawn()
+  }
+
   process.exit(exitCode)
+}
+
+/**
+ * Detach a sibling daemon process from the same entry we were started with.
+ * Best-effort: failures leave the daemon down (clients cold-fall-through and
+ * will spawn on the next command).
+ */
+function scheduleSelfRespawn(): void {
+  try {
+    const entry = process.argv[1]
+    if (!entry || !fs.existsSync(entry)) return
+    const logPath = DAEMON_PATHS.log()
+    let logFd: number | undefined
+    try {
+      logFd = fs.openSync(logPath, 'a')
+    } catch {
+      logFd = undefined
+    }
+    const stdio: ['ignore', number | 'ignore', number | 'ignore'] = logFd
+      ? ['ignore', logFd, logFd]
+      : ['ignore', 'ignore', 'ignore']
+    // Must be synchronous before process.exit — an async spawn would never run.
+    const child = spawnProcess(process.execPath, [entry], {
+      detached: true,
+      stdio,
+      env: process.env,
+    })
+    child.unref()
+    if (logFd !== undefined) {
+      try {
+        fs.closeSync(logFd)
+      } catch {
+        /* ignore */
+      }
+    }
+    console.log('Daemon scheduled self-respawn after code reload')
+  } catch (err) {
+    console.error('Daemon self-respawn failed:', (err as Error).message)
+  }
 }

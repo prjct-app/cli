@@ -63,8 +63,9 @@ export function contextPressureVerdict(
       turns,
       limit,
       ratio: effective,
-      cue: `# prjct: CONTEXT PRESSURE (critical ~${Math.round(effective * 100)}%)
-Session is filling — STOP expanding scope. \`prjct land\` now, then \`/clear\` or new window + \`prjct prime\`. Fresh context with compound judgment beats a rotten long thread (GSD-class discipline, SQLite-backed).`,
+      cue: `# prjct: CONTEXT PRESSURE (critical ~${Math.round(effective * 100)}%) — HARD GATE
+Session is full — STOP expanding scope. \`prjct ship\` is blocked until you \`prjct land\` then \`/clear\` or new window + \`prjct prime\`.
+Fresh compound judgment (SQLite) beats GSD fresh-window thrash. Override ship only with explicit consent: \`prjct ship --force-pressure\`.`,
     }
   }
 
@@ -75,9 +76,14 @@ Session is filling — STOP expanding scope. \`prjct land\` now, then \`/clear\`
       limit,
       ratio: effective,
       cue: `# prjct: context pressure (~${Math.round(effective * 100)}%)
-Plan the close: finish the slice, \`prjct land\`, avoid more exploration in this window.`,
+Mandatory close plan: finish the slice, \`prjct land\`, no more exploration in this window.`,
     }
   }
 
   return { level: 'ok', cue: null, turns, limit, ratio: effective }
+}
+
+/** Critical pressure blocks ship / expansion — superior to banner-only guards. */
+export function contextPressureBlocksExpansion(v: ContextPressureVerdict): boolean {
+  return v.level === 'critical'
 }

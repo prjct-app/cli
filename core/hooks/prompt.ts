@@ -87,49 +87,30 @@ export async function buildProjectState(
           '  ↳ Before session end: `prjct land` · hand-off `prjct remember context "Session close: …"`'
         )
       }
-      // Loop control — count the turns spent on this cycle (best-effort write,
-      // resets when a new cycle starts) so the harness can tell a grind from
-      // honest iteration.
+      // Loop control — one write returns post-bump task (no second getCurrentTask).
       let turns = 0
-      let guardMessage = ''
+      let loopVerdict: ReturnType<typeof loopGuardVerdict> | null = null
+      let currentTask: Awaited<ReturnType<typeof stateStorage.getCurrentTask>> = null
       try {
-        turns = await stateStorage.bumpTurnCount(config.projectId)
-        const task = await stateStorage.getCurrentTask(config.projectId)
-        // Hard guard (config.maxTurnsPerCycle) reads the SAME verdict the
-        // edit-deny uses, so the message and the block never disagree.
-        guardMessage = loopGuardVerdict(config, task).message
+        const bumped = await stateStorage.bumpTurnCount(config.projectId)
+        turns = bumped.count
+        currentTask = bumped.task
+        loopVerdict = loopGuardVerdict(config, currentTask)
       } catch {
         /* best-effort — never block the state block on the counter */
       }
-      if (guardMessage) {
-        // HARD tier — the cycle exceeded the configured turn budget. The
-        // pre-edit hook denies further edits on hosts that honor it; here we
-        // say it forcefully for every rig.
-        lines.push(`  ${guardMessage}`)
-      } else if (turns >= STUCK_TURN_THRESHOLD) {
-        // Escalation: a frontier model would have re-planned by now; say it
-        // explicitly so a weaker rig breaks the loop instead of grinding.
-        lines.push(
-          `  ⚠ ${turns} turns on this cycle and it is still open. If you are not nearly done, STOP looping: split it, ship the slice that works, or check in with the user — then \`prjct status done\`. A re-plan beats another grinding turn.`
-        )
-      } else {
-        // Goal discipline — the loop control a frontier model self-applies,
-        // given explicitly every turn so a weaker / non-agentic rig stays
-        // agentic: anchor the objective, check progress, escalate not loop.
+      if (!loopVerdict?.stopped && turns < STUCK_TURN_THRESHOLD) {
         lines.push(
           '  ↳ Stay on this goal. Each turn, before acting: is this step ADVANCING it? If you have hit the same wall twice, or you are exploring rather than progressing, STOP — re-plan, split the cycle, or ask the user. Do not loop; finish the cycle, then `prjct status done`.'
         )
       }
       hasContent = true
 
-      // Token budget (opt-in via config.maxTokensPerCycle): the tokens-side
-      // twin of the turn budget. The Stop hook writes cumulative usage onto
-      // the active task every turn, so this reads a fresh total for free.
+      // Token budget — uses post-bump task (no extra SQLite read).
       try {
         const budget = config.maxTokensPerCycle ?? 0
-        if (budget > 0) {
-          const task = await stateStorage.getCurrentTask(config.projectId)
-          const spent = (task?.tokensIn ?? 0) + (task?.tokensOut ?? 0)
+        if (budget > 0 && currentTask) {
+          const spent = (currentTask.tokensIn ?? 0) + (currentTask.tokensOut ?? 0)
           if (spent >= budget) {
             lines.push(
               `  ⚠ Token budget: ${spent.toLocaleString()} of ${budget.toLocaleString()} spent on this cycle. STOP growing it — ship the working slice, split the remainder into a new cycle, or check in with the user.`
@@ -144,29 +125,7 @@ export async function buildProjectState(
         /* budget is advisory — never block the state block */
       }
 
-      // Context-pressure (GSD utilization guard, host-agnostic): turn/token
-      // ratio → land/prime discipline before the window rots.
-      try {
-        const { contextPressureVerdict } = await import('../services/context-pressure')
-        const task = await stateStorage.getCurrentTask(config.projectId)
-        const pressure = contextPressureVerdict(config, task)
-        if (pressure.level === 'critical') {
-          lines.push(
-            `  ⛔ Context pressure critical (~${Math.round(pressure.ratio * 100)}%). \`prjct land\` + fresh window + \`prjct prime\` — do not keep expanding this thread.`
-          )
-        } else if (pressure.level === 'warn') {
-          lines.push(
-            `  ⚠ Context pressure (~${Math.round(pressure.ratio * 100)}%). Prefer finishing + land over more exploration.`
-          )
-        }
-      } catch {
-        /* advisory */
-      }
-
-      // Delegation trigger — the multi-file write rule, ENFORCED by counting
-      // (not just stated in a skill): when this cycle has edited 4+ distinct
-      // files, say so with the concrete move. Uses the post_edit event trail
-      // the PostToolUse hook already records; fires once per threshold band.
+      // Delegation + alignment in parallel with static imports where possible.
       try {
         const startedIso = overview.current.startedAt
         if (startedIso) {
@@ -181,7 +140,40 @@ export async function buildProjectState(
           if (trigger) lines.push(`  ${trigger}`)
         }
       } catch {
-        /* best-effort — the trigger is advisory context, never a blocker */
+        /* best-effort */
+      }
+
+      try {
+        const [{ contextPressureVerdict }, { buildAlignmentCard }, { qualityInjectForProject }] =
+          await Promise.all([
+            import('../services/context-pressure'),
+            import('../services/alignment-card'),
+            import('../services/judgment-orchestrator'),
+          ])
+        const pressure = contextPressureVerdict(config, currentTask)
+        const qualityInject = qualityInjectForProject(config.projectId)
+        const card = buildAlignmentCard({
+          loop: loopVerdict,
+          pressure,
+          qualityInject,
+          turns,
+          stuckThreshold: STUCK_TURN_THRESHOLD,
+        })
+        if (card.markdown) {
+          lines.push('')
+          lines.push(card.markdown)
+          hasContent = true
+        }
+      } catch {
+        /* advisory */
+      }
+
+      // Owner from post-bump task — skip resolveActiveTask (second workspace walk).
+      if (currentTask?.ownerAgent) {
+        lines.push(
+          `- Owner: ${currentTask.ownerAgent}${currentTask.ownerIdentity ? `/${currentTask.ownerIdentity}` : ''}${currentTask.yieldStatus === 'yielded' ? ' (yielded — awaiting accept)' : ''}`
+        )
+        hasContent = true
       }
     }
     const others = overview.all.filter((v) => !v.isCurrent)
@@ -189,68 +181,80 @@ export async function buildProjectState(
       lines.push(`- ${others.length} task(s) active in other workspace(s)`)
       hasContent = true
     }
-  } catch {
-    /* best-effort */
-  }
-
-  // Queue — what's pending + what's next, so "what's left / what's next" is
-  // always visible without asking. Active-section tasks only; backlog stays
-  // quiet. Omitted when the queue is empty (no noise).
-  try {
-    const pending = await queueStorage.getActiveTasks(config.projectId)
-    if (pending.length > 0) {
-      lines.push(`- Pending: ${pending.length} · Next: "${pending[0]!.description}"`)
+    if (!overview.current && others.length > 0) {
+      lines.push(
+        '- This workspace idle but siblings busy — `prjct work` auto-isolates to a worktree when needed'
+      )
       hasContent = true
     }
   } catch {
     /* best-effort */
   }
 
-  // Git state — branch, working tree summary, ahead-of-origin count.
-  // Each git call is wrapped — empty repo / missing git / network all
-  // become "no signal" rather than errors.
-  if (await fileExists(path.join(projectPath, '.git'))) {
-    const git = await captureGit(projectPath)
-    if (git.branch) {
-      const wtBits: string[] = []
-      if (git.modified > 0) wtBits.push(`${git.modified} modified`)
-      if (git.staged > 0) wtBits.push(`${git.staged} staged`)
-      if (git.untracked > 0) wtBits.push(`${git.untracked} untracked`)
-      // A clean tree with nothing unpushed carries no signal — emit just
-      // the branch. Repeating "working tree clean" every turn was pure
-      // token noise (token-cache audit R2).
-      const wt = wtBits.length > 0 ? ` — working tree ${wtBits.join(', ')}` : ''
-      const ahead = git.ahead > 0 ? `${wt ? ',' : ' —'} ${git.ahead} unpushed` : ''
-      lines.push(`- Branch: ${git.branch}${wt}${ahead}`)
-      hasContent = true
-    }
-  }
+  // Parallel secondary signals (queue / ship / inbox / handoff / git) — was serial.
+  const secondary = await Promise.all([
+    (async (): Promise<string | null> => {
+      try {
+        const { formatPendingHandoffCue } = await import('../services/agent-switch')
+        const cue = formatPendingHandoffCue(config.projectId)
+        return cue ? `- ${cue.replace(/\n/g, '\n- ')}` : null
+      } catch {
+        return null
+      }
+    })(),
+    (async (): Promise<string | null> => {
+      try {
+        const pending = await queueStorage.getActiveTasks(config.projectId)
+        return pending.length > 0
+          ? `- Pending: ${pending.length} · Next: "${pending[0]!.description}"`
+          : null
+      } catch {
+        return null
+      }
+    })(),
+    (async (): Promise<string | null> => {
+      try {
+        if (!(await fileExists(path.join(projectPath, '.git')))) return null
+        const git = await captureGit(projectPath)
+        if (!git.branch) return null
+        const wtBits: string[] = []
+        if (git.modified > 0) wtBits.push(`${git.modified} modified`)
+        if (git.staged > 0) wtBits.push(`${git.staged} staged`)
+        if (git.untracked > 0) wtBits.push(`${git.untracked} untracked`)
+        const wt = wtBits.length > 0 ? ` — working tree ${wtBits.join(', ')}` : ''
+        const ahead = git.ahead > 0 ? `${wt ? ',' : ' —'} ${git.ahead} unpushed` : ''
+        return `- Branch: ${git.branch}${wt}${ahead}`
+      } catch {
+        return null
+      }
+    })(),
+    (async (): Promise<string | null> => {
+      try {
+        const recent = await shippedStorage.getRecent(config.projectId, 1)
+        if (recent.length === 0) return null
+        const last = recent[0]!
+        const ago = formatRelative(last.shippedAt ?? '')
+        const label = last.version ? `v${last.version}` : last.name
+        return `- Last ship: ${label} (${ago})`
+      } catch {
+        return null
+      }
+    })(),
+    (async (): Promise<string | null> => {
+      try {
+        const inboxCount = projectMemory.countByType(config.projectId, 'inbox')
+        return inboxCount > 0 ? `- Inbox: ${inboxCount} items pending` : null
+      } catch {
+        return null
+      }
+    })(),
+  ])
 
-  // Last shipped — useful for "what's the diff since last release?" intuition.
-  try {
-    const recent = await shippedStorage.getRecent(config.projectId, 1)
-    if (recent.length > 0) {
-      const last = recent[0]!
-      const ago = formatRelative(last.shippedAt ?? '')
-      const label = last.version ? `v${last.version}` : last.name
-      lines.push(`- Last ship: ${label} (${ago})`)
+  for (const line of secondary) {
+    if (line) {
+      lines.push(line)
       hasContent = true
     }
-  } catch {
-    /* best-effort */
-  }
-
-  // Inbox depth — pure count, signals "you have things to triage". A direct
-  // COUNT (not a 200-row overfetch + deserialize just to read `.length`), and
-  // it reports the true count instead of capping at the old limit of 50.
-  try {
-    const inboxCount = projectMemory.countByType(config.projectId, 'inbox')
-    if (inboxCount > 0) {
-      lines.push(`- Inbox: ${inboxCount} items pending`)
-      hasContent = true
-    }
-  } catch {
-    /* best-effort */
   }
 
   if (!hasContent) return null
@@ -271,13 +275,20 @@ export function buildTopicalCue(
     const keywords = extractKeywords(prompt)
     if (keywords.length === 0) return null
     const hits = projectMemory.searchFts(projectId, keywords, CUE_CANDIDATES)
-    const trap = hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
-    if (!trap) return null
-    // Push-path ship attribution: the cue surfaced this trap during the
-    // active work — if the work ships, it earned its keep (otherwise the
-    // most effective gotchas DECAY precisely because the push works).
-    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [trap.id])
-    return `> Trap on this topic: ${deriveTitle(trap)}  \`${trap.id}\``
+    const ranked =
+      hits.find((e) => e.type === 'decision' || e.type === 'gotcha' || e.type === 'fact') ??
+      hits.find((e) => e.type === 'anti-pattern' || e.type === 'pattern') ??
+      hits.find((e) => e.type === 'gotcha' || e.type === 'anti-pattern')
+    if (!ranked) return null
+    if (projectPath) void recordSurfacedForActiveTask(projectId, projectPath, [ranked.id])
+    // Terminal-only tip channel: agent must relay this to the user in chat.
+    if (ranked.type === 'decision' || ranked.type === 'gotcha' || ranked.type === 'fact') {
+      return `> Tip→user (SoT): ${deriveTitle(ranked)}  \`${ranked.id}\` — say it briefly in chat; binding — do not contradict without superseding`
+    }
+    if (ranked.type === 'anti-pattern' || ranked.type === 'pattern') {
+      return `> Tip→user (suggest): ${deriveTitle(ranked)}  \`${ranked.id}\` — propose the live change in chat, then apply when editing`
+    }
+    return `> Tip→user: ${deriveTitle(ranked)}  \`${ranked.id}\``
   } catch {
     return null
   }

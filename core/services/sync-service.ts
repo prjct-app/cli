@@ -27,12 +27,6 @@ import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { analysisStorage } from '../storage/analysis-storage'
-import { ideasStorage } from '../storage/ideas-storage'
-import llmAnalysisStorage from '../storage/llm-analysis-storage'
-import { queueStorage } from '../storage/queue-storage'
-import { shippedStorage } from '../storage/shipped-storage'
-import { stateStorage } from '../storage/state-storage'
-import { velocityStorage } from '../storage/velocity-storage'
 import type { ProjectSyncResult, SyncOptions } from '../types/project-sync'
 import type { Context7Status } from '../types/services.js'
 import type { VerificationReport } from '../types/sync-verifier'
@@ -223,6 +217,15 @@ class SyncService {
         })
       )
 
+      // 3a. Dynamic file inventory EVERY sync (extensions/languages in THIS tree).
+      // Work-scope uses this instead of hard-coded language lists.
+      try {
+        const { refreshFileInventory } = await import('./project-file-inventory')
+        await refreshFileInventory(this.projectId!, this.projectPath)
+      } catch {
+        /* non-critical — scope falls back to open accept until next sync */
+      }
+
       // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
       // Skip if no source files changed (incremental optimization)
       if (shouldRebuildIndexes) {
@@ -258,139 +261,12 @@ class SyncService {
         })
       }
 
-      // 4. Generate native workflow skills (installed to ~/.claude/skills/)
-      // Collect rich context from SQLite for context-rich skills
+      // 4. Portable multi-host skills (no project stamp — L0 isolation)
       let generatedSkills: import('../types/project-sync').ProjectSyncResult['generatedSkills']
       const skillPhaseStart = Date.now()
       log.debug('sync phase start', { phase: 'skills' })
       try {
-        const [
-          llmAnalysis,
-          activeAnalysisForSkills,
-          recentShippedFeatures,
-          velocityData,
-          backlog,
-          taskHistory,
-          allPausedTasks,
-          feedbackForSkills,
-          currentTask,
-          ideaCounts,
-          shippedCount,
-        ] = await Promise.all([
-          Promise.resolve(llmAnalysisStorage.getActive(this.projectId!)).catch(() => null),
-          analysisStorage.getActive(this.projectId!).catch(() => null),
-          shippedStorage.getRecent(this.projectId!, 3).catch(() => []),
-          velocityStorage.getMetrics(this.projectId!).catch(() => null),
-          queueStorage.getBacklog(this.projectId!).catch(() => []),
-          stateStorage.getTaskHistory(this.projectId!).catch(() => []),
-          stateStorage.getAllPausedTasks(this.projectId!).catch(() => []),
-          stateStorage.getAggregatedFeedback(this.projectId!).catch(() => null),
-          stateStorage.getCurrentTask(this.projectId!).catch(() => null),
-          ideasStorage
-            .getCounts(this.projectId!)
-            .catch(() => ({ pending: 0, converted: 0, archived: 0 })),
-          shippedStorage.getCount(this.projectId!).catch(() => 0),
-        ])
-
-        const conditionCtx = {
-          backlogCount: backlog.length,
-          completedTaskCount: taskHistory.length,
-          pausedTaskCount: allPausedTasks.length,
-          hasActiveTask: !!currentTask,
-        }
-
-        // Prefer LLM analysis patterns (accurate), fallback to heuristic
-        // Filter out source='repo' patterns — those were heuristic regex detections (next/image, UiButton, etc.)
-        // that are unreliable. Real patterns come from LLM analysis or baseline/feedback.
-        const patterns = llmAnalysis
-          ? llmAnalysis.patterns.map((p) => ({
-              name: p.name,
-              description: p.description,
-              location: p.locations?.[0],
-            }))
-          : (activeAnalysisForSkills?.patterns ?? [])
-              .filter((p: Record<string, unknown>) => p.source !== 'repo')
-              .map((p) => ({
-                name: p.name,
-                description: p.description,
-                location: p.location,
-              }))
-
-        const antiPatterns = llmAnalysis
-          ? llmAnalysis.antiPatterns.map((a) => ({
-              issue: a.issue,
-              file: a.files?.[0] ?? 'multiple',
-              suggestion: a.suggestion,
-              severity: a.severity ?? 'medium',
-            }))
-          : (activeAnalysisForSkills?.antiPatterns ?? [])
-              .filter((a: Record<string, unknown>) => a.source !== 'repo')
-              .map((a) => ({
-                issue: a.issue,
-                file: a.file,
-                suggestion: a.suggestion,
-                severity: a.severity ?? 'medium',
-              }))
-
-        // Commands: LLM analysis > heuristic detectCommands
-        const resolvedCommands = llmAnalysis?.commands
-          ? {
-              install: llmAnalysis.commands.install ?? commands.install,
-              run: commands.run,
-              test: llmAnalysis.commands.test ?? commands.test,
-              build: llmAnalysis.commands.build ?? commands.build,
-              dev: llmAnalysis.commands.dev ?? commands.dev,
-              lint: llmAnalysis.commands.lint ?? commands.lint,
-              format: llmAnalysis.commands.format ?? commands.format,
-            }
-          : commands
-
-        // Build rich context for skill bodies
-        const richContext = {
-          version: stats.version,
-          fileCount: stats.fileCount,
-          patterns,
-          antiPatterns,
-          recentShipped: recentShippedFeatures.map((s) => ({
-            name: s.name,
-            type: s.type ?? 'feature',
-            duration: s.duration,
-            filesChanged: s.changes?.length,
-          })),
-          velocity: velocityData
-            ? {
-                avgPoints: velocityData.averageVelocity,
-                trend: velocityData.velocityTrend,
-                accuracy: velocityData.estimationAccuracy,
-              }
-            : null,
-          backlogCount: backlog.length,
-          knownGotchas: feedbackForSkills?.knownGotchas ?? [],
-          userPatterns: feedbackForSkills?.patternsDiscovered ?? [],
-
-          // Task state for rich skills — counts only; descriptions
-          // deliberately never enter the skill body (formatState).
-          pausedTasks: allPausedTasks.map((t) => ({
-            description: t.description,
-            pausedAt: ((t as Record<string, unknown>).pausedAt as string) ?? '',
-          })),
-          ideasCount: ideaCounts?.pending ?? 0,
-          shippedCount: shippedCount,
-        }
-
-        generatedSkills = await skillGenerator.generateAndInstall(
-          {
-            success: true,
-            projectId: this.projectId!,
-            cliVersion: this.cliVersion,
-            git,
-            stats,
-            commands: resolvedCommands,
-            stack,
-          },
-          conditionCtx,
-          richContext
-        )
+        generatedSkills = await skillGenerator.generateAndInstall()
       } catch (error) {
         log.debug('Native skill generation failed (non-critical)', {
           error: getErrorMessage(error),
@@ -450,6 +326,78 @@ class SyncService {
         repairContextQuality(this.projectPath, this.projectId!)
       )
 
+      // 9d. Value-based retention (score → archive/delete). Default applies
+      // capped actions; config.retention.mode = dry-run|off for observe/skip.
+      // 9e. Inbox triage merges fingerprint duplicates + archives stale inbox.
+      const retentionDryRun = await phase('retention', async () => {
+        try {
+          const cfg = await configManager.readConfig(this.projectPath).catch(() => null)
+          const mode = cfg?.retention?.mode ?? 'apply'
+          if (mode === 'off') return undefined
+
+          const dryRun = mode === 'dry-run'
+          const { applyRetention, triageInbox } = await import('./retention')
+          const applied = applyRetention(this.projectId!, {
+            dryRun,
+            maxArchive: cfg?.retention?.maxArchive,
+            maxDelete: cfg?.retention?.maxDelete,
+          })
+          let inboxMerged = 0
+          let inboxArchived = 0
+          if (!dryRun) {
+            const triaged = triageInbox(this.projectId!)
+            inboxMerged = triaged.merged
+            inboxArchived = triaged.archived
+          }
+
+          // Cold purge: vacuum soft-deleted, orphan events, old archives,
+          // auto-source caps. This is where historical bloat actually dies.
+          const { runVaultPurge, vaultHealth } = await import('./retention/purge')
+          const purged = await runVaultPurge(this.projectId!, {
+            projectPath: this.projectPath,
+            dryRun,
+            softDeletedPurgeDays: cfg?.retention?.softDeletedPurgeDays,
+            archivePruneDays: cfg?.retention?.archivePruneDays,
+            autoSourceMaxLive: cfg?.retention?.autoSourceMaxLive,
+          })
+          const health = vaultHealth(this.projectId!)
+
+          return {
+            evaluated: applied.evaluated,
+            active: applied.active,
+            archive: applied.wouldArchive,
+            delete: applied.wouldDelete,
+            archived: applied.archived,
+            deleted: applied.deleted,
+            inboxMerged,
+            inboxArchived,
+            dryRun,
+            samples: applied.samples.map((s) => ({
+              id: s.id,
+              type: s.type,
+              verdict: s.verdict,
+              score: s.score,
+              reasons: s.reasons,
+              excess: s.excess,
+            })),
+            referenceSize: applied.referenceSize,
+            vault: {
+              ...health,
+              softDeletedPurged: purged.softDeletedPurged,
+              orphanEventsPurged: purged.orphanEventsPurged,
+              archivesPruned: purged.archivesPruned,
+              autoSourceTrimmed: purged.autoSourceTrimmed,
+              distilledDiscarded: purged.distilledDiscarded,
+              digestsWritten: purged.digestsWritten,
+            },
+          }
+        } catch (error) {
+          // Best-effort: a scoring/apply failure must never break sync.
+          log.debug('retention phase failed', { error: getErrorMessage(error) })
+          return undefined
+        }
+      })
+
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
       await phase('install-global', async () => {
@@ -476,6 +424,24 @@ class SyncService {
         }
       })
 
+      // Continuous understanding: mark drift refresh applied so SessionStart
+      // stops permanent-stale banners after a world-model sync.
+      if (
+        process.env.PRJCT_WORLD_MODEL_REFRESH === '1' ||
+        process.env.PRJCT_DRIFT_REFRESH === '1'
+      ) {
+        try {
+          const os = await import('node:os')
+          const { markDriftRefreshApplied } = await import('./drift-refresh')
+          const cliHome = process.env.PRJCT_CLI_HOME
+            ? path.resolve(process.env.PRJCT_CLI_HOME)
+            : path.join(os.homedir(), '.prjct-cli')
+          markDriftRefreshApplied(cliHome)
+        } catch {
+          /* best-effort */
+        }
+      }
+
       return {
         success: true,
         projectId: this.projectId,
@@ -491,6 +457,7 @@ class SyncService {
         },
         analysisSummary,
         contextQuality,
+        retentionDryRun,
         syncMetrics,
         workCost,
         verification,

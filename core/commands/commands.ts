@@ -14,7 +14,7 @@
  * - Context: context
  */
 
-import type { AgentInfo } from '../types/agents'
+import type { AgentInfo } from '../types/agent-info'
 import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import type { AnalysisCommands } from './analysis'
@@ -267,6 +267,11 @@ class PrjctCommands {
       skipHooks?: boolean
       intent?: 'register-only' | 'seed-code-workflow' | 'proceed'
       noSpecGate?: boolean
+      noTestGate?: boolean
+      allowNewDeps?: boolean
+      forcePressure?: boolean
+      noJudgmentGate?: boolean
+      geometry?: 'direct' | 'single' | 'split'
     } = {}
   ): Promise<CommandResult> {
     return (await this.shippingG()).ship(feature, projectPath, { ...options })
@@ -353,6 +358,14 @@ class PrjctCommands {
     options: MdOption = {}
   ): Promise<CommandResult> {
     return (await this.primitivesCmdsG()).forget(id, projectPath, options)
+  }
+
+  async close(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption & { reason?: string } = {}
+  ): Promise<CommandResult> {
+    return (await this.primitivesCmdsG()).close(id, projectPath, options)
   }
 
   // v2 alpha.8: declarative packs + Claude Code hook install

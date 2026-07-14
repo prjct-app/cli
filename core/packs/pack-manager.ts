@@ -13,13 +13,6 @@ import configManager from '../infrastructure/config-manager'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { getPackManifest, PACK_MANIFESTS, type PackManifest } from './manifests'
 
-interface ActivatedPackSummary {
-  name: string
-  description: string
-  memoryTypes: string[]
-  slots: string[]
-}
-
 /**
  * Auto-detect heuristic for a fresh repo. Returns a prioritized list of
  * pack names the user might want. Pure suggestion — never written
@@ -103,6 +96,16 @@ export async function activatePacks(
   }
   await configManager.writeConfig(projectPath, nextConfig)
 
+  // Marketplace-lite: stamp version@integrity for newly activated packs.
+  if (activated.length > 0 && existing.projectId) {
+    try {
+      const { stampPackInstalls } = await import('./pack-integrity')
+      stampPackInstalls(existing.projectId, activated)
+    } catch {
+      /* integrity stamp is audit-only — never block activation */
+    }
+  }
+
   return { activated, skipped }
 }
 
@@ -126,6 +129,13 @@ function packConfigDefaults(existing: LocalConfig, activated: string[]): Partial
     }
     if (defaults.land && !existing.land) {
       patch.land = { mode: defaults.land }
+    }
+    if (defaults.conflictMode && !existing.judgment?.conflictMode) {
+      patch.judgment = {
+        ...existing.judgment,
+        ...patch.judgment,
+        conflictMode: defaults.conflictMode,
+      }
     }
   }
   return patch
@@ -153,21 +163,72 @@ export async function deactivatePacks(
   const nextConfig: LocalConfig = { ...existing, persona: nextPersona }
   await configManager.writeConfig(projectPath, nextConfig)
 
+  if (deactivated.length > 0 && existing.projectId) {
+    try {
+      const { clearPackInstalls } = await import('./pack-integrity')
+      clearPackInstalls(existing.projectId, deactivated)
+    } catch {
+      /* audit-only */
+    }
+  }
+
   return { deactivated, notActive }
+}
+
+export interface ActivatedPackSummary {
+  name: string
+  description: string
+  memoryTypes: string[]
+  slots: string[]
+  version?: string
+  integrity?: string
+  status?: string
 }
 
 export async function listActivePacks(projectPath: string): Promise<ActivatedPackSummary[]> {
   const config = await configManager.readConfig(projectPath)
   const active = config?.persona?.packs ?? []
+  let integrityByName: Record<string, { version: string; integrity: string; status: string }> = {}
+  try {
+    const { buildPackCatalog } = await import('./pack-integrity')
+    const catalog = await buildPackCatalog(projectPath)
+    for (const e of catalog) {
+      if (e.active) {
+        integrityByName[e.name] = {
+          version: e.version,
+          integrity: e.integrity,
+          status: e.status,
+        }
+      }
+    }
+  } catch {
+    integrityByName = {}
+  }
   const summaries: ActivatedPackSummary[] = []
   for (const name of active) {
     const m = PACK_MANIFESTS[name]
-    if (!m) continue
+    if (!m) {
+      const meta = integrityByName[name]
+      summaries.push({
+        name,
+        description: 'Unknown pack (not in built-in catalog)',
+        memoryTypes: [],
+        slots: [],
+        version: meta?.version,
+        integrity: meta?.integrity,
+        status: meta?.status ?? 'unknown',
+      })
+      continue
+    }
+    const meta = integrityByName[name]
     summaries.push({
       name: m.name,
       description: m.description,
       memoryTypes: m.memoryTypes,
       slots: Object.keys(m.workflowSlots),
+      version: meta?.version ?? m.version,
+      integrity: meta?.integrity,
+      status: meta?.status ?? 'active',
     })
   }
   return summaries

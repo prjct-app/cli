@@ -31,11 +31,16 @@ export const CONTRACT = {
   rag: 'prjct is a RAG-backed project memory harness; do not preload project history.',
   entrypoint:
     '`prjct work "<intent>" --md` is the single entrypoint — recognize intent and run the verb yourself.',
-  pull: 'Pull only what surfaces: `prjct search` / `prjct context memory <topic>` / `prjct guard <file>` / MCP `prjct_*` — not something to load wholesale.',
+  pull: 'Pull only what surfaces: `prjct search` / `context memory` / `guard` / MCP — not something to load wholesale.',
   remember:
     'Save synthesized memory in English: `prjct remember <decision|learning|gotcha|context> "<text>"`.',
-  kb: `KB facets (\`${KB}\`): \`prjct remember <facet>\` / \`prjct context memory <facet>\` — pulled on demand, never injected here.`,
-  ship: 'Ship only after the user OKs: `prjct ship --md`.',
+  kb: `KB (\`${KB}\`): \`remember <facet>\` / \`context memory <facet>\` — on demand, never injected here.`,
+  ship: 'Ship only after user OKs: `prjct ship --md`.',
+  /** Loop-discipline parity across Claude/Codex/Gemini/Cursor/Grok (SUPERIOR multi-runtime). */
+  // Kept short: Codex SKILL.md hard cap ~1024B including metadata marker.
+  loop: 'Loop: land; H2+ intent; tip→user SoT; close.',
+  /** Multi-project isolation — skill is never project identity. Keep short (Codex ~1024B). */
+  identity: 'L0 portable; id=cwd.',
 } as const
 
 /**
@@ -59,6 +64,8 @@ export function buildCompactSkill(): string {
     `- ${CONTRACT.remember}`,
     `- ${CONTRACT.kb}`,
     `- ${CONTRACT.ship}`,
+    `- ${CONTRACT.loop}`,
+    `- ${CONTRACT.identity}`,
     '',
     `Commit footer: \`${FOOTER}\``,
   ].join('\n')}\n`
@@ -91,6 +98,7 @@ export function buildGlobalConfig(rigName: string): string {
     `- ${CONTRACT.pull}`,
     `- Sovereign knowledge base — ${CONTRACT.kb}`,
     `- ${CONTRACT.remember}`,
+    `- ${CONTRACT.loop}`,
     '- On close, save synthesized context; raw quotes, counters, detector rows, and transcript chunks are inputs, not final memory',
     '- prjct remembers and shows the path; the agent decides how to execute with its own native tools',
     '- Treat prjct output as signals, not a prescriptive harness',

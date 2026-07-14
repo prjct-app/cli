@@ -10,6 +10,9 @@ import {
   applyBatchRefutation,
   applyEvidenceTax,
   applyGhostFilter,
+  applyMechanicalStyleRefute,
+  applyScopeFreeze,
+  applyScopeFreezeAll,
   applySeverityFloor,
   applySeverityFloorAll,
   blastRank,
@@ -25,14 +28,20 @@ import {
   intensityProtocol,
   isActionableSeverity,
   isHotPath,
+  isPreferConstClaim,
   judgmentShipVerdict,
+  markFindings,
+  markFindingsSkippedByScope,
   markGhost,
   markLeftoversOpen,
   mergeDualJudges,
+  normalizeScopePath,
+  pathInScope,
   rankFindingsForFix,
   refutePanelSize,
   resolveRefuteVotes,
   routeIntensity,
+  textShowsBindingReassignment,
   upsertFinding,
 } from '../../services/precision-judgment'
 
@@ -101,6 +110,64 @@ describe('evidence tax', () => {
     )
     expect(f.severity).toBe('blocker')
     expect(f.evidenceScore).toBe(3)
+  })
+})
+
+describe('mechanical prefer-const hallucination refute', () => {
+  it('detects prefer-const claims including Spanish "por que let"', () => {
+    expect(isPreferConstClaim('prefer const for currentStreak')).toBe(true)
+    expect(isPreferConstClaim('por que let?')).toBe(true)
+    expect(isPreferConstClaim('null deref in auth')).toBe(false)
+  })
+
+  it('detects mutation operators (not plain declaration =)', () => {
+    expect(textShowsBindingReassignment('currentStreak++')).toBe(true)
+    expect(textShowsBindingReassignment('n += 1')).toBe(true)
+    expect(textShowsBindingReassignment('const x = 1')).toBe(false) // declaration only
+    expect(textShowsBindingReassignment('let x = 0; return x')).toBe(false)
+    expect(textShowsBindingReassignment('no mutation here')).toBe(false)
+  })
+
+  it('auto-refutes prefer-const when evidence shows ++ (screenshot class)', () => {
+    const f = applyMechanicalStyleRefute(
+      finding({
+        id: 'fp1',
+        severity: 'suggestion',
+        title: 'prefer const for currentStreak — why let?',
+        file: 'streak.ts',
+        line: 206,
+        evidence: 'let currentStreak = 0; … currentStreak++ on each active day',
+      })
+    )
+    expect(f.status).toBe('refuted')
+    expect(f.evidence).toMatch(/MECHANICAL REFUTE/i)
+  })
+
+  it('taxes prefer-const without file:line+snippet to info', () => {
+    const f = applyMechanicalStyleRefute(
+      finding({
+        id: 'fp2',
+        severity: 'warning',
+        title: 'use const instead of let',
+      })
+    )
+    expect(f.status).toBe('info')
+    expect(f.severity).toBe('suggestion')
+  })
+
+  it('does not touch real production findings', () => {
+    const f = applyMechanicalStyleRefute(
+      finding({
+        id: 'real',
+        severity: 'blocker',
+        title: 'race on shared counter',
+        file: 'x.ts',
+        line: 10,
+        evidence: 'two writers increment without lock',
+      })
+    )
+    expect(f.status).toBe('candidate')
+    expect(f.severity).toBe('blocker')
   })
 })
 
@@ -497,5 +564,143 @@ describe('protocol card', () => {
     expect(p.evidenceTax).toMatch(/file:line/i)
     expect(p.maxFixRounds).toBe(2)
     expect(p.redCharter).toMatch(/attack/i)
+  })
+})
+
+describe('scope freeze (gentle-ai v1.49)', () => {
+  it('normalizeScopePath strips ./ and backslashes', () => {
+    expect(normalizeScopePath('./core/foo.ts')).toBe('core/foo.ts')
+    expect(normalizeScopePath('core\\foo.ts')).toBe('core/foo.ts')
+  })
+
+  it('pathInScope: empty scope = everything allowed', () => {
+    expect(pathInScope('evil/other.ts', undefined)).toBe(true)
+    expect(pathInScope('evil/other.ts', [])).toBe(true)
+  })
+
+  it('pathInScope: exact + prefix membership', () => {
+    const scope = ['core/services/precision-judgment.ts', 'core/schemas']
+    expect(pathInScope('core/services/precision-judgment.ts', scope)).toBe(true)
+    expect(pathInScope('core/schemas/judgment.ts', scope)).toBe(true)
+    expect(pathInScope('scripts/release.js', scope)).toBe(false)
+  })
+
+  it('createLedger freezes deduped scopePaths', () => {
+    const ledger = createLedger({
+      target: 't',
+      intensity: 'full',
+      now: 't0',
+      scopePaths: ['./core/a.ts', 'core/a.ts', 'core/b.ts'],
+    })
+    expect(ledger.scopePaths).toEqual(['core/a.ts', 'core/b.ts'])
+    expect(ledger.scopeFrozenAt).toBe('t0')
+  })
+
+  it('applyScopeFreeze demotes out-of-scope blocker → info follow-up', () => {
+    const f = applyScopeFreeze(
+      finding({
+        id: 'a',
+        severity: 'blocker',
+        title: 'leak',
+        status: 'candidate',
+        file: 'scripts/evil.ts',
+        line: 1,
+        evidence: 'repro steps here',
+      }),
+      ['core/services/x.ts']
+    )
+    expect(f.status).toBe('info')
+    expect(f.evidence).toMatch(/out of frozen review scope/i)
+  })
+
+  it('in-scope findings stay candidates', () => {
+    const f = applyScopeFreeze(
+      finding({
+        id: 'a',
+        severity: 'blocker',
+        title: 'leak',
+        status: 'candidate',
+        file: 'core/services/x.ts',
+        line: 1,
+        evidence: 'repro steps here',
+      }),
+      ['core/services/x.ts']
+    )
+    expect(f.status).toBe('candidate')
+  })
+
+  it('rankFindingsForFix excludes out-of-scope stands', () => {
+    const ranked = rankFindingsForFix(
+      [
+        finding({
+          id: 'in',
+          severity: 'blocker',
+          title: 'in',
+          status: 'stands',
+          file: 'core/a.ts',
+          line: 1,
+          evidence: 'repro steps here',
+        }),
+        finding({
+          id: 'out',
+          severity: 'blocker',
+          title: 'out',
+          status: 'stands',
+          file: 'scripts/b.ts',
+          line: 1,
+          evidence: 'repro steps here',
+        }),
+      ],
+      ['core/a.ts']
+    )
+    expect(ranked.map((f) => f.id)).toEqual(['in'])
+  })
+
+  it('markFindings refuses fixed on out-of-scope findings', () => {
+    let ledger = createLedger({
+      target: 't',
+      intensity: 'standard',
+      now: 't0',
+      scopePaths: ['core/a.ts'],
+    })
+    ledger.findings = [
+      finding({
+        id: 'out',
+        severity: 'blocker',
+        title: 'x',
+        status: 'stands',
+        file: 'scripts/b.ts',
+        line: 1,
+        evidence: 'repro steps here',
+      }),
+    ]
+    // Force stands despite freeze (simulates pre-freeze legacy row)
+    expect(markFindingsSkippedByScope(ledger, ['out'], 'fixed')).toEqual(['out'])
+    ledger = markFindings(ledger, ['out'], 'fixed', 't1')
+    expect(ledger.findings[0]!.status).toBe('stands')
+  })
+
+  it('applyScopeFreezeAll batch demotes', () => {
+    const out = applyScopeFreezeAll(
+      [
+        finding({
+          id: 'a',
+          severity: 'critical',
+          title: 'a',
+          file: 'core/a.ts',
+          status: 'candidate',
+        }),
+        finding({
+          id: 'b',
+          severity: 'critical',
+          title: 'b',
+          file: 'other/b.ts',
+          status: 'candidate',
+        }),
+      ],
+      ['core/a.ts']
+    )
+    expect(out[0]!.status).toBe('candidate')
+    expect(out[1]!.status).toBe('info')
   })
 })

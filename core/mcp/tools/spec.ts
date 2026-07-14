@@ -25,7 +25,7 @@ import {
   SpecContentSchema,
   type SpecStatus,
 } from '../../types/spec'
-import { resolveProjectId } from '../resolve'
+import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to any to avoid deep type
@@ -40,7 +40,7 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_create',
     'Draft a spec when the user frames a feature/fix/initiative WITH goals or stakes (e.g. "rate limiting on auth", "fix onboarding"). Fields default empty — fill them via `prjct_spec_update`. Skip for routine work (single-file fix, doc tweak, capture); use `prjct_mem_save` with type="inbox" or the CLI `prjct capture` instead.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       title: z.string().describe("One-line title (what you'd say to a coworker walking by)"),
       goal: z.string().describe('What success looks like, 1-3 sentences. Concrete, observable.'),
       eli10: z.string().optional().describe('Plain English a 16-year-old follows, 2-4 sentences'),
@@ -76,7 +76,7 @@ export function registerSpecTools(server: McpServer) {
         test_plan?: string[]
         tags?: Record<string, string>
       }) => {
-        const spec = await specService.create(args.projectPath, {
+        const spec = await specService.create(resolveProjectPath(args.projectPath), {
           title: args.title,
           content: {
             goal: args.goal,
@@ -109,7 +109,7 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_list',
     'List specs in this project. Use to check what specs exist before drafting a new one (avoid duplicates) or to find the right spec to link a task to.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       status: z
         .enum(SPEC_STATUSES)
         .optional()
@@ -152,11 +152,11 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_get',
     'Fetch one spec by id, including all structured fields (goal, acceptance criteria, scope, risks, reviews, linked tasks).',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Spec id'),
     },
     safeMcpCall('prjct_spec_get', async (args: { projectPath: string; id: string }) => {
-      const spec = await specService.get(args.projectPath, args.id)
+      const spec = await specService.get(resolveProjectPath(args.projectPath), args.id)
       if (!spec) {
         return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
       }
@@ -170,7 +170,7 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_update',
     "Replace a spec's structured content. Pass the FULL content object (this is a replace, not a merge) — when filling in acceptance_criteria for the first time, fetch with `prjct_spec_get` first and merge in your changes.",
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Spec id'),
       content: z
         .object({
@@ -196,7 +196,7 @@ export function registerSpecTools(server: McpServer) {
       }) => {
         const validated = SpecContentSchema.parse(args.content)
         const updated = await specService.update(
-          args.projectPath,
+          resolveProjectPath(args.projectPath),
           args.id,
           validated as SpecContent
         )
@@ -214,14 +214,18 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_set_status',
     'Promote/demote a spec lifecycle state: `in_progress` when work starts, `archived` when superseded. (draft → reviewed auto-promotes when reviewers pass; for first ship use `prjct_spec_ship` so the PR is recorded.)',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Spec id'),
       status: z.enum(SPEC_STATUSES).describe('Target status'),
     },
     safeMcpCall(
       'prjct_spec_set_status',
       async (args: { projectPath: string; id: string; status: SpecStatus }) => {
-        const next = await specService.setStatus(args.projectPath, args.id, args.status)
+        const next = await specService.setStatus(
+          resolveProjectPath(args.projectPath),
+          args.id,
+          args.status
+        )
         if (!next) {
           return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
         }
@@ -236,11 +240,11 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_audit',
     'Call before implementing a spec. Returns a dispatch prompt for the review specialists the spec raises — a DYNAMIC set (architecture is the floor; security/data/performance/design/strategic + any project DOMAIN experts join when the spec signals them). Run them IN PARALLEL (one Agent block per reviewer, same message). Persist each verdict via `prjct_spec_record_review`; all pass → spec auto-promotes draft → reviewed.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Spec id to audit'),
     },
     safeMcpCall('prjct_spec_audit', async (args: { projectPath: string; id: string }) => {
-      const spec = await specService.get(args.projectPath, args.id)
+      const spec = await specService.get(resolveProjectPath(args.projectPath), args.id)
       if (!spec) {
         return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
       }
@@ -252,7 +256,7 @@ export function registerSpecTools(server: McpServer) {
         ? (indexStorage.readDomainsSync(auditProjectId)?.domains ?? [])
         : []
       const lenses = selectReviewers(spec.content, domains)
-      await specService.setSelectedReviewers(args.projectPath, args.id, lenses)
+      await specService.setSelectedReviewers(resolveProjectPath(args.projectPath), args.id, lenses)
       return {
         content: [
           {
@@ -275,7 +279,7 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_record_review',
     "Persist one reviewer's verdict from `prjct_spec_audit` dispatch. Call once per reviewer (strategic, architecture, design). When all three are recorded with verdict=pass, the spec auto-promotes draft → reviewed.",
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Spec id'),
       reviewer: z.string().min(1).describe('Which lens (e.g. architecture, security, data)'),
       verdict: z.enum(['pass', 'fail']).describe('Verdict'),
@@ -290,10 +294,15 @@ export function registerSpecTools(server: McpServer) {
         verdict: 'pass' | 'fail'
         notes: string
       }) => {
-        const updated = await specService.recordReview(args.projectPath, args.id, args.reviewer, {
-          verdict: args.verdict,
-          notes: args.notes,
-        })
+        const updated = await specService.recordReview(
+          resolveProjectPath(args.projectPath),
+          args.id,
+          args.reviewer,
+          {
+            verdict: args.verdict,
+            notes: args.notes,
+          }
+        )
         if (!updated) {
           return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
         }
@@ -310,14 +319,18 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_link_task',
     'Link a task to its spec (call after starting the task) so `prjct_ship` knows which spec to gate against. Idempotent.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       specId: z.string().describe('Spec id'),
       taskId: z.string().describe('Task id (from `prjct_task_start` or stateStorage)'),
     },
     safeMcpCall(
       'prjct_spec_link_task',
       async (args: { projectPath: string; specId: string; taskId: string }) => {
-        const updated = await specService.linkTask(args.projectPath, args.specId, args.taskId)
+        const updated = await specService.linkTask(
+          resolveProjectPath(args.projectPath),
+          args.specId,
+          args.taskId
+        )
         if (!updated) {
           return { content: [{ type: 'text', text: `_Spec not found: ${args.specId}_` }] }
         }
@@ -332,14 +345,14 @@ export function registerSpecTools(server: McpServer) {
     'prjct_spec_ship',
     'Mark a spec as shipped (after the linked PR merges). Records the PR number on the spec for provenance.',
     {
-      projectPath: z.string().describe('Project directory path'),
+      projectPath: optionalProjectPath,
       id: z.string().describe('Spec id'),
       pr: z.number().optional().describe('PR / MR number that delivered the spec'),
     },
     safeMcpCall(
       'prjct_spec_ship',
       async (args: { projectPath: string; id: string; pr?: number }) => {
-        const next = await specService.ship(args.projectPath, args.id, args.pr)
+        const next = await specService.ship(resolveProjectPath(args.projectPath), args.id, args.pr)
         if (!next) {
           return { content: [{ type: 'text', text: `_Spec not found: ${args.id}_` }] }
         }

@@ -2,10 +2,217 @@
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 ## [3.39.0] - 2026-07-09
 
 ### Added
 - pre-secrets CI parity after #534 — wire dispatcher + cursor multi-matcher
+=======
+## [3.55.0] - 2026-07-13
+
+### Added
+- Optimized core prjct L0 skill for token efficiency (compressed verbs table + reduced redundancy = 791 tokens). Upgraded create-skill with SDO and TDD-for-skills patterns. Added systematic-debugging skill. Updated architecture with curation principles. All retrocompatible with all models. Full post analysis wins delivered. Tests and harness score passing.
+
+## [3.54.0] - 2026-07-13
+
+### Added
+- Optimized core prjct L0 skill for token efficiency (compressed verbs table + reduced redundancy = 791 tokens). Upgraded create-skill with SDO and TDD-for-skills. Added systematic-debugging skill. Updated architecture with curation principles. All retrocompatible. Full post analysis wins delivered. Tests and harness passing.
+
+## [3.53.2] - 2026-07-13
+
+### Added
+- Optimized core prjct L0 skill for token efficiency (compressed verbs table and reduced redundancy → 791 tokens). Upgraded create-skill with SDO and TDD-for-skills patterns. Added systematic-debugging skill template. Updated architecture.md with curation principles. All changes retrocompatible with all models. Full implementation of post analysis wins. Tests and harness score passing. Branch: feat/post-analysis-optimizations
+
+## [3.53.0] - 2026-07-13
+
+### Added
+- skill curation from post analysis
+
+## [3.52.0] - 2026-07-13
+
+### Added
+- KISS/DRY dead code cleanup after portable L0 skill
+
+## [3.51.0] - 2026-07-13
+
+### Added
+- portable multi-LLM L0 skill isolation — no global project stamp
+
+## [3.50.2] - 2026-07-12
+
+### Added
+- perf: routing fix + MCP schema slim (19→10 tools)
+
+### Performance
+
+- **MCP schema slim (ListTools tax)**: default core surface **19 → 10 tools**; `projectPath` optional (cwd / `PRJCT_PROJECT_PATH`); typed record verbs + cost/signals/skills/developer/tiers/artifacts moved to `PRJCT_MCP_TOOLS=standard|all`; shorter server instructions. CLI parity unchanged.
+
+### Bug Fixes
+
+- **Routing: `prjct harness score` no longer GTD-captures to inbox** — `harness` was implemented in bin-commands but missing from `BIN_ONLY_COMMANDS`, so multi-word GTD rewrote it to `capture` whenever the daemon path ran. Registered as bin-only + completeness test so handlers cannot outlive the allowlist again.
+
+### Performance
+
+- **Lazy hook runners** — Stop/embeddings/transcript graph no longer loads for prompt/pre-edit cold spawns (`hooks/registry.ts` dynamic import per event).
+- **UserPromptSubmit hot path** — `bumpTurnCount` returns post-bump task (one write, no second read); owner from task; parallel queue/ship/inbox/handoff/git; parallel alignment imports.
+- **Usefulness rerank** — `decayedScores` accepts candidate IDs so FTS rerank no longer full-scans `memory_usefulness`.
+- **Typo suggestions** — `findClosestCommand` uses full COMMANDS manifest (bin-only verbs included) + length early-exit.
+
+## [3.50.2] - 2026-07-12
+
+### Performance
+
+- slim core ListTools 19→10 tools (#554)
+
+## [3.50.1] - 2026-07-12
+
+### Performance
+
+- fix harness GTD capture + hot-path efficiency (#553)
+
+## [3.50.0] - 2026-07-12
+
+### Added
+- Claude ecosystem adopt — trust, tiers, session, packs
+
+### Features
+
+- **Claude ecosystem adopt (patterns, not products)** — model-agnostic harness organs:
+  - **Trust boundary** (`core/services/trust-boundary.ts`): single gate for secrets, prompt-injection, package install, imported workflow rules; wired into pre-secrets/pre-package/remember/capture/MCP/projectMemory SoT + workflow-engine
+  - **Alignment card** mid-cycle MUST inject (loop / context-pressure / quality / stuck) on UserPromptSubmit
+  - **Context cache tiers L0–L3** contract + live L0 budget; `prjct context tiers --md`, harness criterion `context-tiers`
+  - **Safe artifacts** audit surface (judgment, ships, handoffs, checkpoints, session continuity); `prjct context artifacts --md`
+  - **Managed session continuity**: land stamps `session:continuity`; prime restores resume card; SessionStart cold cue; MCP `prjct_session_resume`
+  - **Pack marketplace-lite**: semver + integrity hash, `seed catalog` / `seed verify`, activation receipts in `packs:installs`
+
+### Bug Fixes
+
+- **Daemon performance + stability**: spawn single-flight lock kills concurrent bind races (`Failed to listen` / `chmod ENOENT`); hook vs command request lanes (no HOL-block of Claude hooks); graceful drain on shutdown; absorb uncaught errors with capped respawn; hook client timeout 5s (shim parity); version drift only when global is strictly newer semver; self-respawn only on code mtime reload; richer `daemon status` (version, RSS, active, absorbed errors)
+
+## [3.49.1] - 2026-07-12
+
+### Bug Fixes
+
+- performance + stability hardening (#550)
+
+## [3.49.0] - 2026-07-12
+
+### Features
+
+- Dynasty program — unbridgeable moat (v3.48.0) (#548)
+
+### Bug Fixes
+
+- project pattern supremacy + mechanical review FP refute (v3.48.0) (#549)
+
+## [3.48.0] - 2026-07-11
+
+### Features
+
+- **Dynasty program** (#548): public harness Δ, content-bound stamp, SoT hard-bind H2+, trap-surface SLO, impact-ranked next, geometry-at-intent, skill diet ≤900, cycle budget card, land Rho dry-run, one-breath install, doctor --fix
+- **Project pattern supremacy** (#549): match house style; upgrade only real anti-patterns; work alignment brief; mechanical prefer-const refute when reassignment present
+- freeze review scope from git (gentle-ai v1.49) (#547)
+
+### Changed
+
+- **Repo hygiene (complete)**: knip-clean; no repo-local AGENTS/CLAUDE/Copilot/MCP harness; dead template docs removed; contributor architecture in `CONTRIBUTING.md` + `docs/`.
+- **Source renames (product-only naming)**: `host-agents-md` / `host-claude-md` / `runtime-claude` / `agent-info` / `agents-md-discovery`; crew templates under `templates/crew/roles/`; standalone installer `scripts/install-standalone.sh`. Destination host paths (e.g. user-project `CLAUDE.md`, `.claude/agents/`) unchanged — those are host APIs.
+- **Licensing**: MIT © 2024–2026, `NOTICE`, package author/SPDX, CONTRIBUTING contribution clause.
+
+## [3.47.1] - 2026-07-11
+
+### Bug Fixes
+
+- security P0 (no shell spawns) + cold afterEmit detach (#546)
+- harden subprocess surfaces + detach cold-path afterEmit
+
+### Maintenance
+
+- repo hygiene + solid MIT licensing (#545)
+- complete product-only rename — no repo agent harness leftovers
+- strip non-product agent harness from repo tree
+- repo hygiene — dead code, root cruft, solid MIT licensing
+
+## [3.47.0] - 2026-07-10
+
+### Added
+- **Dominance SUPERIOR program (complete)**: all feature gaps vs gentle-ai / open-GSD / memory plugins are hard mechanisms, not banners.
+  - **Gates (consent-scoped overrides)**: discuss-lock H2+; context-pressure hard-blocks ship (`--force-pressure`); package PreToolUse + ship (`--allow-new-deps`); judgment dual-blind on code-strict (`--no-judgment-gate`); ship delivery-geometry on large diffs (`--geometry`); Nyquist-lite on H2+ work with vague ACs.
+  - **Memory hygiene**: `prjct close <id>`; Rho retention + auto-source cap + vault health; SoT/SUGGEST tip→user.
+  - **Drift**: SessionStart schedules world-model refresh; applied stamp clears permanent-stale banner.
+  - **Multi-runtime**: Claude/Codex/Gemini/Cursor/Grok signal parity matrix; CONTRACT.loop on Codex/Gemini surfaces (Codex ≤1024B).
+  - **Proof**: competitive dust SUPERIOR every row; `gate:dominance` 28/28.
+
+## [3.46.0] - 2026-07-10
+
+### Features
+
+- value-based memory retention (full plan: score + apply + triggers) (#542)
+- terminal tip channel — agent surfaces SoT/suggest to user
+- living apply — SoT binding + live mod suggestions
+
+### Bug Fixes
+
+- align tip→user tests + ship as v3.45.0
+
+## [3.45.0] - 2026-07-10
+
+### Added
+- **Living apply (SoT · live suggest · tip→user)**: Rho-kept memory injects as binding SoT (decision/gotcha/fact) or live modification suggestions (anti-pattern/pattern + files). Agent is the terminal tip channel (no web UI) — restates SoT/SUGGEST in chat, then acts.
+- **Rho-inspired selective memory (microsoft/rho analogy)** — real reference model R (judgment + living-v2), excess = 1−max_sim vs R via local subword embeddings (0 tokens), capture gate rejects low-excess noise, score/apply/embed driven by excess + usage + groundedness. Modules: `retention/reference-model.ts`, `excess.ts`, `capture-gate.ts`.
+- Value-based retention apply path: archive/delete caps, inbox triage, done-trigger, `config.retention.mode` off|dry-run|apply.
+- **Historical bloat mitigation on `prjct sync`**: soft-deleted vacuum (30d), orphan remember-events purge, archive prune, auto-source live cap (20), vault health line; auto-source capture gate (stricter excess); inject filter demotes aged auto history on recall.
+- **Distill-then-hard-delete**: worthless history analyzed into one digest then hard-deleted; auto-source overflow distilled; delete verdicts hard-delete (protected types archive only).
+
+## [3.45.0] - 2026-07-10
+
+### Features
+
+- paid UX — account status, connect, billing (v3.45.0) (#543)
+- distill-then-hard-delete worthless history
+- historical bloat mitigation on prjct sync
+- real Rho excess vs reference model R
+- complete retention plan — apply, inbox triage, done-trigger, selective embed
+- retention score service + sync dry-run report (PR1 of value-based cleanup)
+
+## [3.44.0] - 2026-07-10
+
+### Added
+- multi-agent realtime yield/switch handoff + auto-worktree isolation
+- **`prjct switch <agent> [--reason] [--launch]`** — yield the live work cycle to another runtime (codex/claude/grok/…) with durable who/why in SQLite (`task_handoffs`)
+- **`prjct accept [hand_id]`** / **`prjct handoffs`** — accept pending handoff, rebind ownership, resume brief
+- Owner stamping on cycle start (`ownerAgent` / `ownerIdentity` / `ownerSessionId`) so handoffs know who started
+- Auto-worktree isolation when `prjct work` collides with a foreign occupant on main (`multiAgent.autoWorktree`: auto|ask|off)
+- Prompt + SessionStart cues for pending handoffs; desktop notify on yield/accept; optional CLI launch
+- Loop-discipline skill triggers for stuck/switch and parallel worktree isolation
+
+## [3.42.0] - 2026-07-10
+
+### Added
+- adorable Codex-style cast names for multi-agent fan-out
+- Adorable multi-agent cast names (Codex-style): orchestration assigns durable scientist/inventor codenames (Popper, Copernicus, McClintock…) to explore/implement/review or crew roles; shown on `prjct work` and used as default `claim` identity when `--as` / `PRJCT_AGENT` unset.
+
+## [3.41.0] - 2026-07-10
+
+### Added
+- closed-loop judgment + dynamic work-scope inventory
+- Closed-loop judgment continuity: Judgment Receipts on `land`/Stop (capture:receipt-v1), Decision Conflict Gate on Edit|Write (`judgment.conflictMode` off|advisory|strict with durable override via remember tags — not land/sdd modes), hot-path latency budgets (≤300ms fail-open + SQL LIMIT on file recall), SessionStart git timeouts, closed-loop health line on `prjct harness score`. Proof of traps prevented and decisions applied — continuity of engineering judgment, not an AI memory product (mem_3919).
+- Full 7-bet leap: world-model impact on `guard` (import/co-change + traps); default routing surface `work`+`ship` progressive disclosure; multi-agent geometry DEFAULT wording for H2/H3 fan-out; token economics score on `prime`/`harness score`; `judgment.weakModelMode` product mode (strict conflict floor + elevated quality + SessionStart/prime banner).
+- Work-scope SSOT: before Grep/Glob, agents get a constrained file list from memory (FTS + semantic embeddings when enabled) + BM25 code index + import/co-change graph (`resolveWorkScope`). Wired into `prjct work`, prompt file cue, MCP `prjct_relevant_files`, and skill MUST discipline.
+- Project file inventory on every `prjct sync`: discovers real extensions/languages in the tree (language-agnostic). Work-scope ranks with inventory weights (unknown ext downranks, never hard-drops).
+- Conflict gate defaults pack-gated: off | code→advisory | code-strict→strict (no CONFLICT spam on bare projects). Pre-edit shares one preventive recall between decide+build.
+
+## [3.40.0] - 2026-07-10
+
+### Added
+- CLI login PKCE S256 (flow=pkce-v1) aligned with api+app
+- CLI login PKCE S256 (flow=pkce-v1): callback carries only code+state; exchange via /auth/cli/exchange
+
+## [3.39.0] - 2026-07-10
+
+### Added
+- quality orchestrator P0: auto ledger + inject; ship suggest with text confirm
+>>>>>>> origin/main
 
 ## [3.38.0] - 2026-07-09
 

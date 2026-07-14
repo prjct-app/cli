@@ -13,7 +13,7 @@
  * multi-install footgun without shelling out to real package managers.
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
@@ -28,12 +28,12 @@ import {
 /** How aggressively `prjct update` consolidates parallel installs. */
 export type CleanupMode = 'auto' | 'force' | 'off'
 
-/** PM-native global uninstall (preferred over rm — keeps PM metadata sane). */
-const UNINSTALL_ARGS: Record<PkgManagerName, string> = {
-  npm: 'npm uninstall -g prjct-cli',
-  pnpm: 'pnpm remove -g prjct-cli',
-  bun: 'bun remove -g prjct-cli',
-  yarn: 'yarn global remove prjct-cli',
+/** PM-native global uninstall argv (execFile — no shell). */
+const UNINSTALL_ARGV: Record<PkgManagerName, [string, ...string[]]> = {
+  npm: ['npm', 'uninstall', '-g', 'prjct-cli'],
+  pnpm: ['pnpm', 'remove', '-g', 'prjct-cli'],
+  bun: ['bun', 'remove', '-g', 'prjct-cli'],
+  yarn: ['yarn', 'global', 'remove', 'prjct-cli'],
 }
 
 export interface CleanupPlan {
@@ -267,9 +267,10 @@ export function planCleanup(): CleanupPlan {
 }
 
 function removeOne(pm: PkgManagerName | 'brew'): { ok: boolean; error?: string } {
-  const cmd = pm === 'brew' ? 'brew uninstall prjct-cli' : UNINSTALL_ARGS[pm]
+  const argv: [string, ...string[]] =
+    pm === 'brew' ? ['brew', 'uninstall', 'prjct-cli'] : UNINSTALL_ARGV[pm]
   try {
-    execSync(cmd, { stdio: 'pipe', shell: '/bin/sh' })
+    execFileSync(argv[0], argv.slice(1), { stdio: 'pipe' })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: `${pm}: ${(e as Error).message.split('\n')[0]}` }

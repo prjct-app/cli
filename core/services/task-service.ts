@@ -86,6 +86,22 @@ export interface StartTaskOutcome {
    * proactive — scoped to the area the work will actually touch.
    */
   risks?: RiskHit[]
+  /** Dynasty D5: one-shot cycle budget line printed at work start. */
+  cycleBudget?: string | null
+  /** Multi-agent owner stamped at start. */
+  ownerAgent?: string
+  ownerIdentity?: string
+  /**
+   * When auto-worktree isolation fired: path + branch of the new worktree.
+   * Caller should print `cd <path>` so the agent continues there.
+   */
+  isolation?: {
+    reason: string
+    worktreePath: string
+    branch: string
+    slug: string
+    occupantSummary: string
+  }
 }
 
 /** One predictive-risk hit — a preventive memory tied to a likely file. */
@@ -128,17 +144,38 @@ const RELATED_SALIENT_MAX = 120
  * while still carrying the actionable signal.
  */
 export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
+  // Living apply: SoT (binding) vs SUGGEST (live mod) vs plain context.
+  const role =
+    hit.type === 'decision' || hit.type === 'gotcha' || hit.type === 'fact' || hit.type === 'spec'
+      ? 'SoT'
+      : hit.type === 'anti-pattern' || hit.type === 'pattern' || hit.type === 'learning'
+        ? 'SUGGEST'
+        : 'ctx'
   const when = hit.when ? hit.when.slice(0, 10) : ''
   const who = hit.author ? ` by ${hit.author}` : ''
   const meta = [when, who].filter(Boolean).join('')
-  const head = `[${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``
+  const head = `[${role}·${hit.type}] ${hit.title}${meta ? ` (${meta.trim()})` : ''}  \`${hit.id}\``
 
-  // Priority: what would make me act differently first.
   const salient =
-    hit.decisionTrap ?? hit.antiPattern ?? hit.why ?? hit.outcome ?? hit.keyData ?? hit.detail
-  if (!salient) return head
+    hit.decisionTrap ??
+    hit.antiPattern ??
+    hit.nextImplication ??
+    hit.why ??
+    hit.outcome ??
+    hit.keyData ??
+    hit.detail
+  if (!salient) {
+    return role === 'SoT' ? `${head} — BINDING; supersede via prjct remember if wrong` : head
+  }
   const trimmed =
     salient.length > RELATED_SALIENT_MAX ? `${salient.slice(0, RELATED_SALIENT_MAX - 1)}…` : salient
+  // Agent surfaces these as terminal tips to the user (no web UI).
+  if (role === 'SoT') return `${head} — tip→user · SoT: ${trimmed}`
+  if (role === 'SUGGEST') {
+    const files =
+      hit.files && hit.files.length > 0 ? ` in \`${hit.files.slice(0, 2).join('`, `')}\`` : ''
+    return `${head} — tip→user · suggest${files}: ${trimmed}`
+  }
   return `${head} — ${trimmed}`
 }
 
@@ -220,34 +257,73 @@ export async function startTask(
     }
   }
 
-  // Delivery-geometry gate: large working tree requires an explicit strategy.
+  // Nyquist-lite on H2+ work with linked spec — vague ACs block (strict) or warn.
+  if (options.spec) {
+    try {
+      const { effectiveSddMode } = await import('../commands/sdd')
+      const { effectiveTddMode } = await import('../commands/tdd')
+      const { effectiveNyquistWorkMode, nyquistWorkVerdict } = await import('./nyquist-lite')
+      const { specService } = await import('./spec-service')
+      const harnessPreview = buildTaskHarness(description)
+      const spec = await specService.get(projectPath, options.spec)
+      const criteria = spec?.content?.acceptance_criteria ?? []
+      const nv = nyquistWorkVerdict({
+        harnessLevel: harnessPreview.level,
+        criteria,
+        mode: effectiveNyquistWorkMode(effectiveSddMode(cfg), effectiveTddMode(cfg)),
+      })
+      if (nv.blocked) {
+        return { ok: false, blocked: nv.message ?? 'Nyquist-lite blocked work start.' }
+      }
+      if (nv.message) {
+        console.log(nv.message)
+      }
+    } catch {
+      /* nyquist best-effort */
+    }
+  }
+
+  // Delivery-geometry gate: large working tree OR large H2+ intent (Dynasty D4).
   {
     const mode = cfg?.deliveryGeometry?.mode ?? 'off'
-    if (mode === 'strict' || mode === 'advisory') {
-      try {
-        const { existsSync } = await import('node:fs')
-        const path = await import('node:path')
-        // Skip when there is no git dir (tests, non-repos) — never hang cold paths.
-        if (existsSync(path.join(projectPath, '.git'))) {
-          const {
-            computeWorkingTreeChangeset,
-            geometryOf,
-            tierOf,
-            geometryBlockMessage,
-            NORMAL_MAX_LOC,
-          } = await import('./delivery-geometry')
-          const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
-          const cs = await computeWorkingTreeChangeset(projectPath)
-          if (cs && cs.loc >= threshold) {
-            const geometry = geometryOf(tierOf(cs))
-            if (mode === 'strict' && !options.geometry) {
-              return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
-            }
-          }
+    try {
+      const { existsSync } = await import('node:fs')
+      const path = await import('node:path')
+      const {
+        computeWorkingTreeChangeset,
+        geometryOf,
+        tierOf,
+        geometryBlockMessage,
+        intentGeometryVerdict,
+        NORMAL_MAX_LOC,
+      } = await import('./delivery-geometry')
+      const harnessPreview = buildTaskHarness(description)
+      let treeLarge = false
+      let cs: Awaited<ReturnType<typeof computeWorkingTreeChangeset>> = null
+      if (existsSync(path.join(projectPath, '.git'))) {
+        const threshold = cfg?.deliveryGeometry?.locThreshold ?? NORMAL_MAX_LOC
+        cs = await computeWorkingTreeChangeset(projectPath)
+        treeLarge = Boolean(cs && cs.loc >= threshold)
+        // Legacy path: strict + fat tree without --geometry still hard-blocks.
+        if (mode === 'strict' && treeLarge && cs && !options.geometry) {
+          const geometry = geometryOf(tierOf(cs))
+          return { ok: false, blocked: geometryBlockMessage(cs, geometry) }
         }
-      } catch {
-        /* geometry is best-effort — never block on git errors */
       }
+      // Geometry-at-intent: H2+/H3 plan delivery shape before code.
+      const ig = intentGeometryVerdict({
+        harnessLevel: harnessPreview.level,
+        harnessRisk: harnessPreview.risk,
+        mode,
+        explicitGeometry: options.geometry ?? null,
+        treeLarge,
+      })
+      if (ig.blocked) {
+        return { ok: false, blocked: ig.message ?? 'Delivery geometry required at intent.' }
+      }
+      if (ig.message) console.log(ig.message)
+    } catch {
+      /* geometry is best-effort — never block on git errors */
     }
   }
 
@@ -271,9 +347,17 @@ export async function startTask(
         import('../commands/sdd'),
         import('../commands/tdd'),
       ])
-      return orchestrationFor(harness, effectiveSddMode(cfg), effectiveTddMode(cfg))
+      const { effectiveWeakModelMode } = await import('./weak-model-mode')
+      return orchestrationFor(
+        harness,
+        effectiveSddMode(cfg),
+        effectiveTddMode(cfg),
+        effectiveWeakModelMode(cfg),
+        // Durable cast seed: same description → same adorable subagent names.
+        `${description}::${taskId}`
+      )
     } catch {
-      return orchestrationFor(harness)
+      return orchestrationFor(harness, 'off', 'off', 'off', `${description}::${taskId}`)
     }
   })()
 
@@ -281,7 +365,56 @@ export async function startTask(
   // its workspaceId, so parallel agents don't clobber a shared currentTask.
   // The main worktree keeps the singular currentTask path (transparent for
   // single-agent use, and the backward-compatible mirror for read paths).
-  const ws = await deriveWorkspace(projectPath)
+  //
+  // Attribution: stamp who started so switch/accept can show "who + why".
+  const { resolveCallerIdentity } = await import('./agent-identity')
+  const owner = resolveCallerIdentity(description)
+
+  let effectivePath = projectPath
+  let isolation: StartTaskOutcome['isolation']
+
+  // Auto-worktree isolation: foreign occupant on this workspace → sibling tree.
+  {
+    const mode = cfg?.multiAgent?.autoWorktree ?? 'auto'
+    try {
+      const { getOccupancy, shouldIsolate, worktreeSlugFromIntent } = await import(
+        './workspace-occupancy'
+      )
+      const occupancy = await getOccupancy(projectId, projectPath, owner)
+      const decision = shouldIsolate(occupancy, mode, description)
+      if (decision.block) {
+        return { ok: false, blocked: decision.reason }
+      }
+      if (decision.isolate && occupancy.isMain) {
+        const { worktreeService } = await import('./worktree-service')
+        const slug = worktreeSlugFromIntent(description)
+        const created = await worktreeService.create(projectPath, slug)
+        await worktreeService.setup(
+          created.path,
+          await worktreeService.getMainWorktree(projectPath)
+        )
+        effectivePath = created.path
+        const occ = decision.occupant
+        isolation = {
+          reason: decision.reason,
+          worktreePath: created.path,
+          branch: created.branch,
+          slug: created.slug,
+          occupantSummary: occ
+            ? `${[occ.ownerAgent, occ.ownerIdentity].filter(Boolean).join('/') || 'other'} · ${occ.taskId.slice(0, 8)} · "${occ.description.slice(0, 60)}"`
+            : 'foreign cycle',
+        }
+      }
+    } catch (err) {
+      // Isolation is best-effort when git fails; fall through to normal start
+      // unless we were in ask/block mode (already returned). Log-free by design.
+      if (err instanceof Error && err.message.includes('already active')) {
+        return { ok: false, blocked: err.message }
+      }
+    }
+  }
+
+  const ws = await deriveWorkspace(effectivePath)
   const workspaceId = ws.isMain ? MAIN_WORKSPACE_ID : ws.workspaceId
   const taskFields = {
     id: taskId,
@@ -290,6 +423,10 @@ export async function startTask(
     linearId,
     linkedSpecId,
     harness,
+    ownerAgent: owner.agent,
+    ownerIdentity: owner.identity,
+    ownerSessionId: owner.sessionId,
+    yieldStatus: 'active' as const,
   }
   if (ws.isMain) {
     await stateStorage.startTask(
@@ -301,12 +438,30 @@ export async function startTask(
       projectId,
       {
         ...taskFields,
-        branch: ws.branch,
+        branch: ws.branch ?? isolation?.branch,
         workspaceId: ws.workspaceId,
         worktreePath: ws.worktreePath,
       } as Parameters<typeof stateStorage.startTaskInWorkspace>[1],
       ws.workspaceId
     )
+  }
+
+  // Quality orchestrator: auto-open judgment ledger when required (never ship).
+  try {
+    const { ensureJudgmentLedger, intensityFromQuality } = await import('./judgment-orchestrator')
+    if (orchestration.quality !== 'none') {
+      await ensureJudgmentLedger({
+        projectId,
+        projectPath,
+        signals: {
+          harnessLevel: harness.level,
+          harnessKind: harness.kind,
+        },
+        forceIntensity: intensityFromQuality(orchestration.quality),
+      })
+    }
+  } catch {
+    /* quality ensure is best-effort — never block work start */
   }
 
   // Estimation loop (write side): store the triage's size estimate on the
@@ -370,18 +525,40 @@ export async function startTask(
     skipRules: options.skipHooks,
   })
 
-  const branch = await getGitBranch(projectPath).catch(() => '')
+  const branch = isolation?.branch ?? (await getGitBranch(effectivePath).catch(() => ''))
 
   // The superpower: recall what the project already knows about THIS task —
   // past contexts/decisions/traps related to the description — so the agent
   // gets "has this happened before? who? what was decided?" up front, pulled
   // on demand. Reuses the one RAG pipeline (enrichedRecall) so it works over
   // the user's EXISTING memory from day one. Best-effort; never blocks a start.
+  // Prefer main projectPath for indexes (worktree shares vault via .prjct).
   const relatedContext = await recallRelatedContext(projectPath, projectId, description)
-  const likelyFiles = recallLikelyFiles(projectId, description)
+  // Work scope: memory (vectorial/FTS) + BM25 + import/co-change graph — constrained
+  // list BEFORE the agent greps. Full async path includes semantic blend when enabled.
+  const likelyFiles = await recallLikelyFiles(projectPath, projectId, description)
   // Predictive risk: concentrate the preventive memory for the area this cycle
   // will touch, so the trap is surfaced at planning, not after it bites.
   const risks = recallRisksForFiles(projectId, likelyFiles)
+
+  // Dynasty D5: cycle budget card ONCE at work start (not every turn).
+  let cycleBudget: string | null = null
+  try {
+    const { buildCycleBudgetCard } = await import('./cycle-budget-card')
+    const { contextPressureVerdict } = await import('./context-pressure')
+    const pressure = contextPressureVerdict(cfg, { turnCount: 0, tokensIn: 0, tokensOut: 0 })
+    const card = buildCycleBudgetCard({
+      turns: 0,
+      turnLimit: cfg?.maxTurnsPerCycle ?? pressure.limit,
+      tokensSpent: 0,
+      tokenBudget: cfg?.maxTokensPerCycle ?? null,
+      pressureLevel: pressure.level,
+    })
+    cycleBudget = card.line
+    console.log(card.line)
+  } catch {
+    /* budget card best-effort */
+  }
 
   return {
     ok: true,
@@ -392,6 +569,9 @@ export async function startTask(
     linkedSpecId,
     harness,
     orchestration,
+    ownerAgent: owner.agent,
+    ownerIdentity: owner.identity,
+    isolation,
     pipeline: {
       classification: pipelineState.classification,
       station: pipelineState.station,
@@ -403,6 +583,7 @@ export async function startTask(
     relatedContext,
     likelyFiles,
     risks,
+    cycleBudget,
   }
 }
 
@@ -431,12 +612,27 @@ export function recallRisksForFiles(projectId: string, files: LikelyFileHit[]): 
   return risks
 }
 
-/** Pull likely file targets from prebuilt indexes (best-effort, no live scan). */
-function recallLikelyFiles(projectId: string, description: string): LikelyFileHit[] {
+/**
+ * Pull likely file targets via unified work-scope (memory vector/FTS + code
+ * index + graph). Best-effort; never blocks work start.
+ */
+async function recallLikelyFiles(
+  projectPath: string,
+  projectId: string,
+  description: string
+): Promise<LikelyFileHit[]> {
   try {
+    const { resolveWorkScope, toLikelyFileHits } = await import('./work-scope')
+    const scope = await resolveWorkScope(projectPath, projectId, description, 8)
+    if (scope.files.length > 0) return toLikelyFileHits(scope.files)
+    // Fallback pure sync ranker if async path empty
     return rankLikelyFiles(projectId, description)
   } catch {
-    return []
+    try {
+      return rankLikelyFiles(projectId, description)
+    } catch {
+      return []
+    }
   }
 }
 
@@ -451,8 +647,17 @@ async function recallRelatedContext(
     const { deriveTitle } = await import('../memory/format')
     const hits = await enrichedRecall(projectPath, projectId, {
       topic: description,
-      types: ['context', 'decision', 'gotcha', 'anti-pattern'],
-      limit: 5,
+      types: [
+        'decision',
+        'gotcha',
+        'fact',
+        'spec',
+        'anti-pattern',
+        'pattern',
+        'learning',
+        'context',
+      ],
+      limit: 8,
     })
     if (hits.length === 0) return []
     // Learn which surfaced context proves useful (usefulness ledger).
@@ -556,6 +761,13 @@ export async function setTaskStatus(
       } catch {
         /* best-effort usefulness credit */
       }
+      // Phase 3: incremental retention cleanup on task done (capped, best-effort).
+      try {
+        const { applyRetentionIncremental } = await import('./retention')
+        applyRetentionIncremental(projectId)
+      } catch {
+        /* never block done on cleanup */
+      }
       return {
         ok: true,
         taskId: wsTask.id,
@@ -622,6 +834,13 @@ export async function setTaskStatus(
         usefulnessService.creditShippedTask(projectId, active.id)
       } catch {
         /* best-effort usefulness credit */
+      }
+      // Phase 3: incremental retention cleanup on task done (capped, best-effort).
+      try {
+        const { applyRetentionIncremental } = await import('./retention')
+        applyRetentionIncremental(projectId)
+      } catch {
+        /* never block done on cleanup */
       }
     } else if (normalized === 'paused' || normalized === 'pause') {
       await stateStorage.pauseTask(projectId)

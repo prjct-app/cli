@@ -131,15 +131,47 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const risks = outcome.risks ?? []
       const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
 
+      // Project pattern supremacy: match house style; upgrade only real anti-patterns.
+      const { buildAlignmentBrief } = await import('../services/project-alignment')
+      const patternHits = related.filter((h) => h.type === 'pattern' || h.pattern)
+      const antiHits = related.filter((h) => h.type === 'anti-pattern' || h.antiPattern)
+      const alignment = buildAlignmentBrief({
+        patterns: patternHits.map((h) => ({
+          title: h.title,
+          content: h.pattern || h.detail,
+        })),
+        antiPatterns: antiHits.map((h) => ({
+          title: h.title,
+          content: h.antiPattern || h.detail,
+        })),
+        neighborHint: likelyFiles[0]?.path ?? null,
+      })
+
+      const isolation = outcome.isolation
       if (options.md) {
         const md = mdOutput(
           mdTaskHeader({ description: taskDescription, status: 'active' }),
+          isolation
+            ? mdSection(
+                '⚠ Isolated to worktree (foreign occupant)',
+                mdList([
+                  isolation.reason,
+                  `Was: ${isolation.occupantSummary}`,
+                  `Worktree: \`${isolation.worktreePath}\``,
+                  `Branch: \`${isolation.branch}\``,
+                  `**Next:** \`cd ${isolation.worktreePath}\` and continue there`,
+                ])
+              )
+            : null,
           mdSection(
             'State',
             mdList(
               [
                 `Work cycle: \`${taskId}\``,
                 branch ? `Branch: \`${branch}\`` : null,
+                outcome.ownerAgent
+                  ? `Owner: \`${outcome.ownerAgent}/${outcome.ownerIdentity ?? '?'}\``
+                  : null,
                 linearId ? `Linear: \`${linearId}\`` : null,
                 harness ? `Harness: ${harness.level} ${harness.kind}/${harness.risk}` : null,
                 harness?.expectedEvidence.length
@@ -152,7 +184,17 @@ export class WorkflowCommands extends PrjctCommandsBase {
             )
           ),
           orchestration
-            ? mdSection('How to run this (orchestration)', orchestration.directive)
+            ? mdSection(
+                'How to run this (orchestration)',
+                [
+                  orchestration.directive,
+                  orchestration.cast && orchestration.cast.length > 0
+                    ? `\n**Subagents:** ${orchestration.cast.map((c) => `${c.name} (${c.role})`).join(' · ')}`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join('')
+              )
             : null,
           pipeline
             ? mdSection(
@@ -178,18 +220,30 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 mdList(riskLines)
               )
             : null,
+          mdSection('Project alignment', alignment.md),
           relatedLines.length > 0
-            ? mdSection('Related context — has this come up before?', mdList(relatedLines))
-            : null,
-          likelyFileLines.length > 0
             ? mdSection(
-                'Likely files — from prjct index',
+                'Living knowledge — SoT · tips (terminal → user)',
                 [
-                  '> Read these first. Pull more with `prjct search`/`prjct context memory` before grep-walking the repo.',
-                  mdList(likelyFileLines),
+                  '> **You are the tip channel** (no separate UI). On your next reply to the user, surface relevant lines as short terminal tips, then act.',
+                  '> **SoT** = binding project truth — do not contradict without `prjct remember` superseding.',
+                  '> **SUGGEST / tip** = propose the live modification in chat (files + action) and apply when editing.',
+                  mdList(relatedLines),
                 ].join('\n')
               )
             : null,
+          likelyFileLines.length > 0
+            ? mdSection(
+                'Work scope — prjct (MUST before Grep/Glob)',
+                [
+                  '> Do NOT tree-walk. Open these first. Expand with `prjct guard <file>` or MCP `prjct_relevant_files` / `prjct_impact_analysis`. Memory+index+graph already ran.',
+                  mdList(likelyFileLines),
+                ].join('\n')
+              )
+            : mdSection(
+                'Work scope — prjct',
+                '> No high-confidence files yet. MUST run `prjct context memory <topic>` + `prjct search` (and `prjct sync` if indexes cold) before Grep/Glob walks.'
+              ),
           mdNextSteps([
             { label: 'Synthesize context on close', command: 'prjct remember context "..."' },
             { label: 'Ship when done', command: 'prjct ship --md' },
@@ -201,6 +255,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
         console.log(safeTruncate(md, 2000))
       } else {
         out.done(`Work: ${taskDescription}`)
+        if (isolation) {
+          out.warn(isolation.reason)
+          out.info(`Isolated → ${isolation.worktreePath} (${isolation.branch})`)
+          out.info(`Next: cd ${isolation.worktreePath}`)
+        }
+        if (outcome.ownerAgent) {
+          out.info(`Owner: ${outcome.ownerAgent}/${outcome.ownerIdentity ?? '?'}`)
+        }
         if (harness) {
           out.info(`Harness: ${harness.level} ${harness.kind}/${harness.risk}`)
           if (harness.expectedEvidence.length > 0) {
@@ -208,17 +270,24 @@ export class WorkflowCommands extends PrjctCommandsBase {
           }
         }
         if (orchestration) out.info(orchestration.directive)
+        out.info(alignment.line)
         if (riskLines.length > 0) {
           out.info('⚠ Risk — what bit us in this area before (read before you edit)')
           for (const line of riskLines) out.info(`  ${line}`)
         }
         if (relatedLines.length > 0) {
-          out.info('Related context — has this come up before?')
+          out.info(
+            'Living knowledge — surface as terminal tips to the user (SoT binding · SUGGEST live mods)'
+          )
           for (const line of relatedLines) out.info(`  ${line}`)
         }
         if (likelyFileLines.length > 0) {
-          out.info('Likely files — from prjct index')
+          out.info('Work scope — prjct (MUST before Grep/Glob)')
           for (const line of likelyFileLines) out.info(`  ${line}`)
+        } else {
+          out.info(
+            'Work scope empty — run prjct context memory / search (or prjct sync) before Grep/Glob'
+          )
         }
         showStateInfo('working')
         showNextSteps('task')

@@ -1,28 +1,18 @@
 /**
- * Skill Generator — Auto-generates Native Claude Code Skills from sync results.
+ * Portable multi-host skill installer.
  *
- * During `prjct sync`, generates workflow SKILL.md files installed to ~/.claude/skills/.
- * These are project-management skills with RICH project context baked in:
- * - Real patterns, anti-patterns, velocity, shipped features, known gotchas
- * - Embedded workflow that wraps CLI commands (heavy lifting in JS)
- *
- * Design principles:
- * - Progressive disclosure: SKILL.md is concise, `prjct <cmd> --md` for details
- * - Data real embebida: Each skill includes relevant project data inline
- * - Pushy descriptions: Say WHEN to use, not just WHAT it does
- * - Context economy: Only include what Claude doesn't know. Every token justified
- * - Rich context lives in prjct-context (non-invocable): patterns, anti-patterns,
- *   velocity, gotchas, shipped, commands — workflow skills do NOT duplicate this
- *
+ * One L0 body for all hosts (Claude full + Codex/Gemini compact). Never
+ * embeds project identity — last-writer-wins poison. Project facts = L1
+ * SessionStart / prompt hooks + pull tools.
  */
 
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage } from '../errors'
-import type { ProjectSyncResult } from '../types/project-sync'
 import type { SkillGenerationResult } from '../types/services.js'
 import log from '../utils/logger'
+import { buildCompactSkill } from './skill-generator/editor-surfaces'
 import {
   buildPrjctSkillBody,
   buildPrjctSkillReference,
@@ -30,39 +20,19 @@ import {
   PRJCT_SKILL_DESCRIPTION,
   PRJCT_SKILL_REFERENCE_FILE,
 } from './skill-generator/prjct-skill-body'
-import type { ConditionContext, SkillContext, SkillDefinition } from './skill-generator/types'
+import type { SkillDefinition } from './skill-generator/types'
 
-// SKILL DEFINITIONS
-
-/**
- * Anti-harness skill template (canonical Anthropic shape).
- *
- * The body is `Use when` + `What's here` + `Gotchas` — zero numbered
- * steps, zero "first X then Y", zero "pre-flight BLOCKING" language.
- * prjct describes state; Claude decides HOW.
- */
 const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     name: 'prjct',
     description: PRJCT_SKILL_DESCRIPTION,
     allowedTools: [...PRJCT_SKILL_ALLOWED_TOOLS],
-    condition: () => true,
-    body: (ctx) => buildPrjctSkillBody(ctx),
+    body: () => buildPrjctSkillBody(),
     reference: () => buildPrjctSkillReference(),
     referenceFile: PRJCT_SKILL_REFERENCE_FILE,
   },
 ]
 
-// HELPERS
-
-// CRITICAL — cache stability: the description appears verbatim in the
-// host model's system prompt. Project-specific suffixes like
-// `(${name}, ${stack})` change every time `prjct sync` runs in a
-// different cwd, busting the entire system-prompt prefix and forcing
-// a full re-tokenization on the next turn. The frontmatter therefore
-// takes NO project context — it must stay static by construction.
-// Project metadata still ships in the skill body (loaded on skill
-// invocation), so Claude sees it when it actually needs it.
 function buildFrontmatter(skill: SkillDefinition): string {
   const isUserInvocable = skill.userInvocable !== false
   return `---
@@ -72,79 +42,56 @@ user-invocable: ${isUserInvocable}
 ---`
 }
 
-function buildSkillContent(def: SkillDefinition, ctx: SkillContext): string {
-  return `${buildFrontmatter(def)}\n\n${def.body(ctx)}`
+function buildSkillContent(def: SkillDefinition): string {
+  return `${buildFrontmatter(def)}\n\n${def.body()}`
 }
 
 function homeDir(): string {
   return process.env.HOME || os.homedir()
 }
 
-// SKILL GENERATOR
+function claudeSkillsRoot(): string {
+  return path.join(homeDir(), '.claude', 'skills')
+}
+
+function compactSkillRoots(): string[] {
+  const home = homeDir()
+  return [
+    path.join(home, '.codex', 'skills'),
+    path.join(home, '.gemini', 'skills'),
+    path.join(home, '.gemini', 'antigravity', 'global_skills'),
+  ]
+}
+
+/**
+ * Detect legacy project-stamped skill bodies (multi-project poison).
+ * Portable L0 never has `# name` + stack line or rich delivery sections.
+ */
+export function skillBodyHasProjectStamp(content: string): boolean {
+  if (/^# [^\n]+\n[^\n]*\|\s*\d+\s+files\s*\|/m.test(content)) return true
+  if (/## Recent Deliveries/m.test(content)) return true
+  if (/## Velocity/m.test(content) && /pts\/sprint/m.test(content)) return true
+  return false
+}
 
 class SkillGenerator {
-  /**
-   * Generate workflow skills from sync results and install to ~/.claude/skills/.
-   */
-  async generateAndInstall(
-    syncResult: ProjectSyncResult,
-    conditionContext: ConditionContext = {
-      backlogCount: 0,
-      completedTaskCount: 0,
-      pausedTaskCount: 0,
-      hasActiveTask: false,
-    },
-    richContext?: Partial<
-      Omit<SkillContext, 'projectName' | 'stack' | 'branch' | 'commands' | 'projectId'>
-    >
-  ): Promise<SkillGenerationResult> {
+  /** Install portable L0 skills to Claude + compact hosts. */
+  async generateAndInstall(): Promise<SkillGenerationResult> {
     const result: SkillGenerationResult = { generated: [], skipped: [] }
-
-    const ctx: SkillContext = {
-      projectName: syncResult.stats.name,
-      stack:
-        [...syncResult.stats.languages, ...syncResult.stats.frameworks].filter(Boolean).join('/') ||
-        syncResult.stats.ecosystem,
-      branch: syncResult.git.branch,
-      commands: syncResult.commands,
-      projectId: syncResult.projectId,
-
-      version: richContext?.version ?? syncResult.stats.version ?? '0.0.0',
-      fileCount: richContext?.fileCount ?? syncResult.stats.fileCount ?? 0,
-      patterns: richContext?.patterns ?? [],
-      antiPatterns: richContext?.antiPatterns ?? [],
-      recentShipped: richContext?.recentShipped ?? [],
-      velocity: richContext?.velocity ?? null,
-      backlogCount: richContext?.backlogCount ?? conditionContext.backlogCount,
-      knownGotchas: richContext?.knownGotchas ?? [],
-
-      pausedTasks: richContext?.pausedTasks ?? [],
-      ideasCount: richContext?.ideasCount ?? 0,
-      shippedCount: richContext?.shippedCount ?? 0,
-      userPatterns: richContext?.userPatterns ?? [],
-    }
-
-    const skillsDir = path.join(homeDir(), '.claude', 'skills')
+    const skillsDir = claudeSkillsRoot()
 
     for (const def of SKILL_DEFINITIONS) {
-      if (!def.condition(conditionContext)) {
-        result.skipped.push({ name: def.name, reason: 'condition not met' })
-        await fs
-          .rm(path.join(skillsDir, def.name), { recursive: true, force: true })
-          .catch(() => {})
-        continue
-      }
-
       try {
-        const content = buildSkillContent(def, ctx)
+        const content = buildSkillContent(def)
+        if (skillBodyHasProjectStamp(content)) {
+          throw new Error('refusing to install project-stamped skill body (isolation guard)')
+        }
         const skillDir = path.join(skillsDir, def.name)
         const skillPath = path.join(skillDir, 'SKILL.md')
 
         await fs.mkdir(skillDir, { recursive: true })
         await fs.writeFile(skillPath, content, 'utf-8')
 
-        // Deep-methodology reference (progressive disclosure): written next
-        // to SKILL.md and pulled on demand so it never sits in context.
         if (def.reference && def.referenceFile) {
           await fs.writeFile(path.join(skillDir, def.referenceFile), def.reference(), 'utf-8')
         }
@@ -156,7 +103,23 @@ class SkillGenerator {
       }
     }
 
-    // Clean up stale prjct-* skill directories not in current definitions
+    const compact = buildCompactSkill()
+    for (const root of compactSkillRoots()) {
+      try {
+        const skillDir = path.join(root, 'prjct')
+        const skillPath = path.join(skillDir, 'SKILL.md')
+        await fs.mkdir(skillDir, { recursive: true })
+        await fs.writeFile(skillPath, compact, 'utf-8')
+        result.generated.push({ name: 'prjct-compact', path: skillPath })
+      } catch (error) {
+        log.debug('Compact skill install skipped', {
+          root,
+          error: getErrorMessage(error),
+        })
+      }
+    }
+
+    // Drop stale prjct-* skill dirs from older multi-skill layouts
     const knownNames = new Set(SKILL_DEFINITIONS.map((d) => d.name))
     try {
       const entries = await fs.readdir(skillsDir, { withFileTypes: true }).catch(() => [])
@@ -168,11 +131,11 @@ class SkillGenerator {
         }
       }
     } catch {
-      // Non-critical — stale cleanup failure shouldn't block sync
+      /* non-critical */
     }
 
     if (result.generated.length > 0) {
-      log.info('Generated native workflow skills', {
+      log.info('Generated portable multi-host skills', {
         count: result.generated.length,
         skills: result.generated.map((s) => s.name),
       })
@@ -181,7 +144,6 @@ class SkillGenerator {
     return result
   }
 
-  /** Get all skill definitions (for testing) */
   getDefinitions(): SkillDefinition[] {
     return SKILL_DEFINITIONS
   }

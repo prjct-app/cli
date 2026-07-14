@@ -20,10 +20,7 @@ import {
   buildGeminiConfig,
   buildWindsurfRule,
 } from '../core/services/skill-generator/editor-surfaces'
-import {
-  buildPrjctSkill,
-  emptySkillContext,
-} from '../core/services/skill-generator/prjct-skill-body'
+import { buildPrjctSkill } from '../core/services/skill-generator/prjct-skill-body'
 
 const ROOT = path.resolve(__dirname, '..')
 
@@ -34,8 +31,8 @@ function emit(relParts: string[], content: string): void {
   console.log(`  → templates/${relParts.join('/')} (${Buffer.byteLength(content, 'utf-8')} bytes)`)
 }
 
-// Canonical Claude skill (full, project-aware at sync; baseline here).
-emit(['skills', 'prjct', 'SKILL.md'], buildPrjctSkill(emptySkillContext()))
+// Canonical Claude skill — always portable L0 (no project stamp; multi-LLM safe).
+emit(['skills', 'prjct', 'SKILL.md'], buildPrjctSkill())
 
 // Compact non-Claude surfaces — generated from the same contract SSOT so they
 // can never drift from the canonical skill (editor-surfaces.ts).

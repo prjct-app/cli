@@ -6,6 +6,8 @@
  * tool runs. On a hit: DENY the tool call so credentials never leave the
  * machine via curl, git commit, file write, or similar.
  *
+ * Trust decision lives in `trust-boundary` (single enforcement place).
+ *
  * Design constraints (from multi-runtime reality):
  *  - No `$PPID` / host-only env. Gemini sanitizes hook env and will refuse
  *    to execute hooks that require vars it does not set ("required env
@@ -15,7 +17,7 @@
  *  - Only PreToolUse with explicit `decide` may deny (harness contract).
  */
 
-import { scanHookToolInput } from '../utils/secret-scanner'
+import { evaluateToolInputSecrets } from '../services/trust-boundary'
 import { type HookIo, runHook } from './_runner'
 
 interface HookInput {
@@ -28,16 +30,9 @@ interface HookInput {
 }
 
 function decideSecrets(input: HookInput): { deny: string } | null {
-  const hits = scanHookToolInput(input)
-  if (hits.length === 0) return null
-  const list = hits.join(', ')
-  return {
-    deny:
-      `⛔ prjct credential guard: tool input matches secret pattern(s): ${list}. ` +
-      `Refusing to run this tool so credentials are not exposed. ` +
-      `Remove the secret from the command/content and retry. ` +
-      `(This MUST runs on every host — no PPID / host-env dependency.)`,
-  }
+  const verdict = evaluateToolInputSecrets(input)
+  if (verdict.allow) return null
+  return { deny: verdict.denyMessage }
 }
 
 export function runPreSecretsHook(projectPath: string = process.cwd(), io?: HookIo): Promise<void> {

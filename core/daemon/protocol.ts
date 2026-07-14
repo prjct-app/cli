@@ -52,6 +52,26 @@ export const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 /** Maximum buffer size per connection before rejecting (1 MB) */
 export const MAX_BUFFER_SIZE = 1024 * 1024
 
+/**
+ * Client timeout for normal CLI commands routed through the daemon.
+ * Must stay in lockstep with the production shim in scripts/build.js.
+ */
+export const COMMAND_REQUEST_TIMEOUT_MS = 30_000
+
+/**
+ * Client timeout for hook requests. Hooks are fail-soft and latency-critical
+ * (Claude Code waits). A hung daemon must not block the host for 30s — the
+ * production shim already uses 5s; keep the source path identical.
+ */
+export const HOOK_REQUEST_TIMEOUT_MS = 5_000
+
+/**
+ * How long shutdown waits for in-flight requests before force-exit.
+ * Long enough for a normal command to finish; short enough that a stuck
+ * request cannot pin a stale daemon forever.
+ */
+export const SHUTDOWN_DRAIN_MS = 2_000
+
 /** Encode a message for sending over socket */
 export function encodeMessage(msg: DaemonRequest | DaemonResponse): Buffer {
   return Buffer.from(`${JSON.stringify(msg)}\n`)

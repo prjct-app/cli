@@ -148,7 +148,17 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     surface: 'ai-agile',
     routing: { group: 'shipping', method: 'ship' },
-    optionSchema: { booleans: ['skipHooks', 'noSpecGate', 'noTestGate'], strings: ['intent'] },
+    optionSchema: {
+      booleans: [
+        'skipHooks',
+        'noSpecGate',
+        'noTestGate',
+        'allowNewDeps',
+        'forcePressure',
+        'noJudgmentGate',
+      ],
+      strings: ['intent', 'geometry'],
+    },
     description: 'Commit, push, and celebrate shipped feature',
     usage: { claude: 'p. ship ["feature"]', terminal: 'prjct ship ["feature"]' },
     params: '[feature]',
@@ -274,6 +284,27 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Accepts `mem_1234`, `mem-1234`, or a bare `1234`',
       'Hard-deletes the source event + drops the FTS mirror and any embedding — cannot resurface lexically or semantically',
+    ],
+  },
+  {
+    name: 'close',
+    group: 'core',
+    surface: 'ai-agile',
+    routing: { group: 'primitives', method: 'close' },
+    optionSchema: { strings: ['reason'] },
+    description:
+      'Resolve/close a memory entry (inbox, signal, trap) so it leaves rotation — soft-delete + closed tag',
+    usage: {
+      claude: 'p. close mem_1234 --reason "fixed in PR"',
+      terminal: 'prjct close mem_1234 [--reason "..."] [--md]',
+    },
+    params: '<id>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Soft-removes from recall/FTS/embeddings; records status:closed for audit',
+      'Use for resolved inbox/improvement-signals — prefer over silent forget when the resolution matters',
     ],
   },
   {
@@ -617,7 +648,8 @@ export const COMMANDS: CommandMeta[] = [
     surface: 'legacy',
     routing: { group: 'product', method: 'handoff' },
     optionSchema: {},
-    description: 'Compatibility alias for `insights continue`',
+    description:
+      'Static continuation brief for another agent. For realtime ownership transfer use `prjct switch <agent> --reason "…"` + `prjct accept`.',
     usage: {
       claude: null,
       terminal: 'prjct handoff codex [--md]',
@@ -630,7 +662,7 @@ export const COMMANDS: CommandMeta[] = [
     features: [
       'Gives the next agent the active task, required prjct checks, and high-value memories',
       'Works across Codex, Claude, Gemini, Cursor, OpenCode, Qwen, Kimi, Grok, and unknown future agents',
-      'Makes multi-agent continuity concrete instead of relying on private model memory',
+      'For stuck same-branch rescue with ownership transfer: prjct switch / accept (not this alias)',
     ],
   },
   {
@@ -1095,6 +1127,52 @@ export const COMMANDS: CommandMeta[] = [
     },
   },
   {
+    name: 'switch',
+    group: 'workGraph',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workGraph', method: 'switch' },
+    optionSchema: { booleans: ['launch'], strings: ['reason'] },
+    params: '<agent>',
+    description:
+      'Yield the active work cycle to another agent runtime (codex/claude/grok/…) with who started + why — realtime handoff for stuck multi-terminal work.',
+    usage: {
+      claude: 'p. switch codex --reason "…"',
+      terminal: 'prjct switch <agent> [--reason "…"] [--launch]',
+    },
+  },
+  {
+    name: 'accept',
+    group: 'workGraph',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workGraph', method: 'accept' },
+    optionSchema: {},
+    params: '[hand_id]',
+    description:
+      'Accept a pending multi-agent handoff: rebind ownership of the live cycle and print the resume brief (who/why/task id).',
+    usage: {
+      claude: 'p. accept [hand_id]',
+      terminal: 'prjct accept [hand_id] [--md]',
+    },
+  },
+  {
+    name: 'handoffs',
+    group: 'workGraph',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'workGraph', method: 'handoffs' },
+    optionSchema: {},
+    description: 'List pending and recent multi-agent handoffs for this project.',
+    usage: { claude: 'p. handoffs', terminal: 'prjct handoffs [--md]' },
+  },
+  {
     name: 'changelog',
     group: 'changelog',
     surface: 'ai-agile',
@@ -1248,6 +1326,7 @@ export const COMMANDS: CommandMeta[] = [
       ['hooks', 'Inspect or reinstall the Claude Code hooks'],
       ['claude', 'Claude Code integration management (install/uninstall)'],
       ['crew', 'Run a crew (multi-subagent) workflow'],
+      ['harness', 'Harness scorecard + Body/rig adoption (score · learn-from · list · use)'],
       ['doctor', 'Diagnose the local prjct installation'],
       ['watch', 'Watch project files and react to changes'],
       ['version', 'Print the installed prjct version + provider status'],

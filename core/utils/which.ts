@@ -7,7 +7,7 @@
  * Always returns the PATH-winning path (first hit), never throws.
  */
 
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { execFileAsync } from './exec'
 
 function firstNonEmptyLine(stdout: string): string | null {
@@ -40,11 +40,12 @@ export function whichSync(command: string): string | null {
       })
       return firstNonEmptyLine(stdout)
     } catch {
-      // Busybox / stripped PATH: command -v via sh.
-      const stdout = execSync(`command -v ${JSON.stringify(command)}`, {
+      // Busybox / stripped PATH: `command -v` via /bin/sh -c with a single
+      // argv payload. JSON.stringify keeps the token shell-safe (no injection).
+      // Prefer execFile over execSync({shell}) so we never inherit a free-form shell.
+      const stdout = execFileSync('/bin/sh', ['-c', `command -v ${JSON.stringify(command)}`], {
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore'],
-        shell: '/bin/sh',
       })
       return firstNonEmptyLine(stdout)
     }

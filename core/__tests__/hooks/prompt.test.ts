@@ -118,9 +118,11 @@ describe('UserPromptSubmit — project state', () => {
       startedAt: new Date().toISOString(),
       sessionId: 's',
     } as Parameters<typeof stateStorage.startTask>[1])
-    expect(await stateStorage.bumpTurnCount(projectId)).toBe(1)
-    expect(await stateStorage.bumpTurnCount(projectId)).toBe(2)
-    expect(await stateStorage.bumpTurnCount(projectId)).toBe(3)
+    expect((await stateStorage.bumpTurnCount(projectId)).count).toBe(1)
+    expect((await stateStorage.bumpTurnCount(projectId)).count).toBe(2)
+    const third = await stateStorage.bumpTurnCount(projectId)
+    expect(third.count).toBe(3)
+    expect(third.task?.turnCount).toBe(3)
   })
 
   it('surfaces dirty working tree counts', async () => {
@@ -200,14 +202,17 @@ describe('UserPromptSubmit — topical trap cue', () => {
     seedMirror('mem_2', 'gotcha', 'embeddings clear also wipes the keychain key')
     const cue = buildTopicalCue(projectId, 'why is the daemon serving stale responses?')
     expect(cue).not.toBeNull()
-    expect(cue).toContain('Trap on this topic')
+    // Terminal tip channel: gotcha is SoT — agent must relay to user in chat.
+    expect(cue).toContain('Tip→user (SoT)')
     expect(cue).toContain('mem_1')
     expect(cue).not.toContain('mem_2')
   })
 
-  it('ignores non-preventive types even when they match', async () => {
+  it('ignores non-tip types even when they match', async () => {
     await freshProject()
-    seedMirror('mem_3', 'decision', 'we chose a daemon architecture for warm starts')
+    // learning is not SoT/suggest in topical cue ranking — only decision/gotcha/fact
+    // and pattern/anti-pattern surface as tip→user.
+    seedMirror('mem_3', 'learning', 'we chose a daemon architecture for warm starts')
     const cue = buildTopicalCue(projectId, 'tell me about the daemon architecture')
     expect(cue).toBeNull()
   })
@@ -244,7 +249,8 @@ describe('UserPromptSubmit — indexed file cue', () => {
 
     const cue = buildIndexedFileCue(projectId, 'map headless API endpoints')
     expect(cue).not.toBeNull()
-    expect(cue).toContain('Likely files from prjct index')
+    expect(cue).toContain('Work scope')
+    expect(cue).toContain('Grep/Glob')
     expect(cue).toContain('core/server/headless-api.ts')
     expect(cue).toContain('bm25')
   })

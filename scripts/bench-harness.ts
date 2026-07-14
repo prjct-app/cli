@@ -11,7 +11,7 @@
  */
 
 import fs from 'node:fs'
-import { _routing } from '../core/services/project-agents-md'
+import { _routing } from '../core/services/host-agents-md'
 import { selectReviewers } from '../core/services/spec-audit-dispatch'
 import { countTokens } from '../core/tools/context/token-counter'
 import { emptySpecContent } from '../core/types/spec'

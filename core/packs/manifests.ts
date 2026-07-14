@@ -31,6 +31,11 @@ export interface HookSignal {
 export interface PackManifest {
   name: string
   description: string
+  /**
+   * Semver of this pack definition (marketplace-lite integrity).
+   * Bump when memory types, slots, or defaults change.
+   */
+  version: string
   /** Starting persona if the user accepts suggestions. */
   suggestedPersona?: {
     role: string
@@ -55,12 +60,15 @@ export interface PackManifest {
     maxTurnsPerCycle?: number
     deliveryGeometry?: 'off' | 'advisory' | 'strict'
     land?: 'off' | 'advisory' | 'strict'
+    /** Closed-loop conflict gate default (first activation only). */
+    conflictMode?: 'off' | 'advisory' | 'strict'
   }
 }
 
 export const PACK_MANIFESTS: Record<string, PackManifest> = {
   code: {
     name: 'code',
+    version: '1.1.0',
     description: 'Coding work: features, bugs, refactors, TDD, shipping.',
     suggestedPersona: {
       role: 'DEV',
@@ -83,11 +91,14 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
       // Session-close is not optional on code packs (gentle-ai land ritual,
       // code-enforced cue via land-cue + Stop).
       land: 'strict',
+      // SUPERIOR: conflict gate on by default for code (not off).
+      conflictMode: 'advisory',
     },
   },
 
   'code-strict': {
     name: 'code-strict',
+    version: '1.1.0',
     description: 'Ship-grade coding: SDD+TDD strict, delivery-geometry gate, forced land. Opt-in.',
     suggestedPersona: {
       role: 'DEV',
@@ -105,11 +116,13 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
       maxTurnsPerCycle: 25,
       deliveryGeometry: 'strict',
       land: 'strict',
+      conflictMode: 'strict',
     },
   },
 
   daily: {
     name: 'daily',
+    version: '1.0.0',
     description: 'Day-to-day capture + review. GTD-style inbox + weekly review.',
     memoryTypes: ['inbox', 'todo', 'idea'],
     workflowSlots: {
@@ -122,6 +135,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   pm: {
     name: 'pm',
+    version: '1.0.0',
     description: 'Product Management: specs, user interviews, roadmap, backlog triage.',
     suggestedPersona: {
       role: 'PM',
@@ -148,6 +162,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   founder: {
     name: 'founder',
+    version: '1.0.0',
     description: 'Founder ops: strategy, fundraising, hiring, stakeholder comms.',
     suggestedPersona: {
       role: 'Founder',
@@ -173,6 +188,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   lean: {
     name: 'lean',
+    version: '1.0.0',
     description: 'Anti-over-engineering: minimal-code review, debt ledger, intensity modes.',
     memoryTypes: ['over-engineering', 'lean-debt'],
     workflowSlots: {
@@ -194,6 +210,7 @@ export const PACK_MANIFESTS: Record<string, PackManifest> = {
 
   research: {
     name: 'research',
+    version: '1.0.0',
     description: 'Research: deep-dives, literature review, competitive scans.',
     suggestedPersona: {
       role: 'Research',

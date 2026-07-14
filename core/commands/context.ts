@@ -17,6 +17,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { contextTiersOneLiner } from '../services/context-tiers'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult, ContextOutput } from '../types/commands'
@@ -199,6 +200,14 @@ export class ContextCommands {
         )
       )
     }
+
+    // Context cache tiers (one-liner + pointer) — full contract: `prjct context tiers --md`
+    sections.push(
+      mdSection(
+        'Context tiers',
+        `${contextTiersOneLiner()}\n\n_Detail: \`prjct context tiers --md\` · artifacts: \`prjct context artifacts --md\`_`
+      )
+    )
 
     return mdOutput(...sections)
   }

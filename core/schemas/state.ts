@@ -150,6 +150,18 @@ export const CurrentTaskSchema = z.object({
   // maxTurnsPerCycle block (`prjct work --extend`) for THIS cycle, so the gate
   // stops firing until a new cycle resets it.
   turnLimitAcknowledgedAt: z.string().optional(),
+  // Multi-agent attribution — who owns this live cycle (stamped at start;
+  // rewritten on prjct switch/accept). Optional so pre-existing tasks stay valid.
+  /** Runtime id: claude | codex | gemini | grok | cursor | unknown */
+  ownerAgent: z.string().optional(),
+  /** Human/agent identity: PRJCT_AGENT, cast codename, or session-derived */
+  ownerIdentity: z.string().optional(),
+  /** Host session id when the runtime provides one */
+  ownerSessionId: z.string().optional(),
+  /** When set, a handoff is pending accept (does not complete the cycle). */
+  yieldStatus: z.enum(['active', 'yielded']).optional(),
+  /** Pending handoff id while yieldStatus === 'yielded' */
+  pendingHandoffId: z.string().optional(),
 })
 
 export const PreviousTaskSchema = z.object({

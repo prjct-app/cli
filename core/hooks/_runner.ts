@@ -15,16 +15,17 @@
  *   3. Output is JSON-validated against the event's schema by
  *      `buildHookOutput` (e.g. SessionStart accepts hookSpecificOutput,
  *      Stop only accepts systemMessage).
- *   4. After-effects run AFTER `emit` so the host parser doesn't wait
- *      on side-effect work.
+ *   4. After-effects run AFTER `emit` (never before the host-visible line).
  *
  * Two execution modes share ALL of the above:
- *   - Process mode (`io` omitted): the cold path Claude Code spawns —
- *     reads `process.stdin`, writes `process.stdout`, awaits `afterEmit`.
- *   - Daemon mode (`io` supplied): the warm path — input comes pre-parsed
- *     from the wire request, output goes to a sink (returned to the
- *     client), and `afterEmit` is DETACHED so it never blocks the daemon's
- *     serialized request chain. Same build + same fail-soft contract.
+ *   - Process mode (`io` omitted): tests + direct callers — reads
+ *     `process.stdin`, writes `process.stdout`, awaits `afterEmit` so work is
+ *     not lost when the process is about to exit. Production cold path uses
+ *     HookIo via `cold-entry` (detached afterEmit worker) instead.
+ *   - Daemon / HookIo mode (`io` supplied): warm path or cold-entry bridge —
+ *     input pre-parsed, output to a sink, and `afterEmit` is DETACHED via
+ *     `detachAfterEmit` so it never blocks the host response. Same build +
+ *     same fail-soft contract.
  */
 
 import {

@@ -78,15 +78,10 @@ async function runStatusTransition(
 }
 
 async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<void> {
-  // Imported (shared-template) rules aren't auto-executed yet — a future
-  // release will add an approval prompt. For now, fail loud so a template
-  // registry can't sneak arbitrary shell onto a user's machine.
-  if (rule.trustSource === 'imported') {
-    throw new Error(
-      `Refusing to run imported rule without approval: ${rule.description || rule.action}. ` +
-        'Re-create the rule locally if you trust it.'
-    )
-  }
+  // Trust boundary: imported (cloud/shared-template) rules never auto-execute.
+  const { evaluateWorkflowRuleExecutable } = await import('../services/trust-boundary')
+  const trust = evaluateWorkflowRuleExecutable(rule.trustSource, rule.description || rule.action)
+  if (!trust.allow) throw new Error(trust.denyMessage)
   await execAsync(rule.action, {
     timeout: rule.timeoutMs,
     cwd: projectPath,
@@ -116,11 +111,9 @@ export async function detectVerifyCommand(projectPath: string): Promise<string |
 }
 
 async function runVerifyAction(rule: WorkflowRule, projectPath: string): Promise<void> {
-  if (rule.trustSource === 'imported') {
-    throw new Error(
-      `Refusing to run imported verify rule without approval: ${rule.description || rule.action}.`
-    )
-  }
+  const { evaluateWorkflowRuleExecutable } = await import('../services/trust-boundary')
+  const trust = evaluateWorkflowRuleExecutable(rule.trustSource, rule.description || rule.action)
+  if (!trust.allow) throw new Error(trust.denyMessage)
   let command = rule.action.slice(VERIFY_ACTION_PREFIX.length).trim()
   if (!command) throw new Error(`Empty command in verify action '${rule.action}'`)
   if (command === 'auto') {
@@ -156,28 +149,43 @@ async function runScriptAction(
   projectPath: string,
   whenCtx: WhenContext
 ): Promise<void> {
-  if (rule.trustSource === 'imported') {
-    throw new Error(
-      `Refusing to run imported script rule without approval: ${rule.description || rule.action}.`
-    )
-  }
+  const { evaluateWorkflowRuleExecutable } = await import('../services/trust-boundary')
+  const trust = evaluateWorkflowRuleExecutable(rule.trustSource, rule.description || rule.action)
+  if (!trust.allow) throw new Error(trust.denyMessage)
   const relativePath = rule.action.slice(SCRIPT_ACTION_PREFIX.length).trim()
   if (!relativePath) throw new Error(`Empty script path in action '${rule.action}'`)
-
-  const scriptPath = path.resolve(projectPath, '.prjct/workflows', relativePath)
-  // Security: keep scripts inside the project's workflows dir. No
-  // traversal via `../..` or absolute paths pointing elsewhere.
-  const workflowsRoot = path.resolve(projectPath, '.prjct/workflows')
-  if (!scriptPath.startsWith(`${workflowsRoot}${path.sep}`) && scriptPath !== workflowsRoot) {
+  // Reject absolute paths and null bytes before resolve — no host-root scripts.
+  if (path.isAbsolute(relativePath) || relativePath.includes('\0')) {
     throw new Error(`Script path escapes workflows dir: ${relativePath}`)
   }
+
+  const workflowsRoot = path.resolve(projectPath, '.prjct/workflows')
+  const candidate = path.resolve(workflowsRoot, relativePath)
+  // relative() + ".." is robust against startsWith prefix tricks; realpath
+  // collapses symlinks that would otherwise jump outside the workflows tree.
+  const relToRoot = path.relative(workflowsRoot, candidate)
+  if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot)) {
+    throw new Error(`Script path escapes workflows dir: ${relativePath}`)
+  }
+  let scriptPath = candidate
   try {
-    await fs.access(scriptPath)
+    scriptPath = await fs.realpath(candidate)
   } catch {
     throw new Error(`Script not found: .prjct/workflows/${relativePath}`)
   }
+  let resolvedRoot = workflowsRoot
+  try {
+    resolvedRoot = await fs.realpath(workflowsRoot)
+  } catch {
+    /* workflows dir missing — realpath of script already failed or will */
+  }
+  const relAfterReal = path.relative(resolvedRoot, scriptPath)
+  if (relAfterReal.startsWith('..') || path.isAbsolute(relAfterReal)) {
+    throw new Error(`Script path escapes workflows dir: ${relativePath}`)
+  }
 
-  await execAsync(`bash ${JSON.stringify(scriptPath)}`, {
+  // execFile — no shell, argv only (script path is a single resolved file).
+  await execFileAsync('bash', [scriptPath], {
     timeout: rule.timeoutMs,
     cwd: projectPath,
     env: {

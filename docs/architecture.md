@@ -233,3 +233,18 @@ steps, zero fixed pipelines.
 - **All data in SQLite.** Never `fs.readFile` a state file directly.
 - **Biome errors are blocking.** Do not commit code with lint errors.
 - **Schemas are source of truth.** Define with Zod, infer TypeScript types.
+
+## Skill System & Curation Principles
+High-leverage skill patterns captured in project memory (`prjct context memory skill-curation`).
+
+**Key patterns integrated**:
+- TDD applied to skill creation (baseline test without guidance, write minimal skill, refactor with rationalization tables, red flags and checklists).
+- Rich "Use when..." descriptions focused on triggers, keywords for search, strict token budgets.
+- Systematic debugging workflow (4-phase process that pairs with existing `tdd` and `review`).
+
+**Changes shipped**:
+- Updated core prjct skill (L0) with explicit anti-bloat and curation rules.
+- Regenerated templates.
+- Added systematic debugging as a curated template skill.
+
+This strengthens our skill system while keeping it lean and memory-first.

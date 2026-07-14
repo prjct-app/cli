@@ -15,7 +15,15 @@ import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
 import { failFromError } from '../utils/md-aware'
-import { mdDone, mdNextSteps, mdOutput, mdStats, mdWarn } from '../utils/md-formatter'
+import {
+  mdDone,
+  mdList,
+  mdNextSteps,
+  mdOutput,
+  mdSection,
+  mdStats,
+  mdWarn,
+} from '../utils/md-formatter'
 import { getNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 import { rollback, seal, semanticVerifyCommand, verify } from './analysis/lifecycle'
@@ -285,9 +293,48 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStatsObj['Context removed'] = result.contextQuality.irrelevantRemoved
           mdStatsObj['Context repairs'] = result.contextQuality.repairEntriesCreated
         }
+        let retentionSection: string | null = null
+        if (result.retentionDryRun) {
+          const r = result.retentionDryRun
+          const mode = r.dryRun === false ? 'applied' : 'dry-run'
+          const acted =
+            r.dryRun === false
+              ? ` · acted: ${r.archived ?? 0} archived, ${r.deleted ?? 0} deleted` +
+                (r.inboxMerged || r.inboxArchived
+                  ? `, inbox ${r.inboxMerged ?? 0} merged/${r.inboxArchived ?? 0} archived`
+                  : '')
+              : ''
+          mdStatsObj[`Retention (${mode})`] =
+            `${r.active} active · ${r.archive} archive · ${r.delete} delete${acted}`
+          if (r.vault) {
+            const v = r.vault
+            const purged =
+              r.dryRun === false
+                ? ` · purged: hardΔ${v.softDeletedPurged ?? 0} distillΔ${v.distilledDiscarded ?? 0} digests+${v.digestsWritten ?? 0} archΔ${v.archivesPruned ?? 0}`
+                : ''
+            mdStatsObj.Vault = `${v.live} live · soft-del ${v.softDeleted} · archives ${v.archives} · auto ${v.autoSourceLive}${purged}`
+          }
+          if (r.samples.length > 0) {
+            retentionSection = mdSection(
+              r.dryRun === false
+                ? 'Retention (Rho) — worst excess/score (actions applied)'
+                : 'Retention (Rho) dry-run — worst excess/score (nothing removed)',
+              mdList(
+                r.samples.map((s) => {
+                  const excess =
+                    'excess' in s && typeof (s as { excess?: number }).excess === 'number'
+                      ? ` excess=${(s as { excess: number }).excess.toFixed(2)}`
+                      : ''
+                  return `\`${s.id}\` [${s.type}] ${s.verdict} (${s.score}${excess}) — ${s.reasons.join(', ')}`
+                })
+              )
+            )
+          }
+        }
         const md = mdOutput(
           mdDone(`Sync Complete`),
           mdStats(mdStatsObj),
+          retentionSection,
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           contextReviewSection,

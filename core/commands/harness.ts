@@ -18,6 +18,7 @@ import {
   renderRigList,
 } from '../services/harness-rigs'
 import { computeHarnessScore, renderHarnessScoreMd } from '../services/harness-score'
+import { computeHarnessDelta, renderHarnessDeltaMd } from '../services/weak-frontier-demo'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
@@ -32,8 +33,39 @@ export class HarnessCommands extends PrjctCommandsBase {
       // presence is gated by weak-model-bench, not ~/.claude probes on runners.
       const coverage = await probeHarnessCoverage(projectPath)
       const report = computeHarnessScore()
+      const delta = computeHarnessDelta()
+      let outcomesMd: string | null = null
+      let outcomesLine: string | null = null
+      let weakLine: string | null = null
+      try {
+        const projectId = await configManager.getProjectId(projectPath)
+        if (projectId) {
+          const { buildDynastyOutcomes, renderDynastyOutcomesMd } = await import(
+            '../services/dynasty-outcomes'
+          )
+          const outcomes = buildDynastyOutcomes(projectId)
+          outcomesMd = renderDynastyOutcomesMd(outcomes)
+          outcomesLine = outcomes.line
+          const cfg = await configManager.readConfig(projectPath)
+          const { effectiveWeakModelMode, weakModelOneLiner } = await import(
+            '../services/weak-model-mode'
+          )
+          if (effectiveWeakModelMode(cfg) === 'on') weakLine = weakModelOneLiner()
+        }
+      } catch {
+        outcomesMd = null
+        outcomesLine = null
+      }
       if (options.md) {
-        console.log(renderHarnessScoreMd(report, { coverageMd: renderHarnessCoverageMd(coverage) }))
+        const md = renderHarnessScoreMd(report, {
+          coverageMd: renderHarnessCoverageMd(coverage),
+          deltaMd: renderHarnessDeltaMd(delta),
+          outcomesMd: outcomesMd ?? undefined,
+        })
+        const extras = [weakLine ? `## Weak-model mode\n\n${weakLine}` : '']
+          .filter(Boolean)
+          .join('\n\n')
+        console.log(extras ? `${md}\n\n${extras}\n` : md)
       } else {
         console.log(`Harness grade: ${report.grade}/5${report.programDone ? ' (done)' : ''}`)
         console.log(report.summary)
@@ -41,9 +73,12 @@ export class HarnessCommands extends PrjctCommandsBase {
           const mark = c.status === 'green' ? '✓' : c.status === 'amber' ? '△' : '✗'
           console.log(`  ${mark} ${c.name}: ${c.score} — ${c.measured}`)
         }
+        console.log(delta.line)
         console.log(
           `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%) — advisory`
         )
+        if (outcomesLine) console.log(outcomesLine)
+        if (weakLine) console.log(weakLine)
       }
       return {
         success: true,
@@ -52,6 +87,8 @@ export class HarnessCommands extends PrjctCommandsBase {
         criteria: report.criteria,
         organicPct: coverage.organicPct,
         liveRuntimes: coverage.liveCount,
+        harnessDeltaPass: delta.allGreen,
+        intentDeltaPp: delta.intentDeltaPp,
       }
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }

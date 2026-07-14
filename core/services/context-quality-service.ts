@@ -44,9 +44,26 @@ export async function repairContextQuality(
   let removed = 0
   let created = 0
 
+  // Retention scores inform which "irrelevant" rows are safe to drop:
+  // keep entries the scorer still ranks active+strong (false-positive noise).
+  let retentionById: Map<string, { verdict: string; score: number }> | null = null
+  try {
+    const { evaluateRetention } = await import('./retention')
+    const ret = evaluateRetention(projectId, Date.now())
+    retentionById = ret.byId
+  } catch {
+    retentionById = null
+  }
+
   for (let i = 0; i < maxIterations && report.score < threshold; i++) {
     const entries = projectMemory.allEntriesForIndex(projectId)
-    const irrelevant = entries.filter(isIrrelevantGeneratedContext)
+    const irrelevant = entries.filter((entry) => {
+      if (!isIrrelevantGeneratedContext(entry)) return false
+      const r = retentionById?.get(entry.id)
+      // Retention still values this entry highly → leave it alone.
+      if (r && r.verdict === 'active' && r.score >= 70) return false
+      return true
+    })
 
     if (!hasUsableLivingContext(entries)) {
       await projectMemory.remember(projectPath, {

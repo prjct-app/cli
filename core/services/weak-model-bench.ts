@@ -15,7 +15,14 @@ import { getHarnessSurface, listHarnessSurfaces } from '../infrastructure/harnes
 import { DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
+import { contentBoundDriftVerdict, stampFromContents } from './content-bound-stamp'
+import { buildCycleBudgetCard } from './cycle-budget-card'
+import { candidatesFromPreventive } from './decision-conflict'
+import { intentGeometryVerdict } from './delivery-geometry'
+import { planDoctorHeal } from './doctor-heal'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
+import { rankByFactors, scoreReadyFactors } from './impact-ready'
+import { buildOneBreathReport } from './one-breath-install'
 import {
   applyEvidenceTax,
   buildNextAction,
@@ -23,8 +30,15 @@ import {
   judgmentShipVerdict,
 } from './precision-judgment'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
-import { buildDemoRows, routeIntent, routeIntentBare } from './weak-frontier-demo'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
+import { sotBindVerdict } from './sot-bind'
+import { formatTrapSurfaceMessage, trapSurfaceSlo } from './trap-surface-slo'
+import {
+  buildDemoRows,
+  computeHarnessDelta,
+  routeIntent,
+  routeIntentBare,
+} from './weak-frontier-demo'
 
 export interface WeakBenchCheck {
   name: string
@@ -65,7 +79,7 @@ export function runWeakModelBench(): WeakBenchReport {
     checks.push({ name, ok, detail })
   }
 
-  const skillTok = countTokens(buildPrjctSkill(emptySkillContext()))
+  const skillTok = countTokens(buildPrjctSkill())
   push(
     'skill always-on',
     skillTok <= WORLD_CLASS.skillTokensMax,
@@ -137,6 +151,15 @@ export function runWeakModelBench(): WeakBenchReport {
     `${demo.length - demoFail.length}/${demo.length} demo SLOs`
   )
 
+  // Dynasty public proof weapon — same Δ table as `prjct harness score`
+  const delta = computeHarnessDelta()
+  push('harness delta all-green', delta.allGreen, delta.line)
+  push(
+    'harness delta intent gap',
+    delta.intentDeltaPp >= delta.minIntentDeltaPp && delta.harnessHits > delta.bareHits,
+    `+${delta.intentDeltaPp}pp (min +${delta.minIntentDeltaPp}) harness ${delta.harnessHits}/${delta.fixtureCount} vs bare ${delta.bareHits}/${delta.fixtureCount}`
+  )
+
   // Multi-runtime wire is structural (adapters exist) — not live disk probe
   // (CI runners don't install Claude/Codex). Proves the moat ship surface.
   const codex = getHarnessSurface('codex')
@@ -200,6 +223,193 @@ export function runWeakModelBench(): WeakBenchReport {
     const dnaA = findingDna({ title: 'Auth hole', file: 'a.ts', line: 10 })
     const dnaB = findingDna({ title: 'auth hole!', file: 'a.ts', line: 12 })
     push('judgment DNA stable', dnaA === dnaB, dnaA)
+  }
+
+  // Content-bound approve stamp (Dynasty D2 / gentle-ai v2 residual)
+  {
+    const s = stampFromContents(
+      [
+        { path: 'core/a.ts', content: 'export const a = 1\n' },
+        { path: 'core/b.ts', content: 'export const b = 2\n' },
+      ],
+      { stampedAt: 't0' }
+    )
+    const s2 = stampFromContents(
+      [
+        { path: 'core/b.ts', content: 'export const b = 2\n' },
+        { path: 'core/a.ts', content: 'export const a = 1\n' },
+      ],
+      { stampedAt: 't1' }
+    )
+    push('content-bound tree stable', s.treeHash === s2.treeHash, s.treeHash.slice(0, 12))
+    const drift = contentBoundDriftVerdict({
+      stamp: s,
+      currentTreeHash: stampFromContents([{ path: 'core/a.ts', content: 'CHANGED' }], {
+        stampedAt: 't2',
+      }).treeHash,
+      hard: true,
+    })
+    push(
+      'content-bound drift blocks',
+      drift.blocked && drift.reason === 'drift',
+      `reason=${drift.reason}`
+    )
+  }
+
+  // SoT hard-bind + trap-before-edit SLO (Dynasty D3)
+  {
+    const sotCand = candidatesFromPreventive([
+      {
+        id: 'mem_sot_bench',
+        type: 'gotcha',
+        content: 'Never delete worktree with unpushed commits without check',
+      },
+    ])
+    const h2 = sotBindVerdict({ harnessLevel: 'H2', candidates: sotCand })
+    push(
+      'sot-bind H2 denies',
+      h2.action === 'deny' && h2.reason === 'h2-sot-deny',
+      `action=${h2.action}`
+    )
+    const h0 = sotBindVerdict({ harnessLevel: 'H0', candidates: sotCand })
+    push('sot-bind H0 open', h0.action === 'none', `action=${h0.action}`)
+    const trapMsg = formatTrapSurfaceMessage('x.ts', [
+      { id: 'mem_t1', type: 'gotcha', title: 'trap one' },
+      { id: 'mem_t2', type: 'decision', title: 'trap two' },
+    ])
+    const slo = trapSurfaceSlo({ trapIds: ['mem_t1', 'mem_t2'], message: trapMsg })
+    push('trap-surface SLO 100%', slo.ok && slo.rate === 1, slo.line)
+  }
+
+  // Impact-ranked next + geometry-at-intent (Dynasty D4)
+  {
+    const high = scoreReadyFactors({
+      unblocks: 2,
+      priorityPts: 25,
+      ageDays: 1,
+      impactNeighbors: 2,
+      impactTraps: 1,
+      sotPressure: 1,
+    })
+    const low = scoreReadyFactors({
+      unblocks: 0,
+      priorityPts: 50,
+      ageDays: 10,
+      impactNeighbors: 0,
+      impactTraps: 0,
+      sotPressure: 0,
+    })
+    push('impact-rank unblocks wins', high > low, `high=${high} low=${low}`)
+    const ranked = rankByFactors([
+      {
+        id: 'low',
+        description: 'low',
+        type: null,
+        priority: 'high',
+        section: null,
+        claimedBy: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        unblocks: 0,
+        factors: {
+          unblocks: 0,
+          priorityPts: 50,
+          ageDays: 10,
+          impactNeighbors: 0,
+          impactTraps: 0,
+          sotPressure: 0,
+        },
+      },
+      {
+        id: 'high',
+        description: 'high',
+        type: null,
+        priority: 'medium',
+        section: null,
+        claimedBy: null,
+        createdAt: '2026-07-01T00:00:00.000Z',
+        unblocks: 3,
+        factors: {
+          unblocks: 3,
+          priorityPts: 25,
+          ageDays: 1,
+          impactNeighbors: 1,
+          impactTraps: 0,
+          sotPressure: 0,
+        },
+      },
+    ])
+    push('impact-rank order', ranked[0]?.id === 'high', `top=${ranked[0]?.id}`)
+    push(
+      'impact-rank why line',
+      Boolean(ranked[0]?.why?.startsWith('why next:')),
+      ranked[0]?.why ?? ''
+    )
+    const ig = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      harnessRisk: 'high',
+      mode: 'strict',
+      explicitGeometry: null,
+    })
+    push(
+      'intent-geometry H3 strict blocks',
+      ig.blocked && ig.reason === 'h2-intent-strict',
+      `reason=${ig.reason}`
+    )
+    const igOk = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      mode: 'strict',
+      explicitGeometry: 'split',
+    })
+    push('intent-geometry override', !igOk.blocked && igOk.reason === 'has-geometry', igOk.reason)
+  }
+
+  // Skill floor + cycle budget (Dynasty D5)
+  {
+    push('skill diet ≤900', skillTok <= 900, `${skillTok} tok (Dynasty floor ≤900)`)
+    const card = buildCycleBudgetCard({
+      turns: 0,
+      turnLimit: 15,
+      tokensSpent: 0,
+      tokenBudget: 50_000,
+      pressureLevel: 'ok',
+    })
+    push(
+      'cycle budget card',
+      card.line.includes('Cycle budget') && card.line.includes('turns 0/15'),
+      card.line
+    )
+  }
+
+  // One-breath install + doctor heal plan (Dynasty D6)
+  {
+    const ritual = buildOneBreathReport({
+      claudeHooksNew: 1,
+      claudeHooksPresent: 10,
+      projectSurface: true,
+      runtimesWired: ['claude', 'codex'],
+      liveCount: 2,
+      detectedCount: 2,
+      organicPct: 100,
+      deltaLine: 'Harness Δ: PASS',
+    })
+    push(
+      'one-breath install PASS',
+      ritual.organicOk && ritual.line.includes('One-breath'),
+      ritual.line
+    )
+    const heal = planDoctorHeal({
+      hooksInstalled: 5,
+      hooksExpected: 12,
+      liveCount: 1,
+      detectedCount: 3,
+      organicPct: 33,
+      hasProject: true,
+    })
+    push(
+      'doctor heal plans repairs',
+      heal.neededCount >= 2 && heal.actions.some((a) => a.id === 'claude-hooks' && a.needed),
+      heal.line
+    )
   }
 
   const passed = checks.filter((c) => c.ok).length

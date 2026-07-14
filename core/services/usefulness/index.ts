@@ -318,14 +318,35 @@ export const usefulnessService = {
    * Current time-decayed usefulness per memory id. A score recorded `age`
    * days ago is worth `score * 0.5^(age / HALF_LIFE_DAYS)` today.
    */
-  decayedScores(projectId: string, nowMs: number = Date.now()): Map<string, number> {
+  /**
+   * Time-decayed usefulness scores. When `ids` is provided (the common
+   * FTS/rerank path), only those rows are loaded — full-table scans were
+   * pure tax as vaults grew.
+   */
+  decayedScores(
+    projectId: string,
+    nowMs: number = Date.now(),
+    ids?: readonly string[]
+  ): Map<string, number> {
     const out = new Map<string, number>()
     let rows: UsefulnessRow[]
     try {
-      rows = prjctDb.query<UsefulnessRow>(
-        projectId,
-        'SELECT memory_id, score, last_used_at FROM memory_usefulness'
-      )
+      if (ids && ids.length > 0) {
+        const unique = [...new Set(ids)].slice(0, 200)
+        const placeholders = unique.map(() => '?').join(',')
+        rows = prjctDb.query<UsefulnessRow>(
+          projectId,
+          `SELECT memory_id, score, last_used_at FROM memory_usefulness WHERE memory_id IN (${placeholders})`,
+          ...unique
+        )
+      } else if (ids && ids.length === 0) {
+        return out
+      } else {
+        rows = prjctDb.query<UsefulnessRow>(
+          projectId,
+          'SELECT memory_id, score, last_used_at FROM memory_usefulness'
+        )
+      }
     } catch {
       return out
     }
@@ -349,7 +370,12 @@ export const usefulnessService = {
     if (entries.length < 2) return entries
     let scores: Map<string, number>
     try {
-      scores = this.decayedScores(projectId, nowMs)
+      // Only load usefulness for candidates being reranked (not full table).
+      scores = this.decayedScores(
+        projectId,
+        nowMs,
+        entries.map((e) => e.id)
+      )
     } catch {
       return entries
     }

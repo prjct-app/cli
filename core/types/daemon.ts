@@ -55,6 +55,18 @@ export interface DaemonStatus {
   uptime?: number
   commandsServed?: number
   lastActivity?: string
+  /** Installed package version this daemon process loaded */
+  version?: string | null
+  /** Resident set size in bytes (process.memoryUsage().rss) */
+  memoryRss?: number
+  /** In-flight requests (commands + hooks) */
+  activeRequests?: number
+  /** True when a reload/restart has been scheduled */
+  restartPending?: boolean
+  /** Why a restart was scheduled, if any */
+  restartReason?: 'code' | 'drift' | null
+  /** Uncaught/unhandled errors absorbed since start (crash resilience counter) */
+  absorbedErrors?: number
 }
 
 /** Internal daemon state */
@@ -72,4 +84,12 @@ export interface DaemonState {
   activeRequests: number
   /** True once the daemon has decided to restart; new requests are refused. */
   restartPending: boolean
+  /**
+   * Why restart is pending. `code` = local rebuild (safe to self-respawn the
+   * same entry path). `drift` = global install moved (must NOT self-respawn
+   * from this process — the fresh client spawns the new binary).
+   */
+  restartReason: 'code' | 'drift' | null
+  /** Count of absorbed uncaught/unhandled errors (diagnostics). */
+  absorbedErrors: number
 }

@@ -73,10 +73,24 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
         const uptime = status.uptime ? Math.round(status.uptime / 1000) : 0
         const stale = (status as unknown as Record<string, unknown>).stale
         console.log(`Daemon running (PID ${status.pid})${stale ? ' ⚠ STALE' : ''}`)
+        if (status.version) console.log(`  Version: ${status.version}`)
         console.log(`  Uptime: ${uptime}s`)
         console.log(`  Commands served: ${status.commandsServed ?? 0}`)
+        if (typeof status.activeRequests === 'number') {
+          console.log(`  Active requests: ${status.activeRequests}`)
+        }
+        if (typeof status.memoryRss === 'number') {
+          const mb = Math.round(status.memoryRss / 1024 / 1024)
+          console.log(`  Memory (RSS): ${mb} MB`)
+        }
         if (status.lastActivity) {
           console.log(`  Last activity: ${status.lastActivity}`)
+        }
+        if (status.restartPending) {
+          console.log(`  ${chalk.yellow(`Restart pending (${status.restartReason ?? 'unknown'})`)}`)
+        }
+        if (typeof status.absorbedErrors === 'number' && status.absorbedErrors > 0) {
+          console.log(`  Absorbed errors: ${status.absorbedErrors}`)
         }
         if (stale) {
           console.log(
@@ -236,7 +250,19 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       } else {
         const { runContextTool } = await import('../tools/context')
         const result = await runContextTool(contextArgs, projectId, projectPath)
-        console.log(JSON.stringify(result, null, 2))
+        // tiers / artifacts prefer markdown for agents when --md is set
+        if (
+          mdMode &&
+          (result.tool === 'tiers' || result.tool === 'artifacts') &&
+          result.result &&
+          typeof result.result === 'object' &&
+          'markdown' in result.result &&
+          typeof (result.result as { markdown?: unknown }).markdown === 'string'
+        ) {
+          console.log((result.result as { markdown: string }).markdown)
+        } else {
+          console.log(JSON.stringify(result, null, 2))
+        }
         process.exitCode = result.tool === 'error' ? 1 : 0
       }
       done()
@@ -264,8 +290,12 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
       result = await cmd.remove(rest || null, process.cwd(), { md: mdMode })
     else if (sub === 'list') result = await cmd.list(null, process.cwd(), { md: mdMode })
     else if (sub === 'suggest') result = await cmd.suggest(null, process.cwd(), { md: mdMode })
+    else if (sub === 'catalog') result = await cmd.catalog(null, process.cwd(), { md: mdMode })
+    else if (sub === 'verify') result = await cmd.verify(null, process.cwd(), { md: mdMode })
     else {
-      console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
+      console.error(
+        `Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest, catalog, verify.`
+      )
     }
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'context-save') {
@@ -401,6 +431,11 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
           await runPreSecretsHook(projectPath)
           break
         }
+        case 'pre-package': {
+          const { runPrePackageHook } = await import('../hooks/pre-package')
+          await runPrePackageHook(projectPath)
+          break
+        }
         case 'pre-edit': {
           const { runPreEditHook } = await import('../hooks/pre-edit')
           await runPreEditHook(projectPath)
@@ -517,7 +552,10 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
   } else if (args[0] === 'doctor') {
     const done = await ctx.trackSession('doctor')
     const { doctorService } = await import('../services/doctor-service')
-    const exitCode = await doctorService.run(process.cwd())
+    const fix = args.includes('--fix') || args.includes('--heal')
+    const exitCode = fix
+      ? await doctorService.heal(process.cwd())
+      : await doctorService.run(process.cwd())
     process.exitCode = exitCode
     done()
   } else if (args[0] === 'uninstall') {

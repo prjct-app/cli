@@ -8,9 +8,15 @@ import { Buffer } from 'node:buffer'
 import { createServer, DEFAULT_MCP_TOOL_TIER, resolveTier } from '../mcp/server'
 import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
+import {
+  CONTEXT_TIERS,
+  L0_ROUTING_BYTES_MAX,
+  L0_SKILL_TOKENS_MAX,
+  MCP_TOOLS_CORE_MAX,
+  measureL0Budget,
+} from './context-tiers'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
-import type { SkillContext } from './skill-generator/types'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 
 export interface HarnessCriterion {
   id: string
@@ -37,12 +43,14 @@ export interface HarnessScoreReport {
 
 /** Absolute budgets the harness must hold. */
 export const WORLD_CLASS = {
-  skillTokensMax: 1500,
-  skillTokensAmber: 2000,
-  routingBodyBytesMax: 400,
+  /** Dynasty D5 floor — always-on skill diet (was 1500). Lockstep with L0_* in context-tiers. */
+  skillTokensMax: L0_SKILL_TOKENS_MAX,
+  skillTokensAmber: 1200,
+  routingBodyBytesMax: L0_ROUTING_BYTES_MAX,
   routingBodyBytesAmber: 600,
   mcpDefaultTier: 'core' as const,
-  mcpToolsCoreMax: 20,
+  /** Core ListTools budget after MCP schema slim (was 20). */
+  mcpToolsCoreMax: MCP_TOOLS_CORE_MAX,
   providerMapsMin: 6,
   meanGreen: 4.5,
   minCriterionGreen: 4,
@@ -91,13 +99,12 @@ function countDefaultTools(): number {
 
 export function computeHarnessScore(
   options: {
-    skillCtx?: SkillContext
     /** Live multi-runtime organic grade from probeHarnessCoverage (0–5). */
     multiRuntimeOrganicGrade?: number
     multiRuntimeOrganicMeasured?: string
   } = {}
 ): HarnessScoreReport {
-  const skill = buildPrjctSkill(options.skillCtx ?? emptySkillContext())
+  const skill = buildPrjctSkill()
   const skillTokens = countTokens(skill)
   const routingBytes = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
   const providerNames = Object.keys(PROVIDER_CAPABILITY_MODELS)
@@ -157,6 +164,18 @@ export function computeHarnessScore(
       'skill points at workflows.md',
       hasWorkflowsPointer ? 'skill → workflows.md' : 'missing pointer'
     ),
+    (() => {
+      const l0 = measureL0Budget()
+      const tierCount = CONTEXT_TIERS.length
+      const score = l0.ok && tierCount === 4 ? 5 : l0.ok ? 4 : tierCount === 4 ? 2 : 1
+      return criterion(
+        'context-tiers',
+        'Context cache tiers L0–L3',
+        score,
+        '4 named tiers + L0 skill/routing SLOs',
+        `${tierCount} tiers; L0 skill=${l0.skillTokens}tok routing=${l0.routingBytes}B ${l0.ok ? 'ok' : 'OVER'}`
+      )
+    })(),
     criterion(
       'model-ssot',
       'Model policy SSOT',
@@ -167,10 +186,27 @@ export function computeHarnessScore(
     criterion(
       'enforced-defaults',
       'Code-enforced lean defaults',
-      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 1500 ? 5 : 2,
+      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 1000 ? 5 : 2,
       'MCP core default + skill budget in code',
       `tier=${DEFAULT_MCP_TOOL_TIER}; skillMax=${WORLD_CLASS.skillTokensMax}`
     ),
+    (() => {
+      // Multi-project isolation: L0 skill must never carry project identity.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { skillBodyHasProjectStamp } =
+        require('./skill-generator') as typeof import('./skill-generator')
+      const portable = !skillBodyHasProjectStamp(skill)
+      const hasBaseline =
+        skill.includes('cwd-scoped') || skill.includes('Portable L0') || skill.includes('portable')
+      const score = portable && hasBaseline ? 5 : portable ? 3 : 1
+      return criterion(
+        'skill-isolation',
+        'Multi-project skill isolation',
+        score,
+        'global L0 skill project-agnostic',
+        portable ? 'portable L0 (no project stamp)' : 'PROJECT-STAMPED (poison risk)'
+      )
+    })(),
   ]
 
   // Optional: live organic multi-runtime board (probed by harness score / install).
@@ -214,36 +250,54 @@ export function computeHarnessScore(
 }
 
 /**
- * Competitive dust table — absolute dimensions where prjct must stay above
- * gentle-ai (prompt-only ecosystem) and open-GSD (markdown phase theater).
- * Static capability matrix + live structural grade; not marketing fluff.
+ * Competitive dust — every row claims SUPERIOR with a measurable mechanism.
+ * Field: gentle-ai, open-GSD, memory plugins (claude-mem/agentmemory/Mem0-class).
+ * Mandate: not near-parity — beat on every dimension that is our job.
  */
 export function renderCompetitiveDustMd(report: HarnessScoreReport): string {
-  const grade = report.programDone ? 'WIN' : 'HOLD'
+  const grade = report.programDone ? 'SUPERIOR' : 'HOLD'
   return [
-    '## Competitive dust (gentle-ai · open-GSD · prjct)',
+    '## Competitive dust (SUPERIOR mandate — gentle-ai · open-GSD · memory plugins · prjct)',
     '',
-    '| Dimension | gentle-ai | open-GSD | **prjct** |',
-    '|---|---|---|---|',
-    '| Judgment memory | Engram JSONL | files / MemPalace bolt-on | **SQLite typed WHY + apply-loop** |',
-    '| Enforcement | prompt-only | phase markdown ritual | **code gates (SDD/TDD/land/discuss/package)** |',
-    '| Work graph | none | ROADMAP.md | **ready/next/claim/phases in SQLite** |',
-    '| Fresh window | optional | re-research every phase | **prime + SessionStart digest (compound)** |',
-    '| Token economics | unmeasured thrash | high (fresh windows × agents) | **telemetry + skill/MCP diet** |',
-    '| Discuss before code | organic SDD | discuss-phase command | **discuss-lock H2+ (code)** |',
-    '| Install surface | curl/brew binary | npx multi-runtime | npm/pnpm/brew + upgrade consolidate |',
-    '| Multi-runtime wire | single ecosystem | Claude-centric phases | **Claude+Codex+Gemini+Cursor+Grok inherit, one install** |',
-    '| Organic feel | install prompts | ceremony `/plan` | **passive hooks + SQLite; agent never re-learns the OS** |',
-    `| Structural grade | n/a | n/a | **${report.grade}/5 ${grade}** |`,
+    '| Dimension | gentle-ai | open-GSD | memory plugins | **prjct (mechanism)** |',
+    '|---|---|---|---|---|',
+    '| Judgment memory | Engram JSONL | files / bolt-on | chat transcript | **SUPERIOR: SQLite typed WHY + SoT/SUGGEST apply-loop** |',
+    '| Enforcement | prompt-only | phase markdown | none | **SUPERIOR: code gates SDD/TDD/land/discuss/package/judgment** |',
+    '| Work graph | none | ROADMAP.md | none | **SUPERIOR: ready/next/claim/phases + switch/accept in SQLite** |',
+    '| Fresh window | optional | re-research thrash | session reset | **SUPERIOR: prime + SessionStart compound (0 re-teach OS)** |',
+    '| Token economics | unmeasured | high × agents | dump context | **SUPERIOR: telemetry + skill diet + Rho retention** |',
+    '| Discuss before code | organic | discuss-phase | none | **SUPERIOR: discuss-lock H2+ code-enforced** |',
+    '| Context pressure | soft | fresh window | none | **SUPERIOR: hard gate on ship at critical + land path** |',
+    '| Package legitimacy | none | slopcheck-ish | none | **SUPERIOR: PreToolUse install + ship `--allow-new-deps`** |',
+    '| Memory hygiene | grow forever | files pile | grow forever | **SUPERIOR: Rho excess vs R + distill-hard-delete + close** |',
+    '| Multi-runtime wire | one eco | Claude-first | plugin per host | **SUPERIOR: one install → Claude+Codex+Gemini+Cursor+Grok** |',
+    '| Organic feel | install prompts | `/plan` ceremony | manual MCP | **SUPERIOR: passive hooks; agent never re-learns the OS** |',
+    '| Public harness Δ | none / demo only | none | none | **SUPERIOR: bare vs prjct intent+footprint table in score + CI gate** |',
+    '| Content-bound approve | content-hash review | phase files | none | **SUPERIOR: path+blob treeHash on judgment approve; ship drifts re-approve** |',
+    '| SoT hard-bind H2+ | prompt BINDING | ceremony | none | **SUPERIOR: pre-edit deny on decision/gotcha/fact without supersede/override** |',
+    '| Trap-before-edit | optional heads-up | none | none | **SUPERIOR: 100% trap-id surface SLO in pre-edit inject** |',
+    '| Impact-ranked next | FIFO backlog | ROADMAP.md | none | **SUPERIOR: unblocks × world-model blast × SoT pressure + why line** |',
+    '| Geometry-at-intent | ship-only size | ceremony | none | **SUPERIOR: large H2+/H3 plans split|single before code** |',
+    '| Always-on skill diet | unmeasured dump | skill flood | dump | **SUPERIOR: ≤900 tok skill + workflows.md progressive disclosure** |',
+    '| Context cache tiers | host cache only | thrash windows | dump | **SUPERIOR: L0–L3 named contract + L0 budget + safe artifacts** |',
+    '| Land Rho loop | grow forever | files pile | grow forever | **SUPERIOR: land dry-run would archive/delete + vault mass line** |',
+    '| One-breath install | multi-path prompts | ceremony | plugin per host | **SUPERIOR: one install → board + Δ proof; doctor --fix heals** |',
+    `| Structural grade | — | — | — | **${report.grade}/5 ${grade}** |`,
     '',
-    '_Rule: never clone their skill count or `.planning/` OS. Crush on compound judgment, cost, enforcement, and multi-surface organic wire._',
+    '_Rule: never clone skill flood or transcript memory. Crush on compound judgment, cost, enforcement, retention, multi-surface wire._',
     '',
   ].join('\n')
 }
 
 export function renderHarnessScoreMd(
   report: HarnessScoreReport,
-  options: { coverageMd?: string } = {}
+  options: {
+    coverageMd?: string
+    /** Pure bare-vs-harness Δ table (from computeHarnessDelta). */
+    deltaMd?: string
+    /** Project-scoped closed-loop / retention / tokens (optional). */
+    outcomesMd?: string
+  } = {}
 ): string {
   const rows = report.criteria.map(
     (c) => `| ${c.name} | ${c.score} | ${c.status} | ${c.slo} | ${c.measured} |`
@@ -266,9 +320,11 @@ export function renderHarnessScoreMd(
     `- Routing body: ${report.defaults.routingBytes} bytes`,
     `- Providers: ${report.defaults.providerCount}`,
     '',
+    options.deltaMd ?? '',
+    options.outcomesMd ?? '',
     options.coverageMd ?? '',
     renderCompetitiveDustMd(report),
   ].join('\n')
 }
 
-export { buildPrjctSkill, emptySkillContext }
+export { buildPrjctSkill }

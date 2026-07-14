@@ -14,11 +14,12 @@
  *   hook logic). esbuild bundles THIS entry on its own into
  *   `dist/bin/prjct-hooks.mjs`, so the cold path parses only the hook closure.
  *
- * CONTRACT (must stay byte-identical to the old cold path in bin/prjct.ts):
- *   - emit the hook's JSON line to stdout, then AWAIT every `afterEmit`
- *     side-effect (vault regen, transcript ingest) before exit — cold mode has
- *     no daemon to detach them onto, and skipping them is what made the vault
- *     go stale. afterEmit is awaited here exactly as bin/prjct.ts did.
+ * CONTRACT:
+ *   - emit the hook's JSON line to stdout immediately (host-visible response)
+ *   - afterEmit side-effects (transcript ingest, vault regen, patterns) run in
+ *     a DETACHED child (`PRJCT_HOOK_AFTER_EMIT=1`) so Stop/SessionStart no longer
+ *     block the host on cold path for 1–2s. The child re-runs the same hook with
+ *     a noop sink and awaits afterEmit — work is preserved, response is fast.
  *   - fail-soft: any throw degrades to `{}` + exit 0; a hook must never disturb
  *     the host session.
  *
@@ -26,7 +27,11 @@
  * dev/source path (`bun bin/prjct.ts hook`) are unchanged.
  */
 
+import { spawn } from 'node:child_process'
 import { getHookRunner } from './registry'
+
+/** Env flag: this process only exists to finish afterEmit (parent already responded). */
+const AFTER_EMIT_ENV = 'PRJCT_HOOK_AFTER_EMIT'
 
 /** Read all of stdin (the hook event JSON) with a timeout safety net.
  *  Mirrors bin/prjct.ts `readAllStdin`. */
@@ -47,14 +52,45 @@ async function readAllStdin(timeoutMs: number): Promise<string> {
   })
 }
 
+/**
+ * Re-invoke this entry as a detached worker that only runs afterEmit.
+ * Parent exits as soon as the host-visible JSON is written.
+ * @returns true when a worker was spawned successfully.
+ */
+function trySpawnAfterEmitWorker(subcommand: string | undefined, stdinPayload: string): boolean {
+  const entry = process.argv[1]
+  if (!entry || !subcommand) return false
+  try {
+    const child = spawn(process.execPath, [entry, 'hook', subcommand], {
+      detached: true,
+      stdio: ['pipe', 'ignore', 'ignore'],
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        [AFTER_EMIT_ENV]: '1',
+        // Worker must not try the daemon — it only finishes local afterEmit.
+        PRJCT_NO_DAEMON: '1',
+      },
+      shell: false,
+    })
+    child.stdin?.write(stdinPayload)
+    child.stdin?.end()
+    child.unref()
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function main(): Promise<void> {
   // argv after the runtime + script: ["hook", "<subcommand>", ...].
   const args = process.argv.slice(2)
   const subcommand = args[1]
+  const isAfterEmitWorker = process.env[AFTER_EMIT_ENV] === '1'
   try {
     const runner = getHookRunner(subcommand)
     if (!runner) {
-      process.stdout.write('{}\n')
+      if (!isAfterEmitWorker) process.stdout.write('{}\n')
       process.exit(0)
     }
     const stdinPayload = await readAllStdin(1000)
@@ -68,16 +104,32 @@ async function main(): Promise<void> {
     await runner(process.cwd(), {
       input,
       sink: (chunk: string) => {
-        process.stdout.write(chunk)
+        // Worker: parent already answered the host — never write again.
+        if (!isAfterEmitWorker) process.stdout.write(chunk)
       },
       detachAfterEmit: (fn: () => Promise<void>) => {
         pending.push(fn)
       },
     })
-    for (const fn of pending) await fn().catch(() => undefined)
+
+    if (isAfterEmitWorker) {
+      // This process exists solely to finish afterEmit.
+      for (const fn of pending) await fn().catch(() => undefined)
+      process.exit(0)
+    }
+
+    // Parent: response already on stdout. Detach afterEmit so Stop (~1–2s of
+    // transcript/pattern work) does not block host process exit. If the
+    // spawn fails, fall back to in-process await so work is not lost.
+    if (pending.length > 0) {
+      const detached = trySpawnAfterEmitWorker(subcommand, stdinPayload)
+      if (!detached) {
+        for (const fn of pending) await fn().catch(() => undefined)
+      }
+    }
     process.exit(0)
   } catch {
-    process.stdout.write('{}\n')
+    if (!isAfterEmitWorker) process.stdout.write('{}\n')
     process.exit(0)
   }
 }

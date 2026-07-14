@@ -109,15 +109,24 @@ class StateStorage extends StorageManager<StateJson> {
    * UserPromptSubmit hook so the state block can escalate a stuck loop. A new
    * cycle starts with no turnCount, so it resets naturally.
    */
-  async bumpTurnCount(projectId: string): Promise<number> {
-    const resultRef: { count: number } = { count: 0 }
+  /**
+   * Bump turn counter and return count + the post-bump task (avoids a second
+   * read on the UserPromptSubmit hot path).
+   */
+  async bumpTurnCount(projectId: string): Promise<{ count: number; task: CurrentTask | null }> {
+    const resultRef: { count: number; task: CurrentTask | null } = {
+      count: 0,
+      task: null,
+    }
     await this.update(projectId, (state) => {
       if (!state.currentTask) return state
       const next = (state.currentTask.turnCount ?? 0) + 1
+      const task = { ...state.currentTask, turnCount: next }
       resultRef.count = next
-      return { ...state, currentTask: { ...state.currentTask, turnCount: next } }
+      resultRef.task = task
+      return { ...state, currentTask: task }
     })
-    return resultRef.count
+    return resultRef
   }
 
   /**
@@ -286,16 +295,23 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
-   * Update fields on the current task (partial update)
+   * Update fields on the current task (partial update).
+   * Keys set to `null` are deleted (used to clear optional markers like
+   * `pendingHandoffId` after accept).
    */
   async updateCurrentTask(
     projectId: string,
-    fields: Partial<CurrentTask>
+    fields: Partial<CurrentTask> & Record<string, unknown>
   ): Promise<CurrentTask | null> {
     let updated: CurrentTask | null = null
     await this.update(projectId, (s) => {
       if (!s.currentTask) return s
-      updated = { ...s.currentTask, ...fields }
+      const next: Record<string, unknown> = { ...s.currentTask }
+      for (const [k, v] of Object.entries(fields)) {
+        if (v === null) delete next[k]
+        else if (v !== undefined) next[k] = v
+      }
+      updated = next as CurrentTask
       return {
         ...s,
         currentTask: updated,
@@ -576,7 +592,7 @@ class StateStorage extends StorageManager<StateJson> {
   async updateWorkspaceTask(
     projectId: string,
     workspaceId: string,
-    fields: Partial<WorkspaceTask>
+    fields: Partial<WorkspaceTask> & Record<string, unknown>
   ): Promise<WorkspaceTask | null> {
     return workspace.updateWorkspaceTask(this.workspaceBackend(), projectId, workspaceId, fields)
   }

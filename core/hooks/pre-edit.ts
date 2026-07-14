@@ -1,68 +1,75 @@
 /**
- * PreToolUse hook (matcher: Edit|Write). Surfaces the *preventive* memory
- * recorded against the file about to be edited — gotchas, anti-patterns,
- * recurring-bugs — so the trap is seen BEFORE it's stepped in. Nudge, never
- * block.
+ * PreToolUse hook (matcher: Edit|Write). Surfaces preventive memory and runs
+ * the Decision Conflict Gate (warn/deny by conflictMode). Quiet default (off);
+ * pack code → advisory warn; code-strict / conflictMode=strict → deny path.
  *
- * Why this exists (and why it came back): anticipation was originally a push
- * hook, then retired in favor of the pull `prjct guard <file>` / `prjct_guard`
- * MCP tool (provider-agnostic, keeps context lean). But pull depends on the
- * agent's instinct to ask — which the skill-miss-detector proves often fails,
- * and which a freshly-updated model (reset instinct, zero conversation
- * context) fails worst. So we keep BOTH: non-Claude agents pull on demand;
- * Claude gets this push at the exact moment it matters. The hook fires
- * regardless of model, so the knowledge applies across model updates without
- * relying on the agent remembering to look.
- *
- * Same intelligence as `prjct guard` (projectMemory.recallForFile). Only
- * emits when a preventive entry is tagged to the target file; otherwise `{}`
- * — no harness, no noise.
+ * Hot path: one recallForFile shared by decide+build (request cache);
+ * wall-clock hard cap → fail-open; SQL LIMIT on recall.
  */
 
 import configManager from '../infrastructure/config-manager'
 import type { MemoryEntry } from '../memory/entries'
 import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import {
+  budgetExceeded,
+  CONFLICT_HARD_CAP_MS,
+  CONFLICT_RECALL_LIMIT,
+  candidatesFromPreventive,
+  decisionConflictVerdict,
+  loadConflictOverrides,
+  recordConflictEvent,
+} from '../services/decision-conflict'
 import { loopGuardVerdict } from '../services/loop-guard'
+import { sotBindVerdict } from '../services/sot-bind'
+import { formatTrapSurfaceMessage } from '../services/trap-surface-slo'
 import { recordSurfacedForActiveTask } from '../services/usefulness/surface-attribution'
+import { conflictModeWithWeakModel } from '../services/weak-model-mode'
 import { stateStorage } from '../storage/state-storage'
 import { type HookIo, runHook } from './_runner'
 import { safeTruncate } from './_shared'
 
 const MAX_CHARS = 1200
-const MAX_ENTRIES = 3
+
+/** Per-invocation cache so decide + build share one recall (P0-3). */
+const preventiveRecallCache = new Map<string, MemoryEntry[]>()
 
 interface HookInput {
   tool_name?: string
   tool_input?: { file_path?: string }
 }
 
-async function buildPreEditContext(projectPath: string, filePath: string): Promise<string | null> {
-  const config = await configManager.readConfig(projectPath)
-  if (!config?.projectId) return null
-
-  let hits: MemoryEntry[]
+function recallPreventiveOnce(projectId: string, filePath: string): MemoryEntry[] {
+  const key = `${projectId}\0${filePath}`
+  const hit = preventiveRecallCache.get(key)
+  if (hit) return hit
+  let rows: MemoryEntry[]
   try {
-    // preventiveOnly: this push fires on EVERY edit, so it carries only traps
-    // (gotchas / anti-patterns / recurring-bugs). File history ("what happened
-    // here") is noise at edit time and stays one pull away via `prjct guard`.
-    hits = projectMemory.recallForFile(config.projectId, filePath, MAX_ENTRIES, {
+    rows = projectMemory.recallForFile(projectId, filePath, CONFLICT_RECALL_LIMIT, {
       preventiveOnly: true,
     })
   } catch {
-    return null
+    rows = []
   }
-  if (hits.length === 0) return null
+  preventiveRecallCache.set(key, rows)
+  return rows
+}
 
-  // Push-path ship attribution: this gotcha just reached the agent at the
-  // moment it matters — if the task ships, it earned its keep.
-  void recordSurfacedForActiveTask(
-    config.projectId,
-    projectPath,
-    hits.map((e) => e.id)
+function clearPreventiveCache(): void {
+  preventiveRecallCache.clear()
+}
+
+function headsUpMessage(hits: MemoryEntry[], base: string): string {
+  // Dynasty trap-before-edit: every trap id MUST appear (trap-surface SLO).
+  const trapFmt = formatTrapSurfaceMessage(
+    base,
+    hits.map((e) => ({
+      id: e.id,
+      type: preventiveLabel(e),
+      title: `${deriveTitle(e)} — ${flatDetail(e.content)}`,
+    }))
   )
-
-  const base = filePath.split('/').pop() ?? filePath
+  if (trapFmt) return safeTruncate(trapFmt, MAX_CHARS)
   const lines = [`# prjct: heads-up before editing \`${base}\``, '']
   lines.push(
     `${hits.length} preventive memory entr${hits.length === 1 ? 'y' : 'ies'} recorded against this file:`
@@ -78,20 +85,134 @@ async function buildPreEditContext(projectPath: string, filePath: string): Promi
   return safeTruncate(lines.join('\n'), MAX_CHARS)
 }
 
+async function buildPreEditContext(projectPath: string, filePath: string): Promise<string | null> {
+  const started = Date.now()
+  const config = await configManager.readConfig(projectPath)
+  if (!config?.projectId) return null
+
+  const hits = recallPreventiveOnce(config.projectId, filePath)
+  if (budgetExceeded(started)) return null
+  if (hits.length === 0) return null
+
+  void recordSurfacedForActiveTask(
+    config.projectId,
+    projectPath,
+    hits.map((e) => e.id)
+  )
+
+  const mode = conflictModeWithWeakModel(config)
+  const overrides = loadConflictOverrides(config.projectId)
+  const candidates = candidatesFromPreventive(hits)
+  const base = filePath.split('/').pop() ?? filePath
+  const verdict = decisionConflictVerdict({
+    mode,
+    candidates,
+    overriddenIds: overrides,
+    fileLabel: base,
+  })
+
+  if (budgetExceeded(started)) return null
+
+  // H1 SoT soft-bind warn (when not already conflict-warn)
+  try {
+    const task = await stateStorage.getCurrentTask(config.projectId)
+    const sot = sotBindVerdict({
+      harnessLevel: task?.harness?.level ?? null,
+      candidates,
+      overriddenIds: overrides,
+      fileLabel: base,
+    })
+    if (sot.action === 'warn' && sot.message) {
+      return safeTruncate(sot.message, MAX_CHARS)
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  if (verdict.action === 'warn' && verdict.message) {
+    // warn is ephemeral — not persisted (recordConflictEvent no-ops warn)
+    void recordConflictEvent(
+      projectPath,
+      config.projectId,
+      'warn',
+      verdict.memoryIds,
+      verdict.reason
+    )
+    return safeTruncate(verdict.message, MAX_CHARS)
+  }
+
+  // mode=off or gate none: classic heads-up (deny already handled in decide)
+  // Trap-surface SLO: always list every preventive id when present.
+  if (mode === 'off' || verdict.action === 'none' || hits.length > 0) {
+    return headsUpMessage(hits, base)
+  }
+
+  return null
+}
+
 /**
- * Hard loop guard: when the active cycle has run past `config.maxTurnsPerCycle`
- * without `prjct work --extend`, DENY the edit. Rig-agnostic — any host that
- * honors a PreToolUse deny blocks here; others ignore it and get the forceful
- * per-turn injection instead. Best-effort: any error ⇒ no deny (never blocks on
- * a bug). Returns null when the guard is unset/under budget/acknowledged.
+ * Hard loop guard + conflict deny + H2+ SoT hard-bind. Shares recall cache with build.
  */
-async function decideHardStop(projectPath: string): Promise<{ deny: string } | null> {
+async function decideHardStop(
+  projectPath: string,
+  filePath?: string
+): Promise<{ deny: string } | null> {
+  const started = Date.now()
   try {
     const config = await configManager.readConfig(projectPath)
-    if (!config?.projectId || !config.maxTurnsPerCycle) return null
+    if (!config?.projectId) return null
+
     const task = await stateStorage.getCurrentTask(config.projectId)
-    const verdict = loopGuardVerdict(config, task)
-    return verdict.stopped ? { deny: verdict.message } : null
+
+    if (config.maxTurnsPerCycle) {
+      const verdict = loopGuardVerdict(config, task)
+      if (verdict.stopped) return { deny: verdict.message }
+    }
+
+    if (!filePath) return null
+    if (budgetExceeded(started, CONFLICT_HARD_CAP_MS)) return null
+
+    const hits = recallPreventiveOnce(config.projectId, filePath)
+    if (hits.length === 0) return null
+    if (budgetExceeded(started, CONFLICT_HARD_CAP_MS)) return null
+
+    const overrides = loadConflictOverrides(config.projectId)
+    const base = filePath.split('/').pop() ?? filePath
+    const candidates = candidatesFromPreventive(hits)
+
+    // Dynasty SoT hard-bind: H2+ denies high-confidence decision/gotcha/fact
+    // even when conflictMode is off/advisory (living SoT is code-enforced).
+    const sot = sotBindVerdict({
+      harnessLevel: task?.harness?.level ?? null,
+      candidates,
+      overriddenIds: overrides,
+      fileLabel: base,
+    })
+    if (sot.action === 'deny' && sot.message) {
+      void recordConflictEvent(projectPath, config.projectId, 'deny', sot.memoryIds, sot.reason)
+      return { deny: sot.message }
+    }
+
+    const mode = conflictModeWithWeakModel(config)
+    if (mode !== 'strict') return null
+
+    const conflict = decisionConflictVerdict({
+      mode,
+      candidates,
+      overriddenIds: overrides,
+      fileLabel: base,
+    })
+    if (conflict.action === 'deny' && conflict.message) {
+      void recordConflictEvent(
+        projectPath,
+        config.projectId,
+        'deny',
+        conflict.memoryIds,
+        conflict.reason
+      )
+      return { deny: conflict.message }
+    }
+    return null
   } catch {
     return null
   }
@@ -102,11 +223,18 @@ export function runPreEditHook(projectPath: string = process.cwd(), io?: HookIo)
     {
       event: 'PreToolUse',
       projectPath,
-      decide: (_input, p) => decideHardStop(p),
+      decide: async (input, p) => {
+        clearPreventiveCache()
+        return decideHardStop(p, input.tool_input?.file_path?.trim())
+      },
       build: async (input, p) => {
-        const filePath = input.tool_input?.file_path?.trim()
-        if (!filePath) return null
-        return buildPreEditContext(p, filePath)
+        try {
+          const filePath = input.tool_input?.file_path?.trim()
+          if (!filePath) return null
+          return buildPreEditContext(p, filePath)
+        } finally {
+          clearPreventiveCache()
+        }
       },
     },
     io

@@ -73,8 +73,37 @@ class DoctorService {
     }
 
     this.printSummary(result)
+    out.info('Heal dead hooks / multi-runtime gaps: prjct doctor --fix')
 
     return result.hasErrors ? 1 : 0
+  }
+
+  /**
+   * Dynasty D6: auto-heal — reinstall hooks, wire adapters, refresh surfaces.
+   * Returns process exit code (0 ok, 1 if heal had errors).
+   */
+  async heal(projectPath: string = process.cwd()): Promise<number> {
+    this.printHeader()
+    out.info('Doctor heal — repairing harness wire…')
+    try {
+      const { applyDoctorHeal } = await import('./doctor-heal')
+      const report = await applyDoctorHeal(projectPath)
+      out.done(report.line)
+      if (report.applied.length) out.info(`applied: ${report.applied.join(', ')}`)
+      if (report.skipped.length) out.info(`skipped: ${report.skipped.join(', ')}`)
+      if (report.errors.length) {
+        for (const e of report.errors) out.fail(e)
+      }
+      // Re-run checks after heal
+      const result = await this.check(projectPath)
+      this.printSection('System Tools', result.tools)
+      this.printSection('Project Status', result.project)
+      this.printSummary(result)
+      return report.errors.length > 0 || result.hasErrors ? 1 : 0
+    } catch (e) {
+      out.fail(`heal failed: ${(e as Error).message}`)
+      return 1
+    }
   }
 
   // TOOL CHECKS
@@ -205,7 +234,7 @@ class DoctorService {
       return {
         name: 'claude hooks',
         status: 'warn',
-        message: `${installed}/${expected} installed - run "prjct setup" to repair`,
+        message: `${installed}/${expected} installed - run "prjct doctor --fix" to repair`,
       }
     } catch {
       return {

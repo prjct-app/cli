@@ -14,6 +14,7 @@ import { projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { readLastStatus, resolveActiveTask, setTaskStatus } from '../services/task-service'
+import { evaluateMemoryContent } from '../services/trust-boundary'
 import { recordTaskTokenUsage } from '../services/work-cost-service'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
@@ -21,8 +22,6 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
-import { scanForPromptInjection } from '../utils/prompt-injection'
-import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 import { requireActiveTask, requireProject } from './guards'
 
@@ -221,21 +220,18 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       }
       const { type, content } = parsed
 
-      const secretHits = scanForSecrets(content)
-      if (secretHits.length > 0 && !options.force) {
-        const hit = secretHits.join(', ')
-        out.fail(
-          `refusing to store memory that looks like a secret (${hit}). Re-run with --force if intentional.`
-        )
-        return { success: false, error: 'Secret-like content detected' }
-      }
-
-      const injectionHits = scanForPromptInjection(content)
-      if (injectionHits.length > 0 && !options.force) {
-        out.fail(
-          `refusing to store memory that looks like prompt injection (${injectionHits.join(', ')}). Entries are inlined into LLM context — re-run with --force if intentional.`
-        )
-        return { success: false, error: 'Prompt-injection-like content detected' }
+      const trust = evaluateMemoryContent(content, { force: options.force })
+      if (!trust.allow) {
+        out.fail(trust.denyMessage)
+        return {
+          success: false,
+          error:
+            trust.kind === 'secrets'
+              ? 'Secret-like content detected'
+              : trust.kind === 'prompt_injection'
+                ? 'Prompt-injection-like content detected'
+                : trust.reason,
+        }
       }
 
       const tags = parseFlagTags(options.tags)
@@ -247,6 +243,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
           tags,
           projectId: 'global-kb',
           requireWrite: true,
+          force: options.force,
         })
         const msg = `remembered ${type} (GLOBAL — cross-project): ${content.slice(0, 80)}${content.length > 80 ? '…' : ''}`
         if (options.md) console.log(`✓ ${msg}`)
@@ -293,6 +290,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         tags: finalTags,
         source: active?.id,
         requireWrite: true,
+        force: options.force,
       })
 
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)
@@ -340,6 +338,62 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       if (options.md) console.log(`✓ forgot ${target}`)
       else out.done(`forgot ${target}`)
+
+      return { success: true, id: target }
+    } catch (error) {
+      const msg = getErrorMessage(error)
+      return failHard(msg)
+    }
+  }
+
+  /**
+   * Resolve/close a memory entry so it leaves rotation (inbox, signals, traps).
+   * Soft-deletes like forget's memory surface, records a closed audit remember,
+   * and is the hygiene verb memory plugins lack.
+   */
+  async close(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption & { reason?: string } = {}
+  ): Promise<CommandResult> {
+    try {
+      const target = (id ?? '').trim()
+      if (!target) {
+        out.info('Usage: prjct close <id> [--reason "..."]')
+        return { success: false, error: 'Missing id' }
+      }
+
+      const pid = await requireProject(projectPath)
+      if (!pid.ok) return pid.result
+
+      const removed = projectMemory.forget(pid.value, target)
+      if (!removed) {
+        if (options.md) console.log(`✗ no memory entry matched ${target}`)
+        else out.fail(`no memory entry matched ${target}`)
+        return { success: false, error: `No memory entry matched ${target}` }
+      }
+
+      const reason = (options.reason ?? '').trim()
+      try {
+        await projectMemory.remember(projectPath, {
+          type: 'context',
+          content: reason
+            ? `Closed ${target}: ${reason}`
+            : `Closed ${target} (resolved — left rotation)`,
+          tags: {
+            status: 'closed',
+            resolves: target.startsWith('mem_') ? target : `mem_${target}`,
+            source: 'prjct-close',
+          },
+          provenance: 'declared',
+          projectId: pid.value,
+        })
+      } catch {
+        /* audit trail best-effort */
+      }
+
+      if (options.md) console.log(`✓ closed ${target}`)
+      else out.done(`closed ${target}`)
 
       return { success: true, id: target }
     } catch (error) {

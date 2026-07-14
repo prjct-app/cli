@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   geometryBlockMessage,
   geometryOf,
+  intentGeometryVerdict,
   NORMAL_MAX_LOC,
   tierOf,
 } from '../../services/delivery-geometry'
@@ -26,5 +27,53 @@ describe('delivery-geometry', () => {
     )
     expect(msg).toContain('--geometry')
     expect(msg).toContain('900')
+  })
+
+  it('intent geometry: H3 without --geometry is advisory (mode off) / strict blocks', () => {
+    const soft = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      harnessRisk: 'high',
+      mode: 'off',
+      explicitGeometry: null,
+    })
+    expect(soft.blocked).toBe(false)
+    expect(soft.reason).toBe('h2-intent-advisory')
+    expect(soft.message).toMatch(/geometry|split|--geometry/i)
+
+    const hard = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      harnessRisk: 'high',
+      mode: 'strict',
+      explicitGeometry: null,
+    })
+    expect(hard.blocked).toBe(true)
+    expect(hard.reason).toBe('h2-intent-strict')
+
+    const ok = intentGeometryVerdict({
+      harnessLevel: 'H3',
+      mode: 'strict',
+      explicitGeometry: 'split',
+    })
+    expect(ok.blocked).toBe(false)
+    expect(ok.reason).toBe('has-geometry')
+  })
+
+  it('intent geometry: H0 and H2 medium risk skip when tree not large', () => {
+    expect(
+      intentGeometryVerdict({
+        harnessLevel: 'H0',
+        mode: 'strict',
+        explicitGeometry: null,
+      }).reason
+    ).toBe('not-large')
+    expect(
+      intentGeometryVerdict({
+        harnessLevel: 'H2',
+        harnessRisk: 'medium',
+        mode: 'advisory',
+        explicitGeometry: null,
+        treeLarge: false,
+      }).reason
+    ).toBe('not-large')
   })
 })

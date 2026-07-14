@@ -1,12 +1,10 @@
 /**
- * Canonical `prjct` skill body.
+ * Canonical portable `prjct` skill body (L0).
  *
- * Shape: Use when · What's here · Gotchas. Always-on budget ≤1500 tokens;
- * methodology and full verb map live in workflows.md (pull on demand).
+ * Always project-agnostic — identity is SessionStart / `prjct context --md`.
+ * Shape: Use when · What's here · Gotchas. Budget ≤900 tok (Dynasty D5);
+ * methodology → workflows.md.
  */
-
-import { formatProjectHeader, formatRichContext } from './formatters'
-import type { SkillContext } from './types'
 
 export const PRJCT_SKILL_DESCRIPTION =
   'AI Agile OS for coding agents: intent briefs, RAG context, synthesized memory, guardrails, performance, and ships. Run the prjct verb yourself; use `prjct work` normally.'
@@ -23,28 +21,9 @@ export const PRJCT_SKILL_ALLOWED_TOOLS = [
 
 export const PRJCT_SKILL_REFERENCE_FILE = 'workflows.md'
 
-/** Empty ctx for the baseline template; `prjct sync` fills project data. */
-export function emptySkillContext(): SkillContext {
-  return {
-    projectName: '',
-    stack: '',
-    branch: '',
-    commands: { install: '', build: '', test: '', lint: '', dev: '', format: '' },
-    projectId: '',
-    version: '',
-    fileCount: 0,
-    patterns: [],
-    antiPatterns: [],
-    recentShipped: [],
-    velocity: null,
-    backlogCount: 0,
-    knownGotchas: [],
-    pausedTasks: [],
-    ideasCount: 0,
-    shippedCount: 0,
-    userPatterns: [],
-  }
-}
+/** Portable "What's here" — never project name/stack/branch. */
+export const PORTABLE_WHATS_HERE =
+  'Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct context --md`). Uninitialized tree: suggest `prjct init` once, then run the verb.'
 
 export function buildPrjctSkillFrontmatter(): string {
   const tools = PRJCT_SKILL_ALLOWED_TOOLS.map((t) => `"${t}"`).join(', ')
@@ -55,11 +34,11 @@ user-invocable: true
 ---`
 }
 
-export function buildPrjctSkill(ctx: SkillContext): string {
-  return `${buildPrjctSkillFrontmatter()}\n\n${buildPrjctSkillBody(ctx)}\n`
+export function buildPrjctSkill(): string {
+  return `${buildPrjctSkillFrontmatter()}\n\n${buildPrjctSkillBody()}\n`
 }
 
-export function buildPrjctSkillBody(ctx: SkillContext): string {
+export function buildPrjctSkillBody(): string {
   return [
     '# prjct',
     '',
@@ -69,37 +48,43 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '',
     "## What's here",
     '',
-    formatProjectHeader(ctx),
-    formatRichContext(ctx),
+    PORTABLE_WHATS_HERE,
     '',
     '### Agent contract',
     '',
     '- prjct remembers project state and shows the path; it does not own the execution.',
     '- Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.',
     '- Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.',
+    '- **Pattern supremacy:** style source = THIS repo (neighbor + `search`/`context memory`/Work scope). Sound pattern → **match**. Shit pattern → **propose upgrade**, do not spread garbage or foreign linter taste. Never make the client tutor basics already in the tree.',
+    '- **Skill ≠ project identity.** If skill and cwd disagree, trust cwd + `prjct context --md`.',
+    '',
+    '### Cast + file scope (MUST)',
+    '',
+    '- Multi-agent Cast names (explore→Popper · implement→Copernicus · review→McClintock): use as `description` / `prjct claim --as <Name>`.',
+    '- Before Grep/Glob: Work scope from `prjct work`, MCP `prjct_relevant_files`, or `prjct context memory` + `prjct guard <file>`. No blind tree walk when indexes exist.',
     '',
     '### Core verbs (Tier 1=auto · 2=confirm)',
     '',
     '| Signal | Verb | T |',
     '|---|---|---|',
-    '| work / fix / build (DEFAULT) | `prjct work "<intent>"` | 2 |',
-    '| complex goals/stakes | `prjct intent` · `intent audit` | 2 |',
-    '| recall knowledge | `prjct search` / `context memory` | 1 |',
-    '| save judgment | `prjct remember <type> "…"` | 1 |',
-    '| traps before edit | `prjct guard <file>` | 1 |',
+    '| work (default) | `prjct work "<intent>"` | 2 |',
+    '| intent | `prjct intent` / `audit` | 2 |',
+    '| recall | `prjct search` / `context memory` | 1 |',
+    '| remember | `prjct remember <type>` | 1 |',
+    '| guard | `prjct guard <file>` | 1 |',
     '| ship | `prjct ship` | 2 |',
-    '| next / frontier | `prjct next --md` · `ready` · `claim` · `phases` | 1 |',
-    '| metrics | `prjct insights` · `performance` | 1 |',
-    '| land session | `prjct land` / remember context Session close | 1 |',
-    '| test-first / intent-first | `prjct tdd` · `prjct sdd` (off\\|assist\\|strict) | 1 |',
-    '| workflows / packs | `prjct workflow list` · `prjct seed list` | 1 |',
+    '| next | `prjct next --md` | 1 |',
+    '| metrics | `prjct insights` / `performance` | 1 |',
+    '| land | `prjct land` | 1 |',
+    '| tdd/sdd | `prjct tdd` / `sdd` | 1 |',
+    '| workflows | `prjct workflow` / `seed` | 1 |',
     '',
-    '`prjct work` is the single normal entrypoint. Trivial work proceeds directly; substantive work follows a persisted intent + tests before implementation when required. Full verb map, loop-discipline triggers, model policy, decision-briefs, and quality workflows live in `workflows.md` — pull on demand.',
+    '`prjct work` is the single normal entrypoint. Full map in `workflows.md`.',
     '',
     '### Knowledge',
     '',
-    '- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. Source of truth: SQLite via tools; config at `.prjct/prjct.config.json`.',
-    '- On close: living context synthesis (model-authored) — field list + example in `workflows.md`. Land before session end: `prjct remember context "Session close: …"`; `--tags topic:<key>` upserts.',
+    '- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; config at `.prjct/prjct.config.json`.',
+    '- Close: `prjct land` (auto hand-off) or `prjct remember context "Session close: …"`.',
     '',
     '### Routing',
     '',
@@ -110,7 +95,7 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     '## Gotchas',
     '',
     '- Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.',
-    '- Worktree: remove only after PR *merged*, from main tree, never `--force` over dirty/unpushed work.',
+    '- Worktree: remove only after PR merged, never --force over dirty work.',
     '',
   ].join('\n')
 }
@@ -183,8 +168,12 @@ export function buildPrjctSkillReference(): string {
     '| Touching **2+ non-trivial files** | Keep one writer (no fan-out onto shared files), then run a fresh `review` before calling it done. |',
     '| About to **commit / push / open a PR** after code changes | Run `review` first; skip only for a trivial docs/text/version diff. |',
     '| **Wrong cwd, worktree/git accident, merge recovery, or confusing test/env failure** | Re-orient or run `audit` before more edits; do not debug forward over a broken state. |',
+    '| **Stuck / circling / user says switch to another agent** | `prjct switch <agent> --reason "…" ` (English why), then **stop editing**. Target runs `prjct accept` and continues the same cycle — do not restart from zero. |',
+    '| **Handoff cue in project state (`↔ Handoff pending`)** | Run `prjct accept [hand_id] --md` immediately and continue; ownership is already on the live cycle. |',
+    '| **SoT / Live suggest / tip lines (terminal only — no web UI)** | **Surface them to the user in chat** as a short tip, then act. **SoT** = binding project truth (obey or supersede with `prjct remember`). **SUGGEST/tip** = propose the live change in the terminal and apply when editing. Never swallow tips silently. |',
+    '| **Workspace owned by another agent (parallel work)** | `prjct work` auto-isolates to a sibling git worktree — `cd` there. Same-feature rescue uses `switch`, not a new worktree. |',
     '',
-    'Model on every dispatch: implementer that writes code → `model: "opus"`; reviewer/judge (`review`/`security`/`investigate`/`audit-spec`) → `model: "sonnet"`; pure routing/orchestration → `model: "haiku"`. A non-implementer inheriting the parent model burns tokens and latency.',
+    'Model policy is **capability class**, not a single host vocabulary. Implementer that writes code → max-tier model; reviewer/judge (`review`/`security`/`investigate`/`audit-spec`) → mid-tier; pure routing/orchestration → fast tier. Host mapping examples: Claude Code `opus` / `sonnet` / `haiku`; other hosts use their equivalent. A non-implementer inheriting the parent max model burns tokens and latency.',
     '',
     '## Spec pipeline — the stations (COMPLEX work only)',
     '',
@@ -258,15 +247,15 @@ export function buildPrjctSkillReference(): string {
     '',
     'Workflows that read many files (`review`, `security`, `investigate`, `audit`) MUST dispatch the read-and-analyze step as a subagent via the Agent tool with `subagent_type: "general-purpose"`. The subagent runs in a fresh context window and returns only the conclusion — the parent does not accumulate intermediate file reads. Without this, the parent\'s context fills with diffs, source files, and memory excerpts, leaving little budget for the user\'s actual conversation.',
     '',
-    "**Model policy (perf — non-negotiable).** A subagent inherits the parent's model + effort UNLESS you set `model:` in the Agent call. Orchestrators and reviewers do NOT implement — running them on the parent's max model is exactly why a single task used to crawl through every agent. Set the model explicitly on every dispatch:",
+    "**Model policy (perf — non-negotiable).** A subagent inherits the parent's model + effort UNLESS you set `model:` in the Agent call. Orchestrators and reviewers do NOT implement — running them on the parent's max model is exactly why a single task used to crawl through every agent. Set the model explicitly on every dispatch (host vocabulary may differ — Claude examples below):",
     '',
-    '- **Implementer** (the agent that writes code) → `model: "opus"`, full effort. ONLY this role gets max.',
-    '- **Reviewers / judgment** (`review`, `security`, `investigate`, and the `audit-spec` review specialists) → `model: "sonnet"`. Strong reasoning, ~no quality loss for judging a diff, far faster than Opus-max.',
-    '- **Pure orchestration / routing** (crew leader, any fan-out step that only routes) → `model: "haiku"`.',
+    '- **Implementer** (the agent that writes code) → max-tier (`model: "opus"` on Claude Code), full effort. ONLY this role gets max.',
+    '- **Reviewers / judgment** (`review`, `security`, `investigate`, and the `audit-spec` review specialists) → mid-tier (`model: "sonnet"` on Claude Code). Strong reasoning for judging a diff; far cheaper than max.',
+    '- **Pure orchestration / routing** (crew leader, any fan-out step that only routes) → fast tier (`model: "haiku"` on Claude Code).',
     '',
     'In every non-implementer subagent prompt, add one line: "Apply decent, not exhaustive, effort — you are reviewing/orchestrating: return the verdict, do not over-deliberate." Effort is prompt guidance (the Agent tool has no effort param); `model:` is the concrete lever — never omit it for a non-implementer.',
     '',
-    '**Fan out implementers when subtasks are independent.** One implementer is the floor, not a cap. When work splits into 2+ parts that touch DISJOINT files, dispatch one `implementer` per part IN THE SAME MESSAGE (one Agent block each) so they run in parallel — each `model: "opus"`, each handed its own non-overlapping file scope by you. If you cannot carve disjoint scopes (two parts would edit the same file), do NOT parallelize — run them sequentially; parallel writes to one file clobber each other. After the fan-out returns, compose the review specialists the combined diff raises (architecture + the lenses the change touches — the same set `prjct spec audit` selects), one specialist per concern over the whole diff, not one generic reviewer per implementer. Only fan out for genuine independence — parallel `opus` implementers are the most expensive spawn, so match the count to the work, never pad it.',
+    '**Fan out implementers when subtasks are independent.** One implementer is the floor, not a cap. When work splits into 2+ parts that touch DISJOINT files, dispatch one `implementer` per part IN THE SAME MESSAGE (one Agent block each) so they run in parallel — each max-tier model, each handed its own non-overlapping file scope by you. If you cannot carve disjoint scopes (two parts would edit the same file), do NOT parallelize — run them sequentially; parallel writes to one file clobber each other. After the fan-out returns, compose the review specialists the combined diff raises (architecture + the lenses the change touches — the same set `prjct spec audit` selects), one specialist per concern over the whole diff, not one generic reviewer per implementer. Only fan out for genuine independence — parallel max-tier implementers are the most expensive spawn, so match the count to the work, never pad it.',
     '',
     '**Crew mode reconciliation.** If this project has crew mode installed (`.claude/agents/leader.md` present, or a `prjct:crew` block in CLAUDE.md), the TRIAGE-FIRST "go direct" rule does NOT mean the main session writes code itself — it means triage happens INSIDE the leader: a trivial change is a 1-implementer dispatch (no spec), not a reason to skip the crew. In a crew project, ANY code/test work routes through the leader → implementer(s) → reviewer; the main session never edits source directly. "Go direct" still governs non-code turns (captures, memory, Q&A) — those need no subagent at all.',
     '',
@@ -319,6 +308,8 @@ export function buildPrjctSkillReference(): string {
     '',
     'What good looks like: the bugs that pass CI but blow up in production — races, off-by-one, swallowed errors, leaked resources, partial writes, retry storms — each keyed to `file:line` with a fix. It auto-fixes only the unambiguous (typos, wrong names, a missing await on a discarded promise) and flags everything else for the human; it never touches anything outside the diff scope.',
     '',
+    "**Project-aligned review:** Judge against *this* codebase's patterns (neighbors + prjct memory), not generic linter taste. Flag real defects and real anti-patterns; do not invent style debt that contradicts local idiom. Prefer silence over a false finding. Never quiz the client on code already in the tree.",
+    '',
     'Stop condition: max 3 auto-fixes per file — more means the file needs a human. Persist each finding as `prjct remember gotcha "<bug + how to avoid>"` and each fix as `prjct remember decision "<auto-fix applied>"`.',
     '',
     '### `review` — adversarial fresh-context reviewer (every QA gate)',
@@ -328,25 +319,19 @@ export function buildPrjctSkillReference(): string {
     "1. **Information asymmetry is the mechanism**: the reviewer subagent gets ONLY the diff + the spec/acceptance criteria — NEVER the author's transcript or reasoning. Evaluate the artifact, not the intent.",
     '2. **Zero findings is not a pass**: an empty review means dig deeper or explicitly justify why the change is trivially safe. Session evidence: adversarial post-ship review found 10 real bugs in week-old code with green tests.',
     '3. Rank findings by severity; fix confirmed ones via a separate dispatch; persist each real finding as a gotcha memory.',
+    '4. **Align to the project.** If unsure whether a style is "wrong", open a neighbor — match it unless it is a documented anti-pattern. Never invent defects or make the client explain conventions already in the tree.',
     '',
-    '### `judgment` — precision-gated dual-blind v2 (SQLite ledger + next card)',
+    '### `judgment` — precision-gated dual-blind v2 (orchestrated; human never types it)',
     '',
-    'Use when: `prjct judgment plan` / `review-risk` says `standard|full`, or H3/security/hot-path. Contract: **find defects that matter, then STOP**. Always drive the loop with `prjct judgment next` (machine directive — do not re-derive state).',
+    '**Orchestrator owns the protocol.** On `prjct work` with quality required, prjct auto-opens the ledger and injects a **next card** each turn (prompt hook). Do **not** invent steps — execute the card’s `steps`. Humans only ask for features; they do not run judgment by hand.',
     '',
-    '**Intensity** (deterministic): `skip` trivial · `standard` one reviewer + one batched refuter · `full` RED(attack)+BLUE(defense) dual-blind + 3-vote panel. Force-upgrade on large diffs, hot-path (auth/crypto/migration/payment), H3 security.',
+    'Contract: **find defects that matter, then STOP**. Intensity: `skip` trivial · `standard` one review + batch challenge · `full` RED+BLUE dual-blind + 3-vote panel (H3/security/hot-path force full).',
     '',
-    '**Steroids (beyond gentle-ai 4R prose):**',
-    '- **Evidence tax** — blockers without `file:line` demote to critical; title-only criticals → info. Vibes cannot freeze ship.',
-    '- **Finding DNA** — fingerprint dedup; same bug reported twice merges. Project **ghost book** remembers refuted FPs and tags them 👻 (never auto-kills — fail-closed).',
-    "- **RED/BLUE merge** — `prjct judgment merge --red '[…]' --blue '[…]'`. Same DNA agreed; actionable-vs-not contradiction → **auto escalate** (never tie-break).",
-    '- **Blast rank** — fix order by severity × evidence × hot-path, not who yelled loudest.',
-    '- **Next card** — `prjct judgment next` emits kind + steps + charters every turn.',
+    '**Steroids:** evidence tax · mechanical style refute (prefer-const + reassignment → auto-refuted) · finding DNA + ghost FP memory · RED/BLUE merge (contradiction auto-escalates) · blast-rank fix order · max 2 fix rounds · no `$PPID` dependency.',
     '',
-    '**Protocol:** `open` → (full: RED+BLUE parallel → `merge`) / (standard: one reviewer → `add`) → `challenge --verdicts …` (batch only) → `fix-round` (≤2) blast-ranked → `fixed` → `brief` (ledger+fix-diff ONLY) → `verify` → `approve`. Severity floor: only blocker/critical loop. Missing refute votes fail-closed to `stands`.',
+    '**Ship: suggest OK, execute only after text confirmation.** When quality is approved you MAY tell the user it is ready to ship. Run `prjct ship` only after they confirm in text **this turn** (e.g. "ship", "sí publícalo") — not on silence, Stop, or green tests alone. If they confirm but the ledger is incomplete, the gate hard-blocks without `approved` (override only with explicit consent: `prjct ship --no-spec-gate`).',
     '',
-    '**Ship gate**: code-strict (`sdd`+`tdd` strict) hard-blocks without ledger `approved` (runs before task complete). Override only with explicit consent: `prjct ship --no-spec-gate`.',
-    '',
-    'Persist: `prjct remember decision "judgment: <target> → APPROVED|ESCALATED"` + each real finding as `gotcha`.',
+    'Optional CLI if inject is missing: `prjct judgment next` / `status`. Persist: `prjct remember decision "judgment: … → APPROVED|ESCALATED"` + gotchas.',
     '',
     '### `tdd` mode — opt-in test-first discipline',
     '',
@@ -383,13 +368,13 @@ export function buildPrjctSkillReference(): string {
     '',
     'Stop condition: max 3 failed hypotheses per bug — escalate with what was tried. Persist `prjct remember learning "<root cause>"`, `prjct remember decision "<fix + why it works>"`, `prjct remember gotcha "<related bug surfaced>"`.',
     '',
-    '### `ship` (hardened) — Coverage Gate + Auto-Document',
+    '### `ship` (hardened) — suggest anytime; execute after text confirm',
     '',
-    'Use when: ship, deploy, merge, or finalize work.',
+    '**Suggest freely when ready; never execute without text confirmation.** You MAY propose shipping when quality is done / work looks complete. Run `prjct ship` only after the user confirms in text **this turn** (ship / publish / merge / "sí" / equivalent). Finishing quality, green tests, or a Stop inject is **not** confirmation.',
     '',
-    'What a hardened ship adds to `prjct ship`: it bootstraps a test framework if the project has none (bun test / vitest / jest by stack) and BLOCKS if coverage drops more than 2% from the previous version. It scans the diff against README / ARCHITECTURE / CHANGELOG / CLAUDE.md and proposes updates for any drift, and writes a PR description covering {summary, tests added (delta), coverage delta, risk areas touched — cross-reference MCP `prjct_analysis` —, reviews already run on this branch}.',
+    'What hardened ship adds: version/changelog workflow rules, judgment gate (intensity standard|full requires ledger `approved`), spec/TDD gates when configured, PR checklist from acceptance criteria. Override gates only with explicit user consent (`--no-spec-gate`).',
     '',
-    'Loop gate (see the loop-discipline triggers in SKILL.md): a fresh `review` is expected before the PR on any non-trivial diff — `ship` assumes it has run and lists it under "reviews already run". Skip only for a trivial docs/text/version diff.',
+    'Loop gate: quality next card / review on non-trivial diffs before you offer to ship. Skip quality only for trivial intensity.',
     '',
     'Persist `prjct remember decision "<release notes + coverage delta>"` so the next sprint sees the trend.',
     '',

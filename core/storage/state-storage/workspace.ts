@@ -130,7 +130,7 @@ export async function updateWorkspaceTask(
   backend: WorkspaceBackend,
   projectId: string,
   workspaceId: string,
-  fields: Partial<WorkspaceTask>
+  fields: Partial<WorkspaceTask> & Record<string, unknown>
 ): Promise<WorkspaceTask | null> {
   const state = await backend.read(projectId)
   const existing = (state.activeTasks || []).find((t) => t.workspaceId === workspaceId)
@@ -138,15 +138,29 @@ export async function updateWorkspaceTask(
 
   // Merge by workspaceId INSIDE the updater (not by a stale positional index),
   // so a concurrent insert/remove can't make the index point at the wrong row.
+  // Keys set to `null` are deleted (clear optional markers like pendingHandoffId).
+  const merge = (t: WorkspaceTask): WorkspaceTask => {
+    const next: Record<string, unknown> = { ...t }
+    for (const [k, v] of Object.entries(fields)) {
+      if (v === null) delete next[k]
+      else if (v !== undefined) next[k] = v
+    }
+    next.workspaceId = workspaceId
+    return next as WorkspaceTask
+  }
+
+  let merged: WorkspaceTask = existing
   await backend.update(projectId, (s) => ({
     ...s,
-    activeTasks: (s.activeTasks || []).map((t) =>
-      t.workspaceId === workspaceId ? { ...t, ...fields, workspaceId } : t
-    ),
+    activeTasks: (s.activeTasks || []).map((t) => {
+      if (t.workspaceId !== workspaceId) return t
+      merged = merge(t)
+      return merged
+    }),
     lastUpdated: getTimestamp(),
   }))
 
-  return { ...existing, ...fields, workspaceId }
+  return merged
 }
 
 export async function addTokens(

@@ -12,8 +12,8 @@
  *
  * Locked invariants:
  *   1. No projectId in config → returns null (skip injection).
- *   2. No persona → returns null. Per-turn topical recall is the
- *      prompt hook's job; SessionStart is persona-only.
+ *   2. With projectId → always emit cwd project identity (L1; skill is
+ *      portable L0 and must not carry project stamp).
  *   3. Persona present → injects persona section verbatim.
  *   4. Output is "describe state" — never "do this".
  *   5. Output bytes do NOT depend on memory state (cache stability).
@@ -71,20 +71,25 @@ describe('SessionStart hook — buildSessionContext', () => {
     expect(ctx).toBeNull()
   })
 
-  test('returns null when no persona is configured', async () => {
+  test('emits cwd project identity even without persona (L1 isolation)', async () => {
     await freshProject()
     const ctx = await buildSessionContext(projectPath)
-    expect(ctx).toBeNull()
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('## Project identity (cwd)')
+    expect(ctx).toContain('Skill is portable L0')
+    expect(ctx).not.toContain('Your role in this project')
   })
 
-  test('returns null when persona is missing even if memory exists', async () => {
+  test('without persona still omits memory content (cache stability)', async () => {
     // Prior versions injected a "Recent memory" section in this case.
-    // That broke cache stability and is no longer surfaced from this
-    // hook (UserPromptSubmit handles per-turn recall).
+    // That broke cache stability; UserPromptSubmit handles per-turn recall.
     await freshProject()
     insertMemory('decision', 'we picked SQLite for local-first')
     const ctx = await buildSessionContext(projectPath)
-    expect(ctx).toBeNull()
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('## Project identity (cwd)')
+    expect(ctx).not.toContain('SQLite for local-first')
+    expect(ctx).not.toContain('## Recent memory')
   })
 
   test('injects persona block with role/focus/MCPs/packs', async () => {
@@ -97,6 +102,7 @@ describe('SessionStart hook — buildSessionContext', () => {
     const ctx = await buildSessionContext(projectPath)
     expect(ctx).not.toBeNull()
     expect(ctx).toContain('# prjct: project context')
+    expect(ctx).toContain('## Project identity (cwd)')
     expect(ctx).toContain('Your role in this project: **PM**')
     expect(ctx).toContain('Focus: B2B onboarding')
     expect(ctx).toContain('Available MCPs this project expects: linear, posthog')
@@ -172,10 +178,12 @@ describe('SessionStart hook — knowledge digest (cold-start only)', () => {
     expect(ctx).toContain('What this project already knows')
   })
 
-  test('digest ON with no memory and no persona → still null (no noise)', async () => {
+  test('digest ON with no memory and no persona → identity only (no digest noise)', async () => {
     await freshProject()
     const ctx = await buildSessionContext(projectPath, null, { digest: true })
-    expect(ctx).toBeNull()
+    expect(ctx).not.toBeNull()
+    expect(ctx).toContain('## Project identity (cwd)')
+    expect(ctx).not.toContain('What this project already knows')
   })
 
   test('digest surfaces an entry skill-missed ≥2× (feedback loop read side)', async () => {

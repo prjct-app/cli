@@ -18,10 +18,9 @@ import path from 'node:path'
 import {
   buildPrjctSkill,
   buildPrjctSkillReference,
-  emptySkillContext,
 } from '../../services/skill-generator/prjct-skill-body'
 
-const CREW_AGENTS_DIR = path.join(__dirname, '../../../templates/crew/agents')
+const CREW_AGENTS_DIR = path.join(__dirname, '../../../templates/crew/roles')
 
 /** Pull `model:` out of the leading `---` frontmatter block. */
 function frontmatterModel(md: string): string | null {
@@ -69,7 +68,7 @@ describe('crew agent frontmatter — every role pins a model (no parent-max inhe
 
 describe('skill generation invariants — the SSOT the SKILL.md twin is built from', () => {
   it('is deterministic (pure function, no hidden state)', () => {
-    expect(buildPrjctSkill(emptySkillContext())).toBe(buildPrjctSkill(emptySkillContext()))
+    expect(buildPrjctSkill()).toBe(buildPrjctSkill())
     expect(buildPrjctSkillReference()).toBe(buildPrjctSkillReference())
   })
 
@@ -108,7 +107,7 @@ describe('skill generation invariants — the SSOT the SKILL.md twin is built fr
   })
 
   it('the lean SKILL.md body points at the reference instead of inlining it', () => {
-    const skill = buildPrjctSkill(emptySkillContext())
+    const skill = buildPrjctSkill()
     expect(skill).toContain('workflows.md')
     // The heavy methodology must NOT sit in the always-in-context body.
     expect(skill).not.toContain('Model policy (perf')

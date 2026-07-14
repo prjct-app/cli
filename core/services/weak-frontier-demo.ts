@@ -1,6 +1,7 @@
 /**
  * Public A/B surface: weak model + prjct harness vs frontier without harness.
  * Pure scoring — `scripts/demo-weak-vs-frontier.ts` is the CLI entry.
+ * Dynasty scorecard embeds `computeHarnessDelta` / `renderHarnessDeltaMd`.
  */
 
 import { Buffer } from 'node:buffer'
@@ -9,7 +10,7 @@ import { PROVIDER_CAPABILITY_MODELS } from '../schemas/model'
 import { countTokens } from '../tools/context/token-counter'
 import { computeHarnessScore, WORLD_CLASS } from './harness-score'
 import { MINIMAL_ROUTING_BODY } from './routing-block'
-import { buildPrjctSkill, emptySkillContext } from './skill-generator/prjct-skill-body'
+import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
 
 export interface DemoRow {
   capability: string
@@ -17,6 +18,35 @@ export interface DemoRow {
   weakWithPrjct: string
   weakOk: boolean
 }
+
+/** Intent A/B + footprint delta — pure, no DB (release-gate + scorecard). */
+export interface HarnessDeltaReport {
+  fixtureCount: number
+  harnessHits: number
+  bareHits: number
+  harnessRate: number
+  bareRate: number
+  /** Percentage points: harnessRate − bareRate. */
+  intentDeltaPp: number
+  skillTokens: number
+  routingBytes: number
+  mcpTools: number
+  /** Absolute SLOs for Dynasty gate. */
+  minHarnessRate: number
+  minIntentDeltaPp: number
+  allGreen: boolean
+  /** One scannable line for terminal / score. */
+  line: string
+  rows: Array<{ metric: string; bare: string; harness: string; ok: boolean }>
+}
+
+/** Minimum harness intent accuracy (same as weak-model-bench). */
+export const DELTA_MIN_HARNESS_RATE = 0.95
+/**
+ * Minimum intent accuracy gap vs bare (percentage points).
+ * Fixtures yield ~70pp today; floor 40pp keeps the gap "wide".
+ */
+export const DELTA_MIN_INTENT_PP = 40
 
 /** Deterministic intent router — same contract as bench-weak-model. */
 export function routeIntent(signal: string): string {
@@ -55,20 +85,130 @@ const INTENT_FIXTURES: Array<{ signal: string; verb: string }> = [
   { signal: 'open a pr for the fix', verb: 'ship' },
 ]
 
-export function buildDemoRows(): DemoRow[] {
-  const skillTok = countTokens(buildPrjctSkill(emptySkillContext()))
-  const routingB = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
-  const score = computeHarnessScore()
-  const providers = Object.keys(PROVIDER_CAPABILITY_MODELS).length
-
+function intentHitCounts(): {
+  harnessHits: number
+  bareHits: number
+  fixtureCount: number
+} {
   let harnessHits = 0
   let bareHits = 0
   for (const f of INTENT_FIXTURES) {
     if (routeIntent(f.signal) === f.verb) harnessHits++
     if (routeIntentBare(f.signal) === f.verb) bareHits++
   }
-  const harnessRate = harnessHits / INTENT_FIXTURES.length
-  const bareRate = bareHits / INTENT_FIXTURES.length
+  return { harnessHits, bareHits, fixtureCount: INTENT_FIXTURES.length }
+}
+
+/**
+ * Live harness Δ — same 10 intents bare vs harness + footprint SLOs.
+ * Pure; exit non-zero when `!allGreen` (wired by demo script + weak bench).
+ */
+export function computeHarnessDelta(): HarnessDeltaReport {
+  const { harnessHits, bareHits, fixtureCount } = intentHitCounts()
+  const harnessRate = harnessHits / fixtureCount
+  const bareRate = bareHits / fixtureCount
+  const intentDeltaPp = Math.round((harnessRate - bareRate) * 1000) / 10
+  const skillTokens = countTokens(buildPrjctSkill())
+  const routingBytes = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
+  const score = computeHarnessScore()
+  const mcpTools = score.defaults.mcpToolCountDefault
+
+  const intentOk =
+    harnessRate >= DELTA_MIN_HARNESS_RATE &&
+    harnessHits > bareHits &&
+    intentDeltaPp >= DELTA_MIN_INTENT_PP
+  const skillOk = skillTokens <= WORLD_CLASS.skillTokensMax
+  const routingOk = routingBytes <= WORLD_CLASS.routingBodyBytesMax
+  const mcpOk =
+    resolveTier(undefined) === 'core' &&
+    DEFAULT_MCP_TOOL_TIER === 'core' &&
+    mcpTools <= WORLD_CLASS.mcpToolsCoreMax
+
+  const rows: HarnessDeltaReport['rows'] = [
+    {
+      metric: 'Intent routing accuracy',
+      bare: `${Math.round(bareRate * 100)}% (wraps bin verbs as work)`,
+      harness: `${Math.round(harnessRate * 100)}% (verb map)`,
+      ok: intentOk,
+    },
+    {
+      metric: 'Intent Δ (pp)',
+      bare: '—',
+      harness: `+${intentDeltaPp} pp (min +${DELTA_MIN_INTENT_PP})`,
+      ok: intentDeltaPp >= DELTA_MIN_INTENT_PP && harnessHits > bareHits,
+    },
+    {
+      metric: 'Always-on skill tokens',
+      bare: 'Unbounded host dump',
+      harness: `${skillTokens} tok (≤${WORLD_CLASS.skillTokensMax})`,
+      ok: skillOk,
+    },
+    {
+      metric: 'Routing body bytes',
+      bare: 'Methodology every turn',
+      harness: `${routingBytes} B (≤${WORLD_CLASS.routingBodyBytesMax})`,
+      ok: routingOk,
+    },
+    {
+      metric: 'MCP default tools',
+      bare: 'All tools loaded',
+      harness: `${mcpTools} tools @ core (≤${WORLD_CLASS.mcpToolsCoreMax})`,
+      ok: mcpOk,
+    },
+  ]
+
+  const allGreen = rows.every((r) => r.ok)
+  const line = `Harness Δ: intent ${Math.round(bareRate * 100)}%→${Math.round(harnessRate * 100)}% (+${intentDeltaPp}pp) · skill ${skillTokens}tok · MCP ${mcpTools} · ${allGreen ? 'PASS' : 'FAIL'}`
+
+  return {
+    fixtureCount,
+    harnessHits,
+    bareHits,
+    harnessRate,
+    bareRate,
+    intentDeltaPp,
+    skillTokens,
+    routingBytes,
+    mcpTools,
+    minHarnessRate: DELTA_MIN_HARNESS_RATE,
+    minIntentDeltaPp: DELTA_MIN_INTENT_PP,
+    allGreen,
+    line,
+    rows,
+  }
+}
+
+/** Compact markdown table for `prjct harness score` (Dynasty public proof). */
+export function renderHarnessDeltaMd(delta: HarnessDeltaReport = computeHarnessDelta()): string {
+  const body = delta.rows.map(
+    (r) => `| ${r.metric} | ${r.bare} | ${r.harness} | ${r.ok ? '✓' : '✗'} |`
+  )
+  return [
+    '## Harness Δ (bare vs prjct)',
+    '',
+    'Public proof of the north star: weak model + harness beats bare discipline.',
+    '',
+    '| Metric | Bare (no harness) | With prjct | Pass |',
+    '|---|---|---|:---:|',
+    ...body,
+    '',
+    `**${delta.line}**`,
+    '',
+    '_Reproduce: `bun run demo:weak-vs-frontier` · `bun run bench:weak-model` · `bun run gate:dominance`_',
+    '',
+  ].join('\n')
+}
+
+export function buildDemoRows(): DemoRow[] {
+  const skillTok = countTokens(buildPrjctSkill())
+  const routingB = Buffer.byteLength(MINIMAL_ROUTING_BODY, 'utf-8')
+  const score = computeHarnessScore()
+  const providers = Object.keys(PROVIDER_CAPABILITY_MODELS).length
+  const delta = computeHarnessDelta()
+  const harnessRate = delta.harnessRate
+  const bareRate = delta.bareRate
+  const harnessHits = delta.harnessHits
+  const bareHits = delta.bareHits
 
   const mcpDefault = resolveTier(undefined) === 'core' && DEFAULT_MCP_TOOL_TIER === 'core'
   const mcpCount = score.defaults.mcpToolCountDefault
@@ -108,7 +248,7 @@ export function buildDemoRows(): DemoRow[] {
       capability: 'Intent routing accuracy',
       frontierNoHarness: `${Math.round(bareRate * 100)}% bare (wraps bin verbs as work)`,
       weakWithPrjct: `${Math.round(harnessRate * 100)}% with verb map (need ≥95%)`,
-      weakOk: harnessRate >= 0.95,
+      weakOk: harnessRate >= DELTA_MIN_HARNESS_RATE,
     },
     {
       capability: 'Passive capture (typed)',
@@ -132,13 +272,14 @@ export function buildDemoRows(): DemoRow[] {
     {
       capability: 'Intent A/B vs bare',
       frontierNoHarness: `${Math.round(bareRate * 100)}% bare accuracy`,
-      weakWithPrjct: `${Math.round(harnessRate * 100)}% harness (must beat bare)`,
-      weakOk: harnessHits > bareHits && harnessRate >= 0.95,
+      weakWithPrjct: `${Math.round(harnessRate * 100)}% harness (+${delta.intentDeltaPp}pp, min +${DELTA_MIN_INTENT_PP})`,
+      weakOk: harnessHits > bareHits && harnessRate >= DELTA_MIN_HARNESS_RATE && delta.allGreen,
     },
   ]
 }
 
 export function formatDemoMarkdown(rows: DemoRow[]): string {
+  const delta = computeHarnessDelta()
   const lines = [
     '# Weak model + prjct  vs  Frontier without harness',
     '',
@@ -155,6 +296,8 @@ export function formatDemoMarkdown(rows: DemoRow[]): string {
   const pass = rows.filter((r) => r.weakOk).length
   lines.push('')
   lines.push(`**Weak+prjct: ${pass}/${rows.length} SLOs**`)
+  lines.push('')
+  lines.push(delta.line)
   lines.push('')
   lines.push('Reproduce: `bun run demo:weak-vs-frontier` · also `bun run bench:weak-model`')
   return lines.join('\n')

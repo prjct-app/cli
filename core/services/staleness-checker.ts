@@ -76,10 +76,11 @@ class StalenessChecker {
       status.lastSyncCommit = (projectJson.lastSyncCommit as string) || null
       const lastSync = projectJson.lastSync as string
 
-      // Get current HEAD commit
+      // Get current HEAD commit (bounded)
       try {
         const { stdout } = await execAsync('git rev-parse --short HEAD', {
           cwd: this.projectPath,
+          timeout: 3000,
         })
         status.currentCommit = stdout.trim()
       } catch {
@@ -101,12 +102,14 @@ class StalenessChecker {
         return status
       }
 
-      // Run git commands in parallel (~45ms → ~22ms)
+      // Bounded git (timeouts match land-synthesis ~3s). Count first —
+      // name lists only when needed for significant-file detection.
       const cwd = this.projectPath
-      const [revListResult, diffResult] = await Promise.all([
-        execAsync(`git rev-list --count ${status.lastSyncCommit}..HEAD`, { cwd }).catch(() => null),
-        execAsync(`git diff --name-only ${status.lastSyncCommit}..HEAD`, { cwd }).catch(() => null),
-      ])
+      const gitOpts = { cwd, timeout: 3000, maxBuffer: 1024 * 256 }
+      const revListResult = await execAsync(
+        `git rev-list --count ${status.lastSyncCommit}..HEAD`,
+        gitOpts
+      ).catch(() => null)
 
       if (!revListResult) {
         status.isStale = true
@@ -115,7 +118,6 @@ class StalenessChecker {
       }
 
       status.commitsSinceSync = parseInt(revListResult.stdout.trim(), 10) || 0
-      status.changedFiles = diffResult ? diffResult.stdout.trim().split('\n').filter(Boolean) : []
 
       // Calculate days since sync
       if (lastSync) {
@@ -126,10 +128,28 @@ class StalenessChecker {
         )
       }
 
-      // Check for significant file changes
-      status.significantChanges = status.changedFiles.filter((file) =>
-        this.config.significantFiles.some((sig) => file.endsWith(sig) || file.includes(sig))
-      )
+      // Only fetch name-only when commit count alone may not decide staleness
+      // (under commit threshold) — avoids unbounded allocation when only the
+      // count is needed for drift-refresh / SessionStart.
+      const needNames =
+        status.commitsSinceSync > 0 && status.commitsSinceSync < this.config.commitThreshold
+      if (needNames) {
+        const diffResult = await execAsync(
+          `git diff --name-only ${status.lastSyncCommit}..HEAD`,
+          gitOpts
+        ).catch(() => null)
+        // Cap name list so a huge range cannot blow SessionStart memory.
+        const names = diffResult
+          ? diffResult.stdout.trim().split('\n').filter(Boolean).slice(0, 200)
+          : []
+        status.changedFiles = names
+        status.significantChanges = names.filter((file) =>
+          this.config.significantFiles.some((sig) => file.endsWith(sig) || file.includes(sig))
+        )
+      } else {
+        status.changedFiles = []
+        status.significantChanges = []
+      }
 
       // Determine staleness
       if (status.commitsSinceSync >= this.config.commitThreshold) {

@@ -30,13 +30,15 @@ describe('orchestrationFor — triage drives model/effort routing', () => {
     expect(p.tests).toBe('after')
   })
 
-  test('H2 feature → frontier, frame spec, tests-first, parallel fan-out', () => {
+  test('H2 feature → frontier, frame spec, tests-first, parallel fan-out DEFAULT geometry', () => {
     const p = orchestrationFor(h('H2', 'feature'))
     expect(p.model).toBe('frontier')
     expect(p.spec).toBe('frame')
     expect(p.tests).toBe('first')
     expect(p.fanout).toBe('parallel')
     expect(p.directive).toContain('mem_3432') // subagents inherit the model
+    expect(p.directive).toContain('DEFAULT multi-agent')
+    expect(p.directive).toContain('DEFAULT geometry')
   })
 
   test('H3 high-risk → frontier, HIGH effort, reviewed spec, tests-first, CREW', () => {
@@ -48,6 +50,14 @@ describe('orchestrationFor — triage drives model/effort routing', () => {
     expect(p.fanout).toBe('crew')
     expect(p.directive).toContain('crew')
     expect(p.directive).toContain('Set EACH subagent')
+    expect(p.directive).toContain('DEFAULT geometry')
+  })
+
+  test('weak-model mode elevates quality ceremony', () => {
+    const off = orchestrationFor(h('H2', 'feature'), 'off', 'off', 'off')
+    const on = orchestrationFor(h('H2', 'feature'), 'off', 'off', 'on')
+    expect(off.quality).toBe('standard')
+    expect(on.quality).toBe('full')
   })
 })
 

@@ -125,6 +125,20 @@ export interface LocalConfig {
    */
   land?: { mode: 'off' | 'advisory' | 'strict' }
   /**
+   * Closed-loop judgment + weak-model product mode.
+   * conflictMode is dedicated — MUST NOT be inferred from land.mode or sdd.mode.
+   * Defaults when unset (pack-gated): off | code→advisory | code-strict→strict
+   *   - conflictMode off — gate disabled; classic heads-up only
+   *   - conflictMode advisory — warn only
+   *   - conflictMode strict — high-confidence deny via PreToolUse deny channel
+   *   - weakModelMode on — product mode: intensify conflict (floor strict unless off),
+   *     elevate quality ceremony, banner on prime/session — weak-model + prjct ≥ good alone
+   */
+  judgment?: {
+    conflictMode?: 'off' | 'advisory' | 'strict'
+    weakModelMode?: 'off' | 'on'
+  }
+  /**
    * Desktop notifications. **Default ON** (absent / `on`) — prjct pings you
    * when Claude is waiting for input and when a subagent finishes, so a wait
    * never hangs silently. `off` (via `prjct notify off`) silences the OS
@@ -132,6 +146,45 @@ export interface LocalConfig {
    * silent if the OS has no notifier. Resolved by `effectiveNotifyMode`.
    */
   notify?: { mode: 'on' | 'off' }
+
+  /**
+   * Value-based memory retention (score → active|archive|delete).
+   * Unset / `apply` runs archive+delete on sync (capped). `dry-run` only
+   * reports. `off` skips the retention phase entirely.
+   */
+  retention?: {
+    mode?: 'off' | 'dry-run' | 'apply'
+    /** Max archive actions per full sync (default 100). */
+    maxArchive?: number
+    /** Max delete actions per full sync (default 50). */
+    maxDelete?: number
+    /** Hard-delete soft-deleted rows older than N days on sync (default 7 — no statistical value). */
+    softDeletedPurgeDays?: number
+    /** Prune archives older than N days on sync (default 90). */
+    archivePruneDays?: number
+    /** Max live entries per auto source prefix (default 20). */
+    autoSourceMaxLive?: number
+  }
+
+  /**
+   * Multi-agent coordination (worktree isolation + switch/accept handoff).
+   * Unset ⇒ owner stamping always on; isolation defaults to `auto` when a
+   * foreign cycle occupies the workspace; switch does not spawn target CLIs
+   * unless `switchLaunch` is true or `--launch` is passed.
+   */
+  multiAgent?: {
+    /**
+     * When starting work while another agent owns this workspace:
+     *   - auto — create a sibling git worktree and start the cycle there
+     *   - ask — block with a message telling the agent to isolate or switch
+     *   - off — legacy single-workspace gate only
+     */
+    autoWorktree?: 'auto' | 'ask' | 'off'
+    /** When true, `prjct switch` tries to spawn the target CLI with a resume prompt. */
+    switchLaunch?: boolean
+    /** Pending handoff TTL in hours (default 24). */
+    handoffTtlHours?: number
+  }
 
   /**
    * Optional semantic-search layer (phase 3). OFF unless `provider` is set —
