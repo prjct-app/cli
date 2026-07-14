@@ -447,10 +447,12 @@ export const COMMANDS: CommandMeta[] = [
     description:
       'Structural code graph: symbols, trace, impact/risk, architecture (run after sync)',
     usage: {
-      claude: 'p. code [symbols|trace|impact|architecture|dead|export|import|reindex|cbm]',
-      terminal: 'prjct code [symbols|trace|impact|architecture|dead|export|import|reindex|cbm]',
+      claude:
+        'p. code [symbols|trace|impact|architecture|dead|export|import|push-graph|reindex|cbm]',
+      terminal:
+        'prjct code [symbols|trace|impact|architecture|dead|export|import|push-graph|reindex|cbm]',
     },
-    params: '[symbols|trace|impact|architecture|dead|export|import|reindex|cbm] [args]',
+    params: '[symbols|trace|impact|architecture|dead|export|import|push-graph|reindex|cbm] [args]',
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
@@ -459,6 +461,7 @@ export const COMMANDS: CommandMeta[] = [
       'Symbol index on sync; 4th work-scope signal; CALLS with enclosing + imports',
       'trace / impact (hunk-level) / architecture / dead one-shots',
       'Per-project cache under ~/.prjct-cli/projects/<id>/ (never in client repo)',
+      'push-graph: compact Function/Class/File + CALLS snapshot → cloud 3D',
       'PreToolUse Grep|Glob augment; ship structural risk cue; optional CBM cli',
     ],
   },

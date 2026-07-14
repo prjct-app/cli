@@ -9,6 +9,7 @@
  *   prjct code architecture        → structural overview (one-shot)
  *   prjct code export              → cache under ~/.prjct-cli/projects/<id>/
  *   prjct code import              → restore SQLite from that per-project cache
+ *   prjct code push-graph          → upload compact structural graph to cloud 3D
  *   prjct code reindex             → rebuild symbol graph now
  *   prjct code dead                → zero-caller symbols (excl. entries)
  *   prjct code cbm [cli <tool> …]  → optional CBM bridge status / execute
@@ -32,6 +33,7 @@ import {
   exportCodeGraphArtifact,
   importCodeGraphArtifact,
   maybeExportAfterIndex,
+  maybeUploadCodeGraphToCloud,
 } from '../services/code-graph-artifact'
 import { findDeadCode, formatDeadCodeMd, formatDeadCodeText } from '../services/dead-code'
 import {
@@ -80,6 +82,9 @@ export class CodeCommands extends PrjctCommandsBase {
       if (sub === 'import' || sub === 'bootstrap') {
         return this.importArtifact(projectPath, options)
       }
+      if (sub === 'push-graph' || sub === 'push' || sub === 'upload-graph') {
+        return this.pushGraph(projectPath, options)
+      }
       if (sub === 'reindex' || sub === 'index') {
         return this.reindex(projectPath, options)
       }
@@ -90,7 +95,7 @@ export class CodeCommands extends PrjctCommandsBase {
         return this.cbmCmd(rest, options)
       }
       return failWith(
-        `Unknown code subcommand "${sub}". Use: symbols | trace | impact | architecture | dead | export | import | reindex | cbm`,
+        `Unknown code subcommand "${sub}". Use: symbols | trace | impact | architecture | dead | export | import | push-graph | reindex | cbm`,
         options
       )
     } catch (error) {
@@ -322,6 +327,25 @@ export class CodeCommands extends PrjctCommandsBase {
     if (options.md) console.log(mdOutput('## Code graph restore', `> ${msg}`))
     else out.success(msg)
     return { success: true, ...imp }
+  }
+
+  private async pushGraph(projectPath: string, options: MdOption): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+    if (!hasSymbolIndex(proj.value)) {
+      return failWith('No symbol index — run `prjct code reindex` first.', options)
+    }
+    const res = await maybeUploadCodeGraphToCloud(proj.value)
+    if (!res.uploaded) {
+      return failWith(
+        res.reason ?? 'Cloud upload failed (login with `prjct login` if offline).',
+        options
+      )
+    }
+    const msg = `Uploaded structural graph · ${res.nodes ?? 0} nodes · ${res.links ?? 0} links (Function/Class/File + CALLS)`
+    if (options.md) console.log(mdOutput('## Code graph cloud', `> ${msg}`))
+    else out.success(msg)
+    return { success: true, ...res }
   }
 
   private async reindex(projectPath: string, options: MdOption): Promise<CommandResult> {

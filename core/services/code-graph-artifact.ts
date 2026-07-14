@@ -174,6 +174,38 @@ export async function maybeExportAfterIndex(projectId: string): Promise<void> {
   } catch {
     /* non-critical */
   }
+  // Best-effort cloud upload so the SPA 3D graph stays structural (not knowledge).
+  try {
+    await maybeUploadCodeGraphToCloud(projectId)
+  } catch {
+    /* non-critical — offline / unauthed */
+  }
+}
+
+/** Build compact structural snapshot and POST to /sync/projects/{id}/code-graph. */
+export async function maybeUploadCodeGraphToCloud(
+  projectId: string
+): Promise<{ uploaded: boolean; nodes?: number; links?: number; reason?: string }> {
+  const { buildCloudCodeGraphSnapshot, isUploadableGraph } = await import('./code-graph-cloud')
+  const snap = buildCloudCodeGraphSnapshot(projectId)
+  if (!isUploadableGraph(snap)) {
+    return { uploaded: false, reason: 'no symbol index or empty graph' }
+  }
+  try {
+    const { default: syncClient } = await import('../sync/sync-client')
+    const res = await syncClient.uploadCodeGraph(projectId, snap)
+    if (!res.ok) return { uploaded: false, reason: 'upload failed or unauthenticated' }
+    return {
+      uploaded: true,
+      nodes: res.nodes ?? snap.nodes.length,
+      links: res.links ?? snap.links.length,
+    }
+  } catch (e) {
+    return {
+      uploaded: false,
+      reason: e instanceof Error ? e.message : String(e),
+    }
+  }
 }
 
 export async function ensureIndexWithBootstrap(
