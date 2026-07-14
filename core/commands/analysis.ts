@@ -380,7 +380,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: false, error: result.error || 'Failed to gather project data' }
       }
 
-      // Check if LLM analysis is already current
       const currentCommit = result.git.recentCommits[0]?.hash ?? null
       if (currentCommit && llmAnalysisStorage.isCurrent(projectId, currentCommit)) {
         if (options.md) {

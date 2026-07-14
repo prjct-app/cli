@@ -62,7 +62,6 @@ const COMMAND_TO_STATE: Record<string, WorkflowState> = {
 export function showNextSteps(command: string, options: { quiet?: boolean } = {}): void {
   if (options.quiet) return
 
-  // Get the state after this command
   const resultingState = COMMAND_TO_STATE[command] || 'idle'
 
   // Get valid commands for that state

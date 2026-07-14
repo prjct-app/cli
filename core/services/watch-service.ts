@@ -115,7 +115,6 @@ class WatchService {
       return { success: false, error: 'No prjct project. Run "prjct init" first.' }
     }
 
-    // Check if already running
     if (this.isRunning) {
       return { success: false, error: 'Watch mode is already running' }
     }
@@ -127,7 +126,6 @@ class WatchService {
       this.printStartup()
     }
 
-    // Initialize watcher
     this.watcher = chokidar.watch(TRIGGER_PATTERNS, {
       cwd: this.projectPath,
       ignored: IGNORE_PATTERNS,
@@ -202,7 +200,6 @@ class WatchService {
    * Handle file change event
    */
   private handleChange(event: 'add' | 'change' | 'unlink', filePath: string): void {
-    // Add to pending changes
     this.pendingChanges.add(filePath)
 
     if (this.options.verbose && !this.options.quiet) {

@@ -106,13 +106,17 @@ After install, **next session in any prjct-cli project**:
 - **Lookup-first protocol**: Claude queries prjct (`prjct search`, `prjct context memory`, MCP `prjct_*`) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
 - **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them via recall.
 - **Pattern detection**: Stop hook detects hot files (>3 changes in 7 days), recurring bugs (gotchas with the same topic), tech-debt growth (TODO/FIXME count rising). All persisted as learnings, surfaced next session.
-- **5 quality workflows** activated by natural language ("review this branch", "qa the UI", "security check", "investigate this bug"):
+- **6 quality workflows** activated by natural language ("review this branch", "qa the UI", "security check", "investigate this bug"):
   - `review` — Production Bug Hunt + Completeness Gate (3 modes)
   - `qa` — Real Browser, Atomic Fixes, Regression Tests
   - `security` — OWASP Top 10 + STRIDE, 8/10 confidence gate, concrete exploit per finding
   - `investigate` — Iron Law (no fix without investigation), max 3 failed hypotheses
-  - `ship` (endurecido) — Coverage Gate + Auto-Document
+  - `ship` (hardened) — Coverage Gate + Auto-Document
+  - `audit` — one-shot orchestrator: review + security + investigate combined
 - **Delivery-geometry advisory** (`prjct review-risk`): reads the committed changeset vs the merge-base and suggests a size tier (trivial/normal/large) + whether to ship direct, as one PR, or split — with the touched top-level dirs as natural split lines. Purely advisory: never gates, never mutates git.
+- **Session ceremonies**: `prjct prime` restores the full work state at session start; `prjct land` closes it — hand-off persisted to SQLite plus memory consolidation via `prjct dream` when its gates open.
+- **Multi-agent work graph**: dependency edges, ready frontier, race-free `prjct claim`, topological `prjct phases` — fan several agents out on one cycle without collisions. `prjct crew` runs the leader / implementers / reviewer flow.
+- **Code symbol graph**: `prjct code symbols|trace|impact|architecture|dead` — structural code intel built by `prjct sync` and injected by hooks alongside Grep results.
 
 ## How it works
 
@@ -286,10 +290,17 @@ Cursor and Windsurf use their installed prjct router files; otherwise run `prjct
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct agents doctor` | Show the auditable compatibility matrix for local and project agent runtimes. |
 | `prjct review-risk` | Advisory change-size + delivery-geometry signal for the branch (read-only; never gates, never splits). |
+| `prjct prime` / `prjct land` | Open / close a session: restore full work state · persist hand-off + trigger memory consolidation. |
+| `prjct dream` | Consolidate memory: orient / gather / consolidate / prune. |
+| `prjct ready` / `claim` / `depend` / `phases` | Multi-agent work graph: ready frontier, race-free claim, dependency edges, topological phases. |
+| `prjct crew` | Multi-subagent crew flow: leader / implementers / reviewer. |
+| `prjct code <sub>` | Symbol-graph queries: `symbols`, `trace`, `impact`, `architecture`, `dead`. |
+| `prjct tdd` / `sdd` / `lean` | Quality gates: test-first, spec-driven development, anti-over-engineering. |
+| `prjct memory export` / `import` | Git-shareable memory bundles for teams without cloud sync. |
 
 Compatibility aliases from v2 still execute for existing scripts: `task`,
 `status`, `tag`, `capture`, `spec`, `audit-spec`, `value`, `memory-doctor`,
-`report`, `handoff`, `guardrails`, `regen`, and `analyze`. They are no longer
+`report`, `handoff`, `guardrails`, and `analyze`. They are no longer
 the product surface.
 
 ## Personas & Packs
@@ -308,46 +319,54 @@ the product surface.
 }
 ```
 
-Five built-in packs (manifests, not bash pipelines):
+Seven built-in packs (TypeScript manifests in `core/packs/manifests.ts`, not bash pipelines):
 
 | Pack | Persona | Memory types enabled | Workflow slots |
 |---|---|---|---|
 | `code` | DEV | `fact`, `decision`, `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped` | `ship`, `review` |
+| `code-strict` | DEV | same as `code`, with SDD+TDD strict + delivery-geometry / land / conflict gates | `ship`, `review` |
 | `daily` | — | `inbox`, `todo`, `idea` | `morning`, `clarify`, `review` |
-| `pm` | PM | `decision`, `insight`, `question`, `stakeholder` | `spec`, `triage`, `update` |
-| `founder` | Founder | `goal`, `okr`, `person`, `stakeholder`, `decision` | `ship`, `review` |
-| `research` | Research | `source`, `claim`, `question`, `insight` | `research`, `review` |
+| `pm` | PM | `insight`, `question`, `stakeholder`, `decision`, `source` | `spec`, `triage`, `interview` |
+| `founder` | Founder | `goal`, `okr`, `person`, `stakeholder`, `decision`, `shipped` | `investor-update`, `1on1`, `strategy` |
+| `lean` | — | `over-engineering`, `lean-debt` | `review`, `audit`, `debt` |
+| `research` | Research | `source`, `claim`, `question`, `insight` | `lit-review`, `analyze` |
 
 Slots ship **empty** — the human or the agent fills them on demand.
 
 ## Claude Hooks Adapter (opt-in)
 
-`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, writes the Claude Code hooks adapter to `~/.claude/settings.json`, and repairs detected Codex config in `~/.codex/config.toml` (prjct MCP + TUI `status_line`). The Claude hooks inject `additionalContext`; none block by default. Other agents use the support level shown by `prjct agents doctor`.
+`prjct install` refreshes the universal project surface (`AGENTS.md`) when run inside a prjct project, writes the Claude Code hooks adapter to `~/.claude/settings.json`, and repairs detected Codex config in `~/.codex/config.toml` (prjct MCP + TUI `status_line`). Most of the 13 hook subcommands inject `additionalContext`; two guard: the credential guard denies tool calls that would leak secrets, and the package guard denies unknown installs under strict packs. Other agents use the support level shown by `prjct agents doctor`.
 
-| Event | Injects |
+| Event | Does |
 |---|---|
 | `SessionStart` | Persona; on cold start (startup/clear/compact) also the knowledge digest — top traps + decisions in force, so a freshly-updated model starts grounded |
 | `UserPromptSubmit` | Active project state (task, branch, inbox) |
+| `PreToolUse` (any tool) | Credential guard — **denies** the call when tool arguments contain secret material, so credentials never leave the machine |
+| `PreToolUse` (Bash package installs) | Package legitimacy — flags packages not already in `package.json` before the install runs (strict packs deny) |
 | `PreToolUse` (Bash git commit) | Anti-patterns tagged with touched files |
 | `PreToolUse` (Edit/Write) | The file's preventive memory (gotchas/anti-patterns) right before you edit it — pushes what `prjct guard` makes pull |
+| `PreToolUse` (Grep/Glob) | Injects indexed symbol-graph hits alongside search results (never gates) |
 | `PostToolUse` (Edit/Write) | Silently annotates `files_touched` on active task |
 | `Stop` | Async prompt: "learn anything reusable?"; scans the transcript for durable captures |
 | `SubagentStart` | Persona for fresh-brain subagents (cache-stable, digest-free) |
+| `SubagentStop` | Desktop notification when a subagent finishes (`config.notify`, default on) |
+| `Notification` | Desktop notification when the agent is waiting for input or permission |
 | `CwdChanged` | Re-contextualizes on project switch |
 
 Remove with `prjct claude uninstall` (hooks only) or `prjct uninstall` (everything).
 
 ## MCP Server
 
-prjct-cli exposes an MCP server with 5 tool groups:
+prjct-cli exposes an MCP server with 6 tool groups (every tool is prefixed `prjct_`):
 
 | Group | Tools |
 |---|---|
-| **memory** | save, list, similar, forget |
-| **project** | patterns, status, summary |
-| **files** | files, recent |
-| **workflow** | list, run, log |
-| **code-intel** | related, impact, stale |
+| **memory** | `mem_save`, `mem_list`, `mem_similar`, `mem_forget`, `guard`, `record_decision` / `record_gotcha` / `record_learning` / `record_fact`, `capture_inbox` |
+| **project** | `session_resume`, `task_status`, `task_start`, `task_set_status`, `analysis`, `cost_add`, `developer`, `signals`, `skills`, `context_tiers`, `safe_artifacts` |
+| **files** | `relevant_files`, `signatures`, `history` |
+| **workflow** | `workflow_rules`, `workflow_list`, `workflow_status` |
+| **code-intel** | `impact_analysis`, `search_symbols`, `trace_path`, `architecture`, `cochange`, `dead_code`, `import_graph`, `related_context` |
+| **spec** | 9 `spec_*` tools — create, get, list, update, and the rest of the SDD lifecycle |
 
 The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs wired, prjct-cli **does not duplicate them** — it tells your agent they're available for the current persona and caches your insights locally.
 
@@ -375,9 +394,9 @@ Every command supports `--md` to emit LLM-optimized markdown for agent consumpti
 
 ## Memory
 
-14 built-in types + user-defined lowercase identifiers:
+20 built-in types + user-defined lowercase identifiers:
 
-`fact`, `decision`, `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped`, `inbox`, `todo`, `idea`, `insight`, `question`, `source`, `person` — plus anything you invent (`recipe`, `workout`, `interview`, …).
+`fact`, `decision`, `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped`, `identity`, `voice`, `glossary`, `framework`, `context`, `inbox`, `todo`, `idea`, `insight`, `question`, `source`, `person`, `spec` — plus anything you invent (`recipe`, `workout`, `interview`, …). Packs add more on top (e.g. `goal`, `okr` from `founder`).
 
 ```bash
 prjct remember decision "we chose SQLite because the app is local"
@@ -434,15 +453,16 @@ Without a key the built-in local embedder is used. Vector dimensionality is dete
 
 ## Code Intelligence
 
-`prjct sync` builds three indexes:
+`prjct sync` builds four indexes:
 
 | Index | Purpose |
 |---|---|
 | BM25 | Full-text search over names, symbols, comments |
+| Symbol graph | Structural code symbols + call sites — powers `prjct code symbols/trace/impact/architecture/dead` and the Grep/Glob hook augment |
 | Import graph | Forward + reverse dependency edges |
 | Git co-change | Files that change together |
 
-A combined ranker fuses the three signals (`core/domain/file-ranker.ts`) and powers `prjct context files`, plus `prjct_related`, `prjct_impact`, and `prjct_stale` in the MCP server.
+A combined ranker fuses the signals (`core/domain/file-ranker.ts`) and powers `prjct context files`, plus the code-intel MCP tools (`prjct_related_context`, `prjct_impact_analysis`, `prjct_search_symbols`, `prjct_trace_path`, …).
 
 ## Issue Tracker Integration
 
@@ -469,28 +489,42 @@ Bring your own MCP — prjct-cli doesn't duplicate trackers.
 ```
 prjct-cli/
   bin/prjct.cjs          Portable package-manager launcher
-  dist/bin/prjct.mjs     Thin JS shim (daemon-first)
+  bin/prjct.ts           Source entry — daemon + hook fast paths, self-heal
+  dist/bin/prjct.mjs     Built JS shim (daemon-first)
   core/
-    cli/                 CLI command handlers + dispatcher
-    hooks/               7 passive Claude Code hook subcommands
-    packs/               Pack manifests + pack-manager
-    mcp/                 MCP server (5 tool groups)
-    domain/              BM25, import-graph, git-cochange, file-ranker
-    services/            sync-service, skill-generator, pattern-detector
-    storage/             SQLite (one DB per project) — source of truth
+    agentic/             Agent template loader
+    cli/                 Bin-command helpers
+    commands/            Command registry (command-data.ts) + all verb handlers
+    config/              Static command-context config
+    constants/           Algorithm / timing / token constants
+    daemon/              Background daemon (client, dispatch, protocol)
+    domain/              BM25, symbol graph, import-graph, git-cochange, file-ranker
+    eval/                Retrieval evals + ledger
+    events/              Sync event bus
+    hooks/               13 hook subcommands (Claude Code adapter)
+    infrastructure/      path-manager, ai-provider, command-installer, agent-detector
+    mcp/                 MCP server (6 tool groups)
+    memory/              Memory model, recall, formatting
+    packs/               Pack manifests (TS) + pack-manager
     schemas/             Zod — runtime validation
-    infrastructure/      path-manager, ai-provider, command-installer
-    daemon/              Background daemon (file watching)
-    sync/                Cloud sync client + auth-config
+    services/            sync-service, skill-generator, embeddings, retention
+    session/             Git session helpers
+    storage/             SQLite (one DB per project) — source of truth
+    sync/                Cloud sync client + auth + entity handlers
+    tools/               Context tools (signatures, history, relevant files)
+    types/               Shared TypeScript types
+    utils/               Output, branding, cache helpers
+    workflow-engine/     Rule state-machine + when-evaluator
+    workflows/           Onboarding wizard
   templates/
-    commands/            Thin per-command templates (defer to CLI --md)
-    packs/               JSON pack manifests
+    codex/ crew/ cursor/ windsurf/ antigravity/   Per-agent surfaces
     global/              Per-editor router templates
+    skills/              Skill templates
 ```
 
 ## Requirements
 
-- Node.js 22.22.2+ or Bun 1.0+
+- Node.js 22.5+ (ships `node:sqlite`) or Bun 1.0+
 - One of: Claude Code, Gemini CLI, Cursor IDE, Windsurf, OpenAI Codex, Antigravity
 
 ## Common questions

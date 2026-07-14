@@ -91,7 +91,6 @@ export class SetupCommands extends PrjctCommandsBase {
    * the CLI exchanges the code for a device key (never a bearer in the URL).
    */
   async login(options: { md?: boolean } = {}): Promise<CommandResult> {
-    // Check if already authenticated
     const status = await authConfig.getStatus()
     if (status.authenticated) {
       if (!options.md) {

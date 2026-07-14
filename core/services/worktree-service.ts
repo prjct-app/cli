@@ -54,7 +54,6 @@ class WorktreeService {
     const worktreePath = path.join(mainPath, WORKTREE_DIR, slug)
     const branch = options.branch || `feat/${slug}`
 
-    // Ensure .worktrees directory exists
     await fs.mkdir(path.join(mainPath, WORKTREE_DIR), { recursive: true })
 
     // Create worktree with new branch
@@ -218,7 +217,6 @@ class WorktreeService {
     for (const wt of worktrees) {
       if (wt.isMain) continue
 
-      // Check if the worktree directory still exists
       if (!(await fileExists(wt.path))) {
         removed.push(wt.slug)
       }

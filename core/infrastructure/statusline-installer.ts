@@ -66,7 +66,6 @@ export async function installStatusLine(): Promise<void> {
     const sourceComponentsDir = path.join(assetsDir, 'components')
     const sourceConfigPath = path.join(assetsDir, 'default-config.json')
 
-    // Ensure directories exist
     if (!(await fileExists(claudeDir))) {
       await fs.mkdir(claudeDir, { recursive: true })
     }
@@ -83,7 +82,6 @@ export async function installStatusLine(): Promise<void> {
       await fs.mkdir(prjctComponentsDir, { recursive: true })
     }
 
-    // Check if statusline already exists
     if (await fileExists(prjctStatusLinePath)) {
       const existingContent = await fs.readFile(prjctStatusLinePath, 'utf8')
 
@@ -104,7 +102,6 @@ export async function installStatusLine(): Promise<void> {
         await installStatusLineModules(sourceLibDir, prjctLibDir)
         await installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
 
-        // Ensure symlink and settings
         await ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
         await ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
         return
@@ -211,7 +208,6 @@ async function installStatusLineModules(sourceDir: string, destDir: string): Pro
  */
 async function ensureStatusLineSymlink(linkPath: string, targetPath: string): Promise<void> {
   try {
-    // Check if link already points to correct target
     if (await fileExists(linkPath)) {
       const stats = await fs.lstat(linkPath)
       if (stats.isSymbolicLink()) {

@@ -99,10 +99,8 @@ export async function installCodexSkill(): Promise<{
   try {
     const skillMdPath = getCodexSkillPath()
     const prjctSkillDir = path.dirname(skillMdPath)
-    // Ensure skills directory exists
     await fs.mkdir(prjctSkillDir, { recursive: true })
 
-    // Check if SKILL.md already exists
     const skillExists = await fileExists(skillMdPath)
 
     // Read template content - try bundle first

@@ -157,7 +157,6 @@ async function verifyFrameworks(
     const found: string[] = []
 
     for (const framework of analysis.frameworks) {
-      // Check if framework name (or lowercase variant) exists in dependencies
       const frameworkLower = framework.toLowerCase()
       const exists = Object.keys(allDeps).some((dep) => dep.toLowerCase().includes(frameworkLower))
 
