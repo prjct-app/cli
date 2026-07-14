@@ -7,7 +7,7 @@
 # friction AND zero npm/Node dependency at install time.
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/prjct-app/prjct-cli/main/scripts/install-standalone.sh | bash
 #
 # What it does:
 #   1. Detects platform (mac arm64/intel + linux x64)
@@ -73,11 +73,11 @@ DOWNLOAD_OK=false
 
 if [ -n "$ASSET" ]; then
   step "Fetching latest release metadata…"
-  LATEST_TAG="$(curl -sSL --fail https://api.github.com/repos/jlopezlira/prjct-cli/releases/latest \
+  LATEST_TAG="$(curl -sSL --fail https://api.github.com/repos/prjct-app/prjct-cli/releases/latest \
     | grep -oE '"tag_name":\s*"[^"]+"' | head -1 | cut -d '"' -f4 || true)"
 
   if [ -n "$LATEST_TAG" ]; then
-    URL="https://github.com/jlopezlira/prjct-cli/releases/download/$LATEST_TAG/$ASSET"
+    URL="https://github.com/prjct-app/prjct-cli/releases/download/$LATEST_TAG/$ASSET"
     note "downloading $LATEST_TAG → $URL"
     mkdir -p "$BIN_DIR"
     if curl -sSL --fail -o "$BIN_DIR/prjct.new" "$URL"; then
@@ -135,7 +135,7 @@ if [ "$DOWNLOAD_OK" = false ]; then
     elif command -v npm >/dev/null 2>&1; then
       PM="npm"
     else
-      fail "No package manager found (pnpm, bun, yarn, npm). Install one or use the standalone binary path: https://github.com/jlopezlira/prjct-cli#install"
+      fail "No package manager found (pnpm, bun, yarn, npm). Install one or use the standalone binary path: https://github.com/prjct-app/prjct-cli#install"
     fi
     note "no existing install — using $PM (first available in pnpm > bun > yarn > npm preference order)"
   fi

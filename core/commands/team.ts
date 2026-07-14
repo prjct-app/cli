@@ -187,7 +187,7 @@ export class TeamCommands extends PrjctCommandsBase {
         '1. Review the diff: `git diff --staged`',
         '2. Commit: `git commit -m "chore: enroll repo in prjct team mode"`',
         '3. Push: `git push`',
-        '4. Teammates run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash` (or `npm install -g prjct-cli@latest`).',
+        '4. Teammates run `curl -sSL https://raw.githubusercontent.com/prjct-app/prjct-cli/main/scripts/install-standalone.sh | bash` (or `npm install -g prjct-cli@latest`).',
         ...(options.enforce
           ? [
               '5. **Each teammate** runs `git config core.hooksPath .githooks` once (or `prjct team --enforce` to do it automatically).',
@@ -381,7 +381,7 @@ fi
 if ! command -v prjct >/dev/null 2>&1; then
   printf '\\n\\033[1;31m✗ prjct is required for this repo (.prjct/team.json: required=true)\\033[0m\\n' >&2
   printf '  Install once:\\n' >&2
-  printf '  \\033[36mcurl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash\\033[0m\\n' >&2
+  printf '  \\033[36mcurl -sSL https://raw.githubusercontent.com/prjct-app/prjct-cli/main/scripts/install-standalone.sh | bash\\033[0m\\n' >&2
   printf '  Or: npm install -g prjct-cli@latest\\n' >&2
   printf '  (Bypass with --no-verify if you must, but the team agreed otherwise.)\\n\\n' >&2
   exit 1
@@ -403,7 +403,7 @@ function teamClaudeMdBlock(cfg: TeamConfig): string {
     // (token-cache audit R7).
     'Query prjct (`prjct search`, `prjct context memory`, MCP `prjct_*`) before re-reading source; capture analysis back via `prjct remember <type> "..."` — in ENGLISH, whatever language the contributor speaks.',
     '',
-    "Don't have prjct? Install once: `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-standalone.sh | bash`",
+    "Don't have prjct? Install once: `curl -sSL https://raw.githubusercontent.com/prjct-app/prjct-cli/main/scripts/install-standalone.sh | bash`",
     `${cfg.required ? 'This repo *requires* prjct — please install before contributing.' : ''}`,
     CLAUDE_MD_END,
   ]

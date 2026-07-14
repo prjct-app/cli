@@ -101,10 +101,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jlopezlira/prjct-cli.git"
+    "url": "git+https://github.com/prjct-app/prjct-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/jlopezlira/prjct-cli/issues"
+    "url": "https://github.com/prjct-app/prjct-cli/issues"
   },
   "homepage": "https://cli.prjct.app",
   "packageManager": "bun@1.2.23",
