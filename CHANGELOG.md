@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [3.56.1] - 2026-07-14
+
+### Bug Fixes
+
+- publish npm metadata pointing at prjct-app/cli (#563)
+
+### Maintenance
+
+- one-shot npm publish for registry metadata (temp) (#561)
+- point all URLs at github.com/prjct-app/cli (#560)
+- point product surface at prjct-app/prjct-cli (#559)
+
+
 ## [3.56.0] - 2026-07-13
 
 ### Added
