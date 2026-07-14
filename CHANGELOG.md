@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
+## [3.56.0] - 2026-07-13
+
+### Added
+- skill generator l0 test assertions
+
 <<<<<<< HEAD
+
 ## [3.39.0] - 2026-07-09
 
 ### Added

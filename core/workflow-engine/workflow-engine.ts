@@ -333,6 +333,7 @@ async function runGitPush(projectPath: string): Promise<void> {
   })
     .then((r) => r.stdout.trim())
     .catch(() => '')
+
   const upstream = await execFileAsync(
     'git',
     ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
@@ -342,7 +343,17 @@ async function runGitPush(projectPath: string): Promise<void> {
     .catch(() => '')
 
   const args = decideGitPushArgs(currentBranch, upstream)
-  await execFileAsync('git', args, { cwd: projectPath })
+
+  try {
+    await execFileAsync('git', args, {
+      cwd: projectPath,
+      timeout: 30000,
+    })
+  } catch (error) {
+    const message = getErrorMessage(error)
+    // Surface real git error (no remote, permission, etc.) instead of generic failure
+    throw new Error(`git push failed: ${message}`)
+  }
 }
 
 async function runRuleAction(
