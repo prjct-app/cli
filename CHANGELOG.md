@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+<<<<<<< HEAD
+## [3.39.0] - 2026-07-09
+
+### Added
+- pre-secrets CI parity after #534 — wire dispatcher + cursor multi-matcher
+=======
 ## [3.55.0] - 2026-07-13
 
 ### Added
@@ -206,6 +212,7 @@
 
 ### Added
 - quality orchestrator P0: auto ledger + inject; ship suggest with text confirm
+>>>>>>> origin/main
 
 ## [3.38.0] - 2026-07-09
 
