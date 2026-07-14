@@ -32,7 +32,6 @@ class TemplateGenerator {
     description: string
   ): Promise<{ success: boolean; path?: string; error?: string }> {
     try {
-      // Ensure commands directory exists
       await fs.mkdir(this.commandsPath, { recursive: true })
 
       const templatePath = path.join(this.commandsPath, `${workflowName}.md`)

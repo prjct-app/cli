@@ -327,7 +327,6 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
   ): Promise<SemanticVerificationReport> {
     const data = await this.read(projectId)
 
-    // Get the active analysis (sealed if available, otherwise draft)
     const analysis = data.sealed ?? data.draft
 
     if (!analysis) {

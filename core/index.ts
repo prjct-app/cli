@@ -341,7 +341,6 @@ function validateCommandParams(
   const requiredParams = requiredParamSource.match(/<[^>]+>/g)
   if (!requiredParams || requiredParams.length === 0) return null
 
-  // Check if enough positional args provided
   if (parsedArgs.length < requiredParams.length) {
     const paramNames = requiredParams.map((p) => p.slice(1, -1)).join(', ')
     const usage = cmd.usage.terminal || `prjct ${cmd.name} ${cmd.params}`
@@ -368,7 +367,6 @@ function parseCommandArgs(_cmd: CommandMeta, rawArgs: string[]): ParsedCommandAr
       // Handle flags
       const flagName = arg.slice(2)
 
-      // Check if next arg is a value
       if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith('--')) {
         options[flagName] = rawArgs[++i]
       } else {
@@ -390,7 +388,6 @@ function parseCommandArgs(_cmd: CommandMeta, rawArgs: string[]): ParsedCommandAr
 async function displayVersion(version: string): Promise<void> {
   const detection = await detectAllProviders()
 
-  // Check if prjct commands are installed for each provider
   const claudeCommandPath = path.join(os.homedir(), '.claude', 'commands', 'p.md')
   const geminiCommandPath = path.join(os.homedir(), '.gemini', 'commands', 'p.toml')
   const [claudeConfigured, geminiConfigured, cursorConfigured, cursorExists] = await Promise.all([

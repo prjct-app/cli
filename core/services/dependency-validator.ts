@@ -264,7 +264,6 @@ class DependencyValidator {
     const timestamp = this.cacheTimestamps.get(toolName)
     if (!timestamp) return null
 
-    // Check if cache is expired
     if (isExpired(timestamp, this.cacheTimeout)) {
       this.cache.delete(toolName)
       this.cacheTimestamps.delete(toolName)

@@ -46,7 +46,6 @@ class CustomWorkflowStorage {
       workflow.metadata ? JSON.stringify(workflow.metadata) : null
     )
 
-    // Get the inserted ID
     const result = prjctDb.get<{ id: number }>(
       projectId,
       'SELECT id FROM custom_workflows WHERE name = ?',

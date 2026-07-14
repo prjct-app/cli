@@ -200,13 +200,11 @@ export class RetryPolicy {
         lastError = error
         attempt++
 
-        // Check if error is permanent (fail fast)
         if (isPermanentError(error)) {
           recordFailure(operationId, this.options.circuitBreakerThreshold)
           throw error
         }
 
-        // Check if error is transient and we have attempts left
         const shouldRetry = isTransientError(error) && attempt < this.options.maxAttempts
 
         if (!shouldRetry) {

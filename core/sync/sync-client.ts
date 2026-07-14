@@ -334,7 +334,6 @@ class SyncClient {
     } catch (error) {
       clearTimeout(timeoutId)
 
-      // Check if this is a timeout (AbortError)
       if (error instanceof Error && error.name === 'AbortError') {
         throw this.createError(
           'NETWORK_ERROR',

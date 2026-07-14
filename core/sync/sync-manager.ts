@@ -203,7 +203,6 @@ class SyncManager {
       // never block sync on the backfill
     }
 
-    // Push first
     const pushResult = await this.push(projectId, opts)
     if (pushResult.success && !pushResult.skipped) {
       result.pushed = {
@@ -212,7 +211,6 @@ class SyncManager {
       }
     }
 
-    // Then pull
     const pullResult = await this.pull(projectId)
     if (pullResult.success && !pullResult.skipped) {
       result.pulled = {
@@ -221,7 +219,6 @@ class SyncManager {
       }
     }
 
-    // Determine overall success
     if (!pushResult.success || !pullResult.success) {
       result.success = false
       result.error = pushResult.error || pullResult.error

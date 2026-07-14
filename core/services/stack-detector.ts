@@ -37,7 +37,6 @@ export class StackDetector {
       frameworks: [],
     }
 
-    // Try to read package.json for JS/TS projects
     const pkg = await this.readPackageJson()
 
     if (pkg) {

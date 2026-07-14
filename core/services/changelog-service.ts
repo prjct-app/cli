@@ -219,7 +219,6 @@ export class ChangelogService {
   private insertMarkdownEntry(content: string, entry: ChangelogEntry, date: string): string {
     const entryText = this.formatMarkdownEntry(entry, date)
 
-    // Find the end of the first heading line
     const firstHeadingEnd = content.indexOf('\n')
 
     if (firstHeadingEnd !== -1) {

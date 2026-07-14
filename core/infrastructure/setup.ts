@@ -155,7 +155,6 @@ export async function run(): Promise<SetupResults> {
       configAction: null,
     }
 
-    // Check if CLI is installed
     if (!providerDetection.installed) {
       // Only prompt to install the primary (selected) provider
       if (providerName === selection.provider) {
@@ -293,7 +292,6 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
   try {
     const geminiDir = path.join(os.homedir(), '.gemini')
     const globalConfigPath = path.join(geminiDir, 'GEMINI.md')
-    // Ensure ~/.gemini directory exists
     await fs.mkdir(geminiDir, { recursive: true })
 
     // Read template content from the package bundle or synthesize it from the
@@ -304,7 +302,6 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
       return { success: false, action: null }
     }
 
-    // Check if global config already exists
     let existingContent = ''
     let configExists = false
 
@@ -353,10 +350,8 @@ async function installAntigravitySkill(): Promise<{
     const antigravitySkillsDir = path.join(os.homedir(), '.gemini', 'antigravity', 'skills')
     const prjctSkillDir = path.join(antigravitySkillsDir, 'prjct')
     const skillMdPath = path.join(prjctSkillDir, 'SKILL.md')
-    // Ensure skills directory exists
     await fs.mkdir(prjctSkillDir, { recursive: true })
 
-    // Check if SKILL.md already exists
     const skillExists = await fileExists(skillMdPath)
 
     // Read template content from the package bundle or synthesize it from the

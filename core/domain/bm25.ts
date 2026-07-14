@@ -274,7 +274,6 @@ export async function buildIndex(projectPath: string): Promise<BM25Index> {
     documents[filePath] = { tokens, length: tokens.length }
     totalLength += tokens.length
 
-    // Add to inverted index
     for (const [token, tf] of termFrequencies(tokens)) {
       if (!invertedIndex[token]) {
         invertedIndex[token] = []
