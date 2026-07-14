@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [3.59.0] - 2026-07-14
+
+### Added
+- Tech debt trio: anti-basura capture, multi-install doctor, honest token breakdown
+- Anti-basura capture gate (`isJunkCaptureContent`) + dream forgets junk inbox/tool dumps
+- Doctor multi-install check; install surfaces parallel copies (`prjct update` consolidates)
+- `sumTranscriptUsageDetailed` — cache_read max vs per-turn new input (honest work-cost)
+
 ## [3.58.0] - 2026-07-14
 
 ### Added

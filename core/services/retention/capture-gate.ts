@@ -16,6 +16,7 @@
 
 import type { MemoryEntry, MemoryType } from '../../memory/entries'
 import { projectMemory } from '../../memory/project-memory'
+import { isJunkCaptureContent } from '../capture-junk'
 import { buildReferenceIndex, CAPTURE_MIN_EXCESS, excessAgainstIndex } from './excess'
 import { isAutoSource } from './purge'
 import { buildReferenceModel } from './reference-model'
@@ -60,6 +61,14 @@ export function captureGate(
   const trimmed = content.trim()
   if (trimmed.length === 0) {
     return { accept: false, reason: 'empty content' }
+  }
+
+  // Universal junk refuse (all types): accidental GTD misroutes, tool dumps,
+  // bare mem ids. High-stakes types still refuse garbage — a "decision" of
+  // "todo_write" is never knowledge.
+  const junk = isJunkCaptureContent(trimmed, type)
+  if (junk.junk) {
+    return { accept: false, reason: `junk capture: ${junk.reason}` }
   }
 
   const auto = isAutoSource(tags?.source)

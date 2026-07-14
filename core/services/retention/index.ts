@@ -21,6 +21,7 @@ import { collectSupersededIds, isModelMemory, type MemoryEntry } from '../../mem
 import { projectMemory } from '../../memory/project-memory'
 import { archiveStorage } from '../../storage/archive-storage'
 import prjctDb from '../../storage/database'
+import { isJunkCaptureContent } from '../capture-junk'
 import { isIrrelevantGeneratedContext } from '../context-quality-service'
 import { extractCorrectionIds, usefulnessService } from '../usefulness'
 import { hardDeleteEntries } from './distill'
@@ -489,22 +490,63 @@ export function applyRetentionIncremental(projectId: string): ApplyRetentionResu
   })
 }
 
+/**
+ * Forget live entries that match junk-capture heuristics (tool dumps, bare
+ * mem ids, short noise). Caps batch size. Used by dream + optional doctor.
+ */
+export function forgetJunkCaptures(
+  projectId: string,
+  options: { max?: number; types?: string[] } = {}
+): { forgotten: number; samples: string[] } {
+  const max = options.max ?? 50
+  const types = options.types ?? ['inbox', 'context', 'idea', 'todo', 'question']
+  let forgotten = 0
+  const samples: string[] = []
+  try {
+    const entries = projectMemory.allEntriesForIndex(projectId)
+    for (const e of entries) {
+      if (forgotten >= max) break
+      if (!types.includes(e.type)) continue
+      const j = isJunkCaptureContent(e.content, e.type)
+      if (!j.junk) continue
+      if (forgetEntry(projectId, e.id)) {
+        forgotten++
+        if (samples.length < 8) samples.push(`${e.id}:${j.reason}`)
+      }
+    }
+  } catch {
+    return { forgotten: 0, samples: [] }
+  }
+  return { forgotten, samples }
+}
+
 export function triageInbox(
   projectId: string,
   nowMs: number = Date.now()
-): { merged: number; archived: number } {
+): { merged: number; archived: number; junkForgotten: number } {
   const entries = projectMemory.allEntriesForIndex(projectId)
   const inbox = entries.filter((e) => e.type === 'inbox')
-  if (inbox.length === 0) return { merged: 0, archived: 0 }
+  if (inbox.length === 0) return { merged: 0, archived: 0, junkForgotten: 0 }
 
-  const R = buildReferenceModel(entries)
+  // First pass: junk content (always drop from living rotation).
+  let junkForgotten = 0
+  for (const item of inbox) {
+    if (isJunkCaptureContent(item.content, item.type).junk && forgetEntry(projectId, item.id)) {
+      junkForgotten++
+    }
+  }
+
+  const remaining = projectMemory.allEntriesForIndex(projectId).filter((e) => e.type === 'inbox')
+  if (remaining.length === 0) return { merged: 0, archived: 0, junkForgotten }
+
+  const R = buildReferenceModel(projectMemory.allEntriesForIndex(projectId))
   const refIndex = buildReferenceIndex(R)
   const report = evaluateRetention(projectId, nowMs)
 
   let merged = 0
   let archived = 0
 
-  for (const item of inbox) {
+  for (const item of remaining) {
     const ex = excessAgainstIndex(item.content, refIndex)
     if (ex.exactDup || ex.nearDup || ex.excess < 0.15) {
       if (forgetEntry(projectId, item.id)) merged++
@@ -533,7 +575,7 @@ export function triageInbox(
     }
   }
 
-  return { merged, archived }
+  return { merged, archived, junkForgotten }
 }
 
 export type { CaptureGateResult } from './capture-gate'

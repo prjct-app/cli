@@ -21,6 +21,7 @@ import {
 import {
   type ApplyRetentionResult,
   applyRetention,
+  forgetJunkCaptures,
   triageInbox,
   type VaultHealth,
   vaultHealth,
@@ -343,8 +344,15 @@ export function runMemoryDream(opts: RunMemoryDreamOptions): MemoryDreamReport {
     if (!dryRun) {
       try {
         const tri = triageInbox(projectId, nowMs)
-        inboxMerged = tri.merged
+        inboxMerged = tri.merged + (tri.junkForgotten ?? 0)
         inboxArchived = tri.archived
+      } catch {
+        /* best-effort */
+      }
+      // Broader junk pass (context/idea/todo dumps, not only inbox).
+      try {
+        const junk = forgetJunkCaptures(projectId, { max: 40 })
+        if (junk.forgotten > 0) inboxMerged += junk.forgotten
       } catch {
         /* best-effort */
       }
