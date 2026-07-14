@@ -26,6 +26,7 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 
 - Multi-agent Cast names (explore→Popper · implement→Copernicus · review→McClintock): use as `description` / `prjct claim --as <Name>`.
 - Before Grep/Glob: Work scope from `prjct work`, MCP `prjct_relevant_files`, or `prjct context memory` + `prjct guard <file>`. No blind tree walk when indexes exist.
+- **Synthesis discipline:** parent never says "based on findings" — hand implementers concrete file:line specs. **Continue** a worker when it already holds the edit files; **spawn fresh** for verify or a wrong approach.
 
 ### Core verbs (Tier 1=auto · 2=confirm)
 
@@ -35,6 +36,7 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 | intent | `prjct intent` / `audit` | 2 |
 | recall | `prjct search` / `context memory` | 1 |
 | remember | `prjct remember <type>` | 1 |
+| hygiene | `prjct dream` / `close` / `forget` | 1 |
 | guard | `prjct guard <file>` | 1 |
 | ship | `prjct ship` | 2 |
 | next | `prjct next --md` | 1 |
@@ -48,7 +50,7 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 ### Knowledge
 
 - Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; config at `.prjct/prjct.config.json`.
-- Close: `prjct land` (auto hand-off) or `prjct remember context "Session close: …"`.
+- Close: `prjct land` (Session close auto hand-off + dream when gates open) or living context via `prjct remember context`. Hygiene: `prjct dream` / `close` / `forget`.
 
 ### Routing
 
