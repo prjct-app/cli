@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.60.0] - 2026-07-14
+
+### Added
+- Harness repositioning — all user-facing copy: 'AI Agile OS' → 'The agentic harness for AI coding agents'
+
 ## [3.59.0] - 2026-07-14
 
 ### Added
