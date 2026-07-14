@@ -2603,6 +2603,42 @@ export const migrations: Migration[] = [
       db.run('CREATE INDEX IF NOT EXISTS ix_task_handoffs_task ON task_handoffs(task_id)')
     },
   },
+  {
+    version: 62,
+    name: 'code-symbol-graph',
+    up: (db: SqliteDatabase) => {
+      // Structural symbol graph (CBM-inspired, file→symbol layer):
+      // definitions + CALLS/DEFINES edges for work-scope, trace, detect_changes.
+      db.run(`
+        CREATE TABLE IF NOT EXISTS code_symbols (
+          id         TEXT PRIMARY KEY,
+          file       TEXT NOT NULL,
+          kind       TEXT NOT NULL,
+          name       TEXT NOT NULL,
+          qname      TEXT,
+          start_line INTEGER NOT NULL,
+          end_line   INTEGER,
+          exported   INTEGER NOT NULL DEFAULT 0
+        )
+      `)
+      db.run('CREATE INDEX IF NOT EXISTS idx_code_symbols_name ON code_symbols(name)')
+      db.run('CREATE INDEX IF NOT EXISTS idx_code_symbols_file ON code_symbols(file)')
+      db.run(
+        'CREATE INDEX IF NOT EXISTS idx_code_symbols_name_nocase ON code_symbols(name COLLATE NOCASE)'
+      )
+      db.run(`
+        CREATE TABLE IF NOT EXISTS code_symbol_edges (
+          src        TEXT NOT NULL,
+          dst        TEXT NOT NULL,
+          edge_type  TEXT NOT NULL,
+          confidence REAL NOT NULL DEFAULT 1.0,
+          PRIMARY KEY (src, dst, edge_type)
+        )
+      `)
+      db.run('CREATE INDEX IF NOT EXISTS idx_code_symbol_edges_dst ON code_symbol_edges(dst)')
+      db.run('CREATE INDEX IF NOT EXISTS idx_code_symbol_edges_src ON code_symbol_edges(src)')
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

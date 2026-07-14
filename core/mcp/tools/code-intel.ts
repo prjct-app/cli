@@ -1,8 +1,8 @@
 /**
- * MCP Code Intelligence Tools (4 tools)
+ * MCP Code Intelligence Tools
  *
  * Exposes import graph, co-change analysis, change propagation,
- * and combined related-context via MCP.
+ * symbol search/trace, detect_changes, and combined related-context.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -14,6 +14,12 @@ import {
   loadMatrix,
 } from '../../domain/git-cochange'
 import { scoreFromSeeds as importScore, indexImports, loadGraph } from '../../domain/import-graph'
+import { hasSymbolIndex, loadMeta, searchSymbols, tracePath } from '../../domain/symbol-graph'
+import {
+  buildArchitectureSnapshot,
+  formatArchitectureMd,
+} from '../../services/architecture-snapshot'
+import { detectChanges, formatDetectChangesMd } from '../../services/detect-changes'
 import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
@@ -26,21 +32,40 @@ export function registerCodeIntelTools(server: McpServer) {
 
   s.tool(
     'prjct_impact_analysis',
-    'Given changed files, find affected files via import graph + affected domains',
+    'Blast radius + risk for changed files (or git working tree / committed range). Prefer over manual Grep for review scope.',
     {
       projectPath: optionalProjectPath,
       changedFiles: z
         .array(z.string())
-        .describe('List of changed file paths (relative to project root)'),
+        .optional()
+        .describe(
+          'Changed file paths relative to project root. Omit to auto-detect from git working tree / committed range.'
+        ),
     },
     safeMcpCall(
       'prjct_impact_analysis',
-      async (args: { projectPath: string; changedFiles: string[] }) => {
+      async (args: { projectPath: string; changedFiles?: string[] }) => {
         const projectId = await resolveProjectId(args.projectPath)
+        const projectPath = resolveProjectPath(args.projectPath)
 
+        // Prefer full detect_changes (risk + call-graph) when no explicit list,
+        // or when symbol index is available for richer analysis.
+        if (!args.changedFiles?.length || hasSymbolIndex(projectId)) {
+          const detected = await detectChanges(projectPath, projectId, {
+            files: args.changedFiles,
+            source: 'auto',
+          })
+          if (detected.changedFiles.length > 0 || !args.changedFiles?.length) {
+            return {
+              content: [{ type: 'text', text: formatDetectChangesMd(detected) }],
+            }
+          }
+        }
+
+        const changed = args.changedFiles ?? []
         const diff = {
           added: [] as string[],
-          modified: args.changedFiles,
+          modified: changed,
           deleted: [] as string[],
           unchanged: [] as string[],
         }
@@ -66,10 +91,139 @@ export function registerCodeIntelTools(server: McpServer) {
         parts.push(domains.size > 0 ? Array.from(domains).join(', ') : 'none detected')
 
         parts.push(`\nTotal affected: ${propagated.allAffected.length} files`)
+        parts.push(
+          '\n_Tip: run `prjct code reindex` for symbol-level risk + call-graph blast radius._'
+        )
 
         return { content: [{ type: 'text', text: parts.join('\n') }] }
       }
     )
+  )
+
+  s.tool(
+    'prjct_search_symbols',
+    'Search the structural symbol graph (functions, classes, routes). Run prjct sync first.',
+    {
+      projectPath: optionalProjectPath,
+      pattern: z.string().describe('Symbol name substring (case-insensitive)'),
+      limit: z.number().optional().default(30).describe('Max results'),
+    },
+    safeMcpCall(
+      'prjct_search_symbols',
+      async (args: { projectPath: string; pattern: string; limit: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        if (!hasSymbolIndex(projectId)) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No symbol index. Run `prjct sync` or `prjct code reindex`.',
+              },
+            ],
+          }
+        }
+        const hits = searchSymbols(projectId, args.pattern, { limit: args.limit })
+        if (hits.length === 0) {
+          return { content: [{ type: 'text', text: `No symbols matching "${args.pattern}".` }] }
+        }
+        const lines = [
+          `## Symbols: ${args.pattern}`,
+          `Index: ${loadMeta(projectId)?.symbolCount ?? '?'} symbols`,
+          '',
+          ...hits.map(
+            (s) =>
+              `- **${s.name}** (${s.kind}${s.exported ? ', exported' : ''}) — \`${s.file}:${s.startLine}\``
+          ),
+        ]
+        return { content: [{ type: 'text', text: lines.join('\n') }] }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_trace_path',
+    'BFS call-path trace: who calls a function and what it calls. Prefer over Grep for "who uses X?".',
+    {
+      projectPath: optionalProjectPath,
+      functionName: z.string().describe('Function/class/method name to trace'),
+      direction: z
+        .enum(['inbound', 'outbound', 'both'])
+        .optional()
+        .default('both')
+        .describe('inbound = callers, outbound = callees'),
+      depth: z.number().optional().default(3).describe('BFS depth 1-5'),
+    },
+    safeMcpCall(
+      'prjct_trace_path',
+      async (args: {
+        projectPath: string
+        functionName: string
+        direction: 'inbound' | 'outbound' | 'both'
+        depth: number
+      }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        if (!hasSymbolIndex(projectId)) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No symbol index. Run `prjct sync` or `prjct code reindex`.',
+              },
+            ],
+          }
+        }
+        const result = tracePath(projectId, args.functionName, {
+          direction: args.direction,
+          depth: args.depth,
+        })
+        if (!result) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No symbol "${args.functionName}". Try prjct_search_symbols first.`,
+              },
+            ],
+          }
+        }
+        const lines = [
+          `## Trace: ${args.functionName}`,
+          '',
+          '### Roots',
+          ...result.root.map((r) => `- ${r.kind} **${r.name}** \`${r.file}:${r.startLine}\``),
+          '',
+          `### Inbound (${result.inbound.length})`,
+          ...(result.inbound.length
+            ? result.inbound.map(
+                (h) =>
+                  `- d${h.depth} ${h.symbol.name} (${h.symbol.kind}) \`${h.symbol.file}:${h.symbol.startLine}\``
+              )
+            : ['_none_']),
+          '',
+          `### Outbound (${result.outbound.length})`,
+          ...(result.outbound.length
+            ? result.outbound.map(
+                (h) =>
+                  `- d${h.depth} ${h.symbol.name} (${h.symbol.kind}) \`${h.symbol.file}:${h.symbol.startLine}\``
+              )
+            : ['_none_']),
+        ]
+        return { content: [{ type: 'text', text: lines.join('\n') }] }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_architecture',
+    'Structural architecture overview: languages, symbol kinds, packages, hotspots (call fan-in), routes, entry candidates. One shot — prefer over tree walks.',
+    {
+      projectPath: optionalProjectPath,
+    },
+    safeMcpCall('prjct_architecture', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const snap = buildArchitectureSnapshot(projectId)
+      return { content: [{ type: 'text', text: formatArchitectureMd(snap) }] }
+    })
   )
 
   s.tool(

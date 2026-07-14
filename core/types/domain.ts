@@ -115,6 +115,8 @@ export interface RankedFile {
     bm25: number
     imports: number
     cochange: number
+    /** Symbol-name / call-graph signal (0 when index missing). */
+    symbols?: number
   }
 }
 
@@ -125,10 +127,92 @@ export interface RankingConfig {
   importWeight?: number
   /** Weight for git co-change correlation (default: 0.2) */
   cochangeWeight?: number
+  /** Weight for symbol-name match (default: 0.15 when symbols index present) */
+  symbolsWeight?: number
   /** Maximum number of results (default: 15) */
   topN?: number
   /** Maximum depth for import graph traversal (default: 2) */
   importDepth?: number
+}
+
+// Symbol Graph Types (structural code intelligence)
+
+export type SymbolKind =
+  | 'function'
+  | 'method'
+  | 'class'
+  | 'interface'
+  | 'type'
+  | 'enum'
+  | 'const'
+  | 'route'
+
+export type SymbolEdgeType = 'CALLS' | 'DEFINES' | 'IMPORTS' | 'HANDLES' | 'TESTS'
+
+export interface CodeSymbol {
+  id: string
+  file: string
+  kind: SymbolKind
+  name: string
+  qname: string
+  startLine: number
+  endLine: number | null
+  exported: boolean
+}
+
+export interface CodeSymbolEdge {
+  src: string
+  dst: string
+  edgeType: SymbolEdgeType
+  confidence: number
+}
+
+export interface SymbolGraphMeta {
+  symbolCount: number
+  edgeCount: number
+  fileCount: number
+  builtAt: string
+}
+
+export interface SymbolScore {
+  path: string
+  score: number
+  matchedNames: string[]
+}
+
+export interface TraceHop {
+  symbol: CodeSymbol
+  depth: number
+  via: SymbolEdgeType
+}
+
+export interface TraceResult {
+  root: CodeSymbol[]
+  inbound: TraceHop[]
+  outbound: TraceHop[]
+}
+
+export type ChangeRisk = 'critical' | 'high' | 'medium' | 'low'
+
+export interface DetectedChange {
+  file: string
+  risk: ChangeRisk
+  touchedSymbols: string[]
+  fanIn: number
+  reasons: string[]
+}
+
+export interface DetectChangesResult {
+  changedFiles: string[]
+  affectedFiles: string[]
+  changes: DetectedChange[]
+  summary: {
+    critical: number
+    high: number
+    medium: number
+    low: number
+  }
+  source: 'working-tree' | 'committed' | 'explicit'
 }
 
 // Change Propagator Types

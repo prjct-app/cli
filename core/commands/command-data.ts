@@ -439,6 +439,30 @@ export const COMMANDS: CommandMeta[] = [
     requiresLlm: true,
   },
   {
+    name: 'code',
+    group: 'optional',
+    surface: 'support',
+    routing: { group: 'code', method: 'code' },
+    optionSchema: {},
+    description:
+      'Structural code graph: symbols, trace, impact/risk, architecture, team artifact (run after sync)',
+    usage: {
+      claude: 'p. code [symbols|trace|impact|architecture|export|import|reindex|cbm]',
+      terminal: 'prjct code [symbols|trace|impact|architecture|export|import|reindex|cbm]',
+    },
+    params: '[symbols|trace|impact|architecture|export|import|reindex|cbm] [args]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Symbol index on sync (TS/JS + light multi-lang); 4th work-scope signal',
+      'trace / impact / architecture one-shots for agents',
+      'Team artifact .prjct/code-graph.json.gz (export/import/bootstrap)',
+      'PreToolUse Grep|Glob non-blocking graph augment; optional CBM bridge',
+    ],
+  },
+  {
     name: 'lean',
     group: 'optional',
     surface: 'support',

@@ -49,6 +49,10 @@ const HOOK_LOADERS: Record<string, { load: HookLoader; exportName: string }> = {
     load: () => import('./pre-edit'),
     exportName: 'runPreEditHook',
   },
+  'pre-search': {
+    load: () => import('./pre-search'),
+    exportName: 'runPreSearchHook',
+  },
   'post-edit': {
     load: () => import('./post-edit'),
     exportName: 'runPostEditHook',

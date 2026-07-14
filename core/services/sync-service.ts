@@ -20,6 +20,7 @@ import { setupMcpServers } from '../commands/setup/mcp'
 import { indexProject as indexBm25, updateProjectIndex as updateBm25 } from '../domain/bm25'
 import { indexCoChanges } from '../domain/git-cochange'
 import { indexImports, updateImportGraph } from '../domain/import-graph'
+import { indexSymbols, updateSymbols } from '../domain/symbol-graph'
 import { getErrorMessage } from '../errors'
 import { detectCodex, getActiveProvider } from '../infrastructure/ai-provider'
 import { verifyCodexPRouterReady } from '../infrastructure/codex-skill'
@@ -32,6 +33,7 @@ import type { Context7Status } from '../types/services.js'
 import type { VerificationReport } from '../types/sync-verifier'
 import { readJson } from '../utils/file-helper'
 import log from '../utils/logger'
+import { bootstrapCodeGraphFromArtifact, maybeExportAfterIndex } from './code-graph-artifact'
 import { repairContextQuality } from './context-quality-service'
 import context7Service from './context7-service'
 import { writeProjectAgentSurfaces } from './project-agent-surfaces'
@@ -226,7 +228,14 @@ class SyncService {
         /* non-critical — scope falls back to open accept until next sync */
       }
 
-      // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
+      // 3a-bis. Bootstrap symbol graph from team artifact if local index empty
+      try {
+        await bootstrapCodeGraphFromArtifact(this.projectPath, this.projectId!)
+      } catch {
+        /* non-critical */
+      }
+
+      // 3b. Build file-ranking indexes IN PARALLEL (BM25, symbols, import graph, co-change)
       // Skip if no source files changed (incremental optimization)
       if (shouldRebuildIndexes) {
         await phase('index', async () => {
@@ -251,8 +260,18 @@ class SyncService {
                     deletedSourceFiles
                   )
                 : indexImports(this.projectPath, this.projectId!),
+              canUseIncrementalIndexes
+                ? updateSymbols(
+                    this.projectPath,
+                    this.projectId!,
+                    changedSourceFiles,
+                    deletedSourceFiles
+                  )
+                : indexSymbols(this.projectPath, this.projectId!),
               indexCoChanges(this.projectPath, this.projectId!),
             ])
+            // Refresh team-shared artifact after a successful index pass
+            await maybeExportAfterIndex(this.projectPath, this.projectId!)
           } catch (error) {
             log.debug('File ranking index build failed (non-critical)', {
               error: getErrorMessage(error),

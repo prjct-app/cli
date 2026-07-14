@@ -137,24 +137,29 @@ function mergeScope(
     )
   }
 
-  // 2) Code index: BM25 → import/cochange expand inside rankFiles
+  // 2) Code index: BM25 + symbols → import/cochange expand inside rankFiles
   let indexHits = 0
-  if (indexes.bm25) {
+  if (indexes.bm25 || indexes.symbols) {
     try {
       const ranked = rankFiles(projectId, query, { topN: Math.max(limit * 2, 12) })
       indexHits = ranked.length
       for (const f of ranked) {
+        const sym = f.signals.symbols ?? 0
         const signals = [
           f.signals.bm25 > 0 ? 'bm25' : null,
+          sym > 0 ? 'symbols' : null,
           f.signals.imports > 0 ? 'imports' : null,
           f.signals.cochange > 0 ? 'cochange' : null,
         ].filter((s): s is string => s !== null)
+        const topSignal = Math.max(f.signals.bm25, sym, f.signals.imports, f.signals.cochange)
         const reason =
-          f.signals.bm25 >= f.signals.imports && f.signals.bm25 >= f.signals.cochange
-            ? 'matches task terms in code index (BM25)'
-            : f.signals.imports >= f.signals.cochange
-              ? 'import-graph neighbor of matched files'
-              : 'historically co-changes with matched files'
+          sym >= topSignal && sym > 0
+            ? 'matches function/class/route symbols in code graph'
+            : f.signals.bm25 >= f.signals.imports && f.signals.bm25 >= f.signals.cochange
+              ? 'matches task terms in code index (BM25)'
+              : f.signals.imports >= f.signals.cochange
+                ? 'import-graph neighbor of matched files'
+                : 'historically co-changes with matched files'
         bump(f.path, f.finalScore, signals[0] ?? 'bm25', reason)
         for (const s of signals.slice(1)) {
           const hit = scores.get(f.path)
@@ -195,14 +200,14 @@ function mergeScope(
 
   return {
     files,
-    indexesReady: indexes.bm25 || indexes.imports || indexes.cochange,
+    indexesReady: indexes.bm25 || indexes.imports || indexes.cochange || indexes.symbols,
     sources: {
       memorySeeds: memorySeeds.size,
       indexHits,
       graphNeighbors,
     },
     agentBlock: formatWorkScopeBlock(files, {
-      indexesReady: indexes.bm25 || indexes.imports || indexes.cochange,
+      indexesReady: indexes.bm25 || indexes.imports || indexes.cochange || indexes.symbols,
       memorySeeds: memorySeeds.size,
       inventoryLine: formatInventorySummary(inv),
     }),
