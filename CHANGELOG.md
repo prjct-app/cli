@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.53.2] - 2026-07-13
+
+### Added
+- Optimized core prjct L0 skill for token efficiency (compressed verbs table and reduced redundancy → 791 tokens). Upgraded create-skill with SDO and TDD-for-skills patterns. Added systematic-debugging skill template. Updated architecture.md with curation principles. All changes retrocompatible with all models. Full implementation of post analysis wins. Tests and harness score passing. Branch: feat/post-analysis-optimizations
+
 ## [3.53.0] - 2026-07-13
 
 ### Added
