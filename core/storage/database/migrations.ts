@@ -115,7 +115,7 @@ export const migrations: Migration[] = [
         -- Seed built-in workflows (task, done, ship, sync)
         INSERT INTO custom_workflows (name, description, is_builtin, enabled, created_at, updated_at)
         VALUES
-          ('task', 'Start an AI Agile work cycle', 1, 1, datetime('now'), datetime('now')),
+          ('task', 'Start a work cycle', 1, 1, datetime('now'), datetime('now')),
           ('done', 'Complete current task/subtask', 1, 1, datetime('now'), datetime('now')),
           ('ship', 'Ship feature with version bump and PR', 1, 1, datetime('now'), datetime('now')),
           ('sync', 'Analyze project and regenerate context', 1, 1, datetime('now'), datetime('now'));

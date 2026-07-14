@@ -126,7 +126,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('never injected into CLAUDE.md / AGENTS.md')
     })
 
-    it('frames work as the single entrypoint for transparent AI Agile orchestration', async () => {
+    it('frames work as the single entrypoint for transparent work-cycle orchestration', async () => {
       // Lean L0: single-entrypoint contract only. Spec/test-first pipeline
       // detail stays in workflows.md (not always-on prose).
       const content = await readClaudeSkill()

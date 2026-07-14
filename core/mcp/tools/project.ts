@@ -77,7 +77,7 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
 
   s.tool(
     'prjct_task_status',
-    'The active AI Agile work cycle (description, branch, when it started) plus queued work. Read this to see what is in progress before starting new work.',
+    'The active work cycle (description, branch, when it started) plus queued work. Read this to see what is in progress before starting new work.',
     {
       projectPath: optionalProjectPath,
     },
@@ -116,7 +116,7 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
 
   s.tool(
     'prjct_task_start',
-    'Start an AI Agile work cycle. Fires before/after workflow gates and memory logging through the compatibility task backend; a gate may block the start. Pass linked_spec_id only when a durable intent/spec brief is required. Use when the user begins concrete work.',
+    'Start a work cycle. Fires before/after workflow gates and memory logging through the compatibility task backend; a gate may block the start. Pass linked_spec_id only when a durable intent/spec brief is required. Use when the user begins concrete work.',
     {
       projectPath: optionalProjectPath,
       description: z.string().describe('What the work cycle is — a short intent phrase'),

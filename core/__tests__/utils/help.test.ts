@@ -24,10 +24,10 @@ describe('getHelp', () => {
     }
   })
 
-  it('presents the v3 AI Agile surface instead of task-manager primitives', () => {
+  it('presents the v3 harness surface instead of task-manager primitives', () => {
     const help = getHelp()
 
-    expect(help).toContain('AI Agile OS')
+    expect(help).toContain('agentic harness')
     expect(help).toContain('p. work')
     expect(help).toContain('p. intent')
     expect(help).toContain('p. insights')
