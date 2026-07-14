@@ -195,6 +195,36 @@ export class ShippingCommands extends PrjctCommandsBase {
         /* geometry best-effort */
       }
 
+      // Structural code-graph risk (advisory; hard only when deliveryGeometry=strict
+      // AND critical fan-in — never surprises default ships).
+      try {
+        const { hasSymbolIndex } = await import('../domain/symbol-graph')
+        if (hasSymbolIndex(projectId)) {
+          const { detectChanges, shipStructuralRiskCue } = await import(
+            '../services/detect-changes'
+          )
+          const det = await detectChanges(projectPath, projectId, { source: 'auto' })
+          const cue = shipStructuralRiskCue(det)
+          if (cue) console.log(cue)
+          const geomMode = shipConfig?.deliveryGeometry?.mode ?? 'off'
+          if (
+            geomMode === 'strict' &&
+            det.summary.critical > 0 &&
+            !options.geometry &&
+            !options.allowNewDeps
+          ) {
+            // Soft-block only when geometry is already strict and critical structural risk.
+            // Override: pass --geometry single|split|direct explicitly.
+            return {
+              success: false,
+              error: `Strict delivery geometry + structural CRITICAL risk (${det.summary.critical} file(s), blast ${det.affectedFiles.length}). Review \`prjct code impact --md\`, then re-ship with explicit \`--geometry single|split|direct\`.`,
+            }
+          }
+        }
+      } catch {
+        /* structural risk best-effort */
+      }
+
       // Precision-gated judgment ship gate (human-invoked ship only — never
       // auto-ship). Intensity standard|full hard-blocks without ledger.approved.
       // Override: --no-judgment-gate only (consent-scoped; not --no-spec-gate).

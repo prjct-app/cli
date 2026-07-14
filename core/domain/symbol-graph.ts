@@ -406,7 +406,8 @@ function extractTsJs(content: string, filePath: string): FileExtract {
     if (calls.length >= MAX_CALLS) break
   }
 
-  // Routes (from clean — string paths were blanked; use original for route strings)
+  // Routes — original source (paths live in strings)
+  // Express/Hono/Fastify: app.get('/path'
   const routeRe = /\.(?:get|post|put|patch|delete|options|head|all)\s*\(\s*['"`](\/[^'"`]*)['"`]/gi
   let rm: RegExpExecArray | null
   while ((rm = routeRe.exec(content)) !== null) {
@@ -419,6 +420,34 @@ function extractTsJs(content: string, filePath: string): FileExtract {
       endLine: null,
       exported: true,
     })
+  }
+  // FastAPI / Flask decorators
+  const decoRe =
+    /@(?:app|router|api|bp)\.(?:get|post|put|patch|delete|options|head|api_route)\s*\(\s*['"`](\/[^'"`]*)['"`]/gi
+  while ((rm = decoRe.exec(content)) !== null) {
+    const routePath = rm[1]!
+    const name = routePath.replace(/[^\w/.-]/g, '').slice(0, 64) || 'route'
+    symbols.push({
+      kind: 'route',
+      name,
+      startLine: lineOf(content, rm.index),
+      endLine: null,
+      exported: true,
+    })
+  }
+  // Next.js App Router route.ts handlers
+  if (/(?:^|\/)route\.(ts|js|tsx|jsx)$/.test(filePath.replace(/\\/g, '/'))) {
+    const nextHandlers =
+      /\bexport\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/g
+    while ((rm = nextHandlers.exec(content)) !== null) {
+      symbols.push({
+        kind: 'route',
+        name: `${rm[1]} ${filePath.replace(/\\/g, '/')}`,
+        startLine: lineOf(content, rm.index),
+        endLine: null,
+        exported: true,
+      })
+    }
   }
 
   const fin = finalizeCalls(calls)

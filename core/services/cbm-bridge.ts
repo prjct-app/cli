@@ -81,3 +81,47 @@ export async function detectCbmNear(projectPath: string): Promise<string | null>
     return null
   }
 }
+
+export interface CbmCliResult {
+  ok: boolean
+  stdout: string
+  stderr: string
+  error?: string
+}
+
+/**
+ * Optional execute bridge: run a CBM CLI tool if installed.
+ * Never a hard dependency — fails soft when missing.
+ *
+ * Example: cbmCli('search_graph', { project: 'x', name_pattern: '.*Handler.*' })
+ */
+export async function cbmCli(
+  tool: string,
+  args: Record<string, unknown>,
+  opts: { timeoutMs?: number } = {}
+): Promise<CbmCliResult> {
+  const bin = await which('codebase-memory-mcp')
+  if (!bin) {
+    return {
+      ok: false,
+      stdout: '',
+      stderr: '',
+      error: 'codebase-memory-mcp not on PATH',
+    }
+  }
+  try {
+    const { stdout, stderr } = await execFileAsync(bin, ['cli', tool, JSON.stringify(args)], {
+      timeout: opts.timeoutMs ?? 30_000,
+      maxBuffer: 4 * 1024 * 1024,
+    })
+    return { ok: true, stdout: stdout.trim(), stderr: stderr.trim() }
+  } catch (e) {
+    const err = e as { stdout?: string; stderr?: string; message?: string }
+    return {
+      ok: false,
+      stdout: (err.stdout ?? '').toString(),
+      stderr: (err.stderr ?? '').toString(),
+      error: err.message ?? String(e),
+    }
+  }
+}

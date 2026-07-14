@@ -279,7 +279,22 @@ async function buildStalenessNotice(
     } catch {
       /* never block SessionStart */
     }
-    return `**Understanding may be stale:** ${warning} — run \`prjct sync\` before big calls.`
+    // Symbol graph age: if sync is stale OR index missing, nudge code reindex.
+    let symbolCue = ''
+    try {
+      const { hasSymbolIndex, loadMeta } = await import('../domain/symbol-graph')
+      if (!hasSymbolIndex(projectId)) {
+        symbolCue =
+          ' Code graph empty — `prjct code reindex` (or `prjct sync`) before trace/impact.'
+      } else if (status.commitsSinceSync >= 5) {
+        const meta = loadMeta(projectId)
+        const built = meta?.builtAt ? ` (index ${meta.builtAt.slice(0, 10)})` : ''
+        symbolCue = ` Symbol index may lag${built} — prefer \`prjct code reindex\` after big pulls.`
+      }
+    } catch {
+      /* optional */
+    }
+    return `**Understanding may be stale:** ${warning} — run \`prjct sync\` before big calls.${symbolCue}`
   } catch {
     return null
   }

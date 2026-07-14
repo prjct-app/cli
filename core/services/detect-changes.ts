@@ -1,8 +1,7 @@
 /**
  * detect_changes — git diff → affected symbols + blast radius + risk.
  *
- * CBM-inspired: map uncommitted (or committed) changes to structural impact
- * so agents can reason about review risk without tree-walking.
+ * P1: hunk-level — map unified-diff line ranges to symbols by start_line.
  */
 
 import { loadGraph } from '../domain/import-graph'
@@ -52,6 +51,118 @@ async function listCommittedFiles(projectPath: string): Promise<string[]> {
   return names.split('\n').filter(Boolean)
 }
 
+async function resolveDiffBase(
+  projectPath: string,
+  source: DetectChangesResult['source']
+): Promise<string | null> {
+  if (source === 'working-tree' || source === 'explicit') return 'HEAD'
+  let defaultRef = ''
+  const originHead = await safeGit(projectPath, ['rev-parse', '--abbrev-ref', 'origin/HEAD'])
+  if (originHead && originHead !== 'origin/HEAD') defaultRef = originHead
+  else {
+    for (const c of ['main', 'master']) {
+      if ((await safeGit(projectPath, ['rev-parse', '--verify', '--quiet', c])) !== null) {
+        defaultRef = c
+        break
+      }
+    }
+  }
+  if (!defaultRef) return 'HEAD'
+  return (await safeGit(projectPath, ['merge-base', defaultRef, 'HEAD'])) ?? 'HEAD'
+}
+
+/**
+ * Parse unified diff for a file into new-file line numbers that changed.
+ * Handles both `@@ -a,b +c,d @@` hunks (additions/context on + side).
+ */
+export function parseChangedLinesFromUnifiedDiff(diff: string): Map<string, Set<number>> {
+  const map = new Map<string, Set<number>>()
+  let currentFile: string | null = null
+  let newLine = 0
+
+  for (const raw of diff.split('\n')) {
+    if (raw.startsWith('+++ ')) {
+      const p = raw.slice(4).trim()
+      if (p === '/dev/null') {
+        currentFile = null
+        continue
+      }
+      currentFile = p.replace(/^b\//, '')
+      if (!map.has(currentFile)) map.set(currentFile, new Set())
+      continue
+    }
+    if (!currentFile) continue
+    const hunk = raw.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/)
+    if (hunk) {
+      newLine = Number.parseInt(hunk[1]!, 10)
+      continue
+    }
+    if (raw.startsWith('\\')) continue
+    if (raw.startsWith('+') && !raw.startsWith('+++')) {
+      map.get(currentFile)?.add(newLine)
+      newLine++
+    } else if (raw.startsWith('-') && !raw.startsWith('---')) {
+      // deletion: does not advance new-file line
+    } else if (raw.startsWith(' ') || raw === '') {
+      newLine++
+    }
+  }
+  return map
+}
+
+async function loadHunkLines(
+  projectPath: string,
+  source: DetectChangesResult['source'],
+  files: string[]
+): Promise<Map<string, Set<number>>> {
+  if (files.length === 0) return new Map()
+  const base = await resolveDiffBase(projectPath, source)
+  if (!base) return new Map()
+
+  const args =
+    source === 'committed'
+      ? ['diff', '-U0', `${base}..HEAD`, '--', ...files]
+      : ['diff', '-U0', 'HEAD', '--', ...files]
+
+  const diff = (await safeGit(projectPath, args)) ?? ''
+  // Also staged for working-tree
+  let staged = ''
+  if (source !== 'committed') {
+    staged = (await safeGit(projectPath, ['diff', '-U0', '--cached', '--', ...files])) ?? ''
+  }
+  const map = parseChangedLinesFromUnifiedDiff(diff + '\n' + staged)
+  return map
+}
+
+/** Symbols whose startLine falls in a changed hunk (or nearest prior symbol). */
+export function symbolsTouchedByHunks(
+  projectId: string,
+  file: string,
+  changedLines: Set<number> | undefined
+): string[] {
+  const all = symbolsInFile(projectId, file)
+  if (all.length === 0) return []
+  if (!changedLines || changedLines.size === 0) {
+    return all.slice(0, 12).map((s) => s.name)
+  }
+  const lines = [...changedLines].sort((a, b) => a - b)
+  const names = new Set<string>()
+  for (const line of lines) {
+    // Nearest symbol with startLine <= line
+    let best = all[0]!
+    for (const s of all) {
+      if (s.startLine <= line) best = s
+      else break
+    }
+    names.add(best.name)
+    // Also any symbol starting exactly on a changed line
+    for (const s of all) {
+      if (changedLines.has(s.startLine)) names.add(s.name)
+    }
+  }
+  return [...names].slice(0, 12)
+}
+
 const CRITICAL_PATH =
   /(?:^|\/)(?:auth|security|crypto|billing|payment|migrate|schema|migrations?)(?:\/|$)/i
 const HIGH_PATH = /(?:^|\/)(?:storage|database|db|sync|daemon|mcp|hooks?|session)(?:\/|$)/i
@@ -60,7 +171,8 @@ function classifyRisk(
   file: string,
   fanIn: number,
   importerCount: number,
-  hasSymbols: boolean
+  hasSymbols: boolean,
+  hunkSymbolCount: number
 ): { risk: ChangeRisk; reasons: string[] } {
   const reasons: string[] = []
   let risk: ChangeRisk = 'low'
@@ -77,7 +189,6 @@ function classifyRisk(
     risk = 'critical'
     reasons.push(`high call fan-in (${fanIn} callers)`)
   } else if (fanIn >= 5) {
-    // Path may already be high/critical; only escalate leaf→high
     if (risk === 'low') risk = 'high'
     reasons.push(`moderate call fan-in (${fanIn} callers)`)
   } else if (fanIn > 0) {
@@ -91,6 +202,10 @@ function classifyRisk(
   } else if (importerCount >= 3) {
     if (risk === 'low') risk = 'medium'
     reasons.push(`${importerCount} importers`)
+  }
+
+  if (hunkSymbolCount > 0) {
+    reasons.push(`${hunkSymbolCount} symbol(s) in changed hunks`)
   }
 
   if (!hasSymbols && importerCount === 0 && fanIn === 0) {
@@ -128,6 +243,10 @@ export async function detectChanges(
   const importGraph = loadGraph(projectId)
   const hasSymbols = hasSymbolIndex(projectId)
 
+  const hunkMap = hasSymbols
+    ? await loadHunkLines(projectPath, source, changedFiles.slice(0, 80))
+    : new Map<string, Set<number>>()
+
   // Expand blast radius via import reverse edges + call-graph
   const affected = new Set<string>(changedFiles)
   for (const f of changedFiles) {
@@ -146,19 +265,24 @@ export async function detectChanges(
   for (const file of changedFiles) {
     const importers = importGraph?.reverse[file] ?? []
     const fanIn = hasSymbols ? fileFanIn(projectId, file) : 0
-    const syms = hasSymbols ? symbolsInFile(projectId, file) : []
-    const { risk, reasons } = classifyRisk(file, fanIn, importers.length, syms.length > 0)
+    const touched = hasSymbols ? symbolsTouchedByHunks(projectId, file, hunkMap.get(file)) : []
+    const { risk, reasons } = classifyRisk(
+      file,
+      fanIn,
+      importers.length,
+      touched.length > 0 || (hasSymbols && symbolsInFile(projectId, file).length > 0),
+      touched.length
+    )
     summary[risk]++
     changes.push({
       file,
       risk,
-      touchedSymbols: syms.slice(0, 12).map((s) => s.name),
+      touchedSymbols: touched,
       fanIn,
       reasons,
     })
   }
 
-  // Sort critical first
   const order: Record<ChangeRisk, number> = { critical: 0, high: 1, medium: 2, low: 3 }
   changes.sort((a, b) => order[a.risk] - order[b.risk] || a.file.localeCompare(b.file))
 
@@ -212,7 +336,20 @@ export function formatDetectChangesText(result: DetectChangesResult): string {
     `Risk: critical=${result.summary.critical} high=${result.summary.high} medium=${result.summary.medium} low=${result.summary.low}`,
   ]
   for (const c of result.changes.slice(0, 30)) {
-    lines.push(`  [${c.risk.toUpperCase()}] ${c.file} — ${c.reasons[0] ?? ''}`)
+    const sym = c.touchedSymbols.length ? ` [${c.touchedSymbols.slice(0, 4).join(',')}]` : ''
+    lines.push(`  [${c.risk.toUpperCase()}] ${c.file}${sym} — ${c.reasons[0] ?? ''}`)
   }
   return lines.join('\n')
+}
+
+/** One-line ship advisory from structural risk (never hard-blocks by itself). */
+export function shipStructuralRiskCue(result: DetectChangesResult): string | null {
+  if (result.changedFiles.length === 0) return null
+  if (result.summary.critical > 0) {
+    return `⚠️  Structural risk CRITICAL (${result.summary.critical} file(s), blast ${result.affectedFiles.length}). Review: \`prjct code impact --md\`.`
+  }
+  if (result.summary.high > 0) {
+    return `⚠️  Structural risk HIGH (${result.summary.high} file(s), blast ${result.affectedFiles.length}). Consider \`prjct code impact --md\`.`
+  }
+  return null
 }

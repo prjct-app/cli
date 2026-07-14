@@ -10,7 +10,8 @@
  *   prjct code export              → cache under ~/.prjct-cli/projects/<id>/
  *   prjct code import              → restore SQLite from that per-project cache
  *   prjct code reindex             → rebuild symbol graph now
- *   prjct code cbm                 → optional CBM bridge status
+ *   prjct code dead                → zero-caller symbols (excl. entries)
+ *   prjct code cbm [cli <tool> …]  → optional CBM bridge status / execute
  */
 
 import {
@@ -26,12 +27,13 @@ import {
   formatArchitectureMd,
   formatArchitectureText,
 } from '../services/architecture-snapshot'
-import { detectCbm, formatCbmStatus } from '../services/cbm-bridge'
+import { cbmCli, detectCbm, formatCbmStatus } from '../services/cbm-bridge'
 import {
   exportCodeGraphArtifact,
   importCodeGraphArtifact,
   maybeExportAfterIndex,
 } from '../services/code-graph-artifact'
+import { findDeadCode, formatDeadCodeMd, formatDeadCodeText } from '../services/dead-code'
 import {
   detectChanges,
   formatDetectChangesMd,
@@ -81,11 +83,14 @@ export class CodeCommands extends PrjctCommandsBase {
       if (sub === 'reindex' || sub === 'index') {
         return this.reindex(projectPath, options)
       }
+      if (sub === 'dead') {
+        return this.dead(projectPath, options)
+      }
       if (sub === 'cbm') {
-        return this.cbmStatus(options)
+        return this.cbmCmd(rest, options)
       }
       return failWith(
-        `Unknown code subcommand "${sub}". Use: symbols | trace | impact | architecture | export | import | reindex | cbm`,
+        `Unknown code subcommand "${sub}". Use: symbols | trace | impact | architecture | dead | export | import | reindex | cbm`,
         options
       )
     } catch (error) {
@@ -112,7 +117,7 @@ export class CodeCommands extends PrjctCommandsBase {
                 `- **Built**: ${meta?.builtAt ?? 'unknown'}`,
                 cbmLine ? `- **${cbmLine}**` : '',
                 '',
-                'Commands: `symbols` · `trace` · `impact` · `architecture` · `export` · `import` · `reindex` · `cbm`',
+                'Commands: `symbols` · `trace` · `impact` · `architecture` · `dead` · `export` · `import` · `reindex` · `cbm`',
               ]
                 .filter(Boolean)
                 .join('\n')
@@ -131,7 +136,9 @@ export class CodeCommands extends PrjctCommandsBase {
         out.info(
           `Code graph: ${meta?.symbolCount ?? 0} symbols · ${meta?.edgeCount ?? 0} edges · ${meta?.fileCount ?? 0} files (built ${meta?.builtAt ?? '?'})`
         )
-        out.info('  symbols | trace | impact | architecture | export | import | reindex | cbm')
+        out.info(
+          '  symbols | trace | impact | architecture | dead | export | import | reindex | cbm'
+        )
       }
       if (cbmLine) out.info(`  ${cbmLine}`)
     }
@@ -297,11 +304,52 @@ export class CodeCommands extends PrjctCommandsBase {
     return { success: true, meta }
   }
 
-  private async cbmStatus(options: MdOption): Promise<CommandResult> {
+  private async dead(projectPath: string, options: MdOption): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+    const result = findDeadCode(proj.value, { limit: 50 })
+    console.log(options.md ? formatDeadCodeMd(result) : formatDeadCodeText(result))
+    return { success: true, count: result.dead.length, ...result }
+  }
+
+  private async cbmCmd(rest: string, options: MdOption): Promise<CommandResult> {
+    const parts = rest.trim().split(/\s+/).filter(Boolean)
+    if (parts[0] === 'cli' && parts[1]) {
+      const tool = parts[1]!
+      let args: Record<string, unknown> = {}
+      const jsonArg = parts.slice(2).join(' ')
+      if (jsonArg) {
+        try {
+          args = JSON.parse(jsonArg) as Record<string, unknown>
+        } catch {
+          return failWith('cbm cli args must be JSON object', options)
+        }
+      }
+      const r = await cbmCli(tool, args)
+      if (!r.ok) {
+        return failWith(r.error ?? r.stderr ?? 'CBM cli failed', options)
+      }
+      console.log(r.stdout || r.stderr)
+      return { success: true, stdout: r.stdout }
+    }
     const s = await detectCbm()
     const line = formatCbmStatus(s)
-    if (options.md) console.log(mdOutput('## CBM bridge', `> ${line}`))
-    else out.info(line)
+    if (options.md) {
+      console.log(
+        mdOutput(
+          '## CBM bridge',
+          `> ${line}`,
+          s.available
+            ? 'Execute: `prjct code cbm cli <tool> \'{"key":"val"}\'` (see CBM docs for tools).'
+            : ''
+        )
+      )
+    } else {
+      out.info(line)
+      if (s.available) {
+        out.info("  Execute: prjct code cbm cli <tool> '{\"…}'")
+      }
+    }
     return { success: true, ...s }
   }
 }

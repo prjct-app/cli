@@ -19,6 +19,7 @@ import {
   buildArchitectureSnapshot,
   formatArchitectureMd,
 } from '../../services/architecture-snapshot'
+import { findDeadCode, formatDeadCodeMd } from '../../services/dead-code'
 import { detectChanges, formatDetectChangesMd } from '../../services/detect-changes'
 import { optionalProjectPath, resolveProjectId, resolveProjectPath } from '../resolve'
 import { safeMcpCall } from './error-handler'
@@ -223,6 +224,20 @@ export function registerCodeIntelTools(server: McpServer) {
       const projectId = await resolveProjectId(args.projectPath)
       const snap = buildArchitectureSnapshot(projectId)
       return { content: [{ type: 'text', text: formatArchitectureMd(snap) }] }
+    })
+  )
+
+  s.tool(
+    'prjct_dead_code',
+    'Find functions/methods/classes with zero inbound CALLS (excludes entry points, tests, types). Best-effort graph.',
+    {
+      projectPath: optionalProjectPath,
+      limit: z.number().optional().default(50).describe('Max candidates'),
+    },
+    safeMcpCall('prjct_dead_code', async (args: { projectPath: string; limit: number }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const result = findDeadCode(projectId, { limit: args.limit })
+      return { content: [{ type: 'text', text: formatDeadCodeMd(result) }] }
     })
   )
 
