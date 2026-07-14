@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [3.58.0] - 2026-07-14
+
+### Added
+- Fix ship_* retention archive + context-pressure compact path
+
+### Fixed
+- Retention/dream: `ship_*` candidates archive via `shipped_features` delete (no more wouldArchive>0 while archived=0)
+- Context pressure: warn (≥60%) is hard compact-path (land→prime); Claude statusline shows `→land` at ≥60% host context
+
 ## [3.57.0] - 2026-07-14
 
 ### Added

@@ -11,6 +11,8 @@ import path from 'node:path'
 import { buildTopicalCue } from '../../hooks/prompt'
 import {
   contextPressureBlocksExpansion,
+  contextPressureRequiresCompactPath,
+  contextPressureStatusLine,
   contextPressureVerdict,
 } from '../../services/context-pressure'
 import { shipGeometryVerdict } from '../../services/delivery-geometry'
@@ -86,13 +88,16 @@ describe('package install parse (PreToolUse superiority)', () => {
 })
 
 describe('context-pressure hard gate (expansion block)', () => {
-  it('critical blocks expansion; warn does not', () => {
+  it('critical blocks expansion; warn does not block ship but requires compact path', () => {
     const crit = contextPressureVerdict(
       { maxTurnsPerCycle: 10 } as never,
       { turnCount: 8 } as never
     )
     expect(crit.level).toBe('critical')
     expect(contextPressureBlocksExpansion(crit)).toBe(true)
+    expect(contextPressureRequiresCompactPath(crit)).toBe(true)
+    expect(crit.cue).toMatch(/land/)
+    expect(contextPressureStatusLine(crit)).toMatch(/CRITICAL/)
 
     const warn = contextPressureVerdict(
       { maxTurnsPerCycle: 10 } as never,
@@ -100,6 +105,9 @@ describe('context-pressure hard gate (expansion block)', () => {
     )
     expect(warn.level).toBe('warn')
     expect(contextPressureBlocksExpansion(warn)).toBe(false)
+    expect(contextPressureRequiresCompactPath(warn)).toBe(true)
+    expect(warn.cue).toMatch(/compact path|prjct land/i)
+    expect(contextPressureStatusLine(warn)).toMatch(/land/)
   })
 })
 

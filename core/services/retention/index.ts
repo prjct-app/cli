@@ -324,7 +324,16 @@ export function shouldEmbedEntry(entry: MemoryEntry, retention?: RetentionResult
   return true
 }
 
+/**
+ * Soft-remove one retention candidate from live surfaces.
+ * - mem_* → projectMemory.forget / memory_entries soft-delete
+ * - ship_* → archive + DELETE from shipped_features (ships live only there;
+ *   previously forget always failed → dream wouldArchive>0, archived=0)
+ */
 function forgetEntry(projectId: string, id: string): boolean {
+  if (id.startsWith('ship_')) {
+    return forgetShippedFeature(projectId, id)
+  }
   if (projectMemory.forget(projectId, id)) return true
   try {
     const r = prjctDb.run(
@@ -333,6 +342,52 @@ function forgetEntry(projectId: string, id: string): boolean {
       Date.now(),
       id
     )
+    return (r.changes ?? 0) > 0
+  } catch {
+    return false
+  }
+}
+
+/** True when retention can actually remove this id from live surfaces. */
+export function isRetentionRemovableId(id: string): boolean {
+  return id.startsWith('mem_') || id.startsWith('ship_') || /^\d+$/.test(id)
+}
+
+/**
+ * Archive a shipped_features row referenced as `ship_<uuid>` (see shippedRowToEntry).
+ * Mirrors archiveOldShipped for a single retention candidate.
+ */
+export function forgetShippedFeature(projectId: string, shipPrefixedId: string): boolean {
+  const rawId = shipPrefixedId.startsWith('ship_')
+    ? shipPrefixedId.slice('ship_'.length)
+    : shipPrefixedId
+  if (!rawId) return false
+  try {
+    const row = prjctDb.get<{
+      id: string
+      name: string
+      shipped_at: string
+      version: string | null
+      description: string | null
+      type: string | null
+      duration: number | null
+      data: string | null
+    }>(projectId, 'SELECT * FROM shipped_features WHERE id = ?', rawId)
+    if (!row) return false
+
+    try {
+      archiveStorage.archive(projectId, {
+        entityType: 'shipped',
+        entityId: rawId,
+        entityData: row,
+        summary: `retention archive shipped [${row.name}]`,
+        reason: 'retention-archive',
+      })
+    } catch {
+      /* still delete from live table even if archive row fails */
+    }
+
+    const r = prjctDb.run(projectId, 'DELETE FROM shipped_features WHERE id = ?', rawId)
     return (r.changes ?? 0) > 0
   } catch {
     return false
@@ -349,34 +404,47 @@ export function applyRetention(
   const maxDelete = options.maxDelete ?? DEFAULT_MAX_DELETE
 
   const report = evaluateRetention(projectId, nowMs)
-  const toArchive = report.flagged.filter((r) => r.verdict === 'archive')
-  const toDelete = report.flagged.filter((r) => r.verdict === 'delete')
+  // Honest counts: only ids we can actually remove (mem_* / ship_*). Orphan
+  // shapes (if any) do not inflate wouldArchive / wouldDelete vs archived.
+  const toArchive = report.flagged.filter(
+    (r) => r.verdict === 'archive' && isRetentionRemovableId(r.id)
+  )
+  const toDelete = report.flagged.filter(
+    (r) => r.verdict === 'delete' && isRetentionRemovableId(r.id)
+  )
+  const unremovable = report.flagged.filter(
+    (r) => (r.verdict === 'archive' || r.verdict === 'delete') && !isRetentionRemovableId(r.id)
+  ).length
 
   let archived = 0
   let deleted = 0
-  let skipped = 0
+  let skipped = unremovable
 
   if (!dryRun) {
     const archiveBatch = toArchive.slice(0, maxArchive)
     skipped += Math.max(0, toArchive.length - archiveBatch.length)
     for (const r of archiveBatch) {
-      try {
-        archiveStorage.archive(projectId, {
-          entityType: 'memory_entry',
-          entityId: r.id,
-          entityData: {
-            id: r.id,
-            type: r.type,
-            score: r.score,
-            excess: r.excess,
-            reasons: r.reasons,
-            verdict: r.verdict,
-          },
-          summary: `retention archive [${r.type}] excess=${r.excess?.toFixed(2) ?? '?'} score=${r.score}`,
-          reason: 'retention-archive',
-        })
-      } catch {
-        /* best-effort */
+      // Ships archive inside forgetShippedFeature; mem_* get a memory_entry
+      // archive row here (ships already write entityType:shipped).
+      if (!r.id.startsWith('ship_')) {
+        try {
+          archiveStorage.archive(projectId, {
+            entityType: 'memory_entry',
+            entityId: r.id,
+            entityData: {
+              id: r.id,
+              type: r.type,
+              score: r.score,
+              excess: r.excess,
+              reasons: r.reasons,
+              verdict: r.verdict,
+            },
+            summary: `retention archive [${r.type}] excess=${r.excess?.toFixed(2) ?? '?'} score=${r.score}`,
+            reason: 'retention-archive',
+          })
+        } catch {
+          /* best-effort */
+        }
       }
       if (forgetEntry(projectId, r.id)) archived++
       else skipped++
