@@ -40,6 +40,10 @@ const PRIME_TRAPS = 3
 interface CeremonyOptions {
   md?: boolean
   task?: string
+  force?: boolean
+  dryRun?: boolean
+  minHours?: number
+  minSessions?: number
 }
 
 export class CeremonyCommands extends PrjctCommandsBase {
@@ -465,6 +469,33 @@ export class CeremonyCommands extends PrjctCommandsBase {
       /* best-effort */
     }
 
+    // Claude Code steal: auto-dream when time+session gates open (bumps session
+    // counter always). Best-effort — never block land.
+    let dreamLine: string | null = null
+    try {
+      const { maybeDreamOnLand } = await import('../services/memory-dream')
+      const dream = maybeDreamOnLand(proj.value)
+      if (dream) {
+        dreamLine = dream.line
+        if (options.md) lines.push(dream.md)
+        else if (dream.ran) lines.push(`- [x] ${dream.line}`, '')
+        else if (!dream.skipped) lines.push(`- [x] ${dream.line}`, '')
+        // Skipped dreams are silent on non-md land (session counter is enough).
+      }
+    } catch {
+      /* best-effort */
+    }
+
+    // Always refresh L0 index on land when dream did not rebuild it.
+    try {
+      if (!dreamLine || !dreamLine.startsWith('Dream complete')) {
+        const { buildAndStoreMemoryL0Index } = await import('../services/memory-index')
+        buildAndStoreMemoryL0Index({ projectId: proj.value, source: 'land' })
+      }
+    } catch {
+      /* best-effort */
+    }
+
     todo.push(
       'Team share (optional): `prjct memory export` → commit `.prjct/memory-export/` → clone → `prjct memory import`.'
     )
@@ -480,6 +511,7 @@ export class CeremonyCommands extends PrjctCommandsBase {
     return {
       success: true,
       items: todo.length + (handoff?.wrote ? 1 : 0) + (receipt?.wrote ? 1 : 0),
+      dream: dreamLine,
       handoff: handoff?.wrote ?? false,
       receipt: receipt?.wrote ?? false,
       receiptSummary: receipt?.summary ?? null,
@@ -487,6 +519,54 @@ export class CeremonyCommands extends PrjctCommandsBase {
       continuity: continuityStamp
         ? { landedAt: continuityStamp.landedAt, key: 'session:continuity' }
         : null,
+    }
+  }
+
+  /**
+   * Memory auto-dream — Claude Code KAIROS consolidation for prjct.
+   * Gates: time (default 24h) + sessions (default 5 lands). Force with --force.
+   * Dry-run with --dry-run. Rebuilds L0 memory index on success.
+   */
+  async dream(
+    _input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: CeremonyOptions = {}
+  ): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+
+    const { runMemoryDream } = await import('../services/memory-dream')
+    const report = runMemoryDream({
+      projectId: proj.value,
+      projectPath,
+      force: options.force === true,
+      dryRun: options.dryRun === true,
+      minHours: options.minHours,
+      minSessions: options.minSessions,
+    })
+
+    if (options.md) {
+      console.log(report.md)
+      if (report.index?.markdown && report.ran) {
+        console.log(report.index.markdown)
+      }
+    } else if (report.skipped) {
+      out.info(report.line)
+      out.info('Use `prjct dream --force` to run now, or `--dry-run` to preview.')
+    } else {
+      out.done(report.line)
+    }
+
+    return {
+      success: true,
+      ran: report.ran,
+      skipped: report.skipped,
+      dryRun: report.dryRun,
+      reason: report.reason ?? null,
+      line: report.line,
+      archived: report.phases.consolidate.archived,
+      deleted: report.phases.consolidate.deleted,
+      indexLive: report.phases.prune.indexLive,
     }
   }
 

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [3.57.0] - 2026-07-14
+
+### Added
+- Memory auto-dream + L0 compact index (Claude Code steal Sprint A)
+- `prjct dream` — memory auto-dream (KAIROS-style): gates (24h + 5 lands), 4-phase consolidate + L0 index rebuild; also on `prjct land` when gates open
+- L0 compact memory index (`prjct memory index`) — ≤4k TOC injected on SessionStart; stored in kv `memory:l0-index`
+- `prjct memory close|forget|dream|index` aliases; skill continue-vs-spawn + hygiene verbs
+
 ## [3.56.1] - 2026-07-14
 
 ### Bug Fixes
@@ -14,19 +22,11 @@
 - point all URLs at github.com/prjct-app/cli (#560)
 - point product surface at prjct-app/prjct-cli (#559)
 
-
 ## [3.56.0] - 2026-07-13
 
 ### Added
 - skill generator l0 test assertions
 
-<<<<<<< HEAD
-
-## [3.39.0] - 2026-07-09
-
-### Added
-- pre-secrets CI parity after #534 — wire dispatcher + cursor multi-matcher
-=======
 ## [3.55.0] - 2026-07-13
 
 ### Added
@@ -231,7 +231,6 @@
 
 ### Added
 - quality orchestrator P0: auto ledger + inject; ship suggest with text confirm
->>>>>>> origin/main
 
 ## [3.38.0] - 2026-07-09
 

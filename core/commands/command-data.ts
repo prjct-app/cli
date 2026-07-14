@@ -1040,6 +1040,31 @@ export const COMMANDS: CommandMeta[] = [
     usage: { claude: 'p. land', terminal: 'prjct land [--md]' },
   },
   {
+    name: 'dream',
+    group: 'ceremonies',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'ceremonies', method: 'dream' },
+    optionSchema: {
+      booleans: ['force', 'dryRun', 'md'],
+      numbers: ['minHours', 'minSessions'],
+    },
+    description:
+      'Memory auto-dream: consolidate vault (triage inbox + Rho retention) and rebuild the L0 memory index — Claude Code KAIROS pattern, deterministic (no model call).',
+    usage: {
+      claude: 'p. dream --force',
+      terminal: 'prjct dream [--force] [--dry-run] [--min-hours=24] [--min-sessions=5] [--md]',
+    },
+    params: '[--force] [--dry-run]',
+    features: [
+      'Gates: ≥24h since last dream AND ≥5 lands (session counter) — bypass with --force',
+      'Phases: orient → gather → consolidate (triageInbox + applyRetention) → prune (L0 index)',
+      'Land auto-runs when gates open; dry-run previews without writes',
+    ],
+  },
+  {
     name: 'ready',
     group: 'workGraph',
     surface: 'ai-agile',
@@ -1212,13 +1237,23 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     routing: { group: 'memoryExport', method: 'memory' },
-    optionSchema: {},
-    description:
-      'Git-shareable project memory: `export` writes chunked JSONL to .prjct/memory-export/ (commit it); `import` replays a committed export with content-hash dedup — zero-server team onboarding.',
-    usage: {
-      claude: 'p. memory export',
-      terminal: 'prjct memory export | prjct memory import',
+    optionSchema: {
+      booleans: ['force', 'dryRun', 'md'],
+      strings: ['reason'],
     },
+    description:
+      'Memory surface: export|import (git-shareable), index (L0 TOC), close|forget (lifecycle), dream (auto-consolidation).',
+    usage: {
+      claude: 'p. memory index',
+      terminal:
+        'prjct memory export|import|index|close <id>|forget <id>|dream [--force] [--dry-run]',
+    },
+    features: [
+      'export/import — git-shareable JSONL under .prjct/memory-export/',
+      'index — rebuild/show L0 compact memory TOC (SessionStart injects it)',
+      'close/forget — lifecycle aliases of top-level verbs',
+      'dream — auto-consolidation + L0 rebuild',
+    ],
   },
   {
     name: 'guard',

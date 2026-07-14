@@ -46,20 +46,54 @@ interface EntryRow {
 }
 
 export class MemoryExportCommands extends PrjctCommandsBase {
-  /** Router: `prjct memory export` | `prjct memory import`. */
+  /** Router: `prjct memory export|import|index|close|forget|dream`. */
   async memory(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: MdOption = {}
+    options: MdOption & { force?: boolean; dryRun?: boolean; reason?: string } = {}
   ): Promise<CommandResult> {
-    const sub = (input ?? '').trim().split(/\s+/)[0] || ''
+    const parts = (input ?? '').trim().split(/\s+/).filter(Boolean)
+    const sub = parts[0] || ''
     if (sub === 'export') return this.export(projectPath, options)
     if (sub === 'import') return this.import(projectPath, options)
+    if (sub === 'index') return this.index(projectPath, options)
+    if (sub === 'close') {
+      const { PrimitiveCommands } = await import('./primitives')
+      return new PrimitiveCommands().close(parts[1] ?? null, projectPath, options)
+    }
+    if (sub === 'forget') {
+      const { PrimitiveCommands } = await import('./primitives')
+      return new PrimitiveCommands().forget(parts[1] ?? null, projectPath, options)
+    }
+    if (sub === 'dream') {
+      const { CeremonyCommands } = await import('./ceremonies')
+      return new CeremonyCommands().dream(null, projectPath, options)
+    }
     const msg =
-      'Usage: prjct memory export — write shareable memory to .prjct/memory-export/ (commit it); prjct memory import — load a committed export (deduped).'
+      'Usage: prjct memory export|import|index|close <id>|forget <id>|dream — shareable export, L0 index, lifecycle, or auto-dream consolidation.'
     if (options.md) console.log(`> ${msg}`)
     else out.info(msg)
     return { success: false, error: 'unknown memory subcommand' }
+  }
+
+  /** Show / rebuild the L0 compact memory index. */
+  private async index(projectPath: string, options: MdOption): Promise<CommandResult> {
+    const proj = await requireProject(projectPath)
+    if (!proj.ok) return proj.result
+    const { buildAndStoreMemoryL0Index, loadMemoryL0Index } = await import(
+      '../services/memory-index'
+    )
+    const stamp =
+      buildAndStoreMemoryL0Index({ projectId: proj.value, source: 'manual' }) ??
+      loadMemoryL0Index(proj.value)
+    if (!stamp) {
+      const msg = 'No memory index available (empty vault).'
+      if (options.md) console.log(`> ${msg}`)
+      else out.info(msg)
+      return { success: false, error: msg }
+    }
+    console.log(stamp.markdown)
+    return { success: true, live: stamp.live, builtAt: stamp.builtAt }
   }
 
   private async export(projectPath: string, options: MdOption): Promise<CommandResult> {
