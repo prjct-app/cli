@@ -191,6 +191,49 @@ class SyncClient {
   }
 
   /**
+   * Upload compact structural code graph (Function/Class/File + CALLS/IMPORTS)
+   * for the cloud 3D visualizer. Best-effort — returns false if offline/unauthed.
+   */
+  async uploadCodeGraph(
+    projectId: string,
+    graph: {
+      version: number
+      builtAt?: string
+      symbolCount?: number
+      edgeCount?: number
+      nodes: Array<{
+        id: string
+        name: string
+        kind: string
+        file?: string | null
+        exported?: boolean
+      }>
+      links: Array<{ source: string; target: string; type: string }>
+    }
+  ): Promise<{ ok: boolean; nodes?: number; links?: number }> {
+    try {
+      const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
+      if (!apiKey) return { ok: false }
+      const response = await this.fetchWithRetry(
+        `${apiUrl}/sync/projects/${projectId}/code-graph`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.authHeaders(apiKey, deviceId),
+          },
+          body: JSON.stringify(graph),
+        }
+      )
+      if (!response.ok) return { ok: false }
+      const body = (await response.json()) as { ok?: boolean; nodes?: number; links?: number }
+      return { ok: body.ok !== false, nodes: body.nodes, links: body.links }
+    } catch {
+      return { ok: false }
+    }
+  }
+
+  /**
    * Publish a product benchmark to the cloud API.
    *
    * This is intentionally a cloud operation, not a GitHub write. The server is
