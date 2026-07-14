@@ -1,5 +1,4 @@
-# Temporary one-shot: publish current package.json version to npm with NPM_TOKEN.
-# Removes the jlopezlira repository URL stuck on the last published tarball (3.52.0).
+# Temporary one-shot: publish current package.json version via OIDC Trusted Publisher.
 # Delete this workflow after a successful run.
 name: One-shot npm publish
 
@@ -9,8 +8,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: Production
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -18,6 +19,9 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm (trusted publishing requires >=11.5.1)
+        run: npm install -g npm@11
 
       - name: Install + build
         run: |
@@ -28,17 +32,23 @@ jobs:
         run: |
           node -e "const p=require('./package.json'); console.log({name:p.name,version:p.version,repository:p.repository,bugs:p.bugs,homepage:p.homepage})"
 
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm (OIDC)
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if npm view "prjct-cli@$VERSION" version >/dev/null 2>&1; then
             echo "prjct-cli@$VERSION already on npm — nothing to publish."
             exit 0
           fi
-          npm publish --access public
-          echo "Published prjct-cli@$VERSION"
+          for attempt in 1 2 3; do
+            if npm publish --provenance --access public; then
+              echo "Published prjct-cli@$VERSION"
+              exit 0
+            fi
+            echo "publish attempt $attempt failed; retrying in $((attempt * 30))s…"
+            sleep $((attempt * 30))
+          done
+          echo "::error title=npm publish failed::3 attempts exhausted"
+          exit 1
 
       - name: Verify registry metadata
         run: |
