@@ -155,7 +155,7 @@ function formatMainHelp(): string {
   lines.push(chalk.bold('MORE INFO'))
   lines.push(chalk.dim('─'.repeat(60)))
   lines.push(`  Documentation:  ${chalk.cyan('https://prjct.app')}`)
-  lines.push(`  GitHub:         ${chalk.cyan('https://github.com/prjct-app/prjct-cli')}`)
+  lines.push(`  GitHub:         ${chalk.cyan('https://github.com/prjct-app/cli')}`)
   lines.push(`  Per-command:    prjct help <command>`)
   lines.push('')
 
