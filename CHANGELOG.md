@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.54.0] - 2026-07-13
+
+### Added
+- Optimized core prjct L0 skill for token efficiency (compressed verbs table + reduced redundancy = 791 tokens). Upgraded create-skill with SDO and TDD-for-skills. Added systematic-debugging skill. Updated architecture with curation principles. All retrocompatible. Full post analysis wins delivered. Tests and harness passing.
+
 ## [3.53.2] - 2026-07-13
 
 ### Added
