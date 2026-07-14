@@ -228,9 +228,10 @@ class SyncService {
         /* non-critical — scope falls back to open accept until next sync */
       }
 
-      // 3a-bis. Bootstrap symbol graph from team artifact if local index empty
+      // 3a-bis. Bootstrap symbol graph from per-project cache (~/.prjct-cli/projects/<id>/)
+      // if SQLite symbol tables empty — never reads from the client repo.
       try {
-        await bootstrapCodeGraphFromArtifact(this.projectPath, this.projectId!)
+        await bootstrapCodeGraphFromArtifact(this.projectId!)
       } catch {
         /* non-critical */
       }
@@ -270,8 +271,8 @@ class SyncService {
                 : indexSymbols(this.projectPath, this.projectId!),
               indexCoChanges(this.projectPath, this.projectId!),
             ])
-            // Refresh team-shared artifact after a successful index pass
-            await maybeExportAfterIndex(this.projectPath, this.projectId!)
+            // Refresh per-project cache after a successful index pass
+            await maybeExportAfterIndex(this.projectId!)
           } catch (error) {
             log.debug('File ranking index build failed (non-critical)', {
               error: getErrorMessage(error),

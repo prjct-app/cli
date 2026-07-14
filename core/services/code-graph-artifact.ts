@@ -1,37 +1,39 @@
 /**
- * Team-shared code graph artifact (CBM graph.db.zst-inspired).
+ * Per-project code-graph cache artifact.
  *
- * Exports a gzipped JSON snapshot of symbols + CALLS/DEFINES edges next to
- * the repo so teammates can bootstrap without a full reindex.
+ * Lives ONLY under prjct project storage — never in the client repo:
+ *   ~/.prjct-cli/projects/<projectId>/code-graph.json.gz
  *
- * Path: `.prjct/code-graph.json.gz`
- * Optional: `.gitattributes` merge=ours line for the artifact.
+ * One file per projectId (same isolation as prjct.db). Not global, not
+ * committed with the customer's source tree. Optional gzip snapshot of
+ * symbols + edges for local bootstrap if the SQLite symbol tables are empty.
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { hasSymbolIndex, indexSymbols, listAllSymbols, loadMeta } from '../domain/symbol-graph'
+import pathManager from '../infrastructure/path-manager'
 import prjctDb from '../storage/database'
 import type { CodeSymbol, CodeSymbolEdge, SymbolGraphMeta } from '../types/domain.js'
 
-const ARTIFACT_REL = path.join('.prjct', 'code-graph.json.gz')
-const GITATTRIBUTES_LINE = '.prjct/code-graph.json.gz merge=ours'
+const ARTIFACT_NAME = 'code-graph.json.gz'
 
 interface ArtifactPayload {
   version: 1
+  projectId: string
   exportedAt: string
   meta: SymbolGraphMeta
   symbols: CodeSymbol[]
   edges: CodeSymbolEdge[]
 }
 
-export function artifactPath(projectPath: string): string {
-  return path.join(projectPath, ARTIFACT_REL)
+/** Absolute path under ~/.prjct-cli/projects/<id>/ — never under client cwd. */
+export function artifactPath(projectId: string): string {
+  return path.join(pathManager.getGlobalProjectPath(projectId), ARTIFACT_NAME)
 }
 
 export async function exportCodeGraphArtifact(
-  projectPath: string,
   projectId: string
 ): Promise<{ path: string; bytes: number; symbols: number; edges: number } | null> {
   if (!hasSymbolIndex(projectId)) return null
@@ -62,6 +64,7 @@ export async function exportCodeGraphArtifact(
   }
   const payload: ArtifactPayload = {
     version: 1,
+    projectId,
     exportedAt: new Date().toISOString(),
     meta,
     symbols,
@@ -69,23 +72,26 @@ export async function exportCodeGraphArtifact(
   }
   const raw = Buffer.from(JSON.stringify(payload), 'utf-8')
   const gz = gzipSync(raw, { level: 6 })
-  const out = artifactPath(projectPath)
+  const out = artifactPath(projectId)
   await fs.mkdir(path.dirname(out), { recursive: true })
   await fs.writeFile(out, gz)
-  await ensureGitattributes(projectPath)
-  return { path: ARTIFACT_REL, bytes: gz.length, symbols: symbols.length, edges: edges.length }
+  return {
+    path: out,
+    bytes: gz.length,
+    symbols: symbols.length,
+    edges: edges.length,
+  }
 }
 
 export async function importCodeGraphArtifact(
-  projectPath: string,
   projectId: string
 ): Promise<{ imported: boolean; symbols: number; edges: number; reason?: string }> {
-  const file = artifactPath(projectPath)
+  const file = artifactPath(projectId)
   let buf: Buffer
   try {
     buf = await fs.readFile(file)
   } catch {
-    return { imported: false, symbols: 0, edges: 0, reason: 'no artifact' }
+    return { imported: false, symbols: 0, edges: 0, reason: 'no per-project artifact' }
   }
   let payload: ArtifactPayload
   try {
@@ -101,6 +107,15 @@ export async function importCodeGraphArtifact(
   }
   if (payload.version !== 1 || !Array.isArray(payload.symbols)) {
     return { imported: false, symbols: 0, edges: 0, reason: 'unsupported artifact version' }
+  }
+  // Refuse cross-project restore (artifact stamped with projectId)
+  if (payload.projectId && payload.projectId !== projectId) {
+    return {
+      imported: false,
+      symbols: 0,
+      edges: 0,
+      reason: `artifact projectId mismatch (got ${payload.projectId}, expected ${projectId})`,
+    }
   }
 
   prjctDb.transaction(projectId, (db) => {
@@ -133,51 +148,29 @@ export async function importCodeGraphArtifact(
 }
 
 /**
- * Bootstrap: if local index empty but artifact present, import then optional
- * incremental reindex of dirty tree is left to sync.
+ * Bootstrap: if SQLite symbol tables empty but this project's cache file
+ * exists under ~/.prjct-cli/projects/<id>/, restore into SQLite.
  */
 export async function bootstrapCodeGraphFromArtifact(
-  projectPath: string,
   projectId: string
 ): Promise<{ bootstrapped: boolean; detail: string }> {
   if (hasSymbolIndex(projectId)) {
     return { bootstrapped: false, detail: 'local index already present' }
   }
-  const result = await importCodeGraphArtifact(projectPath, projectId)
+  const result = await importCodeGraphArtifact(projectId)
   if (!result.imported) {
     return { bootstrapped: false, detail: result.reason ?? 'import failed' }
   }
   return {
     bootstrapped: true,
-    detail: `imported ${result.symbols} symbols / ${result.edges} edges from ${ARTIFACT_REL}`,
+    detail: `imported ${result.symbols} symbols / ${result.edges} edges from per-project cache`,
   }
 }
 
-async function ensureGitattributes(projectPath: string): Promise<void> {
-  const ga = path.join(projectPath, '.gitattributes')
+/** After a successful full index, refresh the per-project cache (non-fatal). */
+export async function maybeExportAfterIndex(projectId: string): Promise<void> {
   try {
-    let existing = ''
-    try {
-      existing = await fs.readFile(ga, 'utf-8')
-    } catch {
-      existing = ''
-    }
-    if (existing.includes('code-graph.json.gz')) return
-    const next = existing
-      ? existing.endsWith('\n')
-        ? `${existing}${GITATTRIBUTES_LINE}\n`
-        : `${existing}\n${GITATTRIBUTES_LINE}\n`
-      : `${GITATTRIBUTES_LINE}\n`
-    await fs.writeFile(ga, next)
-  } catch {
-    /* best-effort */
-  }
-}
-
-/** After a successful full index, refresh the team artifact (non-fatal). */
-export async function maybeExportAfterIndex(projectPath: string, projectId: string): Promise<void> {
-  try {
-    await exportCodeGraphArtifact(projectPath, projectId)
+    await exportCodeGraphArtifact(projectId)
   } catch {
     /* non-critical */
   }
@@ -188,8 +181,7 @@ export async function ensureIndexWithBootstrap(
   projectId: string
 ): Promise<SymbolGraphMeta | null> {
   if (hasSymbolIndex(projectId)) return loadMeta(projectId)
-  const boot = await bootstrapCodeGraphFromArtifact(projectPath, projectId)
+  const boot = await bootstrapCodeGraphFromArtifact(projectId)
   if (boot.bootstrapped) return loadMeta(projectId)
-  // No artifact — full index
   return indexSymbols(projectPath, projectId)
 }

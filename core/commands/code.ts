@@ -7,8 +7,8 @@
  *   prjct code trace <name>        → inbound/outbound call path
  *   prjct code impact              → detect_changes (git diff blast + risk)
  *   prjct code architecture        → structural overview (one-shot)
- *   prjct code export              → write .prjct/code-graph.json.gz
- *   prjct code import              → bootstrap index from team artifact
+ *   prjct code export              → cache under ~/.prjct-cli/projects/<id>/
+ *   prjct code import              → restore SQLite from that per-project cache
  *   prjct code reindex             → rebuild symbol graph now
  *   prjct code cbm                 → optional CBM bridge status
  */
@@ -265,10 +265,10 @@ export class CodeCommands extends PrjctCommandsBase {
     if (!hasSymbolIndex(proj.value)) {
       return failWith('No symbol index — run `prjct code reindex` first.', options)
     }
-    const exp = await exportCodeGraphArtifact(projectPath, proj.value)
+    const exp = await exportCodeGraphArtifact(proj.value)
     if (!exp) return failWith('Export failed.', options)
-    const msg = `Exported ${exp.symbols} symbols · ${exp.edges} edges → ${exp.path} (${exp.bytes} bytes gzip)`
-    if (options.md) console.log(mdOutput('## Code graph export', `> ${msg}`))
+    const msg = `Cached ${exp.symbols} symbols · ${exp.edges} edges → ${exp.path} (${exp.bytes} bytes gzip) [per-project, not in client repo]`
+    if (options.md) console.log(mdOutput('## Code graph cache', `> ${msg}`))
     else out.success(msg)
     return { success: true, ...exp }
   }
@@ -276,12 +276,12 @@ export class CodeCommands extends PrjctCommandsBase {
   private async importArtifact(projectPath: string, options: MdOption): Promise<CommandResult> {
     const proj = await requireProject(projectPath, options)
     if (!proj.ok) return proj.result
-    const imp = await importCodeGraphArtifact(projectPath, proj.value)
+    const imp = await importCodeGraphArtifact(proj.value)
     if (!imp.imported) {
       return failWith(imp.reason ?? 'Import failed', options)
     }
-    const msg = `Imported ${imp.symbols} symbols · ${imp.edges} edges from team artifact`
-    if (options.md) console.log(mdOutput('## Code graph import', `> ${msg}`))
+    const msg = `Restored ${imp.symbols} symbols · ${imp.edges} edges from per-project cache`
+    if (options.md) console.log(mdOutput('## Code graph restore', `> ${msg}`))
     else out.success(msg)
     return { success: true, ...imp }
   }
@@ -290,7 +290,7 @@ export class CodeCommands extends PrjctCommandsBase {
     const proj = await requireProject(projectPath, options)
     if (!proj.ok) return proj.result
     const meta = await indexSymbols(projectPath, proj.value)
-    await maybeExportAfterIndex(projectPath, proj.value)
+    await maybeExportAfterIndex(proj.value)
     const msg = `Indexed ${meta.symbolCount} symbols · ${meta.edgeCount} edges · ${meta.fileCount} files`
     if (options.md) console.log(mdOutput('## Code reindex', `> ${msg}`))
     else out.success(msg)

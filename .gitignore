@@ -78,9 +78,6 @@ tmp/
 .prjct/**
 # Team memory export is meant to be committed (zero-server onboarding).
 !.prjct/memory-export/
-# Optional team code-graph bootstrap (gzip symbols). Force-add if you want
-# shared index onboarding — otherwise everyone reindexes via `prjct sync`.
-# !.prjct/code-graph.json.gz
 !.prjct/memory-export/**
 
 # prjct: legacy wiki — vault moved to ~/Documents/prjct/ in 2.2.0
