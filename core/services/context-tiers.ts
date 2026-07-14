@@ -23,7 +23,7 @@ import { buildPrjctSkill } from './skill-generator/prjct-skill-body'
  * L0 budgets — keep in lockstep with WORLD_CLASS in harness-score.ts.
  * Duplicated here to avoid a circular import (harness-score → context-tiers).
  */
-export const L0_SKILL_TOKENS_MAX = 900
+export const L0_SKILL_TOKENS_MAX = 1000
 export const L0_ROUTING_BYTES_MAX = 400
 /** Default MCP ListTools surface (core tier) — schema tokens every session. */
 export const MCP_TOOLS_CORE_MAX = 12

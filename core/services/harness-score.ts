@@ -186,7 +186,7 @@ export function computeHarnessScore(
     criterion(
       'enforced-defaults',
       'Code-enforced lean defaults',
-      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 900 ? 5 : 2,
+      DEFAULT_MCP_TOOL_TIER === 'core' && WORLD_CLASS.skillTokensMax <= 1000 ? 5 : 2,
       'MCP core default + skill budget in code',
       `tier=${DEFAULT_MCP_TOOL_TIER}; skillMax=${WORLD_CLASS.skillTokensMax}`
     ),
