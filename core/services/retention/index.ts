@@ -507,7 +507,7 @@ export function forgetJunkCaptures(
     for (const e of entries) {
       if (forgotten >= max) break
       if (!types.includes(e.type)) continue
-      const j = isJunkCaptureContent(e.content)
+      const j = isJunkCaptureContent(e.content, e.type)
       if (!j.junk) continue
       if (forgetEntry(projectId, e.id)) {
         forgotten++
@@ -531,7 +531,7 @@ export function triageInbox(
   // First pass: junk content (always drop from living rotation).
   let junkForgotten = 0
   for (const item of inbox) {
-    if (isJunkCaptureContent(item.content).junk && forgetEntry(projectId, item.id)) {
+    if (isJunkCaptureContent(item.content, item.type).junk && forgetEntry(projectId, item.id)) {
       junkForgotten++
     }
   }

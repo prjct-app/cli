@@ -66,7 +66,7 @@ export function captureGate(
   // Universal junk refuse (all types): accidental GTD misroutes, tool dumps,
   // bare mem ids. High-stakes types still refuse garbage — a "decision" of
   // "todo_write" is never knowledge.
-  const junk = isJunkCaptureContent(trimmed)
+  const junk = isJunkCaptureContent(trimmed, type)
   if (junk.junk) {
     return { accept: false, reason: `junk capture: ${junk.reason}` }
   }

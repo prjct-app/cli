@@ -63,10 +63,20 @@ describe('captureGate + forgetJunkCaptures', () => {
     if (projectPath) await fs.rm(projectPath, { recursive: true, force: true }).catch(() => {})
   })
 
-  it('refuses junk at captureGate even for judgment types', () => {
+  it('refuses tool-name junk even for judgment types', () => {
     const g = captureGate(projectId, 'decision', 'todo_write')
     expect(g.accept).toBe(false)
     expect(g.reason).toMatch(/junk/i)
+  })
+
+  it('allows short judgment content that is real knowledge', () => {
+    const g = captureGate(projectId, 'fact', 'runtime: bun')
+    expect(g.accept).toBe(true)
+  })
+
+  it('refuses short inbox dumps', () => {
+    const g = captureGate(projectId, 'inbox', 'short blob')
+    expect(g.accept).toBe(false)
   })
 
   it('forgets junk inbox rows on cleanup pass', async () => {
