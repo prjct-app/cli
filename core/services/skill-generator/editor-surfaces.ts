@@ -51,7 +51,7 @@ export function buildCompactSkill(): string {
   return `${[
     '---',
     'name: prjct',
-    'description: prjct AI Agile work/memory; run prjct verbs, do not preload context.',
+    'description: prjct work cycles + memory; run prjct verbs, do not preload context.',
     '---',
     '',
     '# prjct',
@@ -88,7 +88,7 @@ export function buildGlobalConfig(rigName: string): string {
     'Other commands: run `prjct <command> --md` and follow CLI output',
     '',
     'Flow: `prjct work` is the single normal entrypoint. Trivial work proceeds',
-    'directly. Substantive implementation work follows the persisted AI Agile',
+    'directly. Substantive implementation work follows the persisted work-cycle',
     'station from `prjct work --md`: reviewed intent, evidence, tests when',
     'required, then code.',
     '',

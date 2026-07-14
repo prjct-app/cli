@@ -816,7 +816,7 @@ echo "⚡ prjct"
     console.log('')
     console.log(`   ${chalk.yellow('⚡')} Improve developer + agent performance`)
     console.log(`   ${chalk.green('🧠')} Rich project context without context bloat`)
-    console.log(`   ${chalk.cyan('🤖')} Human-in-the-loop AI Agile work cycles`)
+    console.log(`   ${chalk.cyan('🤖')} Human-in-the-loop work cycles`)
     console.log('')
     console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'))
     console.log('')

@@ -406,7 +406,7 @@ export interface CommandMeta {
   name: string
   group: string
   /** Product-facing surface. `legacy` commands still execute for compatibility
-   *  but are hidden from the v3 AI Agile command surface. */
+   *  but are hidden from the v3 command surface. */
   surface?: 'ai-agile' | 'support' | 'legacy' | 'internal'
   description: string
   requiresProject: boolean

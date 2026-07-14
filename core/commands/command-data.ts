@@ -10,7 +10,7 @@ import type { CategoryInfo, CommandMeta } from '../types/commands'
 // Category definitions
 export const CATEGORIES: Record<string, CategoryInfo> = {
   core: {
-    title: 'AI Agile Loop',
+    title: 'Work Cycle',
     description: 'Intent, context, execution, learning, and improvement',
     order: 1,
   },
@@ -51,7 +51,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: false,
     requiresProject: true,
     features: [
-      'v3 AI Agile replacement for ticket-style planning',
+      'v3 work-cycle replacement for ticket-style planning',
       'Stores the durable brief in SQLite',
       'Sub-verbs mirror spec for compatibility: list, show, update, audit, link-work, ship',
     ],
@@ -62,7 +62,7 @@ export const COMMANDS: CommandMeta[] = [
     surface: 'ai-agile',
     routing: { group: 'workflow', method: 'now' },
     optionSchema: { strings: ['spec', 'geometry'], booleans: ['extend'] },
-    description: 'Start or inspect an AI Agile work cycle with context and evidence',
+    description: 'Start or inspect a work cycle with context and evidence',
     usage: {
       claude: 'p. work "<intent>"',
       terminal: 'prjct work "<intent>" [--geometry split|single|direct]',
@@ -137,7 +137,7 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
     features: [
       'No arg → shows the active task (or none)',
-      'Deprecated public language: use `prjct work` for the v3 AI Agile cycle',
+      'Deprecated public language: use `prjct work` for the v3 work cycle',
       'Auto-harness classifies H0-H3 and stores expected evidence on the task',
       'Writes to stateStorage; runs before/after workflow rules',
       'Optional Linear issue link when the arg matches `[A-Z]+-\\d+`',
@@ -694,7 +694,7 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'product', method: 'insights' },
     optionSchema: { numbers: ['days'] },
     description:
-      'AI Agile intelligence: value, quality, reliability, token cost, reports, continuation, and guardrails',
+      'Harness intelligence: value, quality, reliability, token cost, reports, continuation, and guardrails',
     usage: {
       claude: 'p. insights [value|quality|reliability|cost|report|continue|guardrails]',
       terminal: 'prjct insights [value|quality|reliability|cost|report|continue|guardrails] [--md]',

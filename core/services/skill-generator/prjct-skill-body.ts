@@ -7,7 +7,7 @@
  */
 
 export const PRJCT_SKILL_DESCRIPTION =
-  'AI Agile OS for coding agents: intent briefs, RAG context, synthesized memory, guardrails, performance, and ships. Run the prjct verb yourself; use `prjct work` normally.'
+  'The agentic harness for AI coding agents: intent briefs, RAG context, synthesized memory, guardrails, performance, and ships. Run the prjct verb yourself; use `prjct work` normally.'
 
 export const PRJCT_SKILL_ALLOWED_TOOLS = [
   'Bash',

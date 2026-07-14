@@ -96,7 +96,7 @@ export async function updateStateDoc(args: {
     ...((state.context as Record<string, unknown>) || {}),
     lastSession: dateHelper.getTimestamp(),
     lastAction: 'Synced project',
-    nextAction: 'Run `p. work "intent"` to start an AI Agile work cycle',
+    nextAction: 'Run `p. work "intent"` to start a work cycle',
   }
 
   await stateStorage.write(projectId, state as StateJson)
