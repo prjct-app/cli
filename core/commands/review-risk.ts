@@ -17,6 +17,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import { PrjctCommandsBase } from './base'
+import { requireProject } from './guards'
 
 export class ReviewRiskCommands extends PrjctCommandsBase {
   async reviewRisk(
@@ -46,10 +47,29 @@ export class ReviewRiskCommands extends PrjctCommandsBase {
       const geometry = geometryOf(tier)
       const intensity = routeIntensity(tier, { paths: cs.dirs })
       const protocol = intensityProtocol(intensity)
+
+      // Optional structural blast/risk when symbol index exists
+      let blastNote = ''
+      try {
+        const proj = await requireProject(projectPath, options)
+        if (proj.ok) {
+          const { hasSymbolIndex } = await import('../domain/symbol-graph')
+          if (hasSymbolIndex(proj.value)) {
+            const { detectChanges } = await import('../services/detect-changes')
+            const det = await detectChanges(projectPath, proj.value, { source: 'committed' })
+            if (det.changedFiles.length > 0) {
+              blastNote = `Structural risk: critical=${det.summary.critical} high=${det.summary.high} medium=${det.summary.medium} low=${det.summary.low} · blast ${det.affectedFiles.length} files`
+            }
+          }
+        }
+      } catch {
+        /* advisory only */
+      }
+
       console.log(
         options.md
-          ? formatMd(cs, tier, geometry, intensity, protocol)
-          : formatText(cs, tier, geometry, intensity, protocol)
+          ? formatMd(cs, tier, geometry, intensity, protocol, blastNote)
+          : formatText(cs, tier, geometry, intensity, protocol, blastNote)
       )
       return { success: true, tier, files: cs.files, loc: cs.loc, geometry, intensity }
     } catch (error) {
@@ -73,13 +93,15 @@ function formatText(
   tier: DeliveryTier,
   geometry: DeliveryGeometry,
   intensity: ReviewIntensity,
-  protocol: ReturnType<typeof intensityProtocol>
+  protocol: ReturnType<typeof intensityProtocol>,
+  blastNote = ''
 ): string {
   return [
     `Review risk: ${tier.toUpperCase()} — ${cs.files} files, ${cs.loc} LOC vs ${cs.base}`,
     `Delivery: ${geometry} — ${suggestion(geometry, cs.dirs)}`,
     `Judgment intensity: ${intensity} — ${protocol.reviewers}`,
     `  severity floor: ${protocol.severityFloor}`,
+    ...(blastNote ? [`  ${blastNote}`] : []),
     `  next: prjct judgment plan | open  (ledger + ship gate)`,
     '(advisory for delivery; judgment ledger enforces intensity on code-strict ship)',
   ].join('\n')
@@ -90,7 +112,8 @@ function formatMd(
   tier: DeliveryTier,
   geometry: DeliveryGeometry,
   intensity: ReviewIntensity,
-  protocol: ReturnType<typeof intensityProtocol>
+  protocol: ReturnType<typeof intensityProtocol>,
+  blastNote = ''
 ): string {
   return [
     '## Review risk',
@@ -102,6 +125,7 @@ function formatMd(
     `- **Judgment intensity**: \`${intensity}\` — ${protocol.reviewers}`,
     `- **Severity floor**: ${protocol.severityFloor}`,
     `- **Max fix rounds**: ${protocol.maxFixRounds}`,
+    ...(blastNote ? [`- **${blastNote}**`] : []),
     '',
     '_Delivery is advisory. On code-strict packs, `prjct ship` hard-gates on `prjct judgment` ledger.approved._',
   ].join('\n')

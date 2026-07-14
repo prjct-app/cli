@@ -21,7 +21,7 @@ export function registerFileTools(server: McpServer) {
 
   s.tool(
     'prjct_relevant_files',
-    'MUST call before Grep/Glob tree walks. Resolves a constrained work scope via prjct: memory (FTS + semantic embeddings when enabled) + code BM25 index + import graph + co-change. Prefer this over scanning the repo.',
+    'MUST call before Grep/Glob tree walks. Resolves a constrained work scope via prjct: memory (FTS + semantic embeddings when enabled) + code BM25 + symbol graph + import graph + co-change. Prefer this over scanning the repo. For call chains use prjct_trace_path.',
     {
       projectPath: optionalProjectPath,
       query: z.string().describe('Task or query to find relevant files for'),

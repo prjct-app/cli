@@ -61,7 +61,7 @@ export function buildPrjctSkillBody(): string {
     '### Cast + file scope (MUST)',
     '',
     '- Multi-agent Cast names (explore→Popper · implement→Copernicus · review→McClintock): use as `description` / `prjct claim --as <Name>`.',
-    '- Before Grep/Glob: Work scope from `prjct work`, MCP `prjct_relevant_files`, or `prjct context memory` + `prjct guard <file>`. No blind tree walk when indexes exist.',
+    '- Before Grep/Glob: Work scope from `prjct work`, MCP `prjct_relevant_files`, or `prjct context memory` + `prjct guard <file>`. Prefer `prjct code trace <symbol>` / `architecture` / MCP `prjct_trace_path` over file-by-file search when the symbol graph exists. No blind tree walk when indexes exist.',
     '- **Synthesis discipline:** parent never says "based on findings" — hand implementers concrete file:line specs. **Continue** a worker when it already holds the edit files; **spawn fresh** for verify or a wrong approach.',
     '',
     '### Core verbs (Tier 1=auto · 2=confirm)',

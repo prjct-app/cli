@@ -18,6 +18,7 @@
 import { hasIndex as bm25HasIndex, queryFiles } from '../bm25'
 import { scoreFromSeeds as cochangeScoreFromSeeds, loadMatrix } from '../git-cochange'
 import { scoreFromSeeds as importScoreFromSeeds, loadGraph } from '../import-graph'
+import { hasSymbolIndex, scoreFilesFromQuery } from '../symbol-graph'
 
 export interface NormalizedScore {
   path: string
@@ -57,14 +58,23 @@ export const indexerRegistry: Indexer[] = [
   {
     name: 'bm25',
     kind: 'query',
-    defaultWeight: 0.5,
+    defaultWeight: 0.45,
     hasIndex: (projectId) => bm25HasIndex(projectId),
     scoreFromQuery: (projectId, query, topN) => normalize(queryFiles(projectId, query, topN)),
   },
   {
+    name: 'symbols',
+    kind: 'query',
+    // Structural symbol-name match (functions/classes/routes) — CBM-inspired.
+    defaultWeight: 0.2,
+    hasIndex: (projectId) => hasSymbolIndex(projectId),
+    scoreFromQuery: (projectId, query, topN) =>
+      normalize(scoreFilesFromQuery(projectId, query, topN)),
+  },
+  {
     name: 'imports',
     kind: 'seed',
-    defaultWeight: 0.3,
+    defaultWeight: 0.2,
     hasIndex: (projectId) => loadGraph(projectId) !== null,
     scoreFromSeeds: (projectId, seeds, opts) => {
       const graph = loadGraph(projectId)
@@ -75,7 +85,7 @@ export const indexerRegistry: Indexer[] = [
   {
     name: 'cochange',
     kind: 'seed',
-    defaultWeight: 0.2,
+    defaultWeight: 0.15,
     hasIndex: (projectId) => loadMatrix(projectId) !== null,
     scoreFromSeeds: (projectId, seeds) => {
       const index = loadMatrix(projectId)

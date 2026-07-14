@@ -441,6 +441,11 @@ export async function runBinCommand(args: string[], ctx: BinCommandContext): Pro
           await runPreEditHook(projectPath)
           break
         }
+        case 'pre-search': {
+          const { runPreSearchHook } = await import('../hooks/pre-search')
+          await runPreSearchHook(projectPath)
+          break
+        }
         case 'post-edit': {
           const { runPostEditHook } = await import('../hooks/post-edit')
           await runPostEditHook(projectPath)

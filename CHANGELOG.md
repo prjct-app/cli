@@ -2,12 +2,17 @@
 
 ## [Unreleased]
 
+## [3.60.0] - 2026-07-14
+
+### Added
+- Structural code symbol graph (CBM-inspired): symbols, trace, impact/hunks, architecture, dead code, per-project cache, Grep|Glob pre-search, CBM auto-fallback
+- Harness repositioning — user-facing copy: 'AI Agile OS' → 'The agentic harness for AI coding agents'
+
 ## [3.59.1] - 2026-07-14
 
 ### Bug Fixes
 
 - bench-ab interleaved A/B reps + confirm pass — kill phantom regressions (#567)
-
 
 ## [3.59.0] - 2026-07-14
 

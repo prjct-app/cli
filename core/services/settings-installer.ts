@@ -50,6 +50,8 @@ export const PRJCT_HOOKS = [
   // is about to edit it — closes the apply loop that pull-only `guard` left to
   // the agent's (unreliable) instinct. Fires regardless of model = update-proof.
   { event: 'PreToolUse', matcher: 'Edit|Write', subcommand: 'pre-edit' },
+  // Non-blocking code-graph augment for Grep/Glob (CBM-inspired). Never denies.
+  { event: 'PreToolUse', matcher: 'Grep|Glob', subcommand: 'pre-search' },
   { event: 'PostToolUse', matcher: 'Edit|Write', subcommand: 'post-edit' },
   { event: 'Stop', matcher: '', subcommand: 'stop' },
   { event: 'SubagentStart', matcher: '', subcommand: 'subagent-start' },
