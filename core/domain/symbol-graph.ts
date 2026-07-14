@@ -1,20 +1,19 @@
 /**
  * Symbol Graph — structural code intelligence (file → symbol layer).
  *
- * Inspired by codebase-memory-mcp's knowledge graph, but scoped to what
- * prjct needs without Hybrid LSP / tree-sitter vendoring:
- *   - Extract functions/classes/types (+ call sites) via regex AST-lite
- *   - Persist symbols + CALLS/DEFINES edges in SQLite
- *   - Score files by symbol-name match (4th ranker signal)
- *   - Trace inbound/outbound call paths
- *   - Power detect_changes blast radius
+ * P0 quality:
+ *   - Extract from noise-stripped source (no symbols/calls inside strings/comments)
+ *   - CALLS edges from enclosing function/method/class (by line), not only file:
+ *   - Import resolution: relative, @/, tsconfig paths, RESOLVE_EXTENSIONS
+ *   - call sites keep line numbers for enclosing-symbol attribution
  *
- * Languages (S1): TypeScript / JavaScript / TSX / JSX, plus lightweight
- * Python / Go / Rust / Java definition extraction (calls best-effort).
+ * Languages: TypeScript / JavaScript / TSX / JSX (full CALLS path),
+ * plus lightweight Python / Go / Rust / Java definition extraction.
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { RESOLVE_EXTENSIONS } from '../constants/file-patterns'
 import prjctDb from '../storage/database'
 import type {
   CodeSymbol,
@@ -42,7 +41,94 @@ const SYMBOL_EXTS = new Set([
   '.java',
 ])
 
-// Extraction
+const CALL_KEYWORDS = new Set([
+  'if',
+  'for',
+  'while',
+  'switch',
+  'catch',
+  'function',
+  'class',
+  'return',
+  'typeof',
+  'new',
+  'throw',
+  'await',
+  'void',
+  'super',
+  'this',
+  'import',
+  'require',
+  'console',
+  'Math',
+  'JSON',
+  'Object',
+  'Array',
+  'Promise',
+  'Map',
+  'Set',
+  'Date',
+  'Error',
+  'Buffer',
+  'process',
+  'describe',
+  'it',
+  'test',
+  'expect',
+  'beforeEach',
+  'afterEach',
+  'beforeAll',
+  'afterAll',
+])
+
+const DECL_KEYWORDS = new Set([
+  'if',
+  'for',
+  'while',
+  'switch',
+  'catch',
+  'return',
+  'await',
+  'typeof',
+  'new',
+  'throw',
+  'else',
+  'case',
+  'from',
+  'import',
+  'export',
+  'class',
+  'function',
+  'const',
+  'let',
+  'var',
+  'get',
+  'set',
+  'constructor',
+  'async',
+  'static',
+  'public',
+  'private',
+  'protected',
+  'readonly',
+  'abstract',
+  'extends',
+  'implements',
+  'interface',
+  'type',
+  'enum',
+  'default',
+  'as',
+  'of',
+  'in',
+  'do',
+  'try',
+  'finally',
+  'yield',
+  'with',
+])
+
+// Extraction types
 
 interface RawSymbol {
   kind: SymbolKind
@@ -52,13 +138,22 @@ interface RawSymbol {
   exported: boolean
 }
 
-interface FileExtract {
+interface CallSite {
+  name: string
+  line: number
+}
+
+export interface FileExtract {
   filePath: string
   symbols: RawSymbol[]
-  /** Call names found in this file (not yet resolved). */
+  /** Unique call names (compat + scoring). */
   callNames: string[]
-  /** Named imports: localName → resolved relative module path (best-effort). */
+  /** Call sites with line for enclosing-symbol attribution. */
+  calls: CallSite[]
+  /** Named import local → specifier as written in source. */
   importBindings: Map<string, string>
+  /** local → resolved project-relative file path (filled during extractProject). */
+  resolvedImports: Map<string, string>
 }
 
 function lineOf(content: string, index: number): number {
@@ -83,20 +178,119 @@ function isSourceFile(filePath: string): boolean {
   return SYMBOL_EXTS.has(ext)
 }
 
-/** Strip strings/comments so call extraction doesn't match noise. */
-function stripNoise(content: string): string {
-  return content
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-    .replace(/\/\/[^\n]*/g, '')
-    .replace(/'(?:\\.|[^'\\])*'/g, "''")
-    .replace(/"(?:\\.|[^"\\])*"/g, '""')
-    .replace(/`(?:\\.|[^`\\])*`/g, '``')
+/**
+ * Strip comments + string/template literals while preserving newlines so
+ * line numbers stay aligned with the original source.
+ * Linear scan (no catastrophic regex backtracking on large files).
+ */
+export function stripNoise(content: string): string {
+  const out: string[] = []
+  let i = 0
+  const n = content.length
+  while (i < n) {
+    const c = content[i]!
+    const next = content[i + 1]
+
+    // line comment
+    if (c === '/' && next === '/') {
+      out.push(' ')
+      i += 2
+      while (i < n && content[i] !== '\n') {
+        out.push(' ')
+        i++
+      }
+      continue
+    }
+    // block comment
+    if (c === '/' && next === '*') {
+      out.push(' ')
+      out.push(' ')
+      i += 2
+      while (i < n) {
+        if (content[i] === '*' && content[i + 1] === '/') {
+          out.push(' ')
+          out.push(' ')
+          i += 2
+          break
+        }
+        out.push(content[i] === '\n' ? '\n' : ' ')
+        i++
+      }
+      continue
+    }
+    // single / double quoted string
+    if (c === "'" || c === '"') {
+      const q = c
+      out.push(q)
+      i++
+      while (i < n) {
+        const ch = content[i]!
+        if (ch === '\\' && i + 1 < n) {
+          out.push(' ')
+          out.push(' ')
+          i += 2
+          continue
+        }
+        if (ch === q) {
+          out.push(q)
+          i++
+          break
+        }
+        out.push(ch === '\n' ? '\n' : ' ')
+        i++
+      }
+      continue
+    }
+    // template literal (no ${} expansion handling — blank whole span)
+    if (c === '`') {
+      out.push('`')
+      i++
+      while (i < n) {
+        const ch = content[i]!
+        if (ch === '\\' && i + 1 < n) {
+          out.push(' ')
+          out.push(' ')
+          i += 2
+          continue
+        }
+        if (ch === '`') {
+          out.push('`')
+          i++
+          break
+        }
+        out.push(ch === '\n' ? '\n' : ' ')
+        i++
+      }
+      continue
+    }
+
+    out.push(c)
+    i++
+  }
+  return out.join('')
+}
+
+function emptyExtract(filePath: string): FileExtract {
+  return {
+    filePath,
+    symbols: [],
+    callNames: [],
+    calls: [],
+    importBindings: new Map(),
+    resolvedImports: new Map(),
+  }
+}
+
+function finalizeCalls(calls: CallSite[]): { calls: CallSite[]; callNames: string[] } {
+  const names = [...new Set(calls.map((c) => c.name))]
+  return { calls, callNames: names }
 }
 
 function extractTsJs(content: string, filePath: string): FileExtract {
   const symbols: RawSymbol[] = []
-  const callNames: string[] = []
+  const calls: CallSite[] = []
   const importBindings = new Map<string, string>()
+  // Extract from cleaned source so string literals don't mint fake symbols/calls
   const clean = stripNoise(content)
 
   const declPatterns: Array<{
@@ -142,9 +336,9 @@ function extractTsJs(content: string, filePath: string): FileExtract {
       nameIdx: 1,
       exported: true,
     },
-    // Methods inside classes (indent heuristic)
+    // Methods: keep the param span bounded to avoid catastrophic backtracking
     {
-      re: /(?:^|\n)\s+(?:public|private|protected|static|async|readonly|\s)*\s*(?:async\s+)?(\w+)\s*\([^;{]*\)\s*[:{]/g,
+      re: /(?:^|\n)[ \t]+(?:(?:public|private|protected|static|async|readonly)\s+)*(\w+)\s*\([^)]{0,200}\)\s*[:{]/g,
       kind: 'method',
       nameIdx: 1,
     },
@@ -154,17 +348,10 @@ function extractTsJs(content: string, filePath: string): FileExtract {
   for (const { re, kind, nameIdx, exported } of declPatterns) {
     re.lastIndex = 0
     let m: RegExpExecArray | null
-    while ((m = re.exec(content)) !== null) {
+    while ((m = re.exec(clean)) !== null) {
       const name = m[nameIdx]
-      if (!name || name.length < 2) continue
-      // Skip keywords / control
-      if (
-        /^(if|for|while|switch|catch|return|await|typeof|new|throw|else|case|from|import|export|class|function|const|let|var|get|set|constructor)$/.test(
-          name
-        )
-      )
-        continue
-      const startLine = lineOf(content, m.index)
+      if (!name || name.length < 2 || DECL_KEYWORDS.has(name)) continue
+      const startLine = lineOf(clean, m.index)
       const key = `${kind}:${name}@${startLine}`
       if (seen.has(key)) continue
       seen.add(key)
@@ -178,44 +365,48 @@ function extractTsJs(content: string, filePath: string): FileExtract {
     }
   }
 
-  // Named imports: import { a as b, c } from './mod'
+  // Imports MUST read original source — stripNoise blanks string literals.
   const importRe =
-    /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+['"](\.[^'"]+|@\/[^'"]+)['"]/g
+    /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+)(?:\s*,\s*\{([^}]+)\})?|\*\s+as\s+(\w+))\s+from\s+['"]([^'"]+)['"]/g
   let im: RegExpExecArray | null
   while ((im = importRe.exec(content)) !== null) {
-    const source = im[3]!
-    if (im[1]) {
-      for (const part of im[1].split(',')) {
+    const source = im[5]!
+    const bindNamed = (chunk: string | undefined) => {
+      if (!chunk) return
+      for (const part of chunk.split(',')) {
         const bits = part
           .trim()
           .replace(/^type\s+/, '')
           .split(/\s+as\s+/)
         const local = (bits[1] ?? bits[0])?.trim()
-        if (local) importBindings.set(local, source)
+        if (local && /^[A-Za-z_][\w]*$/.test(local)) importBindings.set(local, source)
       }
-    } else if (im[2]) {
-      importBindings.set(im[2], source)
     }
+    bindNamed(im[1])
+    bindNamed(im[3])
+    if (im[2]) importBindings.set(im[2], source)
+    if (im[4]) importBindings.set(im[4], source)
   }
 
-  // Call sites: identifier(
+  // require('...') — also from original
+  const reqRe = /(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+  while ((im = reqRe.exec(content)) !== null) {
+    importBindings.set(im[1]!, im[2]!)
+  }
+
+  // Call sites with lines — cap to avoid edge explosion on huge files
   const callRe = /\b([A-Za-z_][\w]*)\s*\(/g
   let cm: RegExpExecArray | null
-  const callSeen = new Set<string>()
+  const MAX_CALLS = 400
   while ((cm = callRe.exec(clean)) !== null) {
     const name = cm[1]!
-    if (
-      /^(if|for|while|switch|catch|function|class|return|typeof|new|throw|await|void|super|this|import|require|console|Math|JSON|Object|Array|Promise|Map|Set|Date|Error|Buffer|process|describe|it|test|expect|beforeEach|afterEach)$/.test(
-        name
-      )
-    )
-      continue
-    if (callSeen.has(name)) continue
-    callSeen.add(name)
-    callNames.push(name)
+    if (CALL_KEYWORDS.has(name) || name.length < 2) continue
+    const line = lineOf(clean, cm.index)
+    calls.push({ name, line })
+    if (calls.length >= MAX_CALLS) break
   }
 
-  // Route heuristics (Express/Hono/Next-ish)
+  // Routes (from clean — string paths were blanked; use original for route strings)
   const routeRe = /\.(?:get|post|put|patch|delete|options|head|all)\s*\(\s*['"`](\/[^'"`]*)['"`]/gi
   let rm: RegExpExecArray | null
   while ((rm = routeRe.exec(content)) !== null) {
@@ -230,77 +421,98 @@ function extractTsJs(content: string, filePath: string): FileExtract {
     })
   }
 
-  return { filePath, symbols, callNames, importBindings }
+  const fin = finalizeCalls(calls)
+  return {
+    filePath,
+    symbols,
+    callNames: fin.callNames,
+    calls: fin.calls,
+    importBindings,
+    resolvedImports: new Map(),
+  }
 }
 
 function extractPython(content: string, filePath: string): FileExtract {
   const symbols: RawSymbol[] = []
-  const callNames: string[] = []
+  const calls: CallSite[] = []
+  const clean = stripNoise(content)
   const reFn = /^(?:async\s+)?def\s+(\w+)\s*\(/gm
   const reClass = /^class\s+(\w+)/gm
   let m: RegExpExecArray | null
-  while ((m = reFn.exec(content)) !== null) {
+  while ((m = reFn.exec(clean)) !== null) {
     symbols.push({
       kind: 'function',
       name: m[1]!,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: !m[1]!.startsWith('_'),
     })
   }
-  while ((m = reClass.exec(content)) !== null) {
+  while ((m = reClass.exec(clean)) !== null) {
     symbols.push({
       kind: 'class',
       name: m[1]!,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: !m[1]!.startsWith('_'),
     })
   }
   const callRe = /\b([A-Za-z_][\w]*)\s*\(/g
-  const clean = stripNoise(content)
-  const seen = new Set<string>()
   while ((m = callRe.exec(clean)) !== null) {
     const name = m[1]!
     if (/^(if|for|while|return|print|len|range|str|int|list|dict|set|super|self)$/.test(name))
       continue
-    if (seen.has(name)) continue
-    seen.add(name)
-    callNames.push(name)
+    calls.push({ name, line: lineOf(clean, m.index) })
   }
-  return { filePath, symbols, callNames, importBindings: new Map() }
+  const fin = finalizeCalls(calls)
+  return {
+    filePath,
+    symbols,
+    callNames: fin.callNames,
+    calls: fin.calls,
+    importBindings: new Map(),
+    resolvedImports: new Map(),
+  }
 }
 
 function extractGo(content: string, filePath: string): FileExtract {
   const symbols: RawSymbol[] = []
-  const callNames: string[] = []
+  const clean = stripNoise(content)
   const reFn = /^func\s+(?:\([^)]+\)\s+)?(\w+)\s*\(/gm
   const reType = /^type\s+(\w+)\s+(?:struct|interface)/gm
   let m: RegExpExecArray | null
-  while ((m = reFn.exec(content)) !== null) {
+  while ((m = reFn.exec(clean)) !== null) {
     const name = m[1]!
     symbols.push({
-      kind: name[0] === name[0]!.toUpperCase() ? 'function' : 'function',
+      kind: 'function',
       name,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: name[0] === name[0]!.toUpperCase(),
     })
   }
-  while ((m = reType.exec(content)) !== null) {
+  while ((m = reType.exec(clean)) !== null) {
     symbols.push({
       kind: 'type',
       name: m[1]!,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: m[1]![0] === m[1]![0]!.toUpperCase(),
     })
   }
-  return { filePath, symbols, callNames, importBindings: new Map() }
+  return {
+    filePath,
+    symbols,
+    callNames: [],
+    calls: [],
+    importBindings: new Map(),
+    resolvedImports: new Map(),
+  }
 }
 
 function extractRust(content: string, filePath: string): FileExtract {
   const symbols: RawSymbol[] = []
+  const clean = stripNoise(content)
   const reFn = /^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/gm
   const reStruct = /^(?:pub\s+)?struct\s+(\w+)/gm
   const reTrait = /^(?:pub\s+)?trait\s+(\w+)/gm
@@ -312,55 +524,70 @@ function extractRust(content: string, filePath: string): FileExtract {
     [reTrait, 'interface'],
     [reEnum, 'enum'],
   ] as const) {
-    while ((m = re.exec(content)) !== null) {
+    while ((m = re.exec(clean)) !== null) {
       symbols.push({
         kind: kind as SymbolKind,
         name: m[1]!,
-        startLine: lineOf(content, m.index),
+        startLine: lineOf(clean, m.index),
         endLine: null,
         exported: /^pub\b/.test(m[0]!),
       })
     }
   }
-  return { filePath, symbols, callNames: [], importBindings: new Map() }
+  return {
+    filePath,
+    symbols,
+    callNames: [],
+    calls: [],
+    importBindings: new Map(),
+    resolvedImports: new Map(),
+  }
 }
 
 function extractJava(content: string, filePath: string): FileExtract {
   const symbols: RawSymbol[] = []
+  const clean = stripNoise(content)
   const reClass = /(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)?class\s+(\w+)/g
   const reIface = /(?:public\s+)?interface\s+(\w+)/g
   const reMethod =
     /(?:public|private|protected)\s+(?:static\s+)?(?:final\s+)?[\w.<>,[\]\s]+\s+(\w+)\s*\(/g
   let m: RegExpExecArray | null
-  while ((m = reClass.exec(content)) !== null) {
+  while ((m = reClass.exec(clean)) !== null) {
     symbols.push({
       kind: 'class',
       name: m[1]!,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: true,
     })
   }
-  while ((m = reIface.exec(content)) !== null) {
+  while ((m = reIface.exec(clean)) !== null) {
     symbols.push({
       kind: 'interface',
       name: m[1]!,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: true,
     })
   }
-  while ((m = reMethod.exec(content)) !== null) {
+  while ((m = reMethod.exec(clean)) !== null) {
     if (/^(if|for|while|switch|catch|return|new)$/.test(m[1]!)) continue
     symbols.push({
       kind: 'method',
       name: m[1]!,
-      startLine: lineOf(content, m.index),
+      startLine: lineOf(clean, m.index),
       endLine: null,
       exported: true,
     })
   }
-  return { filePath, symbols, callNames: [], importBindings: new Map() }
+  return {
+    filePath,
+    symbols,
+    callNames: [],
+    calls: [],
+    importBindings: new Map(),
+    resolvedImports: new Map(),
+  }
 }
 
 export function extractFile(content: string, filePath: string): FileExtract {
@@ -372,25 +599,114 @@ export function extractFile(content: string, filePath: string): FileExtract {
   if (ext === '.go') return extractGo(content, filePath)
   if (ext === '.rs') return extractRust(content, filePath)
   if (ext === '.java') return extractJava(content, filePath)
-  return { filePath, symbols: [], callNames: [], importBindings: new Map() }
+  return emptyExtract(filePath)
 }
 
-// Resolve import path relative to file (TS/JS relative only)
+// Import resolution
 
-function resolveModuleHint(fromFile: string, source: string): string | null {
-  if (!source.startsWith('.') && !source.startsWith('@/')) return null
-  // Soft resolve: strip extension, return normalized relative path without project root
-  let base: string
-  if (source.startsWith('@/')) {
-    base = path.posix.join('src', source.slice(2))
-  } else {
-    const fromDir = path.posix.dirname(fromFile.replace(/\\/g, '/'))
-    base = path.posix.normalize(path.posix.join(fromDir, source))
+type TsPathMap = Array<{ pattern: string; targets: string[] }>
+
+async function loadTsPathMap(projectPath: string): Promise<TsPathMap> {
+  const map: TsPathMap = []
+  for (const conf of ['tsconfig.json', 'jsconfig.json']) {
+    try {
+      const raw = await fs.readFile(path.join(projectPath, conf), 'utf-8')
+      // Strip comments (tsconfig often has them)
+      const json = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+      const parsed = JSON.parse(json) as {
+        compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string }
+      }
+      const paths = parsed.compilerOptions?.paths
+      const baseUrl = parsed.compilerOptions?.baseUrl ?? '.'
+      if (!paths) continue
+      for (const [pattern, targets] of Object.entries(paths)) {
+        map.push({
+          pattern,
+          targets: targets.map((t) => path.posix.join(baseUrl.replace(/\\/g, '/'), t)),
+        })
+      }
+      break
+    } catch {
+      /* try next */
+    }
   }
-  return base.replace(/^\.\//, '')
+  return map
 }
 
-// Graph build + persistence
+function applyTsPath(specifier: string, tsPaths: TsPathMap): string[] {
+  const out: string[] = []
+  for (const { pattern, targets } of tsPaths) {
+    if (pattern.endsWith('/*')) {
+      const prefix = pattern.slice(0, -1) // keep trailing path start
+      const pre = pattern.slice(0, -2)
+      if (specifier === pre || specifier.startsWith(pre + '/')) {
+        const rest = specifier.slice(pre.length).replace(/^\//, '')
+        for (const t of targets) {
+          const base = t.endsWith('/*') ? t.slice(0, -1) : t
+          out.push(path.posix.join(base.replace(/\*$/, ''), rest).replace(/\\/g, '/'))
+        }
+      }
+      void prefix
+    } else if (specifier === pattern) {
+      for (const t of targets) out.push(t.replace(/\*$/, ''))
+    }
+  }
+  return out
+}
+
+async function resolveSpecifierToFile(
+  projectPath: string,
+  fromFile: string,
+  specifier: string,
+  tsPaths: TsPathMap
+): Promise<string | null> {
+  const candidates: string[] = []
+
+  if (specifier.startsWith('.')) {
+    const fromDir = path.dirname(path.join(projectPath, fromFile))
+    candidates.push(path.resolve(fromDir, specifier))
+  } else if (specifier.startsWith('@/')) {
+    candidates.push(path.join(projectPath, 'src', specifier.slice(2)))
+    candidates.push(path.join(projectPath, specifier.slice(2)))
+  } else {
+    // tsconfig paths / bare alias
+    for (const mapped of applyTsPath(specifier, tsPaths)) {
+      candidates.push(path.join(projectPath, mapped))
+    }
+    // monorepo-ish packages/* fallback
+    candidates.push(path.join(projectPath, 'packages', specifier))
+    candidates.push(path.join(projectPath, 'src', specifier))
+  }
+
+  for (const base of candidates) {
+    for (const ext of RESOLVE_EXTENSIONS) {
+      const full = base + ext
+      try {
+        const st = await fs.stat(full)
+        if (st.isFile()) {
+          return path.relative(projectPath, full).replace(/\\/g, '/')
+        }
+      } catch {
+        /* next */
+      }
+    }
+    // directory index already covered by RESOLVE_EXTENSIONS entries like /index.ts
+  }
+  return null
+}
+
+async function resolveImportsForExtract(
+  projectPath: string,
+  ex: FileExtract,
+  tsPaths: TsPathMap
+): Promise<void> {
+  for (const [local, spec] of ex.importBindings) {
+    const resolved = await resolveSpecifierToFile(projectPath, ex.filePath, spec, tsPaths)
+    if (resolved) ex.resolvedImports.set(local, resolved)
+  }
+}
+
+// Graph build
 
 interface BuiltGraph {
   symbols: CodeSymbol[]
@@ -398,12 +714,81 @@ interface BuiltGraph {
   fileCount: number
 }
 
+function matchFileToMod(file: string, mod: string): boolean {
+  const norm = file.replace(/\\/g, '/')
+  const m = mod.replace(/\\/g, '/').replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '')
+  return (
+    norm === mod ||
+    norm.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') === m ||
+    norm === `${m}.ts` ||
+    norm === `${m}.tsx` ||
+    norm === `${m}.js` ||
+    norm === `${m}.jsx` ||
+    norm === `${m}/index.ts` ||
+    norm === `${m}/index.tsx` ||
+    norm === `${m}/index.js`
+  )
+}
+
+/** Enclosing callable for a call line: nearest prior function/method/class. */
+function enclosingSymbol(fileSyms: CodeSymbol[], callLine: number): CodeSymbol | null {
+  const callables = fileSyms.filter(
+    (s) => s.kind === 'function' || s.kind === 'method' || s.kind === 'class'
+  )
+  let best: CodeSymbol | null = null
+  for (const s of callables) {
+    if (s.startLine <= callLine && (!best || s.startLine > best.startLine)) {
+      best = s
+    }
+  }
+  return best
+}
+
+function resolveCallTargets(
+  callName: string,
+  ex: FileExtract,
+  fileSyms: CodeSymbol[],
+  byName: Map<string, CodeSymbol[]>
+): { targets: CodeSymbol[]; confidence: number } {
+  // 1) same-file definition (not the call site itself)
+  const local = fileSyms.filter((s) => s.name === callName)
+  if (local.length === 1) return { targets: local, confidence: 0.95 }
+  if (local.length > 1) {
+    const exported = local.filter((s) => s.exported)
+    if (exported.length === 1) return { targets: exported, confidence: 0.9 }
+  }
+
+  // 2) import binding → resolved file
+  const resolvedFile = ex.resolvedImports.get(callName)
+  if (resolvedFile) {
+    const candidates = (byName.get(callName) ?? []).filter((s) =>
+      matchFileToMod(s.file, resolvedFile)
+    )
+    if (candidates.length > 0) return { targets: candidates, confidence: 0.9 }
+    // default import: use primary export of that file
+    const fileSymsOf = [...byName.values()]
+      .flat()
+      .filter((s) => matchFileToMod(s.file, resolvedFile) && s.exported)
+    const primary =
+      fileSymsOf.find((s) => s.kind === 'function' || s.kind === 'class') ?? fileSymsOf[0]
+    if (primary) return { targets: [primary], confidence: 0.65 }
+  }
+
+  // 3) unique project-wide name
+  const all = byName.get(callName) ?? []
+  if (all.length === 1) return { targets: all, confidence: 0.75 }
+  if (all.length > 1) {
+    const exported = all.filter((s) => s.exported)
+    if (exported.length === 1) return { targets: exported, confidence: 0.7 }
+  }
+
+  return { targets: [], confidence: 0 }
+}
+
 function buildFromExtracts(extracts: FileExtract[]): BuiltGraph {
   const symbols: CodeSymbol[] = []
   const edges: CodeSymbolEdge[] = []
-  // name → symbols (for call resolution)
   const byName = new Map<string, CodeSymbol[]>()
-  // file → symbols
   const byFile = new Map<string, CodeSymbol[]>()
 
   for (const ex of extracts) {
@@ -425,8 +810,6 @@ function buildFromExtracts(extracts: FileExtract[]): BuiltGraph {
       const list = byName.get(raw.name) ?? []
       list.push(sym)
       byName.set(raw.name, list)
-
-      // File DEFINES symbol
       edges.push({
         src: `file:${ex.filePath}`,
         dst: id,
@@ -437,65 +820,35 @@ function buildFromExtracts(extracts: FileExtract[]): BuiltGraph {
     byFile.set(ex.filePath, fileSyms)
   }
 
-  // Resolve CALLS. Source is the file synthetic node (stable, no false
-  // "function A calls B" when we only know the file invokes B). Trace still
-  // resolves file: → display via symbolsInFile / reverse expansion.
   for (const ex of extracts) {
     const fileSyms = byFile.get(ex.filePath) ?? []
-    const fileSrc = `file:${ex.filePath}`
+    const seenCall = new Set<string>() // src|dst per file to limit fan-out
 
-    for (const callName of ex.callNames) {
-      // 1) same-file definition
-      const local = fileSyms.filter((s) => s.name === callName)
-      let targets: CodeSymbol[] = local
+    for (const call of ex.calls) {
+      // Skip call that is the declaration line of a same-name symbol
+      if (fileSyms.some((s) => s.name === call.name && s.startLine === call.line)) continue
 
-      // 2) import binding → module path hint → match symbol in that file
-      if (targets.length === 0) {
-        const hint = ex.importBindings.get(callName)
-        if (hint) {
-          const mod = resolveModuleHint(ex.filePath, hint)
-          if (mod) {
-            const candidates = (byName.get(callName) ?? []).filter(
-              (s) =>
-                s.file.replace(/\.[^.]+$/, '') === mod ||
-                s.file.startsWith(`${mod}.`) ||
-                s.file.startsWith(`${mod}/`) ||
-                s.file === `${mod}.ts` ||
-                s.file === `${mod}.tsx` ||
-                s.file === `${mod}.js` ||
-                s.file === `${mod}/index.ts` ||
-                s.file === `${mod}/index.js`
-            )
-            if (candidates.length > 0) targets = candidates
-          }
-        }
-      }
-
-      // 3) unique project-wide name
-      if (targets.length === 0) {
-        const all = byName.get(callName) ?? []
-        if (all.length === 1) targets = all
-        else if (all.length > 1) {
-          const exported = all.filter((s) => s.exported)
-          if (exported.length === 1) targets = exported
-        }
-      }
-
+      const { targets, confidence } = resolveCallTargets(call.name, ex, fileSyms, byName)
       if (targets.length === 0) continue
+
+      const enc = enclosingSymbol(fileSyms, call.line)
+      const srcId = enc?.id ?? `file:${ex.filePath}`
+
       for (const t of targets) {
-        // Skip self-calls within same file's definition noise
-        if (t.file === ex.filePath && local.includes(t)) continue
+        if (t.id === srcId) continue
+        const key = `${srcId}|${t.id}`
+        if (seenCall.has(key)) continue
+        seenCall.add(key)
         edges.push({
-          src: fileSrc,
+          src: srcId,
           dst: t.id,
           edgeType: 'CALLS',
-          confidence: local.length > 0 ? 0.6 : 0.75,
+          confidence,
         })
       }
     }
   }
 
-  // Dedup edges
   const edgeKey = new Set<string>()
   const uniqEdges: CodeSymbolEdge[] = []
   for (const e of edges) {
@@ -516,22 +869,25 @@ async function extractProject(projectPath: string, onlyFiles?: string[]): Promis
   const files =
     onlyFiles ?? (await walkDir(projectPath)).filter((f) => isSourceFile(f) && !f.includes('.d.ts'))
   const sourceFiles = files.filter((f) => isSourceFile(f) && !f.endsWith('.d.ts'))
+  const tsPaths = await loadTsPathMap(projectPath)
 
-  return batchProcess(sourceFiles, 40, async (filePath) => {
+  const extracts = await batchProcess(sourceFiles, 40, async (filePath) => {
     try {
       const content = await fs.readFile(path.join(projectPath, filePath), 'utf-8')
-      // Cap very large files for extraction cost
       const sliced = content.length > 400_000 ? content.slice(0, 400_000) : content
       return extractFile(sliced, filePath)
     } catch {
-      return {
-        filePath,
-        symbols: [],
-        callNames: [],
-        importBindings: new Map(),
-      }
+      return emptyExtract(filePath)
     }
   })
+
+  // Resolve imports (bounded parallelism via batch)
+  await batchProcess(extracts, 40, async (ex) => {
+    await resolveImportsForExtract(projectPath, ex, tsPaths)
+    return ex
+  })
+
+  return extracts
 }
 
 function persistGraph(projectId: string, graph: BuiltGraph): void {
@@ -568,19 +924,17 @@ function patchGraph(
   extracts: FileExtract[],
   deletedFiles: string[]
 ): SymbolGraphMeta | null {
-  // Incremental: drop symbols/edges for touched files, re-insert from extracts.
-  // CALLS that target/src these symbols also get cleaned via id prefix.
   const touched = new Set([...extracts.map((e) => e.filePath), ...deletedFiles])
   if (touched.size === 0) return loadMeta(projectId)
 
-  // Load surviving symbols for call resolution (name index of whole project after patch)
   const existing = listAllSymbols(projectId).filter((s) => !touched.has(s.file))
+  // Merge extracts with a synthetic full extract set for call resolution:
+  // build only from changed extracts, then re-link CALLS using existing+new names.
   const rebuilt = buildFromExtracts(extracts)
 
   prjctDb.transaction(projectId, (db) => {
     const delSym = db.prepare('DELETE FROM code_symbols WHERE file = ?')
     for (const file of touched) {
-      // LIKE: file#… symbol ids and synthetic file: nodes
       db.prepare(
         `DELETE FROM code_symbol_edges WHERE src LIKE ? OR dst LIKE ? OR src = ? OR dst = ?`
       ).run(`${file}#%`, `${file}#%`, `file:${file}`, `file:${file}`)
@@ -598,35 +952,37 @@ function patchGraph(
     for (const s of rebuilt.symbols) {
       insSym.run(s.id, s.file, s.kind, s.name, s.qname, s.startLine, s.endLine, s.exported ? 1 : 0)
     }
-    // Re-resolve CALLS for changed files against full name index
+
     const byName = new Map<string, CodeSymbol[]>()
     for (const s of [...existing, ...rebuilt.symbols]) {
       const list = byName.get(s.name) ?? []
       list.push(s)
       byName.set(s.name, list)
     }
+    const byFile = new Map<string, CodeSymbol[]>()
+    for (const s of [...existing, ...rebuilt.symbols]) {
+      if (!byFile.has(s.file)) byFile.set(s.file, [])
+      byFile.get(s.file)!.push(s)
+    }
+
     for (const ex of extracts) {
-      const fileSyms = rebuilt.symbols.filter((s) => s.file === ex.filePath)
-      const defaultSrc =
-        fileSyms.find((s) => s.kind === 'function' || s.kind === 'class' || s.kind === 'method')
-          ?.id ?? fileSyms[0]?.id
-      for (const s of fileSyms) {
+      const fileSyms = byFile.get(ex.filePath) ?? []
+      for (const s of fileSyms.filter((x) => x.file === ex.filePath)) {
         insEdge.run(`file:${ex.filePath}`, s.id, 'DEFINES', 1)
       }
-      if (!defaultSrc) continue
-      for (const callName of ex.callNames) {
-        let targets = fileSyms.filter((s) => s.name === callName)
-        if (targets.length === 0) {
-          const all = byName.get(callName) ?? []
-          if (all.length === 1) targets = all
-          else {
-            const exported = all.filter((s) => s.exported)
-            if (exported.length === 1) targets = exported
-          }
-        }
+      const seen = new Set<string>()
+      for (const call of ex.calls) {
+        if (fileSyms.some((s) => s.name === call.name && s.startLine === call.line)) continue
+        const { targets, confidence } = resolveCallTargets(call.name, ex, fileSyms, byName)
+        if (targets.length === 0) continue
+        const enc = enclosingSymbol(fileSyms, call.line)
+        const srcId = enc?.id ?? `file:${ex.filePath}`
         for (const t of targets) {
-          if (t.id === defaultSrc) continue
-          insEdge.run(defaultSrc, t.id, 'CALLS', 0.7)
+          if (t.id === srcId) continue
+          const key = `${srcId}|${t.id}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          insEdge.run(srcId, t.id, 'CALLS', confidence)
         }
       }
     }
@@ -906,7 +1262,8 @@ function symbolById(projectId: string, id: string): CodeSymbol | null {
 }
 
 /**
- * BFS call-path trace for a symbol name (first match preferred: exported).
+ * BFS call-path trace for a symbol name.
+ * Prefers symbol→symbol CALLS; still expands residual file: nodes.
  */
 export function tracePath(
   projectId: string,
@@ -937,7 +1294,6 @@ export function tracePath(
       for (const next of adj.get(id) ?? []) {
         if (visited.has(next)) continue
         visited.add(next)
-        // Synthetic file: callers — expand to primary exported symbols in that file
         if (next.startsWith('file:')) {
           const filePath = next.slice('file:'.length)
           const fileSyms = symbolsInFile(projectId, filePath)
@@ -950,7 +1306,6 @@ export function tracePath(
             out.push({ symbol: primary, depth: depth + 1, via: 'CALLS' })
             queue.push({ id: primary.id, depth: depth + 1 })
           }
-          // Also continue BFS from the file node for multi-hop file→symbol
           queue.push({ id: next, depth: depth + 1 })
           continue
         }
@@ -978,16 +1333,13 @@ export function fileFanIn(projectId: string, filePath: string): number {
   const syms = symbolsInFile(projectId, filePath)
   if (syms.length === 0) return 0
   const { reverse } = loadEdges(projectId, 'CALLS')
-  let count = 0
   const callers = new Set<string>()
   for (const s of syms) {
     for (const c of reverse.get(s.id) ?? []) {
-      // Count file: callers as one fan-in unit each
       callers.add(c)
     }
   }
-  count = callers.size
-  return count
+  return callers.size
 }
 
 /** Files that call into symbols defined in seed files (call-graph expand). */
