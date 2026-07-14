@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.59.1] - 2026-07-14
+
+### Bug Fixes
+
+- bench-ab interleaved A/B reps + confirm pass — kill phantom regressions (#567)
+
+
 ## [3.59.0] - 2026-07-14
 
 ### Added
