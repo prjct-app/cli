@@ -5,7 +5,8 @@
  *   bun scripts/bench-ab.ts 3.20.0 3.21.2   # npm version vs npm version
  *
  * Real product-lifecycle commands (setup → init → work/remember/search/
- * guard/status), isolated PRJCT_CLI_HOME per side, median of N runs — the
+ * guard/status), isolated PRJCT_CLI_HOME per side, interleaved (A,B,A,B,…)
+ * median of N runs with a confirm pass before any REGRESSION verdict — the
  * same methodology used to validate the launcher and Schema v2 wins. Run it
  * before shipping perf-sensitive changes; a regression here is a regression
  * for every user turn.
@@ -85,11 +86,28 @@ function once(side: Side, args: string[]): Promise<number> {
   })
 }
 
-async function median(side: Side, args: string[]): Promise<number> {
-  const xs: number[] = []
-  for (let i = 0; i < REPS; i++) xs.push(await once(side, args))
-  xs.sort((a, b) => a - b)
-  return xs[xs.length >> 1]
+function median(xs: number[]): number {
+  const sorted = [...xs].sort((a, b) => a - b)
+  return sorted[sorted.length >> 1]
+}
+
+/**
+ * Interleave A/B reps (A,B,A,B,…) instead of running each side as a
+ * contiguous batch. A contiguous 7-25s batch is single-burst fragile: one
+ * ambient CPU/disk wave (npm-install churn, a sibling workspace typecheck,
+ * Spotlight) lands entirely on ONE side of ONE case and shifts its whole
+ * median — measured live as a phantom ±40-90% on `status --md` while every
+ * neighbouring case was unaffected. Alternating reps spreads any wave evenly
+ * across both sides, so the Δ% stays honest even on a loaded dev machine.
+ */
+async function medians(a: Side, b: Side, args: string[]): Promise<[number, number]> {
+  const xa: number[] = []
+  const xb: number[] = []
+  for (let i = 0; i < REPS; i++) {
+    xa.push(await once(a, args))
+    xb.push(await once(b, args))
+  }
+  return [median(xa), median(xb)]
 }
 
 const CASES: Array<[string, string[]]> = [
@@ -123,9 +141,23 @@ console.log(
 )
 let regressions = 0
 for (const [label, args] of CASES) {
-  const mA = await median(baseline, args)
-  const mB = await median(candidate, args)
-  const pct = ((mA - mB) / mA) * 100
+  let [mA, mB] = await medians(baseline, candidate, args)
+  let pct = ((mA - mB) / mA) * 100
+  // A >10% loss must reproduce in a second independent pass before it fails
+  // the gate: interleaving spreads short bursts, but a wave outlasting the
+  // whole case window can still tilt one pass. Both passes regressing is a
+  // real signal; one is ambient noise (report the cleaner pass).
+  if (pct < -10) {
+    const firstPct = pct
+    const [rA, rB] = await medians(baseline, candidate, args)
+    const rPct = ((rA - rB) / rA) * 100
+    if (rPct >= -10) {
+      ;[mA, mB, pct] = [rA, rB, rPct]
+      console.log(
+        `${label.padEnd(18)} first pass ${firstPct.toFixed(0)}% — not reproduced, keeping re-run`
+      )
+    }
+  }
   if (pct < -10) regressions++
   console.log(
     `${label.padEnd(18)} ${`${mA.toFixed(1)}ms`.padStart(10)} ${`${mB.toFixed(1)}ms`.padStart(10)}   ${pct >= 0 ? '-' : '+'}${Math.abs(pct).toFixed(0)}%${pct < -10 ? '  ⚠ REGRESSION' : ''}`
