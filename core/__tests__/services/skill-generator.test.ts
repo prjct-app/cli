@@ -97,11 +97,21 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('surfaces the opt-in tdd + sdd verbs in the always-loaded body', async () => {
-      const content = await readClaudeSkill()
+      // L0 only lists the verbs (token budget). Methodology (test-first /
+      // intent-first intensity) lives in the pulled workflows.md reference.
+      const result = await generator.generateAndInstall()
+      const claude = result.generated.find((g) => g.path.includes('.claude/skills/prjct/SKILL.md'))
+      const content = await fs.readFile(claude!.path, 'utf-8')
+      const ref = await fs.readFile(path.join(path.dirname(claude!.path), 'workflows.md'), 'utf-8')
+
       expect(content).toContain('`prjct tdd`')
-      expect(content).toMatch(/test-first|TDD/)
-      expect(content).toContain('`prjct sdd`')
-      expect(content).toMatch(/intent-first|SDD/)
+      expect(content).toMatch(/tdd\/sdd|`sdd`/)
+      expect(content).not.toMatch(/test-first|intent-first/)
+
+      expect(ref).toMatch(/test-first|TDD/)
+      expect(ref).toContain('`prjct tdd`')
+      expect(ref).toContain('`prjct sdd`')
+      expect(ref).toMatch(/intent-first|SDD/)
     })
 
     it('teaches the sovereign knowledge base so agents pull it, never inject it', async () => {
@@ -117,11 +127,13 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('frames work as the single entrypoint for transparent AI Agile orchestration', async () => {
+      // Lean L0: single-entrypoint contract only. Spec/test-first pipeline
+      // detail stays in workflows.md (not always-on prose).
       const content = await readClaudeSkill()
       expect(content).toContain('`prjct work` is the single normal entrypoint')
-      expect(content).toContain('Trivial work proceeds directly')
-      expect(content).toMatch(/persisted intent|tests before implementation/)
+      expect(content).toContain('Full map in `workflows.md`')
       expect(content).not.toContain('**NO spec, NO audit-spec, NO subagents, NO fan-out.**')
+      expect(content).not.toContain('Trivial work proceeds directly')
     })
 
     it('keeps loop-discipline triggers + model quick-ref in the pulled reference', async () => {
@@ -155,13 +167,15 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
     })
 
     it('exposes v3 primitives (work, intent, remember, context, workflow, seed)', async () => {
+      // Compact core table: paired verbs use `/ \`seed\`` shorthand (not
+      // the full `prjct seed` string) to stay inside the L0 token budget.
       const content = await readClaudeSkill()
       expect(content).toContain('prjct work')
       expect(content).toContain('prjct intent')
       expect(content).toContain('prjct remember')
       expect(content).toContain('prjct context memory')
       expect(content).toContain('prjct workflow')
-      expect(content).toContain('prjct seed')
+      expect(content).toMatch(/`prjct workflow`\s*\/\s*`seed`/)
     })
 
     it('points knowledge access at tools, not the vault', async () => {
