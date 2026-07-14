@@ -31,19 +31,19 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 
 | Signal | Verb | T |
 |---|---|---|
-| work / fix / build (DEFAULT) | `prjct work "<intent>"` | 2 |
-| complex goals/stakes | `prjct intent` · `intent audit` | 2 |
-| recall knowledge | `prjct search` / `context memory` | 1 |
-| save judgment | `prjct remember <type> "…"` | 1 |
-| file scope / traps | work scope · `guard <file>` · MCP relevant_files | 1 |
+| work (default) | `prjct work "<intent>"` | 2 |
+| intent | `prjct intent` / `audit` | 2 |
+| recall | `prjct search` / `context memory` | 1 |
+| remember | `prjct remember <type>` | 1 |
+| guard | `prjct guard <file>` | 1 |
 | ship | `prjct ship` | 2 |
-| next / frontier | `prjct next --md` · `ready` · `claim` · `phases` | 1 |
-| metrics | `prjct insights` · `performance` | 1 |
-| land session | `prjct land` | 1 |
-| test-first / intent-first | `prjct tdd` · `prjct sdd` (off\|assist\|strict) | 1 |
-| workflows / packs | `prjct workflow list` · `prjct seed list` | 1 |
+| next | `prjct next --md` | 1 |
+| metrics | `prjct insights` / `performance` | 1 |
+| land | `prjct land` | 1 |
+| tdd/sdd | `prjct tdd` / `sdd` | 1 |
+| workflows | `prjct workflow` / `seed` | 1 |
 
-`prjct work` is the single normal entrypoint. Trivial work proceeds directly; substantive work follows a persisted intent + tests before implementation when required. Full verb map, loop-discipline, model policy → `workflows.md` (pull on demand).
+`prjct work` is the single normal entrypoint. Full map in `workflows.md`.
 
 ### Knowledge
 
