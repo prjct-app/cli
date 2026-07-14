@@ -59,6 +59,5 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 ## Gotchas
 
 - Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.
-- **Skill curation**: Avoid bloat. Curate high-leverage skills. Use create-skill. Apply TDD when creating skills. Keep frequent skills under tight token budgets.
 - Worktree: remove only after PR merged, never --force over dirty work.
 
