@@ -110,7 +110,7 @@ function formatMainHelp(): string {
 
   // Header
   lines.push('')
-  lines.push(`${chalk.cyan.bold('prjct')} v${VERSION} - AI Agile OS for coding agents`)
+  lines.push(`${chalk.cyan.bold('prjct')} v${VERSION} - The agentic harness for AI coding agents`)
   lines.push(chalk.dim('Intent → context → execution → learning → performance improvement.'))
   lines.push('')
 
@@ -122,9 +122,7 @@ function formatMainHelp(): string {
   )
   lines.push(`  ${chalk.green('2.')} cd my-project && prjct init`)
   lines.push(`  ${chalk.green('3.')} Open in Claude Code / Gemini CLI / Cursor`)
-  lines.push(
-    `  ${chalk.green('4.')} p. work "improve auth"   ${chalk.dim('# Start an AI Agile cycle')}`
-  )
+  lines.push(`  ${chalk.green('4.')} p. work "improve auth"   ${chalk.dim('# Start a work cycle')}`)
   lines.push('')
 
   // Terminal Commands
@@ -288,7 +286,7 @@ function formatCommandList(): string {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(chalk.cyan.bold('AI Agile Commands'))
+  lines.push(chalk.cyan.bold('Harness Commands'))
   lines.push('')
 
   // Group by category

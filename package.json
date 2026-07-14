@@ -1,7 +1,7 @@
 {
   "name": "prjct-cli",
   "version": "3.60.0",
-  "description": "Project memory and workflow context for AI coding agents.",
+  "description": "The agentic harness for AI coding agents — work cycles, bounded RAG context, persistent memory, guardrails, and performance evals.",
   "main": "dist/bin/prjct.mjs",
   "bin": {
     "prjct": "bin/prjct.cjs"

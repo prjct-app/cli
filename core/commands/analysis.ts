@@ -93,7 +93,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log(summary)
       console.log('\nNext steps:')
       console.log('• p. sync → Generate agents based on stack')
-      console.log('• p. work "<intent>" → Start an AI Agile work cycle')
+      console.log('• p. work "<intent>" → Start a work cycle')
 
       return {
         success: true,

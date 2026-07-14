@@ -1,9 +1,10 @@
 # prjct-cli
 
-**AI Agile OS for coding agents.** prjct-cli gives Claude Code, Codex, Gemini,
-Cursor, Windsurf, and any agent a project second brain: intent briefs, bounded
-RAG context, preventive guardrails, synthesized learning, and performance
-signals for each dev+LLM work cycle.
+**The agentic harness for AI coding agents.** Intelligence is rented, the
+harness is owned: prjct-cli gives Claude Code, Codex, Gemini, Cursor,
+OpenCode, and any agent intent briefs, bounded RAG context, preventive
+guardrails, synthesized learning, and performance signals for each dev+LLM
+work cycle.
 
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -176,7 +177,7 @@ Use `prjct agents doctor --fix` inside a prjct project to refresh the portable
 `AGENTS.md` surface and any repo-local IDE rule adapters prjct manages. The
 command is idempotent and reports what changed.
 
-## AI Agile intelligence
+## Harness intelligence
 
 prjct should justify itself with project evidence, not vague claims. These
 read-only commands show whether dev+LLM work cycles are getting cheaper,
@@ -240,7 +241,7 @@ $ prjct work "add OAuth refresh" --md
 ```bash
 # In any git repo
 prjct sync                                  # register the project (auto on first prjct command)
-prjct work "add OAuth refresh"              # start an AI Agile work cycle
+prjct work "add OAuth refresh"              # start a work cycle
 prjct remember decision "we chose JWT + refresh rotation"
 prjct remember context "implemented refresh rotation; model/tokens unknown; tests passed"
 prjct ship                                  # bump version, commit, push, open PR
@@ -261,7 +262,7 @@ prjct team --enforce               # pre-commit hook blocks commits without prjc
 
 ```bash
 p. remember context "call Ana re pricing; no work cycle yet"
-p. work "add OAuth refresh"                   # start an AI Agile work cycle
+p. work "add OAuth refresh"                   # start a work cycle
 p. remember decision "we chose JWT + refresh rotation"
 p. performance 7                              # inspect dev+LLM efficiency
 p. ship                                       # commit, push, open PR
@@ -269,12 +270,12 @@ p. ship                                       # commit, push, open PR
 
 Cursor and Windsurf use their installed prjct router files; otherwise run `prjct <command> --md` and follow the output.
 
-### AI Agile verbs
+### Harness verbs
 
 | Verb | What it does |
 |---|---|
 | `prjct intent "<title>"` | Frame objective, constraints, risks, and success signal before high-stakes work. |
-| `prjct work ["<intent>"]` | Start or inspect an AI Agile work cycle with context and evidence. |
+| `prjct work ["<intent>"]` | Start or inspect a work cycle with context and evidence. |
 | `prjct remember <type> "<content>"` | Persist a memory entry (decision, learning, gotcha, …). |
 | `prjct forget <id>` | Delete a memory entry by id (`prjct forget mem_1234`) — the delete half of `remember`. |
 | `prjct search "<query>"` | Search project memory — blended BM25 + semantic + recency recall (`prjct search mem_1234` resolves an entry by id). |
@@ -499,7 +500,7 @@ In any git repo, run `prjct sync` (it auto-runs on the first `prjct` command) or
 `prjct init`. This creates `.prjct/prjct.config.json` with a `projectId` and
 builds the SQLite store at `~/.prjct-cli/projects/<projectId>/`.
 
-**How do I start an AI Agile work cycle?**
+**How do I start a work cycle?**
 Run `prjct work "<intent>"` from the repo. It registers the work cycle in
 SQLite, pulls relevant second-brain context, auto-classifies a lightweight
 harness (H0-H3) with expected evidence, and marks it active — worked example:

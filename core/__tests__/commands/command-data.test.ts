@@ -74,7 +74,7 @@ describe('COMMANDS', () => {
     })
   })
 
-  it('registers v3 AI Agile primitives and keeps task-manager verbs as legacy aliases', () => {
+  it('registers v3 work-cycle primitives and keeps task-manager verbs as legacy aliases', () => {
     for (const name of ['work', 'intent', 'insights', 'performance']) {
       const command = COMMANDS.find((entry) => entry.name === name)
       expect(command?.surface).toBe('ai-agile')

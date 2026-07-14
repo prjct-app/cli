@@ -20,7 +20,7 @@ import { registerWorkflowTools } from './tools/workflow'
  * Compact instructions — hosts already list tool names; avoid duplicating
  * the tool laundry list here (token tax on every session).
  */
-const PRJCT_INSTRUCTIONS = `# prjct — project memory + AI Agile work cycles
+const PRJCT_INSTRUCTIONS = `# prjct — project memory + work cycles
 
 Use when work needs durable project memory, intent, or harness gates. Prefer tools over Grep for recall.
 
