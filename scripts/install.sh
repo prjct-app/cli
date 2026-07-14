@@ -320,7 +320,7 @@ if [ -d "$INSTALL_DIR" ]; then
 else
     printf "  ${ARROW} Cloning repository"
     (
-        git clone https://github.com/jlopezlira/prjct-cli.git "$INSTALL_DIR" --quiet > /dev/null 2>&1
+        git clone https://github.com/prjct-app/prjct-cli.git "$INSTALL_DIR" --quiet > /dev/null 2>&1
     ) &
     spin $!
 
@@ -498,8 +498,8 @@ echo -e "     ${CYAN}prjct task \"build awesome feature\"${NC}"
 echo ""
 echo -e "${DIM}─────────────────────────────────────────────────${NC}"
 echo ""
-echo -e "  ${DIM}Documentation:${NC} ${CYAN}https://github.com/jlopezlira/prjct-cli${NC}"
-echo -e "  ${DIM}Report issues:${NC} ${CYAN}https://github.com/jlopezlira/prjct-cli/issues${NC}"
+echo -e "  ${DIM}Documentation:${NC} ${CYAN}https://github.com/prjct-app/prjct-cli${NC}"
+echo -e "  ${DIM}Report issues:${NC} ${CYAN}https://github.com/prjct-app/prjct-cli/issues${NC}"
 echo ""
 echo -e "${BOLD}${MAGENTA}Happy shipping! 🚀${NC}"
 echo ""

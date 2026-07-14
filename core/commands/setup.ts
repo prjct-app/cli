@@ -836,7 +836,7 @@ echo "⚡ prjct"
     console.log('')
     console.log(`  ${chalk.dim('Documentation:')} ${chalk.cyan('https://prjct.app')}`)
     console.log(
-      `  ${chalk.dim('Report issues:')} ${chalk.cyan('https://github.com/jlopezlira/prjct-cli/issues')}`
+      `  ${chalk.dim('Report issues:')} ${chalk.cyan('https://github.com/prjct-app/prjct-cli/issues')}`
     )
     console.log('')
     console.log(chalk.bold.magenta('Ship with better context.'))

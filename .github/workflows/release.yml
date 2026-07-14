@@ -552,7 +552,7 @@ jobs:
             Paste this into Claude Code (or any AI agent):
 
             ```bash
-            curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
+            curl -sSL https://raw.githubusercontent.com/prjct-app/prjct-cli/main/scripts/install-via-claude.sh | bash
             ```
 
             The script downloads the standalone binary for your platform

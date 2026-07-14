@@ -121,7 +121,7 @@ async function main(): Promise<void> {
       out.failWithHint({
         message: `Command '${commandName}' is not yet implemented`,
         hint: "Run 'prjct --help' to see available commands",
-        docs: 'https://github.com/jlopezlira/prjct-cli',
+        docs: 'https://github.com/prjct-app/prjct-cli',
       })
       if (!isMdMode) out.end()
       process.exit(1)
@@ -513,7 +513,7 @@ FLAGS
 MORE INFO
 ---------
   Documentation:  https://prjct.app
-  GitHub:         https://github.com/jlopezlira/prjct-cli
+  GitHub:         https://github.com/prjct-app/prjct-cli
 `)
 }
 
