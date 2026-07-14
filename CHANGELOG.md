@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.62.0] - 2026-07-14
+
+### Features
+
+- upload compact structural code graph to cloud 3D (#572)
+
+
 ## [3.61.0] - 2026-07-14
 
 ### Added
