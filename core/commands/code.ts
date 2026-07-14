@@ -27,7 +27,7 @@ import {
   formatArchitectureMd,
   formatArchitectureText,
 } from '../services/architecture-snapshot'
-import { cbmCli, detectCbm, formatCbmStatus } from '../services/cbm-bridge'
+import { cbmCli, cbmFallback, detectCbm, formatCbmStatus } from '../services/cbm-bridge'
 import {
   exportCodeGraphArtifact,
   importCodeGraphArtifact,
@@ -162,6 +162,14 @@ export class CodeCommands extends PrjctCommandsBase {
           .filter((s) => s.exported)
           .slice(0, 40)
 
+    if (effective.length === 0 && q) {
+      const fb = await cbmFallback('search', projectPath, { pattern: q })
+      if (fb) {
+        console.log(fb.text)
+        return { success: true, count: 0, source: 'cbm', symbols: [] }
+      }
+    }
+
     if (options.md) {
       const lines = [
         `## Symbols${q ? `: \`${q}\`` : ' (exported sample)'}`,
@@ -197,12 +205,27 @@ export class CodeCommands extends PrjctCommandsBase {
     if (!fn) {
       return failWith('Usage: prjct code trace <functionOrClassName>', options)
     }
-    if (!hasSymbolIndex(proj.value)) {
-      return failWith('No symbol index — run `prjct sync` or `prjct code reindex` first.', options)
+    const hasNative = hasSymbolIndex(proj.value)
+    const result = hasNative ? tracePath(proj.value, fn, { direction: 'both', depth: 3 }) : null
+    const weak =
+      !result ||
+      (result.inbound.length === 0 && result.outbound.length === 0 && result.root.length === 0)
+
+    if (weak) {
+      const fb = await cbmFallback('trace', projectPath, { name: fn })
+      if (fb) {
+        console.log(fb.text)
+        return { success: true, source: 'cbm', inbound: 0, outbound: 0 }
+      }
     }
-    const result = tracePath(proj.value, fn, { direction: 'both', depth: 3 })
+
     if (!result) {
-      return failWith(`No symbol named "${fn}". Try \`prjct code symbols ${fn}\`.`, options)
+      return failWith(
+        hasNative
+          ? `No symbol named "${fn}". Try \`prjct code symbols ${fn}\`${(await detectCbm()).available ? ' or index the repo in CBM for polyglot depth' : ''}.`
+          : 'No symbol index — run `prjct sync` or `prjct code reindex` first.',
+        options
+      )
     }
     if (options.md) {
       const lines = [
@@ -244,6 +267,7 @@ export class CodeCommands extends PrjctCommandsBase {
     }
     return {
       success: true,
+      source: 'native',
       root: result.root,
       inbound: result.inbound.length,
       outbound: result.outbound.length,
@@ -262,8 +286,15 @@ export class CodeCommands extends PrjctCommandsBase {
     const proj = await requireProject(projectPath, options)
     if (!proj.ok) return proj.result
     const snap = buildArchitectureSnapshot(proj.value)
+    if (!snap.ready || snap.symbols === 0) {
+      const fb = await cbmFallback('architecture', projectPath)
+      if (fb) {
+        console.log(fb.text)
+        return { success: true, source: 'cbm', ready: false }
+      }
+    }
     console.log(options.md ? formatArchitectureMd(snap) : formatArchitectureText(snap))
-    return { success: true, ...snap }
+    return { success: true, source: 'native', ...snap }
   }
 
   private async exportArtifact(projectPath: string, options: MdOption): Promise<CommandResult> {
