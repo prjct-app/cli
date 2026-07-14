@@ -29,8 +29,20 @@ export function parseTranscriptJsonl(raw: string): TranscriptJsonlLine[] {
 }
 
 export interface TranscriptUsage {
+  /** Billed input total = sum(per-turn new input) + max(cache_read) across turns. */
   tokensIn: number
   tokensOut: number
+}
+
+/**
+ * Honest breakdown so UIs can show "why is input high?" without re-inflating.
+ * cache_read is cumulative per turn on Claude — never sum it.
+ */
+export interface TranscriptUsageDetailed extends TranscriptUsage {
+  /** Sum of per-turn new input (input_tokens + cache_creation + prompt fields). */
+  tokensInNew: number
+  /** Largest single-turn cache_read_input_tokens (Claude cumulative prefix). */
+  cacheReadMax: number
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -96,11 +108,11 @@ function inWindow(line: TranscriptJsonlLine, window?: UsageWindow): boolean {
   return true
 }
 
-export function sumTranscriptUsage(
+export function sumTranscriptUsageDetailed(
   lines: TranscriptJsonlLine[],
   window?: UsageWindow
-): TranscriptUsage {
-  let tokensIn = 0
+): TranscriptUsageDetailed {
+  let tokensInNew = 0
   let tokensOut = 0
   // cache_read is cumulative (re-reported each turn) — take the largest single
   // report, not the sum, so a long session doesn't inflate input quadratically.
@@ -113,11 +125,24 @@ export function sumTranscriptUsage(
       asRecord(line.usageMetadata)
     if (!usage) continue
     const pair = usagePairFrom(usage)
-    tokensIn += pair.tokensIn
+    tokensInNew += pair.tokensIn
     tokensOut += pair.tokensOut
     if (pair.cacheRead > maxCacheRead) maxCacheRead = pair.cacheRead
   }
-  return { tokensIn: tokensIn + maxCacheRead, tokensOut }
+  return {
+    tokensInNew,
+    cacheReadMax: maxCacheRead,
+    tokensIn: tokensInNew + maxCacheRead,
+    tokensOut,
+  }
+}
+
+export function sumTranscriptUsage(
+  lines: TranscriptJsonlLine[],
+  window?: UsageWindow
+): TranscriptUsage {
+  const d = sumTranscriptUsageDetailed(lines, window)
+  return { tokensIn: d.tokensIn, tokensOut: d.tokensOut }
 }
 
 /**

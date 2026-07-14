@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { parseTranscriptJsonl, sumTranscriptUsage } from '../../services/transcript-jsonl'
+import {
+  parseTranscriptJsonl,
+  sumTranscriptUsage,
+  sumTranscriptUsageDetailed,
+} from '../../services/transcript-jsonl'
 
 describe('sumTranscriptUsage', () => {
   it('sums input/output across assistant turns, counting cache reads/creations as input', () => {
@@ -62,6 +66,10 @@ describe('sumTranscriptUsage', () => {
     // per-turn inputs (100*3) + max cache_read (3000) — NOT 1000+2000+3000.
     expect(usage.tokensIn).toBe(300 + 3000)
     expect(usage.tokensOut).toBe(30)
+    const detailed = sumTranscriptUsageDetailed(lines)
+    expect(detailed.tokensInNew).toBe(300)
+    expect(detailed.cacheReadMax).toBe(3000)
+    expect(detailed.tokensIn).toBe(detailed.tokensInNew + detailed.cacheReadMax)
   })
 
   it('returns zero usage when no usage blocks are present', () => {

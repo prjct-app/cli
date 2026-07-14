@@ -8,6 +8,7 @@ import { detectAgentRuntimes } from '../infrastructure/agent-runtime-registry'
 import type { MemoryEntry, MemoryType } from '../memory/entries'
 import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import { isJunkCaptureContent } from '../services/capture-junk'
 import { resolveActiveTask } from '../services/task-service'
 import {
   buildWorkCostSnapshot,
@@ -891,8 +892,10 @@ function synthesizePrompt(description: string): string {
 }
 
 function isNoise(content: string): boolean {
+  // Shared SoT with captureGate (anti-basura).
+  if (isJunkCaptureContent(content).junk) return true
   const normalized = content.trim()
-  return normalized.length <= 12 || NOISE_RE.test(normalized)
+  return NOISE_RE.test(normalized)
 }
 
 function formatValueMd(snapshot: ValueSnapshot): string {

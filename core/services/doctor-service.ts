@@ -158,7 +158,46 @@ class DoctorService {
       this.checkCommand('codex', ['codex', '--version'], /([\d.]+)/, true, 'OpenAI Codex CLI')
     )
 
+    // Parallel global installs (mem_8768) — PATH winner vs removable shadows.
+    checks.push(await this.checkParallelInstalls())
+
     return checks
+  }
+
+  /**
+   * Warn when multiple package managers each hold prjct-cli — the classic
+   * dual-install footgun. Remediation: prjct update (auto cleanup) or
+   * uninstall non-winners.
+   */
+  private async checkParallelInstalls(): Promise<CheckResult> {
+    try {
+      const { planCleanup } = await import('../commands/update/cleanup-installs')
+      const plan = planCleanup()
+      if (plan.removable.length === 0) {
+        return {
+          name: 'prjct installs',
+          status: 'ok',
+          message: plan.winner
+            ? `single winner: ${plan.winner}`
+            : 'one install (or PATH winner unresolved)',
+          optional: true,
+        }
+      }
+      const list = plan.removable.map((r) => `${r.pm}@${r.version}`).join(', ')
+      return {
+        name: 'prjct installs',
+        status: 'warn',
+        message: `${plan.removable.length} parallel install(s) shadow winner ${plan.winner ?? '?'}: ${list} — run \`prjct update\` to consolidate (or uninstall non-winners)`,
+        optional: true,
+      }
+    } catch {
+      return {
+        name: 'prjct installs',
+        status: 'ok',
+        message: 'could not scan (skipped)',
+        optional: true,
+      }
+    }
   }
 
   private checkCommand(

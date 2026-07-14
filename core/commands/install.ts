@@ -202,6 +202,19 @@ export class InstallCommands extends PrjctCommandsBase {
         )
         if (deltaLine) out.info(deltaLine)
         if (!ritual.organicOk) out.info('Organic gaps remain — run `prjct doctor --fix`')
+        // Multi-install footgun (mem_8768): surface PATH winner vs shadows.
+        try {
+          const { planCleanup } = await import('./update/cleanup-installs')
+          const plan = planCleanup()
+          if (plan.removable.length > 0) {
+            const list = plan.removable.map((r) => `${r.pm}@${r.version}`).join(', ')
+            out.info(
+              `Parallel installs detected (winner=${plan.winner ?? '?'}): ${list} — run \`prjct update\` to consolidate`
+            )
+          }
+        } catch {
+          /* best-effort */
+        }
       }
       return {
         success: true,
