@@ -43,6 +43,18 @@ const TERMINAL_COMMANDS = [
     options: ['--md'],
   },
   {
+    name: 'close',
+    description: 'Resolve a memory entry (leaves rotation + audit)',
+    example: 'prjct close mem_1234 --reason "fixed"',
+    options: ['--reason', '--md'],
+  },
+  {
+    name: 'dream',
+    description: 'Consolidate memory + rebuild L0 index (auto-dream)',
+    example: 'prjct dream --force',
+    options: ['--force', '--dry-run', '--md'],
+  },
+  {
     name: 'watch',
     description: 'Auto-sync on file changes',
     example: 'prjct watch',

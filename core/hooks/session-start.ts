@@ -91,7 +91,20 @@ export async function buildSessionContext(
   if (!config?.projectId) return null
 
   const persona = config.persona
-  const digest = opts.digest ? buildKnowledgeDigest(config.projectId) : null
+  // L0 memory index (Claude MEMORY.md pattern): compact TOC always-on when
+  // digest is requested. Prefer stored/fresh stamp; fall back to legacy digest
+  // only when the index cannot be built.
+  let digest: string | null = null
+  if (opts.digest) {
+    try {
+      const { memoryL0IndexForSession } = await import('../services/memory-index')
+      const indexMd = memoryL0IndexForSession(config.projectId, { rebuildIfStale: true })
+      digest = indexMd
+    } catch {
+      digest = null
+    }
+    if (!digest) digest = buildKnowledgeDigest(config.projectId)
+  }
   // Continuous understanding — once per session, flag genuine drift since the
   // last sync so the model refreshes the architecture/risks map instead of
   // trusting a frozen snapshot for the session's big calls.
