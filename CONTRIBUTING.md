@@ -10,7 +10,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ### Reporting Bugs
 
-1. Check if the bug has already been reported in [Issues](https://github.com/prjct-app/prjct-cli/issues)
+1. Check if the bug has already been reported in [Issues](https://github.com/prjct-app/cli/issues)
 2. If not, create a new issue with:
    - Clear title describing the bug
    - Steps to reproduce
@@ -19,7 +19,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ### Suggesting Features
 
-1. Check existing [Issues](https://github.com/prjct-app/prjct-cli/issues) for similar suggestions
+1. Check existing [Issues](https://github.com/prjct-app/cli/issues) for similar suggestions
 2. Create a new issue with the `enhancement` label
 3. Describe the use case and proposed solution
 
@@ -37,7 +37,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ```bash
 # Clone the repository
-git clone https://github.com/prjct-app/prjct-cli.git
+git clone https://github.com/prjct-app/cli.git
 cd prjct-cli
 
 # Install dependencies
