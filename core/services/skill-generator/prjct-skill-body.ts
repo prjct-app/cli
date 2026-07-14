@@ -95,7 +95,7 @@ export function buildPrjctSkillBody(): string {
     '## Gotchas',
     '',
     '- Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.',
-    '- **Skill curation**: Avoid bloat. Curate to a small set of high-leverage skills. Use `create-skill` to generate new ones on demand. Apply TDD principles when creating skills (test baseline behavior first, then write, refactor using rationalization tables and red flags). Keep frequent skills under tight token budgets.',
+    '- **Skill curation**: Avoid bloat. Curate to high-leverage skills. Use `create-skill`. Apply TDD when creating skills. Keep frequent skills under tight token budgets.',
     '- Worktree: remove only after PR *merged*, from main tree, never `--force` over dirty/unpushed work.',
     '',
   ].join('\n')
