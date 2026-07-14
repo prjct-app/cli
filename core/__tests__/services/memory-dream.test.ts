@@ -45,12 +45,9 @@ describe('memory-index L0', () => {
     if (projectPath) await fs.rm(projectPath, { recursive: true, force: true }).catch(() => {})
   })
 
-  it('builds empty-vault index with live=0', () => {
+  it('returns null for empty vault (no SessionStart noise)', () => {
     const stamp = buildMemoryL0Index({ projectId, source: 'manual' })
-    expect(stamp).not.toBeNull()
-    expect(stamp!.live).toBe(0)
-    expect(stamp!.markdown).toMatch(/live=0/i)
-    expect(stamp!.markdown.length).toBeLessThanOrEqual(L0_INDEX_MAX_CHARS)
+    expect(stamp).toBeNull()
   })
 
   it('indexes remembered decisions and gotchas under hard char cap', async () => {
@@ -72,8 +69,9 @@ describe('memory-index L0', () => {
     const stamp = buildAndStoreMemoryL0Index({ projectId, source: 'manual' })
     expect(stamp).not.toBeNull()
     expect(stamp!.live).toBeGreaterThanOrEqual(2)
-    expect(stamp!.markdown).toMatch(/memory index \(L0\)/i)
+    expect(stamp!.markdown).toMatch(/What this project already knows/i)
     expect(stamp!.markdown).toMatch(/decision|Decisions/i)
+    expect(stamp!.markdown).toMatch(/prjct_developer/)
     expect(stamp!.markdown.length).toBeLessThanOrEqual(L0_INDEX_MAX_CHARS)
 
     const loaded = loadMemoryL0Index(projectId)
@@ -184,6 +182,6 @@ describe('memory-dream', () => {
 
     const idx = loadMemoryL0Index(projectId)
     expect(idx?.source).toBe('dream')
-    expect(idx?.markdown).toMatch(/L0/i)
+    expect(idx?.markdown).toMatch(/What this project already knows|L0/i)
   })
 })

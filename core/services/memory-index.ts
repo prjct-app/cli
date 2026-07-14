@@ -25,7 +25,10 @@ export const L0_INDEX_MAX_CHARS = 4_000
 /** Index is "fresh" for SessionStart when younger than this. */
 export const L0_INDEX_FRESH_MS = 24 * 60 * 60 * 1000
 
-const PER_TYPE = 4
+/** Match SessionStart digest density (proven slots, not vault dump). */
+const PER_TYPE = 3
+const DEV_RULES = 4
+const REPEAT_MISS_THRESHOLD = 2
 const INDEX_TYPES = ['decision', 'gotcha', 'anti-pattern', 'learning', 'fact', 'feedback'] as const
 
 export interface MemoryL0IndexStamp {
@@ -62,24 +65,17 @@ export function buildAndStoreMemoryL0Index(
 }
 
 /**
- * Pure builder (also used by tests). Returns null when vault is empty.
+ * Pure builder (also used by tests). Returns null when vault has nothing
+ * worth a SessionStart digest (empty / only noise).
  */
 export function buildMemoryL0Index(input: BuildMemoryL0IndexInput): MemoryL0IndexStamp | null {
   const entries = projectMemory
     .allEntriesForIndex(input.projectId)
     .filter((e) => isModelMemory(e) || e.type === 'inbox' || e.type === 'improvement-signal')
 
+  // Empty vault: no SessionStart noise (identity-only cold start).
   if (entries.length === 0) {
-    return {
-      version: 1,
-      builtAt: getTimestamp(),
-      projectId: input.projectId,
-      live: 0,
-      byType: {},
-      markdown:
-        '# prjct memory index (L0)\n\nlive=0 — empty vault. Capture with `prjct remember`.\n',
-      source: input.source ?? 'manual',
-    }
+    return null
   }
 
   const byType: Record<string, number> = {}
@@ -87,25 +83,38 @@ export function buildMemoryL0Index(input: BuildMemoryL0IndexInput): MemoryL0Inde
     byType[e.type] = (byType[e.type] ?? 0) + 1
   }
 
+  // Prefer model-memory + inbox for "live" signal; improvement-signals alone
+  // do not force a digest (avoids empty-looking cold starts).
+  const modelish = entries.filter((e) => e.type !== 'improvement-signal' && isModelMemory(e))
+  if (modelish.length === 0 && (byType.inbox ?? 0) === 0) {
+    return null
+  }
+
   const lines: string[] = [
-    '# prjct memory index (L0)',
+    '## What this project already knows',
     '',
-    `live=${entries.length} · built=${getTimestamp().slice(0, 19)} · pull L2: \`prjct search\` / \`prjct context memory <topic>\` / \`prjct guard <file>\``,
+    '> Carried across sessions and model updates — this survived even if your conversation context did not. Apply these; do not re-derive from source.',
+    '',
+    `_L0 index · live=${entries.length} · pull L2: \`prjct search\` / \`prjct context memory <topic>\` / \`prjct guard <file>\`_`,
     '',
   ]
+
+  // Only traps+decisions suppress the skill-miss slot (legacy digest contract):
+  // a learning that is also skill-missed still earns "Keeps being missed".
+  const suppressMissIds = new Set<string>()
 
   // Developer rules first (act-as-them) — small budget.
   try {
     const pool = projectMemory.recall(input.projectId, {
       types: ['feedback', 'improvement-signal'],
-      limit: 30,
+      limit: 40,
       dedupeByKey: false,
     })
-    const rules = extractDeveloperRules(pool, 3)
+    const rules = extractDeveloperRules(pool, DEV_RULES)
     if (rules.length > 0) {
-      lines.push('## How this developer works', '')
+      lines.push('**How this developer works (act as them):**')
       for (const r of rules) {
-        const short = r.rule.length > 120 ? `${r.rule.slice(0, 119)}…` : r.rule
+        const short = r.rule.length > 140 ? `${r.rule.slice(0, 139)}…` : r.rule
         lines.push(`- ${short}  \`${r.sourceId}\``)
       }
       lines.push('')
@@ -114,9 +123,9 @@ export function buildMemoryL0Index(input: BuildMemoryL0IndexInput): MemoryL0Inde
     /* optional */
   }
 
-  const sectionDefs: Array<{ title: string; types: string[] }> = [
-    { title: 'Decisions in force', types: ['decision'] },
-    { title: 'Traps to avoid', types: ['gotcha', 'anti-pattern'] },
+  const sectionDefs: Array<{ title: string; types: string[]; suppressMiss?: boolean }> = [
+    { title: 'Traps to avoid', types: ['gotcha', 'anti-pattern'], suppressMiss: true },
+    { title: 'Decisions in force', types: ['decision'], suppressMiss: true },
     { title: 'Learnings', types: ['learning'] },
     { title: 'Facts', types: ['fact'] },
   ]
@@ -132,22 +141,35 @@ export function buildMemoryL0Index(input: BuildMemoryL0IndexInput): MemoryL0Inde
       )
       .slice(0, PER_TYPE)
     if (pool.length === 0) continue
-    lines.push(`## ${sec.title}`, '')
-    for (const e of pool) lines.push(`- ${indexLine(e)}`)
+    lines.push(`**${sec.title}:**`)
+    for (const e of pool) {
+      lines.push(`- ${indexLine(e)}`)
+      if (sec.suppressMiss) suppressMissIds.add(e.id)
+    }
     lines.push('')
+  }
+
+  // Skill-miss feedback loop (legacy digest read side).
+  const repeatMiss = findRepeatMissedEntry(input.projectId, suppressMissIds)
+  if (repeatMiss) {
+    lines.push(
+      '**Keeps being missed:**',
+      `- ${indexLine(repeatMiss.entry)} — flagged relevant-but-unused ${repeatMiss.count}×. Apply it or supersede it.`,
+      ''
+    )
   }
 
   const inbox = entries.filter((e) => e.type === 'inbox').slice(0, 3)
   const inboxN = byType.inbox ?? 0
   if (inboxN > 0) {
-    lines.push(`## Inbox (${inboxN})`, '')
+    lines.push(`**Inbox (${inboxN}):**`)
     for (const e of inbox) lines.push(`- ${indexLine(e)}`)
     if (inboxN > inbox.length) lines.push(`- … +${inboxN - inbox.length} more`)
     lines.push(
       '',
-      '> Close resolved: `prjct close <id> --reason "…"`. Forget noise: `prjct forget <id>`.'
+      '> Close resolved: `prjct close <id> --reason "…"`. Forget noise: `prjct forget <id>`.',
+      ''
     )
-    lines.push('')
   }
 
   // Type counts TOC (Claude MEMORY.md "what exists" without full bodies).
@@ -161,11 +183,11 @@ export function buildMemoryL0Index(input: BuildMemoryL0IndexInput): MemoryL0Inde
         .map((t) => `${t}=${byType[t]}`)
     )
   if (countParts.length > 0) {
-    lines.push('## Counts', '', countParts.join(' · '), '')
+    lines.push(`_Counts: ${countParts.join(' · ')}_`, '')
   }
 
   lines.push(
-    '> Resolve any `mem_id` with `prjct search <id>`. Consolidate: `prjct dream`. Never stuff L2 into L0.'
+    '> Resolve any `mem_id` with `prjct search <id>`. Full developer model: MCP `prjct_developer`. Consolidate: `prjct dream`. Never stuff L2 into L0.'
   )
 
   let markdown = lines.join('\n')
@@ -235,4 +257,40 @@ function indexLine(e: MemoryEntry): string {
   if (after.length < 20) return `${title}  \`${e.id}\``
   const teaser = after.length > 80 ? `${after.slice(0, 79)}…` : after
   return `${title} — ${teaser}  \`${e.id}\``
+}
+
+/**
+ * Skill-miss feedback loop read side (same contract as SessionStart digest).
+ */
+function findRepeatMissedEntry(
+  projectId: string,
+  alreadyShown: Set<string>
+): { entry: MemoryEntry; count: number } | null {
+  try {
+    const signals = projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { kind: 'skill-miss' },
+      limit: 50,
+      dedupeByKey: false,
+    })
+    const counts = new Map<string, number>()
+    for (const s of signals) {
+      const memId = s.tags?.relates
+      if (!memId) continue
+      counts.set(memId, (counts.get(memId) ?? 0) + 1)
+    }
+    let topId: string | null = null
+    let topCount = 0
+    for (const [id, count] of counts) {
+      if (count > topCount) {
+        topId = id
+        topCount = count
+      }
+    }
+    if (!topId || topCount < REPEAT_MISS_THRESHOLD || alreadyShown.has(topId)) return null
+    const entry = projectMemory.getById(projectId, topId)
+    return entry ? { entry, count: topCount } : null
+  } catch {
+    return null
+  }
 }
