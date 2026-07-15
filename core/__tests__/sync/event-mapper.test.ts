@@ -62,6 +62,26 @@ describe('mapCliEventToWebFormat', () => {
     expect(result?.entity_id).toBe('')
   })
 
+  it('maps work-cycle task.started (taskId only) to entity_id + data.id', () => {
+    // Real producer shape from state-storage: no top-level entityId, no data.id —
+    // only taskId. Cloud work visibility depends on this resolving.
+    const result = mapCliEventToWebFormat(
+      'proj-1',
+      makeEvent('task.started', {
+        taskId: 'cycle-abc',
+        description: 'fix work sync',
+        startedAt: '2026-07-15T00:00:00Z',
+        sessionId: 'sess-1',
+      })
+    )
+    expect(result).not.toBeNull()
+    expect(result?.entity_type).toBe('tasks')
+    expect(result?.entity_id).toBe('cycle-abc')
+    expect(result?.data.id).toBe('cycle-abc')
+    expect(result?.data.task_id).toBe('cycle-abc')
+    expect(result?.data.started_at).toBe('2026-07-15T00:00:00Z')
+  })
+
   it('handles undefined data', () => {
     const event: SyncEvent = {
       type: 'task.created',
