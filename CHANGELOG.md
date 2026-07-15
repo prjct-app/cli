@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.63.0] - 2026-07-15
+
+### Features
+
+- connect/disconnect + bulk cloud project modes (#573)
+
+
 ## [3.62.0] - 2026-07-14
 
 ### Features
