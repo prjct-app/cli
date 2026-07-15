@@ -1,25 +1,31 @@
 /**
  * `prjct cloud` — control surface for the paid cloud-sync layer.
  *
- * One registered verb, subcommand-parsed (same shape as `prjct lean`):
- *
  *   prjct cloud                  → status (linked? paused? pending? last sync?)
- *   prjct cloud link             → opt THIS project in (requires `prjct login`)
- *   prjct cloud unlink           → back to local-only (local data untouched)
- *   prjct cloud sync             → push pending + pull remote now
- *   prjct cloud pull             → pull remote only (fresh second machine)
- *   prjct cloud pause | resume   → stop / restart sync without unlinking
+ *   prjct cloud link             → connect THIS project (requires `prjct login`)
+ *   prjct cloud unlink           → disconnect THIS project (local data untouched)
+ *   prjct cloud link --all       → list candidates; needs --yes to proceed
+ *   prjct cloud unlink --all     → disconnect all connected; needs --yes
+ *   prjct cloud link --interactive → list unconnected; one-by-one Y/n (TTY)
+ *   prjct cloud projects         → list local projects + connected?
+ *   prjct cloud sync | pull | pause | resume
  *
- * Local-first contract: nothing leaves the machine until a project is linked
- * (`config.cloud.enabled`). The CLI reads the token from the OS credential
- * store and talks to a storage API — it knows nothing about how the cloud
- * stores the data, and has ZERO paywall logic: paid limits are enforced
- * server-side and surfaced here verbatim (e.g. a 402 upgrade message).
+ * Public aliases (command-data):
+ *   prjct connect     → cloud link (cwd)
+ *   prjct disconnect  → cloud unlink (cwd)
+ *
+ * Local-first: nothing leaves the machine until a project is connected.
  */
 
 import path from 'node:path'
+import * as readline from 'node:readline/promises'
 import { syncEventBus } from '../events/sync-events'
 import configManager from '../infrastructure/config-manager'
+import {
+  actionableCandidates,
+  type CloudProjectCandidate,
+  listCloudProjectCandidates,
+} from '../services/cloud-project-candidates'
 import { buildProjectMeta } from '../services/sync/project-meta'
 import authConfig from '../sync/auth-config'
 import { addLinkedProject, removeLinkedProject } from '../sync/cloud-registry'
@@ -36,9 +42,59 @@ import { mdOutput } from '../utils/md-formatter'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
-const SUBCOMMANDS = ['link', 'unlink', 'status', 'sync', 'pull', 'pause', 'resume'] as const
+const SUBCOMMANDS = [
+  'link',
+  'unlink',
+  'status',
+  'sync',
+  'pull',
+  'pause',
+  'resume',
+  'projects',
+  'list',
+] as const
+
+type BulkFlags = {
+  all: boolean
+  yes: boolean
+  interactive: boolean
+}
+
+function parseBulkFlags(tokens: string[]): BulkFlags {
+  return {
+    all: tokens.includes('--all'),
+    yes: tokens.includes('--yes') || tokens.includes('-y'),
+    interactive: tokens.includes('--interactive') || tokens.includes('-i'),
+  }
+}
 
 export class CloudCommands extends PrjctCommandsBase {
+  /** Web/UX alias: connect project (cwd) — same as `cloud link`. */
+  async connect(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    const flags = parseBulkFlags((input ?? '').trim().split(/\s+/).filter(Boolean))
+    if (flags.all || flags.interactive) {
+      return this.linkBulk(flags, options)
+    }
+    return this.link(projectPath, options)
+  }
+
+  /** Web/UX alias: disconnect project (cwd) — same as `cloud unlink`. */
+  async disconnect(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: MdOption = {}
+  ): Promise<CommandResult> {
+    const flags = parseBulkFlags((input ?? '').trim().split(/\s+/).filter(Boolean))
+    if (flags.all || flags.interactive) {
+      return this.unlinkBulk(flags, options)
+    }
+    return this.unlink(projectPath, options)
+  }
+
   async cloud(
     input: string | null = null,
     projectPath: string = process.cwd(),
@@ -46,13 +102,22 @@ export class CloudCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     const parts = (input ?? '').trim().split(/\s+/).filter(Boolean)
     const sub = (parts[0] ?? '').toLowerCase()
+    const rest = parts.slice(1)
+    const flags = parseBulkFlags(rest)
 
     if (!sub || sub === 'status' || sub === 'show') return this.status(projectPath, options)
     switch (sub) {
       case 'link':
+      case 'connect':
+        if (flags.all || flags.interactive) return this.linkBulk(flags, options)
         return this.link(projectPath, options)
       case 'unlink':
+      case 'disconnect':
+        if (flags.all || flags.interactive) return this.unlinkBulk(flags, options)
         return this.unlink(projectPath, options)
+      case 'projects':
+      case 'list':
+        return this.listProjects(options)
       case 'sync':
         return this.runSync(projectPath, options)
       case 'pull':
@@ -80,7 +145,10 @@ export class CloudCommands extends PrjctCommandsBase {
     const config = await this.readProject(projectPath)
     if (!config) return failHard('No prjct project here — run `prjct init` first.', options)
     if (!(await authConfig.hasAuth())) {
-      return failHard('Not authenticated. Run `prjct login`, then `prjct cloud link`.', options)
+      return failHard(
+        'Not authenticated. Run `prjct login`, then `prjct connect` (or `prjct cloud link`).',
+        options
+      )
     }
 
     const linkedCloud = {
@@ -96,14 +164,13 @@ export class CloudCommands extends PrjctCommandsBase {
 
     if (link.syncStatus === 'active') {
       await addLinkedProject(config.projectId, projectPath)
-      // Open the realtime connection (no-op outside the daemon — the daemon
-      // reopens it from the registry on its next boot).
       await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
       const result = await syncManager.sync(config.projectId, {
         include: config.cloud.include ?? {},
       })
-      return this.reportSync('Linked', result, options, {
-        extra: 'Project is now linked. It will also sync on `prjct ship` and at session end.',
+      return this.reportSync('Connected', result, options, {
+        extra:
+          'Project is now connected. It will also sync on `prjct ship` and at session end. Disconnect with `prjct disconnect`.',
       })
     }
 
@@ -112,16 +179,16 @@ export class CloudCommands extends PrjctCommandsBase {
         link.syncStatus === 'payment_pending'
           ? 'Cloud sync waiting for payment'
           : 'Cloud sync waiting for subscription',
-      prefix: `Repo linked to your prjct account. Billing: ${link.billingUrl}`,
+      prefix: `Repo connected to your prjct account. Billing: ${link.billingUrl}`,
     })
   }
 
-  /** Detach from cloud — local DB is untouched. */
+  /** Detach from cloud — local DB is untouched. Soft: cloud records kept. */
   private async unlink(projectPath: string, options: MdOption): Promise<CommandResult> {
     const config = await this.readProject(projectPath)
     if (!config) return failHard('No prjct project here — run `prjct init` first.', options)
     if (!config.cloud?.enabled) {
-      const msg = 'Already local-only — nothing to unlink.'
+      const msg = 'Already local-only — nothing to disconnect.'
       console.log(options.md ? mdOutput('## Cloud', `> ${msg}`) : msg)
       return { success: true, linked: false }
     }
@@ -129,12 +196,239 @@ export class CloudCommands extends PrjctCommandsBase {
     await configManager.writeConfig(projectPath, config)
     realtimeManager.stop(config.projectId)
     await removeLinkedProject(config.projectId)
-    // Reflect the unlink on the cloud (soft — keeps records). Best-effort.
     await syncClient.setCloudLifecycle(config.projectId, 'unlink').catch(() => undefined)
-    const msg = 'Unlinked — this project is local-only again. Local data was not touched.'
+    const msg =
+      'Disconnected — this project is local-only again. Cloud history kept; local data untouched. Re-connect with `prjct connect`.'
     if (options.md) console.log(mdOutput('## Cloud', `> ${msg}`))
     else out.done(msg)
     return { success: true, linked: false }
+  }
+
+  private async listProjects(options: MdOption): Promise<CommandResult> {
+    const list = await listCloudProjectCandidates()
+    if (list.length === 0) {
+      const msg =
+        'No local prjct projects found. Run `prjct sync` inside a git repo, then `prjct connect`.'
+      if (options.md) console.log(mdOutput('## Cloud projects', `> ${msg}`))
+      else out.info(msg)
+      return { success: true, projects: [] }
+    }
+    const lines = list.map((c) => {
+      const state = c.connected ? (c.paused ? 'connected,paused' : 'connected') : 'local-only'
+      const p = c.projectPath ?? '(path unknown)'
+      return `- **${c.name}** · ${state} · \`${p}\` · \`${c.projectId.slice(0, 8)}\``
+    })
+    if (options.md) {
+      console.log(
+        mdOutput('## Cloud projects', `> ${list.length} local project(s)`, lines.join('\n'))
+      )
+    } else {
+      out.info(`Cloud projects (${list.length})`)
+      for (const c of list) {
+        const state = c.connected ? (c.paused ? 'connected · paused' : 'connected') : 'local-only'
+        out.info(`  ${c.name.padEnd(24)} ${state.padEnd(18)} ${c.projectPath ?? '(path unknown)'}`)
+      }
+      out.info('Connect: prjct connect | Disconnect: prjct disconnect | Bulk: … --all --yes')
+    }
+    return {
+      success: true,
+      projects: list.map((c) => ({
+        projectId: c.projectId,
+        name: c.name,
+        path: c.projectPath,
+        connected: c.connected,
+        paused: c.paused,
+      })),
+    }
+  }
+
+  private async linkBulk(flags: BulkFlags, options: MdOption): Promise<CommandResult> {
+    if (!(await authConfig.hasAuth())) {
+      return failHard('Not authenticated. Run `prjct login` first.', options)
+    }
+    const all = await listCloudProjectCandidates()
+    let targets = actionableCandidates(all, 'connect')
+    if (targets.length === 0) {
+      const msg =
+        'No unconnected projects with a known path. Open each repo and run `prjct connect`, or `prjct sync` first so paths are recorded.'
+      if (options.md) console.log(mdOutput('## Connect', `> ${msg}`))
+      else out.info(msg)
+      return { success: true, connected: 0, skipped: 0 }
+    }
+
+    if (flags.interactive && !flags.all) {
+      targets = await this.pickInteractively(targets, 'connect', options)
+      if (targets === null) {
+        return failWith(
+          'No TTY for one-by-one prompts. Confirm with the human, then run `prjct cloud link --all --yes`, or `cd <path> && prjct connect` per project.',
+          options
+        )
+      }
+      if (targets.length === 0) {
+        const msg = 'No projects selected.'
+        if (options.md) console.log(mdOutput('## Connect', `> ${msg}`))
+        else out.info(msg)
+        return { success: true, connected: 0 }
+      }
+    } else {
+      // --all (or interactive+all): require --yes unless already confirmed via interactive
+      const ok = await this.confirmBulk(
+        `Connect ${targets.length} project(s) to Cloud Sync?`,
+        targets,
+        flags.yes,
+        options
+      )
+      if (!ok) {
+        return failWith(
+          `Would connect ${targets.length} project(s). Confirm with the human, then re-run with --yes.`,
+          options
+        )
+      }
+    }
+
+    return this.runBulk(targets, 'connect', options)
+  }
+
+  private async unlinkBulk(flags: BulkFlags, options: MdOption): Promise<CommandResult> {
+    const all = await listCloudProjectCandidates()
+    let targets = actionableCandidates(all, 'disconnect')
+    if (targets.length === 0) {
+      const msg = 'No connected projects with a known path to disconnect.'
+      if (options.md) console.log(mdOutput('## Disconnect', `> ${msg}`))
+      else out.info(msg)
+      return { success: true, disconnected: 0 }
+    }
+
+    if (flags.interactive && !flags.all) {
+      targets = await this.pickInteractively(targets, 'disconnect', options)
+      if (targets === null) {
+        return failWith(
+          'No TTY for one-by-one prompts. Confirm with the human, then run `prjct cloud unlink --all --yes`, or `cd <path> && prjct disconnect` per project.',
+          options
+        )
+      }
+      if (targets.length === 0) {
+        const msg = 'No projects selected.'
+        if (options.md) console.log(mdOutput('## Disconnect', `> ${msg}`))
+        else out.info(msg)
+        return { success: true, disconnected: 0 }
+      }
+    } else {
+      const ok = await this.confirmBulk(
+        `Disconnect ${targets.length} project(s)? Cloud history kept; local vaults untouched.`,
+        targets,
+        flags.yes,
+        options
+      )
+      if (!ok) {
+        return failWith(
+          `Would disconnect ${targets.length} project(s). Confirm with the human, then re-run with --yes.`,
+          options
+        )
+      }
+    }
+
+    return this.runBulk(targets, 'disconnect', options)
+  }
+
+  private async runBulk(
+    targets: CloudProjectCandidate[],
+    mode: 'connect' | 'disconnect',
+    options: MdOption
+  ): Promise<CommandResult> {
+    let ok = 0
+    let fail = 0
+    const errors: string[] = []
+    for (const t of targets) {
+      if (!t.projectPath) continue
+      const res =
+        mode === 'connect'
+          ? await this.link(t.projectPath, { ...options, md: true })
+          : await this.unlink(t.projectPath, { ...options, md: true })
+      if (res.success || (mode === 'connect' && res.paymentRequired)) {
+        ok++
+        if (!options.md) {
+          out.done(
+            `${mode === 'connect' ? 'Connected' : 'Disconnected'}: ${t.name} (${t.projectPath})`
+          )
+        }
+      } else {
+        fail++
+        errors.push(`${t.name}: ${res.error ?? res.message ?? 'failed'}`)
+        if (!options.md) out.warn(`Failed: ${t.name} — ${res.error ?? res.message ?? 'failed'}`)
+      }
+    }
+    const label = mode === 'connect' ? 'Connected' : 'Disconnected'
+    const summary = `${label} ${ok} project(s)${fail ? ` · ${fail} failed` : ''}.`
+    if (options.md) {
+      console.log(
+        mdOutput(
+          `## Cloud ${mode}`,
+          `> ${summary}`,
+          ...(errors.length ? [errors.map((e) => `- ${e}`).join('\n')] : [])
+        )
+      )
+    } else {
+      out.done(summary)
+    }
+    return {
+      success: fail === 0,
+      [mode === 'connect' ? 'connected' : 'disconnected']: ok,
+      failed: fail,
+      errors,
+    }
+  }
+
+  /** Returns selected list, empty if none chosen, null if no TTY. */
+  private async pickInteractively(
+    targets: CloudProjectCandidate[],
+    mode: 'connect' | 'disconnect',
+    options: MdOption
+  ): Promise<CloudProjectCandidate[] | null> {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) return null
+    if (!options.md) {
+      out.info(
+        mode === 'connect'
+          ? 'Connect projects one by one (y/N). Local data never leaves until you say yes.'
+          : 'Disconnect projects one by one (y/N). Cloud history kept; local vault untouched.'
+      )
+    }
+    const selected: CloudProjectCandidate[] = []
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    try {
+      for (const t of targets) {
+        const q = `${mode === 'connect' ? 'Connect' : 'Disconnect'} ${t.name} (${t.projectPath})? [y/N] `
+        const ans = (await rl.question(q)).trim().toLowerCase()
+        if (ans === 'y' || ans === 'yes') selected.push(t)
+      }
+    } finally {
+      rl.close()
+    }
+    return selected
+  }
+
+  private async confirmBulk(
+    title: string,
+    targets: CloudProjectCandidate[],
+    yes: boolean,
+    options: MdOption
+  ): Promise<boolean> {
+    if (yes) return true
+    const lines = targets.map((t) => `  - ${t.name}: ${t.projectPath}`)
+    if (options.md) {
+      console.log(mdOutput('## Confirm', `> ${title}`, lines.join('\n')))
+    } else {
+      out.info(title)
+      for (const line of lines) out.info(line)
+    }
+    if (!process.stdin.isTTY || !process.stdout.isTTY) return false
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    try {
+      const ans = (await rl.question('Proceed? [y/N] ')).trim().toLowerCase()
+      return ans === 'y' || ans === 'yes'
+    } finally {
+      rl.close()
+    }
   }
 
   /** Manual push + pull. */
@@ -171,7 +465,7 @@ export class CloudCommands extends PrjctCommandsBase {
     }
   }
 
-  /** Pause/resume without unlinking. */
+  /** Pause/resume without disconnecting. */
   private async setPaused(
     paused: boolean,
     projectPath: string,
@@ -181,7 +475,7 @@ export class CloudCommands extends PrjctCommandsBase {
     if (!config) return failHard('No prjct project here — run `prjct init` first.', options)
     if (!config.cloud?.enabled) {
       return failWith(
-        'Not linked — nothing to pause/resume. Run `prjct cloud link` first.',
+        'Not connected — nothing to pause/resume. Run `prjct connect` first.',
         options
       )
     }
@@ -189,19 +483,17 @@ export class CloudCommands extends PrjctCommandsBase {
     await configManager.writeConfig(projectPath, config)
     if (paused) realtimeManager.stop(config.projectId)
     else await realtimeManager.start(config.projectId, projectPath).catch(() => undefined)
-    // Reflect the pause/resume on the cloud (soft). Best-effort.
     await syncClient
       .setCloudLifecycle(config.projectId, paused ? 'pause' : 'resume')
       .catch(() => undefined)
     const msg = paused
-      ? 'Cloud sync paused. Resume with `prjct cloud resume`.'
+      ? 'Cloud sync paused (still connected). Resume with `prjct cloud resume`. Disconnect with `prjct disconnect`.'
       : 'Cloud sync resumed.'
     if (options.md) console.log(mdOutput('## Cloud', `> ${msg}`))
     else out.done(msg)
     return { success: true, paused }
   }
 
-  /** Linked + active + authed snapshot for status. */
   private async status(projectPath: string, options: MdOption): Promise<CommandResult> {
     const config = await this.readProject(projectPath)
     if (!config) return failHard('No prjct project here — run `prjct init` first.', options)
@@ -220,13 +512,11 @@ export class CloudCommands extends PrjctCommandsBase {
     const state = !authed
       ? 'not authenticated (run `prjct login`)'
       : !linked
-        ? 'local-only (run `prjct cloud link`)'
+        ? 'local-only (run `prjct connect`)'
         : paused
-          ? 'linked, paused'
-          : 'linked, active'
+          ? 'connected, paused'
+          : 'connected, active'
 
-    // Realtime only runs inside the daemon; report its live connection state
-    // there, otherwise say it needs the daemon (pull-based sync still works).
     const realtime = !linked
       ? 'n/a'
       : realtimeManager.available()
@@ -240,7 +530,7 @@ export class CloudCommands extends PrjctCommandsBase {
           `> **State**: ${state}`,
           [
             `- Authenticated: ${authed ? 'yes' : 'no'}`,
-            `- Linked: ${linked ? 'yes' : 'no'}${cloud?.linkedAt ? ` (since ${cloud.linkedAt})` : ''}`,
+            `- Connected: ${linked ? 'yes' : 'no'}${cloud?.linkedAt ? ` (since ${cloud.linkedAt})` : ''}`,
             `- Realtime: ${realtime}`,
             `- Pending events: ${pending}`,
             `- Last sync: ${lastSync?.timestamp ?? 'never'}`,
@@ -253,7 +543,7 @@ export class CloudCommands extends PrjctCommandsBase {
         [
           `Cloud — ${state}`,
           `  Authenticated: ${authed ? 'yes' : 'no'}`,
-          `  Linked: ${linked ? 'yes' : 'no'}${cloud?.linkedAt ? ` (since ${cloud.linkedAt})` : ''}`,
+          `  Connected: ${linked ? 'yes' : 'no'}${cloud?.linkedAt ? ` (since ${cloud.linkedAt})` : ''}`,
           `  Realtime: ${realtime}`,
           `  Pending events: ${pending}`,
           `  Last sync: ${lastSync?.timestamp ?? 'never'}`,
@@ -264,10 +554,9 @@ export class CloudCommands extends PrjctCommandsBase {
     return { success: true, linked, paused, authed, pending, realtime }
   }
 
-  /** Shared gate for sync/pull: linked + not paused + authenticated. */
   private gate(config: LocalConfig, options: MdOption): CommandResult | null {
     if (!config.cloud?.enabled) {
-      return failWith('This project is not linked. Run `prjct cloud link` first.', options)
+      return failWith('This project is not connected. Run `prjct connect` first.', options)
     }
     if (config.cloud.paused) {
       return failWith('Cloud sync is paused. Run `prjct cloud resume` first.', options)
@@ -275,11 +564,6 @@ export class CloudCommands extends PrjctCommandsBase {
     return null
   }
 
-  /**
-   * Subscription lapsed/absent — the server's 402 paid gate. The message text
-   * is authored server-side (the CLI has zero paywall logic) and surfaced here
-   * as a clear, dedicated notice rather than a generic sync error.
-   */
   private subscriptionRequired(
     reason: string | undefined,
     options: MdOption,
@@ -300,11 +584,9 @@ export class CloudCommands extends PrjctCommandsBase {
       if (opts?.prefix) out.info(opts.prefix)
       out.info(msg)
     }
-    // Not a hard failure: local-first work continues; only cloud sync is gated.
     return { success: false, paymentRequired: true, message: msg }
   }
 
-  /** Render a push+pull SyncResult (also used by link). */
   private reportSync(
     label: string,
     result: Awaited<ReturnType<typeof syncManager.sync>>,
@@ -312,10 +594,8 @@ export class CloudCommands extends PrjctCommandsBase {
     opts?: { extra?: string }
   ): CommandResult {
     if (!result.success) {
-      // The server's 402 paid gate gets a dedicated, friendly notice.
       if (result.code === 'PAYMENT_REQUIRED')
         return this.subscriptionRequired(result.error, options)
-      // Other server-side errors surface verbatim.
       return failWith(`${label} with errors: ${result.error ?? 'unknown error'}`, options)
     }
     const pushed = result.pushed?.count ?? 0

@@ -80,13 +80,13 @@ describe('prjct cloud command', () => {
   test('sync on an unlinked project is gated off (local-first default)', async () => {
     const res = await cloud.cloud('sync', tempDir, { md: true })
     expect(res.success).toBe(false)
-    expect(res.error).toContain('not linked')
+    expect(res.error).toMatch(/not (linked|connected)/i)
   })
 
   test('pull on an unlinked project is gated off', async () => {
     const res = await cloud.cloud('pull', tempDir, { md: true })
     expect(res.success).toBe(false)
-    expect(res.error).toContain('not linked')
+    expect(res.error).toMatch(/not (linked|connected)/i)
   })
 
   test('link flips config.cloud.enabled on and persists it', async () => {
@@ -157,5 +157,43 @@ describe('prjct cloud command', () => {
     const res = await cloud.cloud('frobnicate', tempDir, { md: true })
     expect(res.success).toBe(false)
     expect(res.error).toContain('Unknown cloud subcommand')
+  })
+
+  test('connect alias links cwd (config.cloud.enabled)', async () => {
+    await cloud.connect(null, tempDir, { md: true }).catch(() => undefined)
+    const config = await configManager.readConfig(tempDir)
+    expect(config?.cloud?.enabled).toBe(true)
+  })
+
+  test('disconnect alias unlinks cwd', async () => {
+    const config = await configManager.readConfig(tempDir)
+    if (!config) throw new Error('no config')
+    config.cloud = { enabled: true, linkedAt: '2026-06-19T00:00:00Z' }
+    await configManager.writeConfig(tempDir, config)
+
+    const res = await cloud.disconnect(null, tempDir, { md: true })
+    expect(res.success).toBe(true)
+    expect((await configManager.readConfig(tempDir))?.cloud?.enabled).toBe(false)
+  })
+
+  test('link --all without --yes refuses when non-interactive', async () => {
+    // Ensure linked path is discoverable via registry after a connect
+    await cloud.connect(null, tempDir, { md: true }).catch(() => undefined)
+    // Disconnect so it becomes a connect candidate again
+    await cloud.disconnect(null, tempDir, { md: true })
+
+    const res = await cloud.cloud('link --all', tempDir, { md: true })
+    // Either no candidates (path not in discovery) or needs --yes
+    if (res.success) {
+      expect(res.connected === 0 || res.connected === undefined).toBe(true)
+    } else {
+      expect(String(res.error ?? '')).toMatch(/--yes|confirm/i)
+    }
+  })
+
+  test('cloud projects returns success', async () => {
+    const res = await cloud.cloud('projects', tempDir, { md: true })
+    expect(res.success).toBe(true)
+    expect(Array.isArray(res.projects)).toBe(true)
   })
 })
