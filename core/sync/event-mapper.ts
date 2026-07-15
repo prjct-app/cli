@@ -78,8 +78,22 @@ export function mapCliEventToWebFormat(projectId: string, event: SyncEvent): Web
   const rawData = (event.data || {}) as Record<string, unknown>
   const data = snakeCaseKeys(rawData)
 
-  // Extract entity_id: explicit field wins, then the payload id.
-  const entityId = event.entityId || (data.id as string) || (rawData.id as string) || ''
+  // Extract entity_id: explicit field wins, then common payload keys.
+  // Work-cycle producers (`task.started` / `.paused` / `.resumed` / `.completed`)
+  // put the id in `taskId` (→ `task_id`), not `id`. Without this fallback the
+  // cloud row lands with empty entity_id and work never appears to sync.
+  const entityId =
+    event.entityId ||
+    (typeof data.id === 'string' ? data.id : '') ||
+    (typeof rawData.id === 'string' ? rawData.id : '') ||
+    (typeof data.task_id === 'string' ? data.task_id : '') ||
+    (typeof rawData.taskId === 'string' ? rawData.taskId : '') ||
+    (typeof data.entity_id === 'string' ? data.entity_id : '') ||
+    ''
+
+  // Normalize so cloud consumers always see `id` even when the producer only
+  // set taskId / entity_id aliases.
+  if (entityId && data.id == null) data.id = entityId
 
   const out: WebSyncEvent = {
     event_type: eventType,
