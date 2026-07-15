@@ -257,19 +257,20 @@ export class CloudCommands extends PrjctCommandsBase {
     }
 
     if (flags.interactive && !flags.all) {
-      targets = await this.pickInteractively(targets, 'connect', options)
-      if (targets === null) {
+      const picked = await this.pickInteractively(targets, 'connect', options)
+      if (picked === null) {
         return failWith(
           'No TTY for one-by-one prompts. Confirm with the human, then run `prjct cloud link --all --yes`, or `cd <path> && prjct connect` per project.',
           options
         )
       }
-      if (targets.length === 0) {
+      if (picked.length === 0) {
         const msg = 'No projects selected.'
         if (options.md) console.log(mdOutput('## Connect', `> ${msg}`))
         else out.info(msg)
         return { success: true, connected: 0 }
       }
+      targets = picked
     } else {
       // --all (or interactive+all): require --yes unless already confirmed via interactive
       const ok = await this.confirmBulk(
@@ -300,19 +301,20 @@ export class CloudCommands extends PrjctCommandsBase {
     }
 
     if (flags.interactive && !flags.all) {
-      targets = await this.pickInteractively(targets, 'disconnect', options)
-      if (targets === null) {
+      const picked = await this.pickInteractively(targets, 'disconnect', options)
+      if (picked === null) {
         return failWith(
           'No TTY for one-by-one prompts. Confirm with the human, then run `prjct cloud unlink --all --yes`, or `cd <path> && prjct disconnect` per project.',
           options
         )
       }
-      if (targets.length === 0) {
+      if (picked.length === 0) {
         const msg = 'No projects selected.'
         if (options.md) console.log(mdOutput('## Disconnect', `> ${msg}`))
         else out.info(msg)
         return { success: true, disconnected: 0 }
       }
+      targets = picked
     } else {
       const ok = await this.confirmBulk(
         `Disconnect ${targets.length} project(s)? Cloud history kept; local vaults untouched.`,
