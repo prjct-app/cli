@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.63.1] - 2026-07-15
+
+### Bug Fixes
+
+- resolve work-cycle entity_id from taskId (#574)
+
+
 ## [3.63.0] - 2026-07-15
 
 ### Features
