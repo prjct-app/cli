@@ -111,6 +111,15 @@ export interface LocalConfig {
    */
   maxTokensPerCycle?: number
   /**
+   * Context-density policy (not a session killer).
+   * Default: soft cues only — prefer compact tools, never force land/clear.
+   * hardBlockShip — opt-in only; when true, critical pressure blocks `prjct ship`
+   * unless `--force-pressure`. Most projects should leave this unset/false.
+   */
+  contextPressure?: {
+    hardBlockShip?: boolean
+  }
+  /**
    * Delivery-geometry gate at work start when the working tree is already large.
    *   - off — never
    *   - advisory — surface in work output (default for code pack)

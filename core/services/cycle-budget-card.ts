@@ -45,23 +45,23 @@ export function buildCycleBudgetCard(input: CycleBudgetInput): CycleBudgetCard {
       : tokensSpent > 0
         ? `tokens spent≈${tokensSpent} (no cycle budget set)`
         : 'tokens — (set maxTokensPerCycle to track)'
-  const landCue =
+  const densityCue =
     pressure === 'critical'
-      ? 'LAND NOW · prjct land then /clear'
+      ? 'keep working · high-signal tools only (no thrash)'
       : pressure === 'warn'
-        ? 'plan land soon · no more exploration'
-        : 'land before context dies · prjct land'
+        ? 'prefer compact recall · avoid junk injection'
+        : 'session continues · protect signal density'
 
-  const line = `Cycle budget: ${turnBit} · ${tokBit} · pressure=${pressure} · ${landCue}`
+  const line = `Cycle budget: ${turnBit} · ${tokBit} · pressure=${pressure} · ${densityCue}`
   const md = [
     '## Cycle budget (once per work cycle)',
     '',
     `- ${turnBit} (${Math.round(turnRatio * 100)}%)`,
     `- ${tokBit}${tokenBudget ? ` (${Math.round(tokenRatio * 100)}%)` : ''}`,
     `- pressure: **${pressure}**`,
-    `- close path: \`${landCue}\``,
+    `- density: \`${densityCue}\``,
     '',
-    '_Dynasty: cost-to-quality is a product feature — GSD thrash is not._',
+    '_Sessions may run long. Do not kill the chat for a turn proxy — starve junk injection instead._',
   ].join('\n')
 
   return { line, md, turnRatio, tokenRatio }

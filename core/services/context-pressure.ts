@@ -1,10 +1,15 @@
 /**
- * Context-pressure cues — beat GSD's context-window utilization guard without
- * needing proprietary host metrics.
+ * Context-pressure cues — signal-density guard, NOT a forced session killer.
  *
- * Uses turn count + optional token budget (already on the active task) as a
- * host-agnostic proxy. At 60%/70% of the cycle turn budget (or stuck threshold),
- * inject land/compact pressure so agents close the loop instead of rotting.
+ * Policy (product, 2026-07): long sessions are fine. What we protect is that
+ * the window does not fill with junk (broad Grep, re-research, padded recall).
+ * Hosts (Codex/Claude) already show real context % — when THAT hits 100%, the
+ * host may need a new window. prjct must not invent a second, earlier "you
+ * must land / clear" ritual that thrash-ends productive work.
+ *
+ * Uses turn count + optional token budget as a soft proxy only.
+ * Soft cues at 60%/70% of cycle budget. Ship hard-block is OFF by default
+ * (opt-in: LocalConfig.contextPressure.hardBlockShip === true).
  */
 
 import type { LocalConfig } from '../types/config'
@@ -34,7 +39,7 @@ export interface ContextPressureVerdict {
 
 /**
  * Prefer configured maxTurnsPerCycle; fall back to the stuck threshold so
- * projects without an explicit budget still get pressure cues.
+ * projects without an explicit budget still get soft density cues.
  */
 export function contextPressureVerdict(
   config: LocalConfig | null | undefined,
@@ -63,10 +68,11 @@ export function contextPressureVerdict(
       turns,
       limit,
       ratio: effective,
-      cue: `# prjct: CONTEXT PRESSURE (critical ~${Math.round(effective * 100)}%) — HARD GATE
-Session is full — STOP expanding scope. \`prjct ship\` is blocked until you \`prjct land\` then \`/clear\` or new window + \`prjct prime\`.
-Compact path (MUST): (1) finish or pause the open slice (2) \`prjct land\` (3) fresh window + \`prjct prime\` — do NOT re-research from zero.
-Fresh compound judgment (SQLite) beats GSD fresh-window thrash. Override ship only with explicit consent: \`prjct ship --force-pressure\`.`,
+      cue: `# prjct: context density (high ~${Math.round(effective * 100)}%)
+Session continues — do NOT force land/clear just because the cycle is long.
+Protect the window: no broad Grep/Glob thrash, no re-research from zero, pull memory by id (\`prjct context memory mem_N\`), prefer compact format.
+Persist durable signal with \`prjct remember\` / land when YOU choose hygiene — not as a kill switch.
+Host "Context 100%" is the real window limit; until then keep working with high-signal tools only.`,
     }
   }
 
@@ -76,40 +82,48 @@ Fresh compound judgment (SQLite) beats GSD fresh-window thrash. Override ship on
       turns,
       limit,
       ratio: effective,
-      cue: `# prjct: context pressure (~${Math.round(effective * 100)}%) — compact path
-Context budget low. Mandatory close plan THIS window:
-1. Finish the current slice only (no new exploration / no multi-file rabbit holes)
-2. \`prjct land\` before context dies
-3. Next window: \`prjct prime\` (not a blank chat)
-Do not open broad Grep/Glob or spawn research subagents until after land+prime.`,
+      cue: `# prjct: context density (~${Math.round(effective * 100)}%)
+Keep the chat — prefer high-signal tools only:
+1. Finish the current slice (no new rabbit holes)
+2. Recall compact / by-id — do not re-index the tree
+3. Optional hygiene later: \`prjct land\` then \`prjct prime\` if the HOST context is actually full
+Do not treat this as "session must end".`,
     }
   }
 
   return { level: 'ok', cue: null, turns, limit, ratio: effective }
 }
 
-/** Critical pressure blocks ship / expansion — superior to banner-only guards. */
-export function contextPressureBlocksExpansion(v: ContextPressureVerdict): boolean {
-  return v.level === 'critical'
+/**
+ * Ship hard-block. Default OFF — long sessions are valid.
+ * Opt-in per project: config.contextPressure.hardBlockShip === true AND critical.
+ */
+export function contextPressureBlocksExpansion(
+  v: ContextPressureVerdict,
+  config?: LocalConfig | null
+): boolean {
+  if (config?.contextPressure?.hardBlockShip === true && v.level === 'critical') {
+    return true
+  }
+  return false
 }
 
 /**
- * Host-agnostic one-liner for statusline / doctor / Codex status_line.
+ * Host-agnostic one-liner for statusline / doctor.
  * Empty string when ok (no noise on the chrome).
  */
 export function contextPressureStatusLine(v: ContextPressureVerdict): string {
   if (v.level === 'critical') {
-    return `ctx:${Math.round(v.ratio * 100)}% CRITICAL → land then prime`
+    return `ctx:${Math.round(v.ratio * 100)}% density — compact tools only`
   }
   if (v.level === 'warn') {
-    return `ctx:${Math.round(v.ratio * 100)}% → land/prime soon`
+    return `ctx:${Math.round(v.ratio * 100)}% density — prefer compact`
   }
   return ''
 }
 
 /**
- * True when agents MUST take the compact path (land → fresh → prime)
- * before expanding scope — warn OR critical.
+ * Prefer compact tool use (pull-by-id, no thrash) — NOT "must land/new window".
  */
 export function contextPressureRequiresCompactPath(v: ContextPressureVerdict): boolean {
   return v.level === 'warn' || v.level === 'critical'
