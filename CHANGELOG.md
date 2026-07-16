@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.65.0] - 2026-07-16
+
+### Added
+- context density not session kill; production MCP only
+
 ## [3.64.0] - 2026-07-16
 
 ### Added
