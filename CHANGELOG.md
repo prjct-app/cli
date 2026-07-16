@@ -2,12 +2,16 @@
 
 ## [Unreleased]
 
+## [3.64.0] - 2026-07-16
+
+### Added
+- implement signal quality substrate ws0 p
+
 ## [3.63.2] - 2026-07-16
 
 ### Bug Fixes
 
 - 10min client timeout for ship/sync and long verbs (#575)
-
 
 ## [3.63.1] - 2026-07-15
 
@@ -15,20 +19,17 @@
 
 - resolve work-cycle entity_id from taskId (#574)
 
-
 ## [3.63.0] - 2026-07-15
 
 ### Features
 
 - connect/disconnect + bulk cloud project modes (#573)
 
-
 ## [3.62.0] - 2026-07-14
 
 ### Features
 
 - upload compact structural code graph to cloud 3D (#572)
-
 
 ## [3.61.0] - 2026-07-14
 
