@@ -14,13 +14,7 @@ import { connect } from 'node:net'
 import path from 'node:path'
 import type { DaemonRequest, DaemonResponse, DaemonStatus } from '../types/daemon'
 import { isBunAvailable } from '../utils/runtime'
-import {
-  COMMAND_REQUEST_TIMEOUT_MS,
-  DAEMON_PATHS,
-  encodeMessage,
-  HOOK_REQUEST_TIMEOUT_MS,
-  isDaemonNamedPipe,
-} from './protocol'
+import { commandRequestTimeoutMs, DAEMON_PATHS, encodeMessage, isDaemonNamedPipe } from './protocol'
 import { releaseSpawnLock, tryAcquireSpawnLock } from './startup-lock'
 
 /**
@@ -100,23 +94,23 @@ export async function getDaemonStatus(): Promise<DaemonStatus> {
 }
 
 export interface SendRequestOptions {
-  /** Override the default timeout (commands 30s, hooks should pass HOOK_REQUEST_TIMEOUT_MS). */
+  /**
+   * Override the default timeout. Defaults come from
+   * `commandRequestTimeoutMs(command)` (hooks 5s, long verbs 10min, else 30s).
+   */
   timeoutMs?: number
 }
 
 /**
  * Send a command to the daemon and return the response.
- * Default timeout is 30s for CLI commands. Callers serving hooks MUST pass
- * `timeoutMs: HOOK_REQUEST_TIMEOUT_MS` (5s) so a hung daemon cannot stall
- * the host agent for half a minute.
+ * Default budget: hooks 5s, ship/sync/dream… 10min, everything else 30s.
+ * Callers can still override with `timeoutMs`.
  */
 export function sendRequest(
   request: DaemonRequest,
   options: SendRequestOptions = {}
 ): Promise<DaemonResponse> {
-  const timeoutMs =
-    options.timeoutMs ??
-    (request.command === 'hook' ? HOOK_REQUEST_TIMEOUT_MS : COMMAND_REQUEST_TIMEOUT_MS)
+  const timeoutMs = options.timeoutMs ?? commandRequestTimeoutMs(request.command)
 
   return new Promise((resolve, reject) => {
     const socketPath = DAEMON_PATHS.socket()

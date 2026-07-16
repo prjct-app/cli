@@ -59,11 +59,44 @@ export const MAX_BUFFER_SIZE = 1024 * 1024
 export const COMMAND_REQUEST_TIMEOUT_MS = 30_000
 
 /**
+ * Client timeout for long-running verbs (ship/sync/dream/…). Ship alone can
+ * spend >65s on version+changelog+commit+push (plus optional test gates up
+ * to 5min). A 30s hard cut made `prjct ship` exit 1 mid-flight ("daemon
+ * dropped the request (Daemon request timed out)") while the daemon still
+ * ran partial side effects — agents then looped "Retry after daemon timeout".
+ * Must stay in lockstep with the production shim in scripts/build.js.
+ */
+export const LONG_COMMAND_TIMEOUT_MS = 10 * 60 * 1000
+
+/**
+ * Verbs that routinely exceed COMMAND_REQUEST_TIMEOUT_MS. Keep this list
+ * short and intentional — everything else stays at 30s so a hung daemon
+ * cannot pin a shell for 10 minutes.
+ */
+export const LONG_RUNNING_COMMANDS: ReadonlySet<string> = new Set([
+  'ship',
+  'sync',
+  'dream',
+  'update',
+  'upgrade',
+  'analyze',
+  'init',
+  'cloud',
+])
+
+/**
  * Client timeout for hook requests. Hooks are fail-soft and latency-critical
  * (Claude Code waits). A hung daemon must not block the host for 30s — the
  * production shim already uses 5s; keep the source path identical.
  */
 export const HOOK_REQUEST_TIMEOUT_MS = 5_000
+
+/** Resolve the client-side wait budget for a daemon-routed command. */
+export function commandRequestTimeoutMs(command: string): number {
+  if (command === 'hook') return HOOK_REQUEST_TIMEOUT_MS
+  if (LONG_RUNNING_COMMANDS.has(command)) return LONG_COMMAND_TIMEOUT_MS
+  return COMMAND_REQUEST_TIMEOUT_MS
+}
 
 /**
  * How long shutdown waits for in-flight requests before force-exit.

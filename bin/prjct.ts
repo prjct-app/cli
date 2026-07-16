@@ -322,14 +322,21 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
     }
 
     try {
-      const response = await sendRequest({
-        id: crypto.randomUUID(),
-        command: _fastCommand,
-        args: commandArgs,
-        options: commandOptions,
-        cwd: process.cwd(),
-        perfStartNs: ((globalThis as Record<string, unknown>).__perfStartNs as bigint)?.toString(),
-      })
+      const { commandRequestTimeoutMs } = await import('../core/daemon/protocol')
+      const response = await sendRequest(
+        {
+          id: crypto.randomUUID(),
+          command: _fastCommand,
+          args: commandArgs,
+          options: commandOptions,
+          cwd: process.cwd(),
+          perfStartNs: (
+            (globalThis as Record<string, unknown>).__perfStartNs as bigint
+          )?.toString(),
+        },
+        // ship/sync/dream/… need the long budget; default 30s is for snappy verbs.
+        { timeoutMs: commandRequestTimeoutMs(_fastCommand) }
+      )
 
       // Daemon refused because its code is stale (newer build/install on
       // disk). The command did NOT run there — fall through to direct
