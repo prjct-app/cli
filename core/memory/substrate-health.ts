@@ -5,10 +5,38 @@
  * compact-brief coverage footer so consumers never confuse "listed risks"
  * with "complete knowledge of the zone".
  *
- * Metrics (contract for future intake):
- *   signal_ratio · unshaped_gotcha_rate · empty_spec_rate · junk_like_rate
+ * ── signal_ratio v1 (FROZEN — do not mutate silently) ────────────────────
+ * Metric id: {@link SIGNAL_RATIO_METRIC_VERSION} === "v1"
+ *
+ * Denominator = live entries whose type ∈ JUDGMENT_TYPES
+ *   (decision, gotcha, learning, fact, feedback, pattern, anti-pattern,
+ *    red-herring, spec, shipped). These are rows already in the vault —
+ *   refused captures (junk, bare-id, empty-spec, inbox_no_substance) never
+ *   enter the store, so they are NOT in the denominator.
+ *
+ * Numerador (signal) = judgment entries for which
+ *   classifyCapturePrecision(content, type).action === "accept"
+ *   (typed correctly as stored; shape still valid).
+ *
+ * precisionFail = judgment − signal (action !== accept as currently typed).
+ * signal_ratio_v1 = 1 − precisionFail / |judgment|   (1 when judgment empty)
+ *
+ * Demotions:
+ *   - At write time, open-narration gotcha → stored as context (not judgment)
+ *     → does not enter denominator. Conserved as context = not counted as noise.
+ *   - If a gotcha still sits in the vault with open-narration shape, it is
+ *     precisionFail (noise still graduated) until dream cleans it.
+ *   - red-herring is a judgment type; correctly typed red-herrings are signal.
+ *
+ * Future formula changes MUST bump to signal_ratio_v2 (new field/version id),
+ * never rewrite v1 semantics — so 88→82 always means substrate worsened.
+ *
+ * Other metrics: unshaped_gotcha_rate · empty_spec_rate · junk_like_rate
  *   recency bands · blind_spots[] · score 0–100
  */
+
+/** Frozen metric version for signal_ratio. Bump only with a new formula. */
+export const SIGNAL_RATIO_METRIC_VERSION = 'v1' as const
 
 import type { MemoryEntry } from './entries'
 import { classifyCapturePrecision } from './precision-classifier'
@@ -45,8 +73,13 @@ export interface BlindSpot {
 export interface SubstrateHealth {
   live: number
   judgment: number
-  /** 0–1: share of judgment rows that pass precision as-typed. */
+  /**
+   * signal_ratio v1: share of judgment rows that pass precision as-typed.
+   * See module header for frozen formula. Version: {@link SIGNAL_RATIO_METRIC_VERSION}.
+   */
   signalRatio: number
+  /** Always "v1" until a deliberate metric bump. */
+  signalRatioVersion: typeof SIGNAL_RATIO_METRIC_VERSION
   unshapedGotchaRate: number
   emptySpecRate: number
   junkLikeRate: number
@@ -229,6 +262,7 @@ export function computeSubstrateHealth(
     live,
     judgment: judgment.length,
     signalRatio,
+    signalRatioVersion: SIGNAL_RATIO_METRIC_VERSION,
     unshapedGotchaRate,
     emptySpecRate,
     junkLikeRate,
@@ -279,7 +313,7 @@ export function formatSubstrateHealthMd(h: SubstrateHealth): string {
     `| Score | ${h.score}/100 |`,
     `| Live | ${h.live} |`,
     `| Judgment | ${h.judgment} |`,
-    `| Signal ratio | ${Math.round(h.signalRatio * 100)}% |`,
+    `| Signal ratio (${h.signalRatioVersion}) | ${Math.round(h.signalRatio * 100)}% |`,
     `| Unshaped gotcha rate | ${Math.round(h.unshapedGotchaRate * 100)}% |`,
     `| Empty-spec rate | ${Math.round(h.emptySpecRate * 100)}% |`,
     `| Cluster collapse estimate | ${h.clusterCollapsedEstimate} |`,
