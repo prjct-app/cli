@@ -48,6 +48,7 @@ describe('weak-model A/B release gate', () => {
     expect(md).toContain('codex hooks+MCP native')
     expect(md).toContain('gemini hooks+MCP native')
     expect(md).toContain('cursor hooks native')
-    expect(md).toContain('grok inherits-claude')
+    expect(md).toContain('grok mcp+skills native')
+    expect(md).toContain('grok hooks inherits-claude')
   })
 })

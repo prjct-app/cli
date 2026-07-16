@@ -260,6 +260,8 @@ describe('multi-runtime signal + skill parity (installer-derived)', () => {
     expect(report.codexHasLoop).toBe(true)
     expect(report.geminiHasLoop).toBe(true)
     expect(report.grokInheritsClaude).toBe(true)
+    expect(report.grokMcpNative).toBe(true)
+    expect(report.grokSkillsNative).toBe(true)
   })
 
   it('Codex + Gemini surfaces carry loop-discipline CONTRACT', () => {

@@ -12,6 +12,8 @@
  *   prjct replan "<what changed>"    cascading drift repair: re-plan
  *                                    directive over downstream open items +
  *                                    automatic decision memory of the pivot
+ *   prjct plan …                     plan-mode ceremony (read-only until
+ *                                    approve) — Grok-style gate before edits
  *   prjct prime [--md]               session-open bundle: cycle + frontier +
  *                                    traps + budget in one pull
  *   prjct land [--md]                session-close checklist ("land the
@@ -27,6 +29,7 @@ import { orchestrationFor } from '../services/task-orchestration'
 import { collectActiveTasks } from '../services/task-overview'
 import { workGraph } from '../services/work-graph'
 import { prjctDb } from '../storage/database'
+import { planStorage, type WorkPlan } from '../storage/plan-storage'
 import { queueStorage } from '../storage/queue-storage'
 import type { CommandResult } from '../types/commands'
 import out from '../utils/output'
@@ -220,6 +223,207 @@ export class CeremonyCommands extends PrjctCommandsBase {
     lines.push('', '_The pivot was already captured as a decision memory._')
     console.log(lines.join('\n'))
     return { success: true, items: ready.length }
+  }
+
+  /**
+   * Plan-mode ceremony (Grok Build pattern, harness-layer):
+   *
+   *   prjct plan ["title"]           start draft (or show active) + host contract
+   *   prjct plan show                print active plan
+   *   prjct plan write "<markdown>"  update draft body only
+   *   prjct plan approve             exit plan mode; persist decision memory
+   *   prjct plan clear|abandon       drop / abandon plan
+   *
+   * While status=draft the host must treat source as read-only; only this verb
+   * mutates the plan artifact in SQLite (not a free-form plan.md on disk).
+   */
+  async plan(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: CeremonyOptions = {}
+  ): Promise<CommandResult> {
+    const proj = await requireProject(projectPath, options)
+    if (!proj.ok) return proj.result
+
+    const raw = (input ?? '').trim()
+    const parts = raw.split(/\s+/).filter(Boolean)
+    const sub = (parts[0] ?? '').toLowerCase()
+    const rest = parts.slice(1).join(' ').trim()
+
+    if (!sub || sub === 'show' || sub === 'status') {
+      return this.planShowOrStart(proj.value, projectPath, raw, options)
+    }
+    if (sub === 'write' || sub === 'set') {
+      return this.planWrite(proj.value, rest || null, options)
+    }
+    if (sub === 'approve' || sub === 'ok') {
+      return this.planApprove(proj.value, projectPath, options)
+    }
+    if (sub === 'clear' || sub === 'abandon' || sub === 'quit') {
+      return this.planClear(proj.value, sub === 'clear', options)
+    }
+    // Bare title after first word that isn't a known sub — treat full input as start title
+    if (['start', 'new', 'enter'].includes(sub)) {
+      return this.planStart(proj.value, projectPath, rest || 'Untitled plan', options)
+    }
+    // `prjct plan "Add auth"` — title is the whole input
+    return this.planStart(proj.value, projectPath, raw, options)
+  }
+
+  private async planShowOrStart(
+    projectId: string,
+    projectPath: string,
+    titleOrEmpty: string,
+    options: CeremonyOptions
+  ): Promise<CommandResult> {
+    const existing = planStorage.get(projectId)
+    if (existing) {
+      this.printPlan(existing, options)
+      return { success: true, status: existing.status, title: existing.title }
+    }
+    if (!titleOrEmpty || ['show', 'status'].includes(titleOrEmpty.toLowerCase())) {
+      return this.fail(
+        'No active plan. Start one: `prjct plan "<title>"` then fill sections; approve with `prjct plan approve`.',
+        options
+      )
+    }
+    return this.planStart(projectId, projectPath, titleOrEmpty, options)
+  }
+
+  private async planStart(
+    projectId: string,
+    projectPath: string,
+    title: string,
+    options: CeremonyOptions
+  ): Promise<CommandResult> {
+    const existing = planStorage.get(projectId)
+    if (existing?.status === 'draft') {
+      this.printPlan(existing, options)
+      return {
+        success: true,
+        status: existing.status,
+        title: existing.title,
+        message: 'draft already active',
+      }
+    }
+
+    let taskId: string | null = null
+    try {
+      const overview = await collectActiveTasks(projectId, projectPath)
+      taskId = overview?.current?.id ?? null
+    } catch {
+      taskId = null
+    }
+
+    const plan = planStorage.start(projectId, title, taskId)
+    this.printPlan(plan, options)
+    return { success: true, status: plan.status, title: plan.title, created: true }
+  }
+
+  private planWrite(
+    projectId: string,
+    content: string | null,
+    options: CeremonyOptions
+  ): CommandResult {
+    if (!content) {
+      return this.fail(
+        'Usage: prjct plan write "<markdown plan body>" — only allowed while status is draft.',
+        options
+      )
+    }
+    const updated = planStorage.writeContent(projectId, content)
+    if (!updated) {
+      return this.fail(
+        'No draft plan to update. Start with `prjct plan "<title>"` or approve/clear the current plan.',
+        options
+      )
+    }
+    this.printPlan(updated, options)
+    return { success: true, status: updated.status, title: updated.title, written: true }
+  }
+
+  private async planApprove(
+    projectId: string,
+    projectPath: string,
+    options: CeremonyOptions
+  ): Promise<CommandResult> {
+    const approved = planStorage.approve(projectId)
+    if (!approved) {
+      return this.fail(
+        'No draft plan to approve. Start with `prjct plan "<title>"` and fill the sections first.',
+        options
+      )
+    }
+    await projectMemory.remember(projectPath, {
+      type: 'decision',
+      content: `Plan approved: ${approved.title}\n\n${approved.content.slice(0, 2000)}`,
+      tags: { topic: 'plan-mode', status: 'approved' },
+      provenance: 'declared',
+    })
+    this.printPlan(approved, options)
+    if (options.md) {
+      console.log('\n> Plan approved. Source edits are allowed. Implement against the plan.')
+    } else {
+      out.done('Plan approved — implement against the plan')
+    }
+    return { success: true, status: approved.status, title: approved.title, approved: true }
+  }
+
+  private planClear(
+    projectId: string,
+    hardClear: boolean,
+    options: CeremonyOptions
+  ): CommandResult {
+    const cur = planStorage.get(projectId)
+    if (!cur) return this.fail('No active plan to clear.', options)
+    if (hardClear) planStorage.clear(projectId)
+    else planStorage.abandon(projectId)
+    const msg = hardClear ? 'Plan cleared from SQLite.' : `Plan abandoned (${cur.title}).`
+    if (options.md) console.log(`> ${msg}`)
+    else out.done(msg)
+    return { success: true, cleared: hardClear, abandoned: !hardClear }
+  }
+
+  private printPlan(plan: WorkPlan, options: CeremonyOptions): void {
+    const hostContract =
+      plan.status === 'draft'
+        ? [
+            '## Host contract (draft — read-only)',
+            '',
+            '- Do **not** edit project source files until `prjct plan approve`.',
+            '- Only mutate the plan via `prjct plan write "<markdown>"`.',
+            '- Fill: Context · Recommended approach · Critical files · Reuse · Verification.',
+            '- When ready, ask the user; then `prjct plan approve --md`.',
+            '',
+          ]
+        : plan.status === 'approved'
+          ? [
+              '## Host contract (approved)',
+              '',
+              '- Source edits allowed. Implement against this plan.',
+              '- Persist decisions/learnings with `prjct remember`.',
+              '',
+            ]
+          : ['## Host contract (abandoned)', '']
+
+    const lines = [
+      `# Plan — ${plan.status}`,
+      '',
+      `**Title:** ${plan.title}`,
+      `**Updated:** ${plan.updatedAt}`,
+      plan.taskId ? `**Work cycle:** \`${plan.taskId.slice(0, 8)}\`` : null,
+      '',
+      ...hostContract,
+      '## Plan body',
+      '',
+      plan.content.trimEnd(),
+      '',
+    ].filter((x): x is string => x !== null)
+
+    console.log(lines.join('\n'))
+    if (!options.md && plan.status === 'draft') {
+      out.info('Plan mode: draft — no source edits until approve')
+    }
   }
 
   /**

@@ -60,6 +60,7 @@ export interface HarnessSurfaceEntry {
   plugins?: {
     paths: string[]
     prjct: PrjctWireStatus
+    notes?: string
   }
   /** One-line "what makes prjct legible here" */
   legibility: string
@@ -218,24 +219,25 @@ export const BENCHMARK_HARNESS_SURFACES: readonly HarnessSurfaceEntry[] = [
     },
     mcp: {
       configPaths: [
-        '~/.grok/config.toml + plugins',
-        '~/.claude/mcp.json (read natively)',
-        'Claude plugins/MCPs',
+        '~/.grok/config.toml [mcp_servers.prjct]',
+        '~/.claude/mcp.json (Claude compat fallback)',
+        'plugins .mcp.json',
       ],
-      format: 'Grok plugins/MCP + Claude MCP JSON (compat)',
-      prjct: 'inherits-claude',
-      notes: 'Zero-config Claude Code MCP/skills/hooks compatibility — prjct install covers Grok',
+      format: 'TOML mcp_servers (same shape as Codex) + Claude MCP JSON (compat)',
+      prjct: 'native',
+      notes:
+        'prjct install → ensureGrokMcpServer() writes managed [mcp_servers.prjct] into ~/.grok/config.toml; Claude MCP remains a fallback',
     },
     skills: {
       paths: [
         './.grok/skills/',
-        '~/.grok/skills/',
+        '~/.grok/skills/prjct/SKILL.md',
         '~/.agents/skills/',
         '.claude/skills/ (compat)',
         'plugin skills/',
       ],
-      prjct: 'inherits-claude',
-      notes: 'Also discovers ~/.agents/skills and Claude skills',
+      prjct: 'native',
+      notes: 'prjct install → installGrokSkill() at ~/.grok/skills/prjct/SKILL.md',
     },
     hooks: {
       configPaths: [
@@ -264,14 +266,17 @@ export const BENCHMARK_HARNESS_SURFACES: readonly HarnessSurfaceEntry[] = [
       prjct: 'inherits-claude',
       contract:
         'PreToolUse is the only blocking event (decision deny or exit 2). Fail-open on errors. Project hooks need trust.',
-      notes: 'prjct Claude hooks already fire under Grok via Claude compat — no second installer',
+      notes:
+        'Hooks still via Claude/Cursor compat (no second Grok hook writer yet). MCP + skill are native.',
     },
     plugins: {
-      paths: ['./.grok/plugins/', '~/.grok/plugins/', 'marketplaces'],
-      prjct: 'none',
+      paths: ['./.grok/plugins/', '~/.grok/plugins/prjct/', 'marketplaces'],
+      prjct: 'native',
+      notes:
+        'prjct install → installGrokPlugin() at ~/.grok/plugins/prjct (skill + /plan command; MCP stays in config.toml)',
     },
     legibility:
-      'Best free lunch: Claude-compatible. prjct install (Claude hooks + MCP) makes Grok fully legible without a Grok-specific writer.',
+      'Native MCP + skill + user plugin on prjct install when Grok is detected; PreToolUse/Session hooks still fire via Claude-compat settings. Plan ceremony: `prjct plan`. Grok is Brain; prjct SQLite is Body.',
   },
   {
     runtimeId: 'opencode',

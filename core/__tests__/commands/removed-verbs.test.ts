@@ -22,7 +22,8 @@ describe('REMOVED_VERBS', () => {
       'jira',
       'tokens',
       'velocity',
-      'plan',
+      // 'plan' left this list in 2026-07: returned as plan-mode ceremony
+      // (draft → approve) under ceremonies.plan — a live verb again.
       // 'next' left this list in v3.26: it returned as the work-graph
       // frontier selector (prjct next) — a live verb again.
       // Removed later, with the vault/wiki feature deletion — must get the
@@ -62,6 +63,7 @@ describe('isRemovedVerb', () => {
     expect(isRemovedVerb('task')).toBe(false)
     expect(isRemovedVerb('status')).toBe(false)
     expect(isRemovedVerb('capture')).toBe(false)
+    expect(isRemovedVerb('plan')).toBe(false)
   })
 
   it('returns false for unknown verbs', () => {

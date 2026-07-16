@@ -5,7 +5,7 @@
  *   1. PRJCT_HOOKS install set (Claude source of truth)
  *   2. Host mappers (Codex/Gemini/Cursor) including pre-package + prompt
  *   3. Compact skill CONTRACT.loop on Codex/Gemini surfaces
- *   4. Grok inherits Claude surfaces (harness-surfaces)
+ *   4. Grok native MCP + skill; hooks still inherit Claude (harness-surfaces)
  *
  * Not hardcoded prose theater — derived from real installers.
  */
@@ -38,6 +38,8 @@ export function multiRuntimeInstallParityReport(): {
   codexHasLoop: boolean
   geminiHasLoop: boolean
   grokInheritsClaude: boolean
+  grokMcpNative: boolean
+  grokSkillsNative: boolean
 } {
   const missing: string[] = []
   const hooks = PRJCT_HOOKS.map((h) => h.subcommand)
@@ -106,9 +108,12 @@ export function multiRuntimeInstallParityReport(): {
   }
 
   const grok = BENCHMARK_HARNESS_SURFACES.find((s) => s.runtimeId === 'grok')
-  const grokInheritsClaude =
-    grok?.hooks?.prjct === 'inherits-claude' || grok?.mcp?.prjct === 'inherits-claude'
-  if (!grokInheritsClaude) missing.push('grok does not inherit Claude surfaces')
+  const grokInheritsClaude = grok?.hooks?.prjct === 'inherits-claude'
+  const grokMcpNative = grok?.mcp?.prjct === 'native'
+  const grokSkillsNative = grok?.skills?.prjct === 'native'
+  if (!grokInheritsClaude) missing.push('grok hooks should inherit Claude PreToolUse/Session')
+  if (!grokMcpNative) missing.push('grok mcp not native')
+  if (!grokSkillsNative) missing.push('grok skills not native')
 
   for (const id of CORE_SUPERIORITY_RUNTIMES) {
     if (!BENCHMARK_HARNESS_SURFACES.some((s) => s.runtimeId === id)) {
@@ -123,6 +128,8 @@ export function multiRuntimeInstallParityReport(): {
     codexHasLoop,
     geminiHasLoop,
     grokInheritsClaude: Boolean(grokInheritsClaude),
+    grokMcpNative: Boolean(grokMcpNative),
+    grokSkillsNative: Boolean(grokSkillsNative),
   }
 }
 

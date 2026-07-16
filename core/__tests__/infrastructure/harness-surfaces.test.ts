@@ -21,12 +21,14 @@ describe('harness surfaces matrix', () => {
     }
   })
 
-  it('documents Grok as inherits-claude for hooks and MCP', () => {
+  it('documents Grok as native MCP+skills+plugin with hooks inherits-claude', () => {
     const grok = getHarnessSurface('grok')
     expect(grok).toBeDefined()
     expect(grok!.hooks.prjct).toBe('inherits-claude')
-    expect(grok!.mcp.prjct).toBe('inherits-claude')
-    expect(grok!.legibility).toMatch(/Claude/i)
+    expect(grok!.mcp.prjct).toBe('native')
+    expect(grok!.skills.prjct).toBe('native')
+    expect(grok!.plugins?.prjct).toBe('native')
+    expect(grok!.legibility).toMatch(/native MCP/i)
   })
 
   it('documents Claude as fully native', () => {
