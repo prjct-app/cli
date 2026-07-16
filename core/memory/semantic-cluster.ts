@@ -13,8 +13,29 @@
  * Over-collapse mitigation: entity gate is mandatory unless fingerprint matches.
  * Near-but-distinct facts without shared entities never merge.
  *
- * Contract tags for future intake:
- *   cluster_id · seen_in_N · cluster_members (ids)
+ * ── Fase 0 acceptance contracts ──────────────────────────────────────────
+ *
+ * T1 TRACEABILITY (post-cluster survivor MUST preserve all sources):
+ *   - `cluster_sources`  — ALL member mem_ids, primary first (auditable set)
+ *   - `cluster_members`  — non-primary ids only (compat / "the collapsed ones")
+ *   - `seen_in_N`        — |members| (importance, not noise)
+ *   - `cluster_id`       — stable `c_<primaryId>`
+ *   Brief/compact lines MUST surface `sources=` when seen_in_N > 1 so a PO
+ *   or eng-lead can `prjct context memory mem_N` on ANY corroborating capture.
+ *   Storage rows are never deleted by clustering — only the *presentation*
+ *   collapses. Full/by-id format remains unclustered for forensic audit.
+ *
+ * LANGUAGE SURFACE (PRD §7.3):
+ *   Storage keeps original language (no silent DB rewrite — audit intact).
+ *   Brief presentation language unify is DEFERRED to the product layer
+ *   (tech→product / intake). When a cluster spans languages we tag
+ *   `cluster_langs` and `surface_lang=store-original` so the brief is honest
+ *   that survivors may remain bilingual until that layer lands. Do not
+ *   machine-translate here without an explicit product decision.
+ *
+ * Demote interaction: precision may retype gotcha→context / red-herring
+ * before recall. Clustering is within a single type only, so a demoted
+ * context row never re-joins a gotcha cluster (no promotion by fullness).
  */
 
 import { memoryFingerprint } from './content-fingerprint'
@@ -56,6 +77,76 @@ export interface MemoryCluster {
   seenInN: number
   sharedEntities: string[]
   clusterId: string
+}
+
+/**
+ * T1: ordered source ids for a cluster — primary first, then others stable
+ * by original member order. Always includes every corroborating capture.
+ */
+export function clusterSourceIds(cluster: MemoryCluster): string[] {
+  const primaryId = cluster.primary.id
+  const rest = cluster.members.map((m) => m.id).filter((id) => id !== primaryId)
+  return [primaryId, ...rest]
+}
+
+/**
+ * Coarse language tags for honesty on multi-lang clusters (not a full detector).
+ * Used only for `cluster_langs` metadata — never rewrites content.
+ */
+export function detectContentLangHints(text: string): string[] {
+  const t = (text ?? '').toLowerCase()
+  const hints: string[] = []
+  // Spanish function words / patterns common in our vault
+  if (
+    /\b(el|la|los|las|de|que|no|era|fue|para|con|por|una|esto|esta|cómo|como)\b/.test(t) ||
+    /[áéíóúñ¿¡]/.test(t)
+  ) {
+    hints.push('es')
+  }
+  if (
+    /\b(the|was|were|wasn't|with|from|that|this|and|for|not|is|are|it)\b/.test(t) ||
+    /\b(security definer|bypass)\b/.test(t)
+  ) {
+    hints.push('en')
+  }
+  if (hints.length === 0) hints.push('und')
+  return [...new Set(hints)]
+}
+
+/** Union of language hints across cluster members. */
+export function clusterLangHints(members: MemoryEntry[]): string[] {
+  const set = new Set<string>()
+  for (const m of members) {
+    for (const h of detectContentLangHints(m.content)) set.add(h)
+  }
+  return [...set].sort()
+}
+
+/**
+ * Build the T1 tag payload that every clustered survivor carries.
+ * Guarantees: all source ids recoverable; multi-lang flagged, not translated.
+ */
+export function buildClusterSurfaceTags(cluster: MemoryCluster): Record<string, string> {
+  const sources = clusterSourceIds(cluster)
+  const membersOnly = sources.slice(1)
+  const langs = clusterLangHints(cluster.members)
+  const tags: Record<string, string> = {
+    seen_in_N: String(cluster.seenInN),
+    cluster_id: cluster.clusterId,
+  }
+  if (cluster.seenInN > 1) {
+    // Primary-first full audit set (T1 contract — never drop corroborating ids)
+    tags.cluster_sources = sources.join(',')
+    // Non-primary only (legacy / "who was collapsed")
+    tags.cluster_members = membersOnly.join(',')
+    tags.surface_lang = 'store-original'
+    if (langs.length > 0) tags.cluster_langs = langs.join(',')
+    if (langs.length > 1) {
+      // Explicit: bilingual survivor is allowed until product-layer normalize
+      tags.lang_normalize = 'deferred-product-layer'
+    }
+  }
+  return tags
 }
 
 /**
@@ -301,15 +392,19 @@ export function clusterMemoryEntries(entries: MemoryEntry[]): MemoryCluster[] {
 
 /**
  * Collapse a mixed-type list: cluster within each type, return primaries
- * with synthetic tags seen_in_N / cluster_id for rendering.
+ * with T1 tags (cluster_sources / seen_in_N / …) for rendering + intake.
+ *
+ * Within-type only — demoted gotcha→context never re-clusters into gotcha.
  */
 export function collapseEntriesForSurface(entries: MemoryEntry[]): {
   entries: MemoryEntry[]
   collapsedCount: number
   clusters: MemoryCluster[]
+  /** True when any survivor carries multi-lang cluster_langs. */
+  multiLangSurvivors: number
 } {
   if (entries.length <= 1) {
-    return { entries, collapsedCount: 0, clusters: [] }
+    return { entries, collapsedCount: 0, clusters: [], multiLangSurvivors: 0 }
   }
 
   const byType = new Map<string, MemoryEntry[]>()
@@ -322,6 +417,7 @@ export function collapseEntriesForSurface(entries: MemoryEntry[]): {
   const out: MemoryEntry[] = []
   const allClusters: MemoryCluster[] = []
   let collapsedCount = 0
+  let multiLangSurvivors = 0
 
   // Preserve first-seen type order from original list
   const typeOrder: string[] = []
@@ -335,25 +431,18 @@ export function collapseEntriesForSurface(entries: MemoryEntry[]): {
     for (const c of clusters) {
       allClusters.push(c)
       if (c.seenInN > 1) collapsedCount += c.seenInN - 1
+      const clusterTags = buildClusterSurfaceTags(c)
+      if ((clusterTags.cluster_langs ?? '').includes(',')) multiLangSurvivors++
       const tagged: MemoryEntry = {
         ...c.primary,
         tags: {
           ...c.primary.tags,
-          seen_in_N: String(c.seenInN),
-          cluster_id: c.clusterId,
-          ...(c.seenInN > 1
-            ? {
-                cluster_members: c.members
-                  .map((m) => m.id)
-                  .filter((id) => id !== c.primary.id)
-                  .join(','),
-              }
-            : {}),
+          ...clusterTags,
         },
       }
       out.push(tagged)
     }
   }
 
-  return { entries: out, collapsedCount, clusters: allClusters }
+  return { entries: out, collapsedCount, clusters: allClusters, multiLangSurvivors }
 }

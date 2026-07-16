@@ -249,11 +249,13 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
   const doCluster = opts?.cluster === true || (compact && opts?.cluster !== false)
 
   let collapsedCount = 0
+  let multiLangSurvivors = 0
   let surfaceEntries = entries
   if (doCluster && entries.length > 1) {
     const collapsed = collapseEntriesForSurface(entries)
     surfaceEntries = collapsed.entries
     collapsedCount = collapsed.collapsedCount
+    multiLangSurvivors = collapsed.multiLangSurvivors
   }
 
   const groups = new Map<MemoryType, MemoryEntry[]>()
@@ -323,7 +325,17 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
         const flat = flatDetail(e.content, COMPACT_CONTENT_MAX)
         const cue = llmBoundary ? escapeMarkdownInline(flat) : flat
         const seenN = Number(e.tags?.seen_in_N ?? '1')
-        const seenCue = seenN > 1 ? ` · seen_in_${seenN}` : ''
+        // T1: every claim is auditable — when clustered, list ALL source mem_ids
+        // (primary first via cluster_sources) so eng-lead can open corroborators.
+        const sources =
+          seenN > 1
+            ? (e.tags?.cluster_sources ??
+              [e.id, ...(e.tags?.cluster_members ?? '').split(',').filter(Boolean)].join(','))
+            : ''
+        const seenCue =
+          seenN > 1
+            ? ` · seen_in_${seenN} · sources=${sources}`
+            : ''
         lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${seenCue}${staleCue(e)}`)
         continue
       }
@@ -382,7 +394,13 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
 
   if (collapsedCount > 0) {
     lines.push(
-      `_Semantic cluster: ${collapsedCount} repeated collapsed (keep fullest · seen_in_N on survivors)._`
+      `_Semantic cluster: ${collapsedCount} repeated collapsed (keep fullest · seen_in_N · sources=all mem_ids on survivors for audit)._`
+    )
+  }
+  if (multiLangSurvivors > 0) {
+    // PRD §7.3: surface language unify deferred — storage stays original.
+    lines.push(
+      `_Language: ${multiLangSurvivors} multi-lang cluster(s) keep store-original text (lang normalize deferred to product layer; not rewritten in DB)._`
     )
   }
 

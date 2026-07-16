@@ -120,6 +120,90 @@ describe('collapseEntriesForSurface + formatMemoryMd', () => {
     expect(md.match(/\[mem_\d+ · gotcha\]/g)?.length ?? 0).toBe(1)
   })
 
+  it('T1: survivor preserves ALL source mem_ids for audit (not only primary)', () => {
+    const entries = [
+      entry({
+        id: 'mem_1',
+        type: 'gotcha',
+        content: 'No era RLS en search_inventory (SECURITY DEFINER)',
+      }),
+      entry({
+        id: 'mem_2',
+        type: 'gotcha',
+        content: "Wasn't RLS on search_inventory — SECURITY DEFINER bypass",
+      }),
+      entry({
+        id: 'mem_3',
+        type: 'gotcha',
+        content:
+          "It wasn't RLS on search_inventory: SECURITY DEFINER bypasses policies; gate with can_access_company",
+      }),
+    ]
+    const { entries: out } = collapseEntriesForSurface(entries)
+    const sources = (out[0]!.tags.cluster_sources ?? '').split(',')
+    expect(sources).toContain('mem_1')
+    expect(sources).toContain('mem_2')
+    expect(sources).toContain('mem_3')
+    // primary first
+    expect(sources[0]).toBe('mem_3')
+    // non-primary listed separately too
+    expect(out[0]!.tags.cluster_members).toMatch(/mem_1/)
+    expect(out[0]!.tags.cluster_members).toMatch(/mem_2/)
+
+    const md = formatMemoryMd(entries, { compact: true })
+    expect(md).toMatch(/sources=mem_3,mem_1,mem_2|sources=mem_3,mem_2,mem_1/)
+    // eng-lead can still pull any corroborator by id
+    expect(md).toContain('mem_1')
+    expect(md).toContain('mem_2')
+  })
+
+  it('language: multi-lang cluster tags store-original + deferred product normalize', () => {
+    const entries = [
+      entry({
+        id: 'mem_es',
+        type: 'gotcha',
+        content: 'No era RLS en search_inventory — es SECURITY DEFINER y bypasea',
+      }),
+      entry({
+        id: 'mem_en',
+        type: 'gotcha',
+        content:
+          "It wasn't RLS on search_inventory — SECURITY DEFINER bypasses policies; longer English body for fullest pick",
+      }),
+    ]
+    const { entries: out, multiLangSurvivors } = collapseEntriesForSurface(entries)
+    expect(out).toHaveLength(1)
+    expect(out[0]!.tags.surface_lang).toBe('store-original')
+    expect(out[0]!.tags.lang_normalize).toBe('deferred-product-layer')
+    expect(out[0]!.tags.cluster_langs).toMatch(/en/)
+    expect(out[0]!.tags.cluster_langs).toMatch(/es/)
+    expect(multiLangSurvivors).toBeGreaterThanOrEqual(1)
+
+    const md = formatMemoryMd(entries, { compact: true })
+    expect(md).toMatch(/lang normalize deferred|store-original/i)
+  })
+
+  it('demoted context does not rejoin gotcha cluster (type isolation)', () => {
+    // Same substance, different types after precision demote — must stay separate
+    const entries = [
+      entry({
+        id: 'mem_g',
+        type: 'gotcha',
+        content:
+          "It wasn't RLS on search_inventory: SECURITY DEFINER bypasses policies; gate with can_access_company",
+      }),
+      entry({
+        id: 'mem_c',
+        type: 'context',
+        content:
+          "It wasn't RLS on search_inventory: SECURITY DEFINER bypasses policies; gate with can_access_company",
+      }),
+    ]
+    const { entries: out, collapsedCount } = collapseEntriesForSurface(entries)
+    expect(out).toHaveLength(2)
+    expect(collapsedCount).toBe(0)
+  })
+
   it('full format without cluster keeps all rows (audit path)', () => {
     const entries = [
       entry({ id: 'mem_1', type: 'fact', content: 'Alpha fact about widgets' }),
