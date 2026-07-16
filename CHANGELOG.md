@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.66.0] - 2026-07-16
+
+### Added
+- Native Grok host wire + plan ceremony
+
 ## [3.65.0] - 2026-07-16
 
 ### Added
