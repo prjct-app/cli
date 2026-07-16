@@ -2639,6 +2639,38 @@ export const migrations: Migration[] = [
       db.run('CREATE INDEX IF NOT EXISTS idx_code_symbol_edges_src ON code_symbol_edges(src)')
     },
   },
+  {
+    version: 63,
+    name: 'project-style-snapshots',
+    up: (db: SqliteDatabase) => {
+      // Project evolution substrate (symmetric to developer_profile_snapshots):
+      // progressive house-style model recalculated on each sync — stack, patterns,
+      // conventions, anti-patterns + extensible metrics bag for future measurement.
+      db.run(
+        `CREATE TABLE IF NOT EXISTS project_style_snapshots (
+           id                  TEXT PRIMARY KEY,
+           captured_at         TEXT NOT NULL,
+           commit_hash         TEXT,
+           source              TEXT NOT NULL DEFAULT 'sync-mechanical',
+           pattern_count       INTEGER NOT NULL DEFAULT 0,
+           anti_pattern_count  INTEGER NOT NULL DEFAULT 0,
+           convention_count    INTEGER NOT NULL DEFAULT 0,
+           framework_count     INTEGER NOT NULL DEFAULT 0,
+           symbol_count        INTEGER NOT NULL DEFAULT 0,
+           file_count          INTEGER NOT NULL DEFAULT 0,
+           summary             TEXT NOT NULL,
+           payload_json        TEXT NOT NULL,
+           is_active           INTEGER NOT NULL DEFAULT 0
+         )`
+      )
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_project_style_active ON project_style_snapshots(is_active, captured_at DESC)'
+      )
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_project_style_captured ON project_style_snapshots(captured_at DESC)'
+      )
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

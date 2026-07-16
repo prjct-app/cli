@@ -132,18 +132,49 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
 
       // Project pattern supremacy: match house style; upgrade only real anti-patterns.
+      // Prefer durable project style model (recomputed every sync), then related hits.
       const { buildAlignmentBrief } = await import('../services/project-alignment')
       const patternHits = related.filter((h) => h.type === 'pattern' || h.pattern)
       const antiHits = related.filter((h) => h.type === 'anti-pattern' || h.antiPattern)
+      let stylePatterns: Array<{ title?: string; content?: string }> = []
+      let styleAntis: Array<{ title?: string; content?: string }> = []
+      try {
+        const { getActiveProjectStyle } = await import('../services/project-style-evolution')
+        const style = getActiveProjectStyle(projectId)
+        if (style) {
+          stylePatterns = [
+            ...style.payload.patterns.map((p) => ({
+              title: p.name,
+              content: p.description,
+            })),
+            ...style.payload.conventions.map((c) => ({
+              title: c.category ?? 'convention',
+              content: c.rule,
+            })),
+          ]
+          styleAntis = style.payload.antiPatterns.map((a) => ({
+            title: a.issue,
+            content: a.suggestion,
+          }))
+        }
+      } catch {
+        /* style optional */
+      }
       const alignment = buildAlignmentBrief({
-        patterns: patternHits.map((h) => ({
-          title: h.title,
-          content: h.pattern || h.detail,
-        })),
-        antiPatterns: antiHits.map((h) => ({
-          title: h.title,
-          content: h.antiPattern || h.detail,
-        })),
+        patterns: [
+          ...stylePatterns,
+          ...patternHits.map((h) => ({
+            title: h.title,
+            content: h.pattern || h.detail,
+          })),
+        ],
+        antiPatterns: [
+          ...styleAntis,
+          ...antiHits.map((h) => ({
+            title: h.title,
+            content: h.antiPattern || h.detail,
+          })),
+        ],
         neighborHint: likelyFiles[0]?.path ?? null,
       })
 

@@ -335,6 +335,44 @@ class SyncService {
       const syncMetrics = await phase('metrics', () =>
         recordSyncMetrics(this.projectId!, stats, duration)
       )
+      const developerSnapshotCaptured = syncMetrics.developerSnapshotCaptured === true
+
+      // 9a. Project style model — recalculate every sync (dual evolution with
+      // developer snapshot above). Progressive delta + history + memory bridge.
+      let projectStyle: import('../types/project-sync').ProjectStyleSyncSummary | undefined
+      try {
+        const { recomputeProjectStyle, formatProjectStyleForSync } = await import(
+          './project-style-evolution'
+        )
+        const styleResult = await phase('project-style', () =>
+          recomputeProjectStyle({
+            projectId: this.projectId!,
+            projectPath: this.projectPath,
+            stats,
+            stack,
+            commands,
+            commitHash: git.recentCommits[0]?.hash ?? null,
+            source: 'sync-mechanical',
+          })
+        )
+        const formatted = formatProjectStyleForSync(styleResult)
+        const coverageRaw = styleResult.snapshot.payload.metrics.styleCoverage
+        projectStyle = {
+          summary: styleResult.snapshot.summary,
+          evolutionMd: formatted.evolutionMd,
+          patternCount: styleResult.snapshot.patternCount,
+          antiPatternCount: styleResult.snapshot.antiPatternCount,
+          conventionCount: styleResult.snapshot.conventionCount,
+          styleCoverage: typeof coverageRaw === 'number' ? coverageRaw : Number(coverageRaw) || 0,
+          isFirst: styleResult.isFirst,
+          hasChanges: styleResult.delta.hasChanges,
+        }
+      } catch (error) {
+        log.debug('Project style recompute failed (non-critical)', {
+          error: getErrorMessage(error),
+        })
+      }
+
       const workCost = await phase('work-cost', () => publishWorkCostSnapshots(this.projectId!))
 
       // 9b. Archive stale data (PRJ-267)
@@ -482,6 +520,8 @@ class SyncService {
         workCost,
         verification,
         incremental: incrementalInfo,
+        projectStyle,
+        developerSnapshotCaptured,
         generatedSkills,
       }
     } catch (error) {

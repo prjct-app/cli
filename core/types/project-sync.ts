@@ -162,6 +162,19 @@ export interface IncrementalInfo {
   affectedDomains: string[]
 }
 
+export interface ProjectStyleSyncSummary {
+  /** One-line digest of current project style */
+  summary: string
+  /** Markdown delta section for this sync (null when unchanged) */
+  evolutionMd: string | null
+  patternCount: number
+  antiPatternCount: number
+  conventionCount: number
+  styleCoverage: number
+  isFirst: boolean
+  hasChanges: boolean
+}
+
 export interface ProjectSyncResult {
   success: boolean
   projectId: string
@@ -178,6 +191,10 @@ export interface ProjectSyncResult {
   workCost?: WorkCostSnapshot[]
   verification?: VerificationReport
   incremental?: IncrementalInfo
+  /** Dual evolution: project style recompute on this sync */
+  projectStyle?: ProjectStyleSyncSummary
+  /** True when a new weekly developer snapshot was captured this sync */
+  developerSnapshotCaptured?: boolean
   generatedSkills?: {
     generated: { name: string; path: string }[]
     skipped: { name: string; reason: string }[]

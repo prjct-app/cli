@@ -9,6 +9,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { parseLlmAnalysis } from '../../schemas/llm-analysis'
+import { isRichLlmAnalysis, isThinLlmAnalysis } from '../../services/project-style-profile'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import type { MdOption } from '../../types/cli'
 import type { CommandResult } from '../../types/commands'
@@ -30,14 +31,51 @@ export async function saveLlmAnalysis(
     const projectId = proj.value
 
     const resolved = await resolveAnalysisInput(analysisInput, projectPath)
-    const analysis = await normalizeAnalysis(resolved.content, projectPath)
+    let analysis = await normalizeAnalysis(resolved.content, projectPath)
+    let mergedNotes = false
+
+    // Anti-clobber (mem_8432): freeform markdown/notes yield style=unknown +
+    // empty patterns. Never supersede a rich house-style analysis with that —
+    // fold insights into the existing active analysis instead.
+    const previous = llmAnalysisStorage.getActive(projectId)
+    if (previous && isRichLlmAnalysis(previous) && isThinLlmAnalysis(analysis)) {
+      analysis = mergeThinNotesIntoRich(previous, analysis)
+      mergedNotes = true
+    }
 
     llmAnalysisStorage.save(projectId, analysis)
+
+    // Refresh project style model when a structured save lands (or notes merge
+    // into rich). Best-effort — save already succeeded.
+    try {
+      const { recomputeProjectStyle } = await import('../../services/project-style-evolution')
+      const { gatherStats, detectStack, detectCommands } = await import(
+        '../../services/sync-analyzer'
+      )
+      const [stats, stack, commands] = await Promise.all([
+        gatherStats(projectPath),
+        detectStack(projectPath),
+        detectCommands(projectPath),
+      ])
+      await recomputeProjectStyle({
+        projectId,
+        projectPath,
+        stats,
+        stack,
+        commands,
+        commitHash: analysis.commitHash,
+        source: 'analysis-save',
+      })
+    } catch {
+      /* style recompute is best-effort after analysis save */
+    }
 
     if (options.md) {
       console.log(
         mdOutput(
-          mdDone('LLM Analysis Saved'),
+          mdDone(
+            mergedNotes ? 'LLM Analysis Notes Merged (house style preserved)' : 'LLM Analysis Saved'
+          ),
           mdStats({
             Input: resolved.source,
             Architecture: analysis.architecture.style,
@@ -46,6 +84,7 @@ export async function saveLlmAnalysis(
             'Tech debt items': analysis.techDebt?.length || 0,
             'Risk areas': analysis.riskAreas?.length || 0,
             Conventions: analysis.conventions?.length || 0,
+            ...(mergedNotes ? { Merge: 'thin notes → existing rich analysis' } : {}),
           })
         )
       )
@@ -53,8 +92,11 @@ export async function saveLlmAnalysis(
       console.log(
         JSON.stringify({
           success: true,
-          message: 'LLM analysis saved',
+          message: mergedNotes
+            ? 'LLM analysis notes merged into existing rich analysis'
+            : 'LLM analysis saved',
           input: resolved.source,
+          mergedNotes,
           stats: {
             patterns: analysis.patterns.length,
             antiPatterns: analysis.antiPatterns?.length || 0,
@@ -67,6 +109,32 @@ export async function saveLlmAnalysis(
     return { success: true }
   } catch (error) {
     return failFromError(error)
+  }
+}
+
+/** Fold freeform insights into a rich analysis without wiping house style. */
+function mergeThinNotesIntoRich(rich: LLMAnalysis, thin: LLMAnalysis): LLMAnalysis {
+  const mergeUnique = (a: string[], b: string[], cap: number): string[] => {
+    const out: string[] = []
+    const seen = new Set<string>()
+    for (const line of [...a, ...b]) {
+      const k = line.toLowerCase()
+      if (seen.has(k) || !line.trim()) continue
+      seen.add(k)
+      out.push(line)
+      if (out.length >= cap) break
+    }
+    return out
+  }
+  return {
+    ...rich,
+    analyzedAt: thin.analyzedAt,
+    commitHash: thin.commitHash ?? rich.commitHash,
+    projectInsights: mergeUnique(rich.projectInsights ?? [], thin.projectInsights ?? [], 60),
+    architecture: {
+      ...rich.architecture,
+      insights: mergeUnique(rich.architecture.insights ?? [], thin.architecture.insights ?? [], 24),
+    },
   }
 }
 
