@@ -82,7 +82,7 @@ export class ContextCommands {
           }
         : null
 
-      const repoAnalysis = await this.loadRepoAnalysis(globalPath)
+      const repoAnalysis = await this.loadRepoAnalysis(globalPath, projectId)
 
       // Orchestrator-derived domain/subtask classification was dropped —
       // it was harness that guessed intent from task text. Claude tags
@@ -213,14 +213,42 @@ export class ContextCommands {
   }
 
   /**
-   * Load repo analysis from analysis/repo-analysis.json
+   * Load repo stack for context surface.
+   * Priority: active project style snapshot → repo-analysis.json → live detector.
    */
-  private async loadRepoAnalysis(globalPath: string): Promise<{
+  private async loadRepoAnalysis(
+    globalPath: string,
+    projectId?: string
+  ): Promise<{
     ecosystem: string
     frameworks: string[]
     hasTests: boolean
     technologies: string[]
   } | null> {
+    // 1. Project style snapshot (recomputed every sync)
+    if (projectId) {
+      try {
+        const { getActiveProjectStyle } = await import('../services/project-style-evolution')
+        const style = getActiveProjectStyle(projectId)
+        if (style) {
+          const s = style.payload.stack
+          return {
+            ecosystem: s.ecosystem || 'unknown',
+            frameworks: s.frameworks ?? [],
+            hasTests: s.hasTests ?? false,
+            technologies: [
+              ...(s.languages ?? []),
+              ...(s.frameworks ?? []),
+              ...(s.keyLibraries ?? []),
+            ].filter((v, i, arr) => arr.indexOf(v) === i),
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    // 2. Legacy artifact written by style recompute
     try {
       const analysisPath = path.join(globalPath, 'analysis', 'repo-analysis.json')
       const content = await fs.readFile(analysisPath, 'utf-8')
@@ -232,7 +260,25 @@ export class ContextCommands {
         technologies: data.technologies || [],
       }
     } catch (error) {
-      if (isNotFoundError(error)) return null
+      if (!isNotFoundError(error)) {
+        /* ignore parse errors */
+      }
+    }
+
+    // 3. Live mechanical detect (honest stack even before first style capture)
+    try {
+      const { detectStack, gatherStats } = await import('../services/sync-analyzer')
+      const projectPath = process.cwd()
+      const [stack, stats] = await Promise.all([detectStack(projectPath), gatherStats(projectPath)])
+      return {
+        ecosystem: stats.ecosystem || 'unknown',
+        frameworks: stack.frameworks ?? stats.frameworks ?? [],
+        hasTests: stack.hasTesting ?? false,
+        technologies: [...(stats.languages ?? []), ...(stack.frameworks ?? [])].filter(
+          (v, i, arr) => arr.indexOf(v) === i
+        ),
+      }
+    } catch {
       return null
     }
   }

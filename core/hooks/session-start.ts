@@ -37,6 +37,8 @@ import { deriveTitle } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
 import { recordAgentSessionStart } from '../services/agent-session-recorder'
 import { extractDeveloperRules } from '../services/developer-profile'
+import { getActiveProjectStyle } from '../services/project-style-evolution'
+import { formatProjectStyleDigest } from '../services/project-style-profile'
 import { createStalenessChecker } from '../services/staleness-checker'
 import { usefulnessService } from '../services/usefulness'
 import type { LocalConfig, ProjectPersona } from '../types/config'
@@ -351,7 +353,28 @@ function buildKnowledgeDigest(projectId: string): string | null {
     projectId,
     new Set([...gotchas, ...decisions].map((e) => e.id))
   )
-  if (gotchas.length === 0 && decisions.length === 0 && !repeatMiss && devRules.length === 0) {
+  // Project style (house rules) — dual to developer rules
+  let projectStyleBlock: string | null = null
+  try {
+    const style = getActiveProjectStyle(projectId)
+    if (style) {
+      projectStyleBlock = formatProjectStyleDigest(style, {
+        maxConventions: 4,
+        maxPatterns: 3,
+        maxAnti: 2,
+      })
+    }
+  } catch {
+    projectStyleBlock = null
+  }
+
+  if (
+    gotchas.length === 0 &&
+    decisions.length === 0 &&
+    !repeatMiss &&
+    devRules.length === 0 &&
+    !projectStyleBlock
+  ) {
     return null
   }
 
@@ -364,6 +387,15 @@ function buildKnowledgeDigest(projectId: string): string | null {
     for (const r of devRules) {
       const short = r.rule.length > 140 ? `${r.rule.slice(0, 139)}…` : r.rule
       lines.push(`- ${short}  \`${r.sourceId}\``)
+    }
+  }
+  if (projectStyleBlock) {
+    // Fold style under digest without duplicating the outer header
+    const body = projectStyleBlock
+      .replace(/^## How this repo works \(project style\)\n?/, '')
+      .trim()
+    if (body) {
+      lines.push('', '**How this repo works (match house style):**', body)
     }
   }
   if (gotchas.length > 0) {
@@ -383,7 +415,7 @@ function buildKnowledgeDigest(projectId: string): string | null {
   }
   lines.push(
     '',
-    '> Resolve any `mem_id` with `prjct search <id>`. Full developer model: MCP `prjct_developer`.'
+    '> Resolve any `mem_id` with `prjct search <id>`. Full developer model: MCP `prjct_developer`. Project style: `prjct analysis` / sync evolution.'
   )
   return safeTruncate(lines.join('\n'), DIGEST_MAX_CHARS)
 }

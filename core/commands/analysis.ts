@@ -331,11 +331,40 @@ export class AnalysisCommands extends PrjctCommandsBase {
             )
           }
         }
+        // Dual evolution surfaces (project + developer)
+        let projectEvolutionSection: string | null = null
+        if (result.projectStyle?.evolutionMd) {
+          projectEvolutionSection = result.projectStyle.evolutionMd
+        } else if (result.projectStyle?.summary) {
+          projectEvolutionSection = [
+            '## Project style',
+            '',
+            result.projectStyle.summary,
+            '',
+            `Coverage: ${result.projectStyle.styleCoverage}/100 · ` +
+              `${result.projectStyle.patternCount} patterns · ` +
+              `${result.projectStyle.conventionCount} conventions · ` +
+              `${result.projectStyle.antiPatternCount} anti-patterns`,
+          ].join('\n')
+        }
+        let developerEvolutionSection: string | null = null
+        if (result.developerSnapshotCaptured) {
+          try {
+            const { renderDeveloperEvolution } = await import('../services/developer-evolution')
+            developerEvolutionSection = renderDeveloperEvolution(projectId, 4)
+          } catch {
+            developerEvolutionSection =
+              '## Developer evolution\n\nWeekly developer snapshot captured.'
+          }
+        }
+
         const md = mdOutput(
           mdDone(`Sync Complete`),
           mdStats(mdStatsObj),
           retentionSection,
           analysisDiffSection,
+          projectEvolutionSection,
+          developerEvolutionSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           contextReviewSection,
           llmAnalysisInstructions,

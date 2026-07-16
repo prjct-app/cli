@@ -35,7 +35,7 @@ export async function recordSyncMetrics(
   projectId: string,
   stats: ProjectStats,
   duration: number
-): Promise<SyncMetrics> {
+): Promise<SyncMetrics & { developerSnapshotCaptured?: boolean }> {
   // Real original size from BM25 index (actual tokens indexed from source files).
   // Loaded ONCE and reused by the index-stats block below — the second load
   // used to hit right after the sync invalidated the cache, paying a full
@@ -86,9 +86,10 @@ export async function recordSyncMetrics(
   } catch (error) {
     log.debug('Failed to recompute velocity', { error: getErrorMessage(error) })
   }
+  let developerSnapshotCaptured = false
   try {
     const { captureDeveloperSnapshot } = await import('../developer-evolution')
-    await captureDeveloperSnapshot(projectId)
+    developerSnapshotCaptured = await captureDeveloperSnapshot(projectId)
   } catch (error) {
     log.debug('Failed to capture dev snapshot', { error: getErrorMessage(error) })
   }
@@ -121,6 +122,7 @@ export async function recordSyncMetrics(
     filteredSize,
     compressionRate,
     indexes,
+    developerSnapshotCaptured,
   }
 }
 

@@ -73,6 +73,42 @@ describe('analysis-save-llm', () => {
     expect(saved?.projectInsights).not.toContain('WIP')
   })
 
+  test('thin markdown notes do not clobber a rich house-style analysis', async () => {
+    const rich = {
+      ...MINIMAL_VALID,
+      architecture: {
+        style: 'modular-monolith',
+        insights: ['commands route through services'],
+        domains: ['core'],
+      },
+      patterns: [
+        {
+          name: 'Command registry',
+          description: 'command-data.ts is the wire',
+          locations: ['core/commands'],
+          confidence: 0.95,
+          category: 'architecture',
+        },
+      ],
+      conventions: [
+        { category: 'imports', rule: 'No barrel files', example: 'import from source' },
+      ],
+    }
+    const first = await saveLlmAnalysis(JSON.stringify(rich), projectPath, { md: true })
+    expect(first.success).toBe(true)
+
+    const notes = ['# Notes', '- Extra insight about ship gates.', '- WIP'].join('\n')
+    const second = await saveLlmAnalysis(notes, projectPath, { md: true })
+    expect(second.success).toBe(true)
+
+    const saved = llmAnalysisStorage.getActive(projectId)
+    expect(saved?.architecture.style).toBe('modular-monolith')
+    expect(saved?.patterns).toHaveLength(1)
+    expect(saved?.patterns[0]?.name).toBe('Command registry')
+    expect(saved?.conventions).toHaveLength(1)
+    expect(saved?.projectInsights?.some((i) => i.includes('Extra insight'))).toBe(true)
+  })
+
   test('reads a JSON analysis file path instead of parsing the path string as JSON', async () => {
     const file = path.join(projectPath, 'analysis.json')
     await fs.writeFile(file, JSON.stringify(MINIMAL_VALID), 'utf-8')
