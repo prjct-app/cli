@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.63.2] - 2026-07-16
+
+### Bug Fixes
+
+- 10min client timeout for ship/sync and long verbs (#575)
+
+
 ## [3.63.1] - 2026-07-15
 
 ### Bug Fixes
