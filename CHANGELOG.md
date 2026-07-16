@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.68.0] - 2026-07-16
+
+### Added
+- project style model dual evolution
+
 ## [3.67.0] - 2026-07-16
 
 ### Added
