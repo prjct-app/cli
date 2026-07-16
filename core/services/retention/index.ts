@@ -21,6 +21,7 @@ import { collectSupersededIds, isModelMemory, type MemoryEntry } from '../../mem
 import { projectMemory } from '../../memory/project-memory'
 import { archiveStorage } from '../../storage/archive-storage'
 import prjctDb from '../../storage/database'
+import { classifyCapturePrecision } from '../../memory/precision-classifier'
 import { isJunkCaptureContent } from '../capture-junk'
 import { isIrrelevantGeneratedContext } from '../context-quality-service'
 import { extractCorrectionIds, usefulnessService } from '../usefulness'
@@ -499,7 +500,17 @@ export function forgetJunkCaptures(
   options: { max?: number; types?: string[] } = {}
 ): { forgotten: number; samples: string[] } {
   const max = options.max ?? 50
-  const types = options.types ?? ['inbox', 'context', 'idea', 'todo', 'question']
+  // Include gotcha/spec so precision shape failures (open narration, empty
+  // mirrors) leave living surfaces on dream — not only low-stakes junk.
+  const types = options.types ?? [
+    'inbox',
+    'context',
+    'idea',
+    'todo',
+    'question',
+    'gotcha',
+    'spec',
+  ]
   let forgotten = 0
   const samples: string[] = []
   try {
@@ -508,10 +519,20 @@ export function forgetJunkCaptures(
       if (forgotten >= max) break
       if (!types.includes(e.type)) continue
       const j = isJunkCaptureContent(e.content, e.type)
-      if (!j.junk) continue
+      const precision = classifyCapturePrecision(e.content, e.type)
+      const drop =
+        j.junk ||
+        precision.action === 'refuse' ||
+        // Historical open-narration gotchas: drop from living judgment surface
+        (e.type === 'gotcha' && precision.action === 'demote')
+      if (!drop) continue
       if (forgetEntry(projectId, e.id)) {
         forgotten++
-        if (samples.length < 8) samples.push(`${e.id}:${j.reason}`)
+        if (samples.length < 8) {
+          samples.push(
+            `${e.id}:${j.junk ? j.reason : precision.reasonCode}`
+          )
+        }
       }
     }
   } catch {

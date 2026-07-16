@@ -15,6 +15,7 @@
  */
 
 import type { MemoryEntry, MemoryType } from '../../memory/entries'
+import { classifyCapturePrecision } from '../../memory/precision-classifier'
 import { projectMemory } from '../../memory/project-memory'
 import { isJunkCaptureContent } from '../capture-junk'
 import { buildReferenceIndex, CAPTURE_MIN_EXCESS, excessAgainstIndex } from './excess'
@@ -69,6 +70,22 @@ export function captureGate(
   const junk = isJunkCaptureContent(trimmed, type)
   if (junk.junk) {
     return { accept: false, reason: `junk capture: ${junk.reason}` }
+  }
+
+  // Precision classifier (pure, no I/O): empty specs, open-narration gotchas,
+  // sub-substance inbox. Demote is not accept-as-typed — caller (remember)
+  // rewrites type; gate rejects the original public type.
+  const precision = classifyCapturePrecision(trimmed, type, {
+    force: tags?.force === 'true' || tags?.['precision:force'] === 'true',
+  })
+  if (precision.action === 'refuse') {
+    return { accept: false, reason: `precision: ${precision.reason}` }
+  }
+  if (precision.action === 'demote') {
+    return {
+      accept: false,
+      reason: `precision demote→${precision.demoteTo ?? 'context'}: ${precision.reason}`,
+    }
   }
 
   const auto = isAutoSource(tags?.source)

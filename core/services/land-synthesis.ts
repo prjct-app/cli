@@ -101,6 +101,8 @@ export function buildLandHandoffContent(input: LandSynthesisInput): string | nul
     parts.push('Session close: no open work cycle — landed repo + capture signals only.')
   }
 
+  // Store still uses living-v2 field shape for parsers; lead sentence is the
+  // synthesis value without relying on the label as the only scannable text.
   parts.push(
     'Context synthesis: Passive land hand-off from durable signals (cycle, journal, commits, auto-captures). Not a model essay.'
   )

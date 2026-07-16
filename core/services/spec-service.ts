@@ -61,6 +61,14 @@ class SpecService {
   ): Promise<Spec> {
     const projectId = await this.requireProjectId(projectPath)
 
+    // Precision gate: empty specs (goal===title, bare id lookup) must not
+    // graduate. Fail loud — a silent draft is worse than a refused create.
+    const { classifySpecCreate } = await import('../memory/precision-classifier')
+    const precision = classifySpecCreate(args.title, args.content.goal)
+    if (precision.action === 'refuse') {
+      throw new Error(`Cannot create empty spec (${precision.reasonCode}): ${precision.reason}`)
+    }
+
     // Auto-context inference (B-CTX): only if `notes` is empty and the
     // caller didn't opt out. The composer reads `findRelevantFiles` +
     // `projectMemory.recall` and returns a tentative Markdown block.

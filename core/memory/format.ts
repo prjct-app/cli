@@ -152,8 +152,10 @@ export function preventiveLabel(e: Pick<MemoryEntry, 'type' | 'tags'>): string {
 
 /** One-line detail: whitespace-flattened content, ellipsis-truncated. */
 export function flatDetail(content: string, max = 220): string {
-  const flat = content.replace(/\s+/g, ' ').trim()
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+  // Lazy import avoided — strip is pure and tiny; inline the lead label so
+  // compact brief rows never show "Context synthesis:" as the cue.
+  const stripped = content.replace(/^Context synthesis:\s*/i, '').replace(/\s+/g, ' ').trim()
+  return stripped.length > max ? `${stripped.slice(0, max - 1)}…` : stripped
 }
 
 /**
@@ -164,6 +166,8 @@ export function flatDetail(content: string, max = 220): string {
  */
 export function deriveTitle(entry: Pick<MemoryEntry, 'content' | 'type' | 'id' | 'tags'>): string {
   let raw = (entry.content ?? '').trim()
+  // Pipeline labels are storage contract, not human titles.
+  raw = raw.replace(/^Context synthesis:\s*/i, '')
   raw = raw.replace(/^(?:[-*•]\s+|\s+)+/, '')
   raw = raw.replace(/^(?:\[\[[^\]]*\]\]|mem[_-]\d+)[\s:,-]*/i, '').trim()
   let cut = raw.length
@@ -316,7 +320,11 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
       // (`^mem-N`) so it is a real navigable target (mem_3233 — the
       // dangling-pointer class is closed where the user actually reads:
       // Obsidian).
-      const content = opts?.vault ? linkifyMemRefs(e.content, opts) : e.content
+      // Human surface: strip internal pipeline labels (Context synthesis:).
+      // Storage keeps the structured body; presentation does not leak SoT labels.
+      let body = e.content.replace(/^Context synthesis:\s*/i, '')
+      body = body.replace(/(\s*[·|]\s*)Context synthesis:\s*/gi, '$1')
+      const content = opts?.vault ? linkifyMemRefs(body, opts) : body
       const tagSuffix = tags ? `  _(${opts?.vault ? linkifyMemRefs(tags, opts) : tags})_` : ''
       const rowid = e.id.replace(/^mem[_-]/, '')
       const anchor = opts?.vault ? ` ^mem-${rowid}` : ''
