@@ -283,12 +283,15 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
     status: 'stable',
     detectsBy: { homeDirs: ['.grok'], commands: ['grok'] },
     contextFiles: ['AGENTS.md', 'CLAUDE.md'],
-    // Grok natively loads Claude MCP/settings — no separate writer required.
     mcpTargets: [
-      { format: 'generic', pathHint: '~/.grok config/plugins (MCP)', writable: false },
+      {
+        format: 'codex-toml',
+        pathHint: '~/.grok/config.toml',
+        writable: true,
+      },
       {
         format: 'claude-json',
-        pathHint: '~/.claude/mcp.json (Grok Claude-compat)',
+        pathHint: '~/.claude/mcp.json (Grok Claude-compat fallback)',
         writable: true,
       },
     ],
@@ -301,7 +304,7 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       projectRules: false,
     },
     notes:
-      'Benchmark-tier CLI (2026-07): Grok Build. AGENTS.md + native Claude Code compat (CLAUDE.md, skills, MCP, hooks). prjct install covers Grok via inherits-claude — see harness-surfaces.',
+      'Benchmark-tier CLI (2026-07): Grok Build. Native MCP + skill via prjct install (~/.grok/config.toml + ~/.grok/skills/prjct). Hooks still Claude-compat. See harness-surfaces.',
   },
   {
     id: 'goose',

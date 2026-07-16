@@ -187,6 +187,14 @@ export async function applyDoctorHeal(
           const { ensureKimiMcpServer } = await import('../utils/kimi-mcp')
           await ensureKimiMcpServer()
         }
+        if (detected.some((r) => r.runtime.id === 'grok')) {
+          const { ensureGrokMcpServer } = await import('../utils/grok-mcp')
+          const { installGrokSkill } = await import('../infrastructure/grok-skill')
+          const { installGrokPlugin } = await import('../utils/grok-plugin')
+          await ensureGrokMcpServer()
+          await installGrokSkill()
+          await installGrokPlugin()
+        }
         // Always ensure Claude hooks too when multi-runtime runs
         await installHooks()
         applied.push(action.id)

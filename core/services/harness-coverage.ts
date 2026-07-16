@@ -3,8 +3,8 @@
  *
  * Competitors can ship AGENTS.md pointers. What they cannot cheaply copy is
  * a single install that leaves *working* hooks + MCP across Claude, Codex,
- * Gemini, Cursor (and Grok via Claude inherit) while SQLite judgment memory
- * and code gates stay the same brain underneath.
+ * Gemini, Cursor, and Grok (native MCP/skill + Claude-compat hooks) while
+ * SQLite judgment memory and code gates stay the same brain underneath.
  *
  * This module probes real config files (not capability claims) so install,
  * agents doctor, and harness score report the same truth.
@@ -12,11 +12,14 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { getGrokSkillInstallPath } from '../infrastructure/grok-skill'
 import { resolveUserHome } from '../infrastructure/user-home'
 import { getCodexHooksJsonPath } from '../utils/codex-hooks'
 import { getCodexConfigTomlPath } from '../utils/codex-mcp'
 import { getCursorHooksJsonPath } from '../utils/cursor-hooks'
 import { getGeminiSettingsPath } from '../utils/gemini-settings'
+import { getGrokConfigTomlPath } from '../utils/grok-mcp'
+import { getGrokPluginRoot } from '../utils/grok-plugin'
 import { commandOnPathAsync } from '../utils/which'
 
 export type OrganicLevel = 'full' | 'partial' | 'inherited' | 'none' | 'absent'
@@ -126,6 +129,9 @@ export async function probeHarnessCoverage(
   const geminiSettings = getGeminiSettingsPath()
   const cursorHooks = getCursorHooksJsonPath()
   const grokHome = path.join(home, '.grok')
+  const grokToml = getGrokConfigTomlPath()
+  const grokSkill = getGrokSkillInstallPath()
+  const grokPluginJson = path.join(getGrokPluginRoot(), 'plugin.json')
   const projectCursor = path.join(projectPath, '.cursor')
 
   const [
@@ -139,6 +145,9 @@ export async function probeHarnessCoverage(
     codexTomlText,
     geminiText,
     cursorHooksText,
+    grokTomlText,
+    grokSkillExists,
+    grokPluginExists,
     grokDir,
     cursorDir,
   ] = await Promise.all([
@@ -152,6 +161,9 @@ export async function probeHarnessCoverage(
     readText(codexToml),
     readText(geminiSettings),
     readText(cursorHooks),
+    readText(grokToml),
+    fileExists(grokSkill),
+    fileExists(grokPluginJson),
     fileExists(grokHome),
     fileExists(projectCursor),
   ])
@@ -174,8 +186,13 @@ export async function probeHarnessCoverage(
     hasPrjctManagedJson(cursorHooksText) || hasPrjctHookCommand(cursorHooksText)
 
   const grokDetected = grokCmd || grokDir
-  // Grok inherits Claude hooks/MCP when those are live.
-  const grokInherited = Boolean(claudeHooks || claudeMcpLive)
+  const grokNativeMcp = hasPrjctMcpToml(grokTomlText)
+  const grokNativeSkill = Boolean(grokSkillExists)
+  const grokNativePlugin = Boolean(grokPluginExists)
+  const grokHasNative = grokNativeMcp || grokNativeSkill || grokNativePlugin
+  // Hooks still fire via Claude-compat settings; MCP can be native and/or Claude.
+  const grokHooksLive = Boolean(claudeHooks)
+  const grokMcpLive = grokNativeMcp || claudeMcpLive
 
   const runtimes: RuntimeCoverage[] = [
     {
@@ -245,13 +262,25 @@ export async function probeHarnessCoverage(
       id: 'grok',
       displayName: 'xAI Grok Build',
       detected: Boolean(grokDetected),
-      hooksLive: grokInherited && claudeHooks,
-      mcpLive: grokInherited && claudeMcpLive,
-      organic: organicOf(Boolean(grokDetected), grokInherited, grokInherited, true),
+      hooksLive: grokHooksLive,
+      mcpLive: grokMcpLive,
+      // Native MCP/skill → full/partial; Claude-only fallback → inherited.
+      organic: organicOf(
+        Boolean(grokDetected),
+        grokHooksLive,
+        grokMcpLive,
+        !grokHasNative && (claudeHooks || claudeMcpLive)
+      ),
       evidence: grokDetected
-        ? grokInherited
-          ? 'inherits Claude hooks+MCP (zero extra install)'
-          : 'detected — run prjct install (Claude wire unlocks Grok)'
+        ? grokNativeMcp && (grokNativeSkill || grokNativePlugin)
+          ? `~/.grok/config.toml MCP + ${grokNativePlugin ? 'plugins/prjct' : 'skills/prjct'} (hooks via Claude compat)`
+          : grokNativeMcp
+            ? '~/.grok/config.toml MCP (hooks via Claude compat)'
+            : grokNativeSkill || grokNativePlugin
+              ? `${grokNativePlugin ? 'plugins/prjct' : 'skills/prjct'} (MCP via Claude compat or missing)`
+              : claudeHooks || claudeMcpLive
+                ? 'Claude-compat only — run prjct install for native Grok MCP+skill+plugin'
+                : 'detected — run prjct install'
         : 'not installed',
     },
   ]

@@ -52,7 +52,7 @@ describe('agent runtime registry', () => {
     expect(writable[0]?.pathHint).toContain('.kimi/mcp.json')
   })
 
-  it('registers xAI Grok Build as AGENTS.md + Claude-compat MCP/skills/hooks CLI', () => {
+  it('registers xAI Grok Build with native writable ~/.grok/config.toml MCP', () => {
     const grok = getAgentRuntime('grok')
 
     expect(grok.kind).toBe('cli')
@@ -62,8 +62,8 @@ describe('agent runtime registry', () => {
     expect(grok.supports.skills).toBe(true)
     expect(grok.supports.hooks).toBe(true)
     expect(grok.detectsBy?.commands).toContain('grok')
-    // Grok inherits Claude MCP — writable path is ~/.claude/mcp.json (compat).
     const writable = (grok.mcpTargets ?? []).filter((target) => target.writable)
+    expect(writable.some((t) => t.pathHint.includes('.grok/config.toml'))).toBe(true)
     expect(writable.some((t) => t.pathHint.includes('.claude/mcp.json'))).toBe(true)
   })
 

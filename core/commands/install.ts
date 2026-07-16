@@ -9,6 +9,7 @@
 
 import { detectAgentRuntimes } from '../infrastructure/agent-runtime-registry'
 import configManager from '../infrastructure/config-manager'
+import { installGrokSkill } from '../infrastructure/grok-skill'
 import { probeHarnessCoverage, renderHarnessCoverageMd } from '../services/harness-coverage'
 import { writeProjectAgentSurfaces } from '../services/project-agent-surfaces'
 import {
@@ -24,6 +25,8 @@ import { installCodexHooks, uninstallCodexHooks } from '../utils/codex-hooks'
 import { ensureCodexMcpServer } from '../utils/codex-mcp'
 import { installCursorHooks, uninstallCursorHooks } from '../utils/cursor-hooks'
 import { installGeminiSettings, uninstallGeminiSettings } from '../utils/gemini-settings'
+import { ensureGrokMcpServer } from '../utils/grok-mcp'
+import { installGrokPlugin } from '../utils/grok-plugin'
 import { ensureKimiMcpServer } from '../utils/kimi-mcp'
 import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
@@ -57,6 +60,10 @@ export class InstallCommands extends PrjctCommandsBase {
       const cursorHooks = cursorDetected ? await installCursorHooks() : null
       const kimiDetected = detected.some((runtime) => runtime.runtime.id === 'kimi-cli')
       const kimiConfig = kimiDetected ? await ensureKimiMcpServer() : null
+      const grokDetected = detected.some((runtime) => runtime.runtime.id === 'grok')
+      const grokConfig = grokDetected ? await ensureGrokMcpServer() : null
+      const grokSkill = grokDetected ? await installGrokSkill() : null
+      const grokPlugin = grokDetected ? await installGrokPlugin() : null
       const coverage = await probeHarnessCoverage(projectPath)
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
@@ -67,6 +74,7 @@ export class InstallCommands extends PrjctCommandsBase {
         geminiConfig ? 'gemini' : null,
         cursorHooks ? 'cursor' : null,
         kimiConfig ? 'kimi' : null,
+        grokConfig || grokSkill?.success || grokPlugin?.success ? 'grok' : null,
         'claude',
       ].filter((x): x is string => Boolean(x))
       let deltaLine: string | null = null
@@ -135,6 +143,27 @@ export class InstallCommands extends PrjctCommandsBase {
             ...(kimiConfig
               ? [`- Kimi config: ${kimiConfig.changed ? 'updated' : 'already ready'}`]
               : []),
+            ...(grokConfig
+              ? [
+                  `- Grok MCP: ${
+                    grokConfig.skipped === 'user-managed'
+                      ? 'user-managed preserved'
+                      : grokConfig.changed
+                        ? 'updated'
+                        : 'already ready'
+                  } → \`${grokConfig.path}\``,
+                ]
+              : []),
+            ...(grokSkill?.success
+              ? [
+                  `- Grok skill: ${grokSkill.action ?? 'ready'}${grokSkill.path ? ` → \`${grokSkill.path}\`` : ''}`,
+                ]
+              : []),
+            ...(grokPlugin?.success
+              ? [
+                  `- Grok plugin: ${grokPlugin.changed ? `updated (${grokPlugin.files.join(', ') || 'files'})` : 'already ready'} → \`${grokPlugin.path}\``,
+                ]
+              : []),
             ``,
             `## Claude hooks adapter`,
             `Wrote to \`${result.settingsPath}\`.`,
@@ -151,7 +180,7 @@ export class InstallCommands extends PrjctCommandsBase {
             ``,
             renderHarnessCoverageMd(coverage),
             `> One install · one SQLite brain · every agent surface. That is the moat — not more skills.`,
-            `> Grok inherits Claude. Codex/Gemini/Cursor get native adapters. Trust Codex hooks once via \`/hooks\`.`,
+            `> Grok: native MCP + skill; hooks still via Claude compat. Codex/Gemini/Cursor get native adapters.`,
             `> Gaps? \`prjct doctor --fix\`. Only \`_prjctManaged: true\` entries were touched.`,
           ].join('\n')
         )
@@ -196,6 +225,25 @@ export class InstallCommands extends PrjctCommandsBase {
         }
         if (kimiConfig) {
           out.info(`Kimi config: ${kimiConfig.changed ? 'updated' : 'already ready'}`)
+        }
+        if (grokConfig) {
+          const action =
+            grokConfig.skipped === 'user-managed'
+              ? 'user-managed MCP preserved'
+              : grokConfig.changed
+                ? 'updated'
+                : 'already ready'
+          out.info(`Grok MCP: ${action} → ${grokConfig.path}`)
+        }
+        if (grokSkill?.success) {
+          out.info(
+            `Grok skill: ${grokSkill.action ?? 'ready'}${grokSkill.path ? ` → ${grokSkill.path}` : ''}`
+          )
+        }
+        if (grokPlugin?.success) {
+          out.info(
+            `Grok plugin: ${grokPlugin.changed ? 'updated' : 'already ready'} → ${grokPlugin.path}`
+          )
         }
         out.info(
           `Organic board: ${coverage.liveCount}/${coverage.detectedCount} live (${coverage.organicPct}%)`
@@ -260,6 +308,26 @@ export class InstallCommands extends PrjctCommandsBase {
           ? {
               path: kimiConfig.path,
               changed: kimiConfig.changed,
+            }
+          : null,
+        grokConfig: grokConfig
+          ? {
+              path: grokConfig.path,
+              changed: grokConfig.changed,
+              skipped: grokConfig.skipped,
+            }
+          : null,
+        grokSkill: grokSkill?.success
+          ? {
+              action: grokSkill.action,
+              path: grokSkill.path,
+            }
+          : null,
+        grokPlugin: grokPlugin?.success
+          ? {
+              path: grokPlugin.path,
+              changed: grokPlugin.changed,
+              files: grokPlugin.files,
             }
           : null,
       }

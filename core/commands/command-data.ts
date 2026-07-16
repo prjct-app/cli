@@ -1088,6 +1088,28 @@ export const COMMANDS: CommandMeta[] = [
     usage: { claude: 'p. replan "auth moved to JWT"', terminal: 'prjct replan "<what changed>"' },
   },
   {
+    name: 'plan',
+    group: 'ceremonies',
+    surface: 'ai-agile',
+    requiresProject: true,
+    implemented: true,
+    hasTemplate: false,
+    routing: { group: 'ceremonies', method: 'plan' },
+    optionSchema: {},
+    params: '["title"] | show | write "<md>" | approve | clear',
+    description:
+      'Plan-mode ceremony (read-only until approve): SQLite-backed plan with Context/Approach/Files/Reuse/Verification. Host must not edit source while status is draft.',
+    usage: {
+      claude: 'p. plan "Add auth"',
+      terminal: 'prjct plan ["title"] | show | write "..." | approve | clear [--md]',
+    },
+    features: [
+      'Grok Build plan-mode pattern at the harness layer (no TUI ownership)',
+      'draft → write → approve; approve persists a decision memory',
+      'Single SoT in kv_store work-plan:active',
+    ],
+  },
+  {
     name: 'prime',
     group: 'ceremonies',
     surface: 'ai-agile',

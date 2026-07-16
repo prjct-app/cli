@@ -31,6 +31,7 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { getTimeout } from '../utils/constants'
 import { fileExists } from '../utils/file-helper'
+import { ensureGrokMcpServer } from '../utils/grok-mcp'
 import log from '../utils/logger'
 import { VERSION } from '../utils/version'
 import {
@@ -43,6 +44,7 @@ import {
 import { installCodexSkill, verifyCodexPRouterReady } from './codex-skill'
 import installer from './command-installer'
 import editorsConfig from './editors-config'
+import { installGrokSkill } from './grok-skill'
 import { mergeWithMarkers } from './ide-project-installer'
 import pathManager from './path-manager'
 import { installStatusLine } from './statusline-installer'
@@ -244,6 +246,28 @@ export async function run(): Promise<SetupResults> {
 
     console.log(`   ${chalk.green('✓')} Codex skill installed`)
     console.log(`   ${chalk.green('✓')} Codex p. router ready`)
+  }
+
+  // Step 2d: Install for Grok Build if detected (~/.grok or `grok` on PATH)
+  try {
+    const { detectAgentRuntimes } = await import('./agent-runtime-registry')
+    const runtimes = await detectAgentRuntimes(process.cwd())
+    const grokDetected = runtimes.some((r) => r.runtime.id === 'grok' && r.detected)
+    if (grokDetected) {
+      const { installGrokPlugin } = await import('../utils/grok-plugin')
+      const grokMcp = await ensureGrokMcpServer()
+      const grokSkill = await installGrokSkill()
+      const grokPlugin = await installGrokPlugin()
+      if (grokSkill.success || grokPlugin.success) {
+        console.log(
+          `   ${chalk.green('✓')} Grok skill/plugin ${grokSkill.action ?? 'ready'}${
+            grokMcp.changed ? ' + MCP' : ''
+          }${grokPlugin.changed ? ' + plugin' : ''}`
+        )
+      }
+    }
+  } catch {
+    /* best-effort — install.ts is the primary wire path */
   }
 
   // Step 3: Save version in editors-config

@@ -110,6 +110,34 @@ export const RIGS: readonly RigTemplate[] = [
       { organ: 'stop-slop', install: 'prjct workflow gate ship "verify:auto".' },
     ],
   },
+  {
+    name: 'grok-build',
+    description:
+      'Grok as Brain, prjct as Body: multi-host skill/MCP projection, plan-mode approval gate, crew checkpoints, and SQLite memory (Grok memory is experimental). Steal patterns from the open Grok Build harness — not the Rust agent loop.',
+    source: 'https://github.com/xai-org/grok-build',
+    organs: [
+      {
+        organ: 'skills-commands',
+        install:
+          'prjct install — native ~/.grok/config.toml MCP + ~/.grok/skills/prjct + ~/.grok/plugins/prjct; hooks still via Claude compat. Keep AGENTS.md + MCP prjct_* as the portable contract.',
+      },
+      {
+        organ: 'knowledge-base',
+        install:
+          'prjct remember decision/learning/gotcha — prjct SQLite is the durable memory plane; do not rely on Grok experimental memory alone.',
+      },
+      {
+        organ: 'agent-catalog',
+        install:
+          'prjct crew install + `prjct plan` ceremony (draft read-only until `prjct plan approve`) before implementer edits on ambiguous work.',
+      },
+      {
+        organ: 'stop-slop',
+        install:
+          'prjct crew checkpoints set + `prjct workflow gate ship "verify:auto"`; map delivery-geometry tier to host permission mode advice (default/dontAsk/acceptEdits) without owning OS sandbox.',
+      },
+    ],
+  },
 ]
 
 export function findRig(name: string): RigTemplate | undefined {

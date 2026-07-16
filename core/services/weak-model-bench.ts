@@ -178,9 +178,14 @@ export function runWeakModelBench(): WeakBenchReport {
   )
   push('cursor hooks native', cursor?.hooks.prjct === 'native', `hooks=${cursor?.hooks.prjct}`)
   push(
-    'grok inherits-claude',
-    grok?.hooks.prjct === 'inherits-claude' && grok?.mcp.prjct === 'inherits-claude',
-    `hooks=${grok?.hooks.prjct} mcp=${grok?.mcp.prjct}`
+    'grok mcp+skills native',
+    grok?.mcp.prjct === 'native' && grok?.skills.prjct === 'native',
+    `mcp=${grok?.mcp.prjct} skills=${grok?.skills.prjct}`
+  )
+  push(
+    'grok hooks inherits-claude',
+    grok?.hooks.prjct === 'inherits-claude',
+    `hooks=${grok?.hooks.prjct}`
   )
 
   const surfaceIds = new Set(listHarnessSurfaces().map((s) => s.runtimeId))

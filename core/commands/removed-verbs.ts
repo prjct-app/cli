@@ -69,10 +69,8 @@ export const REMOVED_VERBS: Readonly<Record<string, RemovedVerb>> = {
     replacement: 'prjct status',
     note: 'Velocity reports were removed in v2.',
   },
-  plan: {
-    replacement: 'prjct init',
-    note: 'Planning is now part of init/task flow.',
-  },
+  // `plan` returned in 2026-07 as the plan-mode ceremony (draft → approve).
+  // Tombstone removed so the registered ceremonies.plan verb can dispatch.
   vault: {
     replacement: 'prjct search / prjct context memory / MCP prjct_*',
     note: 'The Obsidian/markdown vault was removed. Agents read project knowledge through tools now.',

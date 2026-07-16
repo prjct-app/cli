@@ -57,4 +57,17 @@ describe('steal-a-rig — adopt a base rig', () => {
   it('returns undefined for an unknown rig', () => {
     expect(findRig('does-not-exist')).toBeUndefined()
   })
+
+  it('resolves grok-build with Body/Brain organs (no agent-loop port)', () => {
+    const rig = findRig('grok-build')
+    expect(rig).toBeDefined()
+    expect(rig!.source).toContain('xai-org/grok-build')
+    const plan = renderRigAdoption(rig!)
+    expect(plan).toContain('skills-commands')
+    expect(plan).toContain('knowledge-base')
+    expect(plan).toContain('prjct remember')
+    expect(plan).toContain('prjct crew')
+    // Sovereignty: patterns only — never the Rust runtime
+    expect(rig!.description).toMatch(/not the Rust agent loop/i)
+  })
 })
