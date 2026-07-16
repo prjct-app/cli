@@ -6,7 +6,7 @@ import { describe, expect, it } from 'bun:test'
 import { buildCycleBudgetCard } from '../../services/cycle-budget-card'
 
 describe('cycle-budget-card', () => {
-  it('prints turns and land cue at cycle open', () => {
+  it('prints turns and density cue at cycle open', () => {
     const c = buildCycleBudgetCard({
       turns: 0,
       turnLimit: 15,
@@ -17,11 +17,11 @@ describe('cycle-budget-card', () => {
     expect(c.line).toMatch(/Cycle budget/)
     expect(c.line).toContain('turns 0/15')
     expect(c.line).toContain('100000')
-    expect(c.line).toMatch(/land/i)
+    expect(c.line).toMatch(/signal density|session continues/i)
     expect(c.md).toContain('Cycle budget')
   })
 
-  it('escalates land cue under critical pressure', () => {
+  it('under critical pressure prefers compact work not session kill', () => {
     const c = buildCycleBudgetCard({
       turns: 12,
       turnLimit: 15,
@@ -29,7 +29,8 @@ describe('cycle-budget-card', () => {
       tokenBudget: 100_000,
       pressureLevel: 'critical',
     })
-    expect(c.line).toMatch(/LAND NOW/i)
+    expect(c.line).toMatch(/high-signal|compact|keep working/i)
+    expect(c.line).not.toMatch(/LAND NOW/i)
     expect(c.turnRatio).toBeCloseTo(0.8, 2)
   })
 })

@@ -148,7 +148,8 @@ export class ShippingCommands extends PrjctCommandsBase {
         /* package check is best-effort */
       }
 
-      // Context-pressure HARD gate — critical sessions must land/prime first.
+      // Context-density soft gate — default does NOT kill sessions or block ship.
+      // Opt-in hard block: config.contextPressure.hardBlockShip + critical.
       try {
         const { contextPressureBlocksExpansion, contextPressureVerdict } = await import(
           '../services/context-pressure'
@@ -159,15 +160,15 @@ export class ShippingCommands extends PrjctCommandsBase {
           tokensOut: currentTask?.tokensOut,
           description: currentTask?.description,
         })
-        if (contextPressureBlocksExpansion(pressure) && !options.forcePressure) {
+        if (contextPressureBlocksExpansion(pressure, shipConfig) && !options.forcePressure) {
           return {
             success: false,
             error:
               pressure.cue ??
-              'Context pressure critical — run `prjct land`, open a fresh window + `prjct prime`. Override only with `prjct ship --force-pressure` and explicit consent.',
+              'Context density hard-block is enabled (contextPressure.hardBlockShip). Soften injection or pass --force-pressure with consent.',
           }
         }
-        if (pressure.level === 'warn' && pressure.cue) {
+        if ((pressure.level === 'warn' || pressure.level === 'critical') && pressure.cue) {
           console.log(pressure.cue)
         }
       } catch {

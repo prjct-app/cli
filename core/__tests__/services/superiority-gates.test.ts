@@ -87,17 +87,17 @@ describe('package install parse (PreToolUse superiority)', () => {
   })
 })
 
-describe('context-pressure hard gate (expansion block)', () => {
-  it('critical blocks expansion; warn does not block ship but requires compact path', () => {
+describe('context-pressure density guard (no forced session kill)', () => {
+  it('default: never hard-blocks ship; compact preference only', () => {
     const crit = contextPressureVerdict(
       { maxTurnsPerCycle: 10 } as never,
       { turnCount: 8 } as never
     )
     expect(crit.level).toBe('critical')
-    expect(contextPressureBlocksExpansion(crit)).toBe(true)
+    expect(contextPressureBlocksExpansion(crit)).toBe(false)
     expect(contextPressureRequiresCompactPath(crit)).toBe(true)
-    expect(crit.cue).toMatch(/land/)
-    expect(contextPressureStatusLine(crit)).toMatch(/CRITICAL/)
+    expect(crit.cue).toMatch(/Session continues|density|compact/i)
+    expect(contextPressureStatusLine(crit)).toMatch(/density|compact/i)
 
     const warn = contextPressureVerdict(
       { maxTurnsPerCycle: 10 } as never,
@@ -106,8 +106,21 @@ describe('context-pressure hard gate (expansion block)', () => {
     expect(warn.level).toBe('warn')
     expect(contextPressureBlocksExpansion(warn)).toBe(false)
     expect(contextPressureRequiresCompactPath(warn)).toBe(true)
-    expect(warn.cue).toMatch(/compact path|prjct land/i)
-    expect(contextPressureStatusLine(warn)).toMatch(/land/)
+    expect(warn.cue).toMatch(/Keep the chat|compact|high-signal/i)
+    expect(contextPressureStatusLine(warn)).toMatch(/density|compact/i)
+  })
+
+  it('opt-in hardBlockShip only when configured', () => {
+    const crit = contextPressureVerdict(
+      { maxTurnsPerCycle: 10 } as never,
+      { turnCount: 8 } as never
+    )
+    expect(
+      contextPressureBlocksExpansion(crit, {
+        contextPressure: { hardBlockShip: true },
+      } as never)
+    ).toBe(true)
+    expect(contextPressureBlocksExpansion(crit, {} as never)).toBe(false)
   })
 })
 

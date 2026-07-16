@@ -52,14 +52,21 @@ function buildMcpTomlBlock(
   endMarker: string
 ): string {
   const args = (server.args ?? []).map(tomlString).join(', ')
-  return [
+  const lines = [
     startMarker,
     `[mcp_servers.${name}]`,
     `command = ${tomlString(server.command)}`,
     `args = [${args}]`,
-    endMarker,
-    '',
-  ].join('\n')
+  ]
+  // Codex supports env tables for MCP servers (needed for sparse PATH hosts).
+  if (server.env && Object.keys(server.env).length > 0) {
+    const pairs = Object.entries(server.env)
+      .map(([k, v]) => `${k} = ${tomlString(v)}`)
+      .join(', ')
+    lines.push(`env = { ${pairs} }`)
+  }
+  lines.push(endMarker, '')
+  return lines.join('\n')
 }
 
 export function buildPrjctMcpTomlBlock(server: MCPServerConfig = MCP_SERVER_PRESETS.prjct): string {
