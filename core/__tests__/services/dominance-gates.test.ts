@@ -61,7 +61,7 @@ describe('discuss-lock (GSD discuss-before-plan, code-enforced)', () => {
   })
 })
 
-describe('context-pressure (GSD utilization guard proxy)', () => {
+describe('context-pressure (density guard, no session kill)', () => {
   it('is ok at low turns', () => {
     const v = contextPressureVerdict(
       { maxTurnsPerCycle: 25 } as never,
@@ -71,22 +71,23 @@ describe('context-pressure (GSD utilization guard proxy)', () => {
     expect(v.cue).toBeNull()
   })
 
-  it('warns near 60% of turn budget', () => {
+  it('warns near 60% of turn budget with density cue', () => {
     const v = contextPressureVerdict(
       { maxTurnsPerCycle: 10 } as never,
       { turnCount: 6, description: 'x' } as never
     )
     expect(v.level).toBe('warn')
-    expect(v.cue).toMatch(/context pressure/i)
+    expect(v.cue).toMatch(/context density|Keep the chat|compact/i)
   })
 
-  it('critical near 70%', () => {
+  it('critical near 70% keeps session, prefers compact tools', () => {
     const v = contextPressureVerdict(
       { maxTurnsPerCycle: 10 } as never,
       { turnCount: 8, description: 'x' } as never
     )
     expect(v.level).toBe('critical')
-    expect(v.cue).toMatch(/LAND|prime|critical/i)
+    expect(v.cue).toMatch(/Session continues|density|compact/i)
+    expect(v.cue).not.toMatch(/HARD GATE|STOP expanding/i)
   })
 })
 
