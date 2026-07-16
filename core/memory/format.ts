@@ -8,6 +8,8 @@
 
 import { escapeMarkdownInline } from '../utils/prompt-injection'
 import type { MemoryEntry, MemoryProvenance, MemoryType } from './entries'
+import { collapseEntriesForSurface } from './semantic-cluster'
+import { formatCoverageFooter } from './substrate-health'
 
 /**
  * Render memory entries as compact markdown grouped by type.
@@ -45,6 +47,13 @@ export interface FormatMemoryMdOptions {
    * Mutually exclusive with `vault` (compact never feeds Obsidian).
    */
   compact?: boolean
+  /**
+   * Collapse semantic near-duplicates within each type (keep fullest body,
+   * annotate seen_in_N). Default ON for compact brief surfaces; OFF for
+   * full-body / by-id pulls so audit still sees every row. Pass `false` to
+   * force expand, `true` to force collapse on full format.
+   */
+  cluster?: boolean
   /**
    * `mem_N → type` so a cross-ref resolves to the right vault target.
    * @deprecated Dead since the vault removal — see interface doc comment.
@@ -152,8 +161,13 @@ export function preventiveLabel(e: Pick<MemoryEntry, 'type' | 'tags'>): string {
 
 /** One-line detail: whitespace-flattened content, ellipsis-truncated. */
 export function flatDetail(content: string, max = 220): string {
-  const flat = content.replace(/\s+/g, ' ').trim()
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+  // Lazy import avoided — strip is pure and tiny; inline the lead label so
+  // compact brief rows never show "Context synthesis:" as the cue.
+  const stripped = content
+    .replace(/^Context synthesis:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return stripped.length > max ? `${stripped.slice(0, max - 1)}…` : stripped
 }
 
 /**
@@ -164,6 +178,8 @@ export function flatDetail(content: string, max = 220): string {
  */
 export function deriveTitle(entry: Pick<MemoryEntry, 'content' | 'type' | 'id' | 'tags'>): string {
   let raw = (entry.content ?? '').trim()
+  // Pipeline labels are storage contract, not human titles.
+  raw = raw.replace(/^Context synthesis:\s*/i, '')
   raw = raw.replace(/^(?:[-*•]\s+|\s+)+/, '')
   raw = raw.replace(/^(?:\[\[[^\]]*\]\]|mem[_-]\d+)[\s:,-]*/i, '').trim()
   let cut = raw.length
@@ -231,8 +247,22 @@ export function linkifyMemRefs(text: string, opts?: FormatMemoryMdOptions): stri
 export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOptions): string {
   if (entries.length === 0) return '> No matching memory entries.'
 
+  const compact = opts?.compact === true
+  // Compact brief defaults to cluster; full format opt-in only (audit/by-id).
+  const doCluster = opts?.cluster === true || (compact && opts?.cluster !== false)
+
+  let collapsedCount = 0
+  let multiLangSurvivors = 0
+  let surfaceEntries = entries
+  if (doCluster && entries.length > 1) {
+    const collapsed = collapseEntriesForSurface(entries)
+    surfaceEntries = collapsed.entries
+    collapsedCount = collapsed.collapsedCount
+    multiLangSurvivors = collapsed.multiLangSurvivors
+  }
+
   const groups = new Map<MemoryType, MemoryEntry[]>()
-  for (const e of entries) {
+  for (const e of surfaceEntries) {
     const bucket = groups.get(e.type) ?? []
     bucket.push(e)
     groups.set(e.type, bucket)
@@ -243,6 +273,7 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
     'learning',
     'anti-pattern',
     'gotcha',
+    'red-herring',
     'pattern',
     'fact',
     'inbox',
@@ -266,7 +297,6 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
   }
 
   const llmBoundary = opts?.boundary === 'llm'
-  const compact = opts?.compact === true
 
   // Staleness lifecycle: knowledge older than ~6 months gets a visible
   // verify-before-trusting cue. Recall still surfaces it (old ≠ wrong), but
@@ -297,7 +327,16 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
         const prov = PROV_PREFIX[e.provenance]
         const flat = flatDetail(e.content, COMPACT_CONTENT_MAX)
         const cue = llmBoundary ? escapeMarkdownInline(flat) : flat
-        lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${staleCue(e)}`)
+        const seenN = Number(e.tags?.seen_in_N ?? '1')
+        // T1: every claim is auditable — when clustered, list ALL source mem_ids
+        // (primary first via cluster_sources) so eng-lead can open corroborators.
+        const sources =
+          seenN > 1
+            ? (e.tags?.cluster_sources ??
+              [e.id, ...(e.tags?.cluster_members ?? '').split(',').filter(Boolean)].join(','))
+            : ''
+        const seenCue = seenN > 1 ? ` · seen_in_${seenN} · sources=${sources}` : ''
+        lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${seenCue}${staleCue(e)}`)
         continue
       }
       // Vault output hides machine-bookkeeping tags (source=, touches=,
@@ -316,7 +355,11 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
       // (`^mem-N`) so it is a real navigable target (mem_3233 — the
       // dangling-pointer class is closed where the user actually reads:
       // Obsidian).
-      const content = opts?.vault ? linkifyMemRefs(e.content, opts) : e.content
+      // Human surface: strip internal pipeline labels (Context synthesis:).
+      // Storage keeps the structured body; presentation does not leak SoT labels.
+      let body = e.content.replace(/^Context synthesis:\s*/i, '')
+      body = body.replace(/(\s*[·|]\s*)Context synthesis:\s*/gi, '$1')
+      const content = opts?.vault ? linkifyMemRefs(body, opts) : body
       const tagSuffix = tags ? `  _(${opts?.vault ? linkifyMemRefs(tags, opts) : tags})_` : ''
       const rowid = e.id.replace(/^mem[_-]/, '')
       const anchor = opts?.vault ? ` ^mem-${rowid}` : ''
@@ -347,6 +390,23 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
   for (const [type, items] of groups) {
     if (rendered.has(type)) continue
     renderGroup(type, items)
+  }
+
+  if (collapsedCount > 0) {
+    lines.push(
+      `_Semantic cluster: ${collapsedCount} repeated collapsed (keep fullest · seen_in_N · sources=all mem_ids on survivors for audit)._`
+    )
+  }
+  if (multiLangSurvivors > 0) {
+    // PRD §7.3: surface language unify deferred — storage stays original.
+    lines.push(
+      `_Language: ${multiLangSurvivors} multi-lang cluster(s) keep store-original text (lang normalize deferred to product layer; not rewritten in DB)._`
+    )
+  }
+
+  // Honest density: compact brief never implies complete risk coverage.
+  if (compact) {
+    lines.push(formatCoverageFooter(surfaceEntries))
   }
 
   return lines.join('\n').trim()

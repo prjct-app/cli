@@ -12,6 +12,7 @@
  *   decision      — choice made and rationale (why, not what)
  *   learning      — lesson from a mistake or surprise
  *   gotcha        — non-obvious trap for future readers
+ *   red-herring   — negative knowledge: not-the-cause / discarded hypothesis
  *   pattern       — recurring technique that works here
  *   anti-pattern  — technique that hurt us and should be avoided
  *   shipped       — auto-recorded when a task ships
@@ -301,7 +302,8 @@ export const projectMemory = {
       force?: boolean
     }
   ): Promise<void> {
-    const tags = args.tags ?? {}
+    let type = args.type
+    const tags: Record<string, string> = { ...(args.tags ?? {}) }
     const provenance = args.provenance ?? 'declared'
     const contentHash = memoryFingerprint(args.content)
 
@@ -324,6 +326,32 @@ export const projectMemory = {
           if (args.requireWrite) throw new Error(trust.denyMessage)
           return
         }
+      }
+    }
+
+    // Precision classifier (pure, hard gate): empty specs, open-narration
+    // gotchas, sub-substance inbox. Demote rewrites type before gate/dedup so
+    // knowledge is preserved as context instead of polluting judgment types.
+    // force (CLI/MCP) bypasses shape gates with an audit tag.
+    {
+      const { classifyCapturePrecision } = await import('./precision-classifier')
+      const precision = classifyCapturePrecision(args.content, type, {
+        force: args.force === true,
+      })
+      if (precision.action === 'refuse') {
+        if (args.requireWrite) {
+          throw new Error(`precision refuse (${precision.reasonCode}): ${precision.reason}`)
+        }
+        return
+      }
+      if (precision.action === 'demote' && precision.demoteTo) {
+        tags.shape_demoted = 'true'
+        tags.original_type = type
+        tags.precision_reason = precision.reasonCode
+        type = precision.demoteTo as MemoryType
+      }
+      if (args.force) {
+        tags['precision:force'] = 'true'
       }
     }
 
@@ -353,7 +381,7 @@ export const projectMemory = {
           projectId,
           'SELECT id FROM memory_entries WHERE content_hash = ? AND type = ? AND deleted_at IS NULL LIMIT 1',
           contentHash,
-          args.type
+          type
         )
         if (dup) {
           // Same content re-captured WITH a topic tag: don't create a row, but
@@ -362,7 +390,7 @@ export const projectMemory = {
           // topic X" is a silent no-op and stale revisions keep burning
           // recall slots (the exact failure the write-side upsert prevents).
           if (dedupTopicKey) {
-            this.applyTopicSupersession(projectId, args.type, contentHash, dedupTopicKey)
+            this.applyTopicSupersession(projectId, type, contentHash, dedupTopicKey)
           }
           return
         }
@@ -375,18 +403,30 @@ export const projectMemory = {
       // — never drop a capture because the gate failed to load.
       try {
         const { captureGate } = await import('../services/retention/capture-gate')
-        const gate = captureGate(projectId, args.type, args.content, tags)
+        const gate = captureGate(projectId, type, args.content, tags)
         if (!gate.accept) {
+          // Demoted open-narration already retyped; if gate still refuses
+          // (e.g. excess on context), drop silently unless requireWrite.
+          if (args.requireWrite) {
+            throw new Error(`capture refused: ${gate.reason}`)
+          }
           return
         }
-      } catch {
+      } catch (err) {
+        if (
+          args.requireWrite &&
+          err instanceof Error &&
+          err.message.startsWith('capture refused')
+        ) {
+          throw err
+        }
         /* gate unavailable — proceed with write */
       }
     }
 
     const logResult = await memoryService.log(
       projectPath,
-      `${REMEMBER_ACTION_PREFIX}${args.type}`,
+      `${REMEMBER_ACTION_PREFIX}${type}`,
       {
         content: args.content,
         tags,
@@ -420,7 +460,7 @@ export const projectMemory = {
     // transient failure, no new row exists — superseding the old revisions
     // then would silently erase the topic's only active knowledge.
     if (projectId && dedupTopicKey && logResult?.eventId != null) {
-      this.applyTopicSupersession(projectId, args.type, contentHash, dedupTopicKey)
+      this.applyTopicSupersession(projectId, type, contentHash, dedupTopicKey)
     }
 
     // Reinforcement loop: credit the entries this new one references — they
@@ -448,9 +488,9 @@ export const projectMemory = {
     try {
       const { publishCRUD } = await import('../sync/publish-helper')
       const entityId =
-        args.tags?.spec_id ??
-        args.tags?.task_id ??
-        args.tags?.id ??
+        tags.spec_id ??
+        tags.task_id ??
+        tags.id ??
         args.source ??
         `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       await publishCRUD({
@@ -460,11 +500,11 @@ export const projectMemory = {
         eventType: 'upsert',
         data: {
           id: entityId,
-          type: args.type,
+          type,
           content: args.content,
-          tags: args.tags ?? {},
+          tags,
           source: args.source ?? null,
-          provenance: args.provenance ?? 'declared',
+          provenance,
           // Origin authored time. We're creating the memory right now on
           // THIS machine, so now() IS the origin — receivers preserve it
           // verbatim instead of stamping their own ingestion clock.
@@ -648,7 +688,10 @@ export const projectMemory = {
     if (!filePath) return []
     const base = filePath.split('/').pop() ?? filePath
     const isPreventive = (e: MemoryEntry) =>
-      e.type === 'gotcha' || e.type === 'anti-pattern' || e.tags?.pattern === 'recurring-bug'
+      e.type === 'gotcha' ||
+      e.type === 'red-herring' ||
+      e.type === 'anti-pattern' ||
+      e.tags?.pattern === 'recurring-bug'
     // The `file_tag` generated column (migration 27) + partial index narrow
     // the scan to file-tagged remember rows in SQL — exact / suffix / basename
     // matching mirrors the original JS filter. Preventive-type filtering and

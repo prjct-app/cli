@@ -129,6 +129,7 @@ export function buildPrjctSkillReference(): string {
     '| a non-trivial choice just got resolved (+ its why) | `prjct remember decision "<choice + one-line why>"` | 1 |',
     '| an insight / "aha" / new mental model | `prjct remember learning "<insight>"` | 1 |',
     '| a non-obvious trap surfaced (+ how to avoid) | `prjct remember gotcha "<trap + how to avoid>"` | 1 |',
+    '| discarded cause / not-the-cause (negative knowledge) | `prjct remember red-herring "<what it was NOT + real cause>"` | 1 |',
     '| vault noisy / long-running project — consolidate memory + rebuild L0 index | `prjct dream [--force] [--dry-run]` | 1 |',
     '| resolved inbox/signal should leave rotation | `prjct close <id> --reason "…"` | 1 |',
     '| delete a bad memory by id | `prjct forget <id>` | 1 |',

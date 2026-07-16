@@ -8,6 +8,11 @@ import { detectAgentRuntimes } from '../infrastructure/agent-runtime-registry'
 import type { MemoryEntry, MemoryType } from '../memory/entries'
 import { deriveTitle, flatDetail, preventiveLabel } from '../memory/format'
 import { projectMemory } from '../memory/project-memory'
+import {
+  computeSubstrateHealth,
+  formatSubstrateHealthMd,
+  type SubstrateHealth,
+} from '../memory/substrate-health'
 import { isJunkCaptureContent } from '../services/capture-junk'
 import { resolveActiveTask } from '../services/task-service'
 import {
@@ -140,7 +145,7 @@ interface ReliabilitySnapshot {
   nextActions: string[]
 }
 
-const PREVENTIVE_TYPES = ['gotcha', 'anti-pattern', 'learning']
+const PREVENTIVE_TYPES = ['gotcha', 'red-herring', 'anti-pattern', 'learning']
 const NOISE_RE = /^(current work|wip|todo|misc|n\/a|none|latest|unreleased|changelog)$/i
 
 export class ProductCommands extends PrjctCommandsBase {
@@ -423,6 +428,7 @@ function buildMemoryDoctor(projectId: string): {
   noise: MemoryRow[]
   missingType: number
   provenUseful: number
+  substrate: SubstrateHealth | null
 } {
   const byType = query<TypeCountRow>(
     projectId,
@@ -471,6 +477,14 @@ function buildMemoryDoctor(projectId: string): {
     'SELECT COUNT(*) AS value FROM memory_usefulness WHERE score > 0'
   )
 
+  // Precision + density substrate (signal-quality plan): pure over live index.
+  let substrate: SubstrateHealth | null = null
+  try {
+    substrate = computeSubstrateHealth(projectMemory.allEntriesForIndex(projectId))
+  } catch {
+    substrate = null
+  }
+
   const issues: string[] = []
   if (duplicateGroups > 0) issues.push(`${duplicateGroups} duplicate memory group(s) need review.`)
   if (staleInbox.length > 0) issues.push(`${staleInbox.length} old inbox item(s) need promotion.`)
@@ -480,10 +494,21 @@ function buildMemoryDoctor(projectId: string): {
   if (provenUseful === 0 && rows.length > 10) {
     issues.push('No memory has usefulness credit yet; run guard/context during real tasks.')
   }
+  if (substrate) {
+    for (const issue of substrate.issues.slice(0, 8)) issues.push(issue)
+  }
 
-  const penalty = duplicateGroups * 8 + staleInbox.length * 4 + noise.length * 6 + missingType * 5
+  const penalty =
+    duplicateGroups * 8 +
+    staleInbox.length * 4 +
+    noise.length * 6 +
+    missingType * 5 +
+    (substrate ? Math.round((1 - substrate.signalRatio) * 25) : 0)
+  const base = Math.max(0, Math.min(100, 100 - penalty))
+  // Blend classic doctor score with substrate precision score when available.
+  const score = substrate ? Math.round(base * 0.55 + substrate.score * 0.45) : base
   return {
-    score: Math.max(0, Math.min(100, 100 - penalty)),
+    score,
     byType,
     issues,
     duplicateGroups,
@@ -491,6 +516,7 @@ function buildMemoryDoctor(projectId: string): {
     noise,
     missingType,
     provenUseful,
+    substrate,
   }
 }
 
@@ -938,6 +964,9 @@ function formatMemoryDoctorMd(
   const lines = ['# Memory Doctor', '', `**Quality score:** ${report.score}/100`, '']
   lines.push('## Distribution', '', '| Type | Entries |', '|---|---:|')
   for (const row of report.byType) lines.push(`| ${row.type ?? 'unknown'} | ${row.value} |`)
+  if (report.substrate) {
+    lines.push('', formatSubstrateHealthMd(report.substrate))
+  }
   lines.push('', '## Issues')
   if (report.issues.length === 0) lines.push('', '- No obvious memory quality issues found.')
   else for (const issue of report.issues) lines.push(`- ${issue}`)
@@ -946,7 +975,8 @@ function formatMemoryDoctorMd(
   appendMemoryRows(lines, 'Low signal', report.noise)
   lines.push(
     '',
-    'Recommended actions: promote old inbox entries into `decision`, `learning`, `gotcha`, or `todo`; forget noise by id; keep useful memories explicit and file-linked when possible.'
+    'Recommended actions: promote old inbox entries into `decision`, `learning`, `gotcha`, `red-herring`, or `todo`; forget noise by id; keep useful memories explicit and file-linked when possible.',
+    'Absence of a risk in memory is not proof it does not exist — trust density + blind spots above.'
   )
   if (includeFixPlan) appendMemoryFixPlan(lines, report)
   return lines.join('\n')
@@ -957,6 +987,11 @@ function formatMemoryDoctorText(
   includeFixPlan = false
 ): string {
   const lines = [`Memory doctor: ${report.score}/100`]
+  if (report.substrate) {
+    lines.push(
+      `substrate: signal=${Math.round(report.substrate.signalRatio * 100)}% unshaped_gotcha=${Math.round(report.substrate.unshapedGotchaRate * 100)}% empty_spec=${Math.round(report.substrate.emptySpecRate * 100)}% cluster≈${report.substrate.clusterCollapsedEstimate}`
+    )
+  }
   if (report.issues.length === 0) lines.push('No obvious memory quality issues found.')
   else lines.push(...report.issues.map((issue) => `- ${issue}`))
   if (includeFixPlan) lines.push(`Fix-plan actions: ${memoryFixPlan(report).length}`)
