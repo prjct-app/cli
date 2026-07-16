@@ -171,7 +171,7 @@ async function runMemoryTool(
 
   // `learnings` is a typed slice of memory focused on what the project
   // has *learned* the hard way. Everything else comes through `memory`.
-  const LEARNINGS_TYPES: MemoryType[] = ['learning', 'anti-pattern', 'gotcha']
+  const LEARNINGS_TYPES: MemoryType[] = ['learning', 'anti-pattern', 'gotcha', 'red-herring']
   const types = opts.kind === 'learnings' ? LEARNINGS_TYPES : undefined
 
   // The full pipeline (FTS-first, recall backfill, semantic blend,

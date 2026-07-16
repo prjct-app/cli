@@ -25,6 +25,7 @@ export type PrecisionReasonCode =
   | 'empty_spec_mirror'
   | 'bare_id_body'
   | 'gotcha_open_narration'
+  | 'gotcha_is_red_herring'
   | 'inbox_no_substance'
 
 export type PrecisionAction = 'accept' | 'refuse' | 'demote'
@@ -63,6 +64,13 @@ const CLOSED_GOTCHA_RE =
 /** Open narration / in-progress intent (not knowledge yet). */
 const OPEN_NARRATION_RE =
   /^(reviso|revisando|voy a|estoy|vamos a|i('ll| will)|i am |i'm |checking|looking at|let me |need to |tengo que |hay que |todo:|wip:)/i
+
+/**
+ * Negative knowledge shape — discarded cause / not-the-cause.
+ * Closed gotchas that are primarily "it was NOT X" retype to red-herring.
+ */
+const RED_HERRING_RE =
+  /\b(no era|no fue|no es|wasn't|was not|weren't|were not|not the cause|red herring|false lead|not rls|no era rls|it wasn't|no fue rls)\b/i
 
 function normalize(s: string): string {
   return s.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -241,6 +249,15 @@ export function classifyCapturePrecision(
         reasonCode: 'gotcha_open_narration',
         reason: 'open narration is not a gotcha — demote to context',
         demoteTo: 'context',
+      }
+    }
+    // Closed negative knowledge → first-class red-herring (not generic gotcha).
+    if (RED_HERRING_RE.test(trimmed) && CLOSED_GOTCHA_RE.test(trimmed)) {
+      return {
+        action: 'demote',
+        reasonCode: 'gotcha_is_red_herring',
+        reason: 'negative knowledge (not-the-cause) — store as red-herring',
+        demoteTo: 'red-herring',
       }
     }
   }

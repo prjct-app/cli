@@ -30,6 +30,12 @@ export const BASE_MEMORY_TYPES = [
   'decision',
   'learning',
   'gotcha',
+  /**
+   * Negative knowledge — "not the cause" / red herring. First-class so
+   * discarded hypotheses stay visible (not buried inside generic gotcha).
+   * Differentiator vs trackers that only store decisions that shipped.
+   */
+  'red-herring',
   'pattern',
   'anti-pattern',
   'shipped',

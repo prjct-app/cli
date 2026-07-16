@@ -12,6 +12,7 @@
  *   decision      — choice made and rationale (why, not what)
  *   learning      — lesson from a mistake or surprise
  *   gotcha        — non-obvious trap for future readers
+ *   red-herring   — negative knowledge: not-the-cause / discarded hypothesis
  *   pattern       — recurring technique that works here
  *   anti-pattern  — technique that hurt us and should be avoided
  *   shipped       — auto-recorded when a task ships
@@ -683,7 +684,10 @@ export const projectMemory = {
     if (!filePath) return []
     const base = filePath.split('/').pop() ?? filePath
     const isPreventive = (e: MemoryEntry) =>
-      e.type === 'gotcha' || e.type === 'anti-pattern' || e.tags?.pattern === 'recurring-bug'
+      e.type === 'gotcha' ||
+      e.type === 'red-herring' ||
+      e.type === 'anti-pattern' ||
+      e.tags?.pattern === 'recurring-bug'
     // The `file_tag` generated column (migration 27) + partial index narrow
     // the scan to file-tagged remember rows in SQL — exact / suffix / basename
     // matching mirrors the original JS filter. Preventive-type filtering and

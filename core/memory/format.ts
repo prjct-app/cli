@@ -9,6 +9,7 @@
 import { escapeMarkdownInline } from '../utils/prompt-injection'
 import type { MemoryEntry, MemoryProvenance, MemoryType } from './entries'
 import { collapseEntriesForSurface } from './semantic-cluster'
+import { formatCoverageFooter } from './substrate-health'
 
 /**
  * Render memory entries as compact markdown grouped by type.
@@ -267,6 +268,7 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
     'learning',
     'anti-pattern',
     'gotcha',
+    'red-herring',
     'pattern',
     'fact',
     'inbox',
@@ -382,6 +384,11 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
     lines.push(
       `_Semantic cluster: ${collapsedCount} repeated collapsed (keep fullest · seen_in_N on survivors)._`
     )
+  }
+
+  // Honest density: compact brief never implies complete risk coverage.
+  if (compact) {
+    lines.push(formatCoverageFooter(surfaceEntries))
   }
 
   return lines.join('\n').trim()

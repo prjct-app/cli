@@ -26,6 +26,7 @@ import { buildReferenceModel } from './reference-model'
 const ALWAYS_ACCEPT = new Set([
   'decision',
   'gotcha',
+  'red-herring',
   'learning',
   'fact',
   'feedback',

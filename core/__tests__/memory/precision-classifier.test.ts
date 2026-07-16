@@ -59,12 +59,13 @@ describe('gotcha vs open narration', () => {
     expect(v.reasonCode).toBe('gotcha_open_narration')
   })
 
-  it('accepts closed gotchas with cause→fix shape', () => {
+  it('retypes closed not-the-cause gotchas to red-herring', () => {
     const body =
       'It was not RLS — the RPC is SECURITY DEFINER and bypasses policies; fix: gate with can_access_company'
     expect(isOpenGotchaNarration(body)).toBe(false)
     const v = classifyCapturePrecision(body, 'gotcha')
-    expect(v.action).toBe('accept')
+    expect(v.action).toBe('demote')
+    expect(v.demoteTo).toBe('red-herring')
   })
 
   it('accepts short imperative traps', () => {
@@ -75,9 +76,19 @@ describe('gotcha vs open narration', () => {
     expect(v.action).toBe('accept')
   })
 
-  it('accepts Spanish closed negative knowledge', () => {
+  it('retypes Spanish closed negative knowledge to red-herring', () => {
     const v = classifyCapturePrecision(
       'No era RLS: el bug era cache stale en search_inventory; fix: invalidar tag de compañía',
+      'gotcha'
+    )
+    expect(v.action).toBe('demote')
+    expect(v.demoteTo).toBe('red-herring')
+    expect(v.reasonCode).toBe('gotcha_is_red_herring')
+  })
+
+  it('accepts closed gotcha that is not negative knowledge', () => {
+    const v = classifyCapturePrecision(
+      'Never call router.refresh() after inventory save — it resets scroll',
       'gotcha'
     )
     expect(v.action).toBe('accept')
