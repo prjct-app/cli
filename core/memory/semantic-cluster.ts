@@ -171,9 +171,42 @@ export function extractKeyEntities(text: string): Set<string> {
   for (const m of s.matchAll(/\b[a-z]+[A-Z][a-zA-Z0-9]{3,}\b/g)) {
     out.add(m[0]!.toLowerCase())
   }
-  // ALLCAPS codes (RLS, JWT, RPC…)
+  // ALLCAPS codes (RLS, JWT, RPC…) — skip English function words in ALLCAPS
+  const allcapsNoise = new Set([
+    'not',
+    'the',
+    'and',
+    'for',
+    'with',
+    'from',
+    'this',
+    'that',
+    'but',
+    'are',
+    'was',
+    'were',
+  ])
   for (const m of s.matchAll(/\b[A-Z]{2,8}\b/g)) {
+    const low = m[0]!.toLowerCase()
+    if (!allcapsNoise.has(low)) out.add(low)
+  }
+  // PascalCase components (CompanySwitcher, Listbox)
+  for (const m of s.matchAll(/\b[A-Z][a-z]+(?:[A-Z][a-zA-Z0-9]+)+\b/g)) {
     out.add(m[0]!.toLowerCase())
+  }
+  // Fix/API discriminators that separate near-dup bugs on the same UI surface
+  for (const anchor of [
+    'onaction',
+    'onselectionchange',
+    'router.refresh',
+    'revalidatepath',
+    'setactivecompany',
+    'security definer',
+  ]) {
+    const compact = s.toLowerCase().replace(/\s+/g, '')
+    if (compact.includes(anchor.replace('.', '')) || s.toLowerCase().includes(anchor)) {
+      out.add(anchor)
+    }
   }
   // UUIDs
   for (const m of s.matchAll(
@@ -195,8 +228,25 @@ export function extractKeyEntities(text: string): Set<string> {
     if (s.toLowerCase().includes(anchor)) out.add(anchor)
   }
 
-  // Drop ultra-generic tokens
-  for (const noise of ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'http', 'https']) {
+  // Drop ultra-generic tokens (including ALLCAPS English noise)
+  for (const noise of [
+    'the',
+    'and',
+    'for',
+    'with',
+    'from',
+    'this',
+    'that',
+    'http',
+    'https',
+    'not',
+    'but',
+    'are',
+    'was',
+    'were',
+    'does',
+    'did',
+  ]) {
     out.delete(noise)
   }
   return out
@@ -267,6 +317,28 @@ export function shouldClusterPair(
   const sim = opts?.sim ?? cosineSimilarity(embedLocalText(a.content), embedLocalText(b.content))
 
   const strongShared = shared.filter(isStrongEntity)
+
+  // Anti-over-collapse (Case 2): same UI surface / product entity must NOT
+  // collapse distinct root causes. If each side has a strong fix/API token
+  // the other lacks, treat as different bugs even when sim + entity overlap.
+  const fixTokens = (ents: Set<string>) =>
+    [...ents].filter(
+      (e) =>
+        /^(on[a-z]+|router\.|revalidate|setactive|volatile|stable|security definer|onaction|onselection)/i.test(
+          e
+        ) || e.includes('refresh')
+    )
+  const fixA = new Set(fixTokens(entA))
+  const fixB = new Set(fixTokens(entB))
+  if (fixA.size > 0 && fixB.size > 0) {
+    let fixOverlap = 0
+    for (const t of fixA) if (fixB.has(t)) fixOverlap++
+    if (fixOverlap === 0) {
+      // Distinct fix paths → never cluster (CompanySwitcher onAction vs router.refresh)
+      return { cluster: false, sim, entities: shared }
+    }
+  }
+
   if (strongShared.length >= 2 && sim >= CLUSTER_SIM_MULTI_ENTITY) {
     return { cluster: true, sim, entities: shared }
   }

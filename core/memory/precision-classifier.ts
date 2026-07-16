@@ -66,11 +66,27 @@ const OPEN_NARRATION_RE =
   /^(reviso|revisando|voy a|estoy|vamos a|i('ll| will)|i am |i'm |checking|looking at|let me |need to |tengo que |hay que |todo:|wip:)/i
 
 /**
- * Negative knowledge shape — discarded cause / not-the-cause.
- * Closed gotchas that are primarily "it was NOT X" retype to red-herring.
+ * Negative knowledge — discarded investigated cause (not-the-cause).
+ * Require discard-of-cause framing + resolution signal; block common FPs
+ * ("no era necesario", "wasn't hard", domain scoping "no es X-related").
  */
-const RED_HERRING_RE =
-  /\b(no era|no fue|no es|wasn't|was not|weren't|were not|not the cause|red herring|false lead|not rls|no era rls|it wasn't|no fue rls)\b/i
+const RED_HERRING_FP_RE =
+  /\b(no era necesario|no era necesaria|no fue necesario|wasn't hard|was not hard|wasn't easy|was not easy|wasn't difficult|no fue difícil|wasn't necessary|was not necessary)\b/i
+
+/** Discarded-cause phrasing (hypothesis that was wrong). */
+const RED_HERRING_DISCARD_RE =
+  /\b(no era rls|no fue rls|no es rls|not the cause|red herring|false lead|not an? rls\b|not a(?:n)? rls\b|is not (?:an? )?rls(?:\s+bug)?|was not (?:an? )?rls(?:\s+bug)?|this is not (?:an? )?(?:rls|auth)|is not the bottleneck|not the bottleneck)\b/i
+
+/** "No era X" / "wasn't X" where X looks like a technical cause noun (not "necesario"/"hard"). */
+const RED_HERRING_NO_ERA_TECH_RE =
+  /\b(?:no era|no fue)\s+(?!necesario|necesaria|difícil|facil|fácil)([a-z][\w-]{1,40})\b/i
+
+const RED_HERRING_WASNT_TECH_RE =
+  /\b(?:wasn't|was not|weren't|were not)\s+(?!hard|easy|difficult|necessary|needed)((?:an?\s+)?[a-z][\w-]{1,40})\b/i
+
+/** Resolution / real-cause / fix — pairs with discard to form negative knowledge. */
+const RED_HERRING_RESOLUTION_RE =
+  /\b(causa real|root cause|fix:|real cause|was correct|were correct|estaban (?:perfectas|correctas|bien)|already (?:wraps|wrapped)|declare|volatile|instead|en realidad|coincidencia|misleading|actually|policies (?:were|estaban)|can_access_company)\b/i
 
 function normalize(s: string): string {
   return s.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -147,6 +163,38 @@ export function isOpenGotchaNarration(content: string): boolean {
   }
 
   return false
+}
+
+/**
+ * True when content is closed negative knowledge (discarded cause → real cause/fix).
+ * Used to retype gotcha → red-herring without catching decisions/scoping/difficulty.
+ */
+export function looksLikeRedHerring(content: string): boolean {
+  const flat = content.trim().replace(/\s+/g, ' ')
+  if (!flat || RED_HERRING_FP_RE.test(flat)) return false
+
+  // Domain scoping only: "no es X-related, es frontend" without investigation outcome
+  if (
+    /\bno es\s+[\w-]+-related\b/i.test(flat) &&
+    !/\b(causa real|root cause|fix:|was correct|were correct|policies)\b/i.test(flat)
+  ) {
+    return false
+  }
+
+  const discarded =
+    RED_HERRING_DISCARD_RE.test(flat) ||
+    RED_HERRING_NO_ERA_TECH_RE.test(flat) ||
+    (RED_HERRING_WASNT_TECH_RE.test(flat) && !/\bwasn't hard\b/i.test(flat))
+
+  if (!discarded) return false
+
+  // Prefer discard + resolution pair; allow strong discard alone (explicit "not the cause" / "no era RLS")
+  const strongDiscard =
+    /\b(no era rls|no fue rls|not the cause|red herring|false lead|not an? rls\b|is not (?:an? )?rls(?:\s+bug)?|this is not (?:an? )?rls)\b/i.test(
+      flat
+    )
+  if (strongDiscard) return true
+  return RED_HERRING_RESOLUTION_RE.test(flat) || CLOSED_GOTCHA_RE.test(flat)
 }
 
 /**
@@ -261,7 +309,7 @@ export function classifyCapturePrecision(
       }
     }
     // Closed negative knowledge → first-class red-herring (not generic gotcha).
-    if (RED_HERRING_RE.test(trimmed) && CLOSED_GOTCHA_RE.test(trimmed)) {
+    if (looksLikeRedHerring(trimmed)) {
       return {
         action: 'demote',
         reasonCode: 'gotcha_is_red_herring',
