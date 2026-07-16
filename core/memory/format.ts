@@ -8,6 +8,7 @@
 
 import { escapeMarkdownInline } from '../utils/prompt-injection'
 import type { MemoryEntry, MemoryProvenance, MemoryType } from './entries'
+import { collapseEntriesForSurface } from './semantic-cluster'
 
 /**
  * Render memory entries as compact markdown grouped by type.
@@ -45,6 +46,13 @@ export interface FormatMemoryMdOptions {
    * Mutually exclusive with `vault` (compact never feeds Obsidian).
    */
   compact?: boolean
+  /**
+   * Collapse semantic near-duplicates within each type (keep fullest body,
+   * annotate seen_in_N). Default ON for compact brief surfaces; OFF for
+   * full-body / by-id pulls so audit still sees every row. Pass `false` to
+   * force expand, `true` to force collapse on full format.
+   */
+  cluster?: boolean
   /**
    * `mem_N → type` so a cross-ref resolves to the right vault target.
    * @deprecated Dead since the vault removal — see interface doc comment.
@@ -235,8 +243,20 @@ export function linkifyMemRefs(text: string, opts?: FormatMemoryMdOptions): stri
 export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOptions): string {
   if (entries.length === 0) return '> No matching memory entries.'
 
+  const compact = opts?.compact === true
+  // Compact brief defaults to cluster; full format opt-in only (audit/by-id).
+  const doCluster = opts?.cluster === true || (compact && opts?.cluster !== false)
+
+  let collapsedCount = 0
+  let surfaceEntries = entries
+  if (doCluster && entries.length > 1) {
+    const collapsed = collapseEntriesForSurface(entries)
+    surfaceEntries = collapsed.entries
+    collapsedCount = collapsed.collapsedCount
+  }
+
   const groups = new Map<MemoryType, MemoryEntry[]>()
-  for (const e of entries) {
+  for (const e of surfaceEntries) {
     const bucket = groups.get(e.type) ?? []
     bucket.push(e)
     groups.set(e.type, bucket)
@@ -270,7 +290,6 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
   }
 
   const llmBoundary = opts?.boundary === 'llm'
-  const compact = opts?.compact === true
 
   // Staleness lifecycle: knowledge older than ~6 months gets a visible
   // verify-before-trusting cue. Recall still surfaces it (old ≠ wrong), but
@@ -301,7 +320,9 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
         const prov = PROV_PREFIX[e.provenance]
         const flat = flatDetail(e.content, COMPACT_CONTENT_MAX)
         const cue = llmBoundary ? escapeMarkdownInline(flat) : flat
-        lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${staleCue(e)}`)
+        const seenN = Number(e.tags?.seen_in_N ?? '1')
+        const seenCue = seenN > 1 ? ` · seen_in_${seenN}` : ''
+        lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${seenCue}${staleCue(e)}`)
         continue
       }
       // Vault output hides machine-bookkeeping tags (source=, touches=,
@@ -355,6 +376,12 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
   for (const [type, items] of groups) {
     if (rendered.has(type)) continue
     renderGroup(type, items)
+  }
+
+  if (collapsedCount > 0) {
+    lines.push(
+      `_Semantic cluster: ${collapsedCount} repeated collapsed (keep fullest · seen_in_N on survivors)._`
+    )
   }
 
   return lines.join('\n').trim()
