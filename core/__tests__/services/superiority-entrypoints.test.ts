@@ -134,7 +134,7 @@ describe('ShippingCommands.ship entry-point gates', () => {
     if (projectPath) await fs.rm(projectPath, { recursive: true, force: true }).catch(() => {})
   })
 
-  it('hard-blocks ship under critical context-pressure without --force-pressure', async () => {
+  it('does not hard-block ship under critical density by default', async () => {
     ;({ projectPath, projectId } = await freshProject({
       maxTurnsPerCycle: 10,
       sdd: { mode: 'off' },
@@ -151,23 +151,54 @@ describe('ShippingCommands.ship entry-point gates', () => {
     })
     await stateStorage.updateCurrentTask(projectId, { turnCount: 9 })
 
-    const blocked = await ship.ship('pressure fixture', projectPath, {
+    const result = await ship.ship('pressure fixture', projectPath, {
+      md: true,
+      skipHooks: true,
+      noJudgmentGate: true,
+    })
+    // Default: density is soft — must NOT fail on context-pressure hard gate
+    if (!result.success) {
+      expect(String(result.error ?? '')).not.toMatch(
+        /CONTEXT PRESSURE|force-pressure|hard-block|HARD GATE/i
+      )
+    }
+  })
+
+  it('hard-blocks ship only when contextPressure.hardBlockShip is opt-in', async () => {
+    ;({ projectPath, projectId } = await freshProject({
+      maxTurnsPerCycle: 10,
+      sdd: { mode: 'off' },
+      deliveryGeometry: { mode: 'off' },
+      contextPressure: { hardBlockShip: true },
+    }))
+    await stateStorage.startTask(projectId, {
+      id: 'task-pressure-hard',
+      description: 'pressure fixture hard',
+      sessionId: 'sess-pressure-hard',
+      turnCount: 9,
+      tokensIn: 0,
+      tokensOut: 0,
+    })
+    await stateStorage.updateCurrentTask(projectId, { turnCount: 9 })
+
+    const blocked = await ship.ship('pressure fixture hard', projectPath, {
       md: true,
       skipHooks: true,
       noJudgmentGate: true,
     })
     expect(blocked.success).toBe(false)
-    expect(String(blocked.error ?? '')).toMatch(/CONTEXT PRESSURE|force-pressure|land|prime/i)
+    expect(String(blocked.error ?? '')).toMatch(
+      /density|hard-block|force-pressure|Session continues/i
+    )
 
-    const forced = await ship.ship('pressure fixture', projectPath, {
+    const forced = await ship.ship('pressure fixture hard', projectPath, {
       md: true,
       skipHooks: true,
       noJudgmentGate: true,
       forcePressure: true,
     })
-    // May still fail later (no ship workflow / git) but must NOT be pressure gate
     if (!forced.success) {
-      expect(String(forced.error ?? '')).not.toMatch(/CONTEXT PRESSURE|force-pressure/i)
+      expect(String(forced.error ?? '')).not.toMatch(/hard-block|CONTEXT PRESSURE|HARD GATE/i)
     }
   })
 
