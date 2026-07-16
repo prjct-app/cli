@@ -21,7 +21,9 @@ export async function executeCommand(
   request: DaemonRequest
 ): Promise<CommandResult> {
   const param = request.args.join(' ') || null
-  const opts = request.options
+  // Wire clients always send options, but a malformed/legacy peer must not
+  // crash the daemon with `undefined is not an object (evaluating 'r.md')`.
+  const opts = request.options ?? {}
   const md = opts.md === true
 
   // Short-circuit v2-removed verbs with a migration message so the daemon
