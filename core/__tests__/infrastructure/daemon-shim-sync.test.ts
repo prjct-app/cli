@@ -88,9 +88,13 @@ describe('daemon-shim ↔ manifest sync', () => {
 describe('daemon-shim fallback policy', () => {
   const buildSrc = fs.readFileSync(path.join(ROOT, 'scripts/build.js'), 'utf-8')
 
-  test('generic-path timeout is 30s; any short timeout is fail-soft, never re-imports core', () => {
-    // The generic command path keeps the 30s timeout matching sendRequest.
-    expect(buildSrc).toContain('30000)')
+  test('generic-path timeout is 30s default / 10min long verbs; short timeouts are fail-soft', () => {
+    // Dual budget mirrors commandRequestTimeoutMs() in protocol.ts:
+    // snappy verbs 30s, long verbs (ship/sync/…) 10min. Timeout still refuse()s
+    // — never re-imports core (that was the double-ship bug class).
+    expect(buildSrc).toMatch(/waitMs\s*=\s*LONG\.has\(cmd\)\s*\?\s*600000\s*:\s*30000/)
+    expect(buildSrc).toMatch(/setTimeout\([^,]+,\s*waitMs\)/)
+    expect(buildSrc).toContain('"ship"')
     // A 5s timeout used to be a hair-trigger that fell through to a core
     // re-import, double-running mutating commands like `ship`. The hook fast
     // path reintroduces a short (5s) timeout ON PURPOSE — a hook must never
