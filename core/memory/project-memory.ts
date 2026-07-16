@@ -413,7 +413,11 @@ export const projectMemory = {
           return
         }
       } catch (err) {
-        if (args.requireWrite && err instanceof Error && err.message.startsWith('capture refused')) {
+        if (
+          args.requireWrite &&
+          err instanceof Error &&
+          err.message.startsWith('capture refused')
+        ) {
           throw err
         }
         /* gate unavailable — proceed with write */

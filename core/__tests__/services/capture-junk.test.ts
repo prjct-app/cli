@@ -80,18 +80,15 @@ describe('captureGate + forgetJunkCaptures', () => {
   })
 
   it('refuses empty-spec mirrors as type=spec', () => {
-    const body = 'get 3a9aa714-ffda-42cc-adea-afe158155a90\n\nGoal: get 3a9aa714-ffda-42cc-adea-afe158155a90'
+    const body =
+      'get 3a9aa714-ffda-42cc-adea-afe158155a90\n\nGoal: get 3a9aa714-ffda-42cc-adea-afe158155a90'
     const g = captureGate(projectId, 'spec', body)
     expect(g.accept).toBe(false)
     expect(g.reason).toMatch(/precision|empty spec/i)
   })
 
   it('refuses open-narration gotchas at the gate (demote path)', () => {
-    const g = captureGate(
-      projectId,
-      'gotcha',
-      'Reviso cómo refrescan hoy para no meter un bug:'
-    )
+    const g = captureGate(projectId, 'gotcha', 'Reviso cómo refrescan hoy para no meter un bug:')
     expect(g.accept).toBe(false)
     expect(g.reason).toMatch(/demote|narration|precision/i)
   })

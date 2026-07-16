@@ -92,7 +92,10 @@ export function computeSubstrateHealth(
     if (v.action !== 'accept') {
       precisionFail++
       if (e.type === 'gotcha' && v.reasonCode === 'gotcha_open_narration') unshapedGotcha++
-      if (e.type === 'spec' && (v.reasonCode === 'empty_spec_mirror' || v.reasonCode === 'bare_id_body')) {
+      if (
+        e.type === 'spec' &&
+        (v.reasonCode === 'empty_spec_mirror' || v.reasonCode === 'bare_id_body')
+      ) {
         emptySpec++
       }
       if (v.reasonCode === 'junk' || v.reasonCode === 'inbox_no_substance') junkLike++

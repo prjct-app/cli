@@ -21,14 +21,19 @@ describe('empty spec mirror', () => {
     expect(isEmptySpecMirror(title, goal)).toBe(true)
     const v = classifySpecCreate(title, goal)
     expect(v.action).toBe('refuse')
-    expect(v.reasonCode).toBe('empty_spec_mirror')
+    expect(['empty_spec_mirror', 'bare_id_body']).toContain(v.reasonCode)
   })
 
-  it('flags memory mirror body title===goal', () => {
+  it('flags memory mirror body title===goal (no living graduation)', () => {
     const body = 'Crew mode migration\n\nGoal: Crew mode migration'
     const v = classifyCapturePrecision(body, 'spec')
     expect(v.action).toBe('refuse')
     expect(v.reasonCode).toBe('empty_spec_mirror')
+  })
+
+  it('allows draft create when goal seeds as title (CLI ergonomics)', () => {
+    const v = classifySpecCreate('rate limiting', 'rate limiting')
+    expect(v.action).toBe('accept')
   })
 
   it('allows real specs with distinct goals', () => {
@@ -103,6 +108,12 @@ describe('inbox substance', () => {
     expect(v.action).toBe('refuse')
     // junk single-token may fire first, or substance — either is refuse
     expect(['junk', 'inbox_no_substance']).toContain(v.reasonCode)
+  })
+
+  it('allows short two-token inbox notes', () => {
+    expect(lacksInboxSubstance('random thought')).toBe(false)
+    const v = classifyCapturePrecision('random thought', 'inbox')
+    expect(v.action).toBe('accept')
   })
 
   it('allows real inbox capture', () => {

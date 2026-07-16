@@ -38,9 +38,9 @@
  * context row never re-joins a gotcha cluster (no promotion by fullness).
  */
 
+import { cosineSimilarity, embedLocalText } from '../services/embeddings'
 import { memoryFingerprint } from './content-fingerprint'
 import type { MemoryEntry } from './entries'
-import { cosineSimilarity, embedLocalText } from '../services/embeddings'
 
 /** High bar when no/weak entity overlap (local subword only). */
 export const CLUSTER_SIM_STRICT = 0.88
@@ -214,7 +214,13 @@ export function sharedEntities(a: Set<string>, b: Set<string>): string[] {
 export function fullnessScore(e: Pick<MemoryEntry, 'content' | 'provenance'>): number {
   const len = (e.content ?? '').trim().length
   const provBonus =
-    e.provenance === 'declared' ? 80 : e.provenance === 'extracted' ? 40 : e.provenance === 'inferred' ? 0 : 20
+    e.provenance === 'declared'
+      ? 80
+      : e.provenance === 'extracted'
+        ? 40
+        : e.provenance === 'inferred'
+          ? 0
+          : 20
   return len + provBonus
 }
 
@@ -258,9 +264,7 @@ export function shouldClusterPair(
   const entB = opts?.entitiesB ?? extractKeyEntities(b.content)
   const shared = sharedEntities(entA, entB)
 
-  const sim =
-    opts?.sim ??
-    cosineSimilarity(embedLocalText(a.content), embedLocalText(b.content))
+  const sim = opts?.sim ?? cosineSimilarity(embedLocalText(a.content), embedLocalText(b.content))
 
   const strongShared = shared.filter(isStrongEntity)
   if (strongShared.length >= 2 && sim >= CLUSTER_SIM_MULTI_ENTITY) {
@@ -384,9 +388,7 @@ export function clusterMemoryEntries(entries: MemoryEntry[]): MemoryCluster[] {
 
   // Stable order: original primary appearance order among entries
   const orderIndex = new Map(entries.map((e, i) => [e.id, i]))
-  clusters.sort(
-    (a, b) => (orderIndex.get(a.primary.id) ?? 0) - (orderIndex.get(b.primary.id) ?? 0)
-  )
+  clusters.sort((a, b) => (orderIndex.get(a.primary.id) ?? 0) - (orderIndex.get(b.primary.id) ?? 0))
   return clusters
 }
 

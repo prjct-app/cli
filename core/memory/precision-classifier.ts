@@ -101,7 +101,10 @@ export function isEmptySpecMirror(title: string, goal: string): boolean {
   if (!t || !g) return true
   if (t === g) return true
   // "get <id>" repeated as both sides
-  if (t.replace(/^get\s+/i, '') === g.replace(/^get\s+/i, '') && BARE_ID_RE.test(g.replace(/^get\s+/i, ''))) {
+  if (
+    t.replace(/^get\s+/i, '') === g.replace(/^get\s+/i, '') &&
+    BARE_ID_RE.test(g.replace(/^get\s+/i, ''))
+  ) {
     return true
   }
   return false
@@ -135,7 +138,11 @@ export function isOpenGotchaNarration(content: string): boolean {
   if (OPEN_NARRATION_RE.test(flat) && !CLOSED_GOTCHA_RE.test(flat)) return true
 
   // No closed markers and very short present-tense review → not a gotcha.
-  if (!CLOSED_GOTCHA_RE.test(flat) && flat.length < 80 && /^(reviso|checking|looking)\b/i.test(flat)) {
+  if (
+    !CLOSED_GOTCHA_RE.test(flat) &&
+    flat.length < 80 &&
+    /^(reviso|checking|looking)\b/i.test(flat)
+  ) {
     return true
   }
 
@@ -148,9 +155,11 @@ export function isOpenGotchaNarration(content: string): boolean {
  */
 export function lacksInboxSubstance(content: string): boolean {
   const n = content.trim().replace(/\s+/g, ' ')
-  if (n.length < 16) return true
+  // Align with junk ultra-short floor; allow short two-token notes
+  // ("random thought", "call Ana") while still killing "upgrade" / "fix later".
+  if (n.length < 12) return true
   const tokens = n.split(' ').filter((t) => t.length > 1)
-  if (tokens.length < 3) return true
+  if (tokens.length < 2) return true
   // Only stopwords / filler
   const filler = new Set([
     'the',
@@ -275,26 +284,48 @@ export function classifyCapturePrecision(
 }
 
 /**
- * Spec create helper — title + goal before any row exists.
- * Pure; throws nothing — caller decides error UX.
+ * Spec *table* create gate — ergonomic drafts may seed goal=title
+ * (`prjct spec "rate limiting"`). Hard-refuse only lookup/id pollution.
+ *
+ * Public *memory* graduation still uses {@link classifyCapturePrecision}
+ * with type=spec, which refuses empty_spec_mirror so brief surfaces stay clean.
  */
 export function classifySpecCreate(title: string, goal: string): PrecisionVerdict {
-  if (isEmptySpecMirror(title, goal)) {
-    return {
-      action: 'refuse',
-      reasonCode: 'empty_spec_mirror',
-      reason: 'empty spec: goal identical to title (lookup, not a goal)',
-    }
+  const t = title.trim()
+  const g = goal.trim()
+  if (!t || !g) {
+    return { action: 'refuse', reasonCode: 'empty_content', reason: 'empty title or goal' }
   }
-  if (isBareIdBody(goal) && !ACTION_VERB_RE.test(goal)) {
+  if (isBareIdBody(g) && !ACTION_VERB_RE.test(g)) {
     return {
       action: 'refuse',
       reasonCode: 'bare_id_body',
       reason: 'empty spec: goal is an id/lookup without an action verb',
     }
   }
-  // Also run as type=spec on the mirror body for junk/etc.
-  return classifyCapturePrecision(`${title}\n\nGoal: ${goal}`, 'spec', { title, goal })
+  // goal===title is a draft seed, not a memory graduation — allow create.
+  // Bare "get <uuid>" still fails via isBareIdBody above.
+  if (isEmptySpecMirror(t, g) && isBareIdBody(t)) {
+    return {
+      action: 'refuse',
+      reasonCode: 'empty_spec_mirror',
+      reason: 'empty spec: goal identical to title (lookup, not a goal)',
+    }
+  }
+  return { action: 'accept', reasonCode: 'ok', reason: 'ok' }
+}
+
+/**
+ * True when a draft may exist in the specs table but must NOT mirror into
+ * living memory as type=spec (goal is still a placeholder).
+ */
+export function shouldMirrorSpecToMemory(title: string, goal: string): boolean {
+  if (isEmptySpecMirror(title, goal)) return false
+  if (isBareIdBody(goal) && !ACTION_VERB_RE.test(goal)) return false
+  return (
+    classifyCapturePrecision(`${title}\n\nGoal: ${goal}`, 'spec', { title, goal }).action ===
+    'accept'
+  )
 }
 
 /**

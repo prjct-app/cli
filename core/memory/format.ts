@@ -163,7 +163,10 @@ export function preventiveLabel(e: Pick<MemoryEntry, 'type' | 'tags'>): string {
 export function flatDetail(content: string, max = 220): string {
   // Lazy import avoided — strip is pure and tiny; inline the lead label so
   // compact brief rows never show "Context synthesis:" as the cue.
-  const stripped = content.replace(/^Context synthesis:\s*/i, '').replace(/\s+/g, ' ').trim()
+  const stripped = content
+    .replace(/^Context synthesis:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
   return stripped.length > max ? `${stripped.slice(0, max - 1)}…` : stripped
 }
 
@@ -332,10 +335,7 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
             ? (e.tags?.cluster_sources ??
               [e.id, ...(e.tags?.cluster_members ?? '').split(',').filter(Boolean)].join(','))
             : ''
-        const seenCue =
-          seenN > 1
-            ? ` · seen_in_${seenN} · sources=${sources}`
-            : ''
+        const seenCue = seenN > 1 ? ` · seen_in_${seenN} · sources=${sources}` : ''
         lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${cue}${seenCue}${staleCue(e)}`)
         continue
       }

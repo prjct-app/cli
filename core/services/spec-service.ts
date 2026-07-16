@@ -61,9 +61,12 @@ class SpecService {
   ): Promise<Spec> {
     const projectId = await this.requireProjectId(projectPath)
 
-    // Precision gate: empty specs (goal===title, bare id lookup) must not
-    // graduate. Fail loud — a silent draft is worse than a refused create.
-    const { classifySpecCreate } = await import('../memory/precision-classifier')
+    // Hard refuse lookup-only goals (bare UUID). Draft seeds with goal=title
+    // are allowed in the specs table; memory mirror is gated separately so
+    // empty mirrors never pollute living type=spec surfaces.
+    const { classifySpecCreate, shouldMirrorSpecToMemory } = await import(
+      '../memory/precision-classifier'
+    )
     const precision = classifySpecCreate(args.title, args.content.goal)
     if (precision.action === 'refuse') {
       throw new Error(`Cannot create empty spec (${precision.reasonCode}): ${precision.reason}`)
@@ -104,14 +107,17 @@ class SpecService {
       tags: args.tags,
     })
 
-    // Mirror to memory event stream so `prjct context memory spec` finds it.
-    await projectMemory.remember(projectPath, {
-      type: 'spec',
-      content: `${spec.title}\n\nGoal: ${spec.content.goal}`,
-      tags: { ...(args.tags ?? {}), spec_id: spec.id, status: spec.status },
-      source: spec.id,
-      provenance: 'declared',
-    })
+    // Mirror only when goal is substantive — draft seeds (goal===title) stay
+    // in the specs table without polluting `prjct context memory spec`.
+    if (shouldMirrorSpecToMemory(spec.title, spec.content.goal)) {
+      await projectMemory.remember(projectPath, {
+        type: 'spec',
+        content: `${spec.title}\n\nGoal: ${spec.content.goal}`,
+        tags: { ...(args.tags ?? {}), spec_id: spec.id, status: spec.status },
+        source: spec.id,
+        provenance: 'declared',
+      })
+    }
 
     return spec
   }

@@ -18,10 +18,10 @@
 import { loadIndex as loadBm25Index } from '../../domain/bm25'
 import { memoryFingerprint } from '../../memory/content-fingerprint'
 import { collectSupersededIds, isModelMemory, type MemoryEntry } from '../../memory/entries'
+import { classifyCapturePrecision } from '../../memory/precision-classifier'
 import { projectMemory } from '../../memory/project-memory'
 import { archiveStorage } from '../../storage/archive-storage'
 import prjctDb from '../../storage/database'
-import { classifyCapturePrecision } from '../../memory/precision-classifier'
 import { isJunkCaptureContent } from '../capture-junk'
 import { isIrrelevantGeneratedContext } from '../context-quality-service'
 import { extractCorrectionIds, usefulnessService } from '../usefulness'
@@ -502,15 +502,7 @@ export function forgetJunkCaptures(
   const max = options.max ?? 50
   // Include gotcha/spec so precision shape failures (open narration, empty
   // mirrors) leave living surfaces on dream — not only low-stakes junk.
-  const types = options.types ?? [
-    'inbox',
-    'context',
-    'idea',
-    'todo',
-    'question',
-    'gotcha',
-    'spec',
-  ]
+  const types = options.types ?? ['inbox', 'context', 'idea', 'todo', 'question', 'gotcha', 'spec']
   let forgotten = 0
   const samples: string[] = []
   try {
@@ -529,9 +521,7 @@ export function forgetJunkCaptures(
       if (forgetEntry(projectId, e.id)) {
         forgotten++
         if (samples.length < 8) {
-          samples.push(
-            `${e.id}:${j.junk ? j.reason : precision.reasonCode}`
-          )
+          samples.push(`${e.id}:${j.junk ? j.reason : precision.reasonCode}`)
         }
       }
     }
