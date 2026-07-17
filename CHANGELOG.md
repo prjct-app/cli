@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [3.70.2] - 2026-07-17
+
+### Bug Fixes
+
+- real upload error details (#588)
+- surface real upload error (not fake unauthenticated)
+
+
 ## [3.70.1] - 2026-07-17
 
 ### Bug Fixes
