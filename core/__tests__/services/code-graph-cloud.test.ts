@@ -101,12 +101,26 @@ export function main() {
     expect(buildCloudCodeGraphSnapshot('no-such-project-xyz')).toBeNull()
   })
 
-  it('respects maxNodes cap', async () => {
+  it('optional maxNodes/maxLinks only apply when explicitly passed', async () => {
     await indexSymbols(sourceDir, testProjectId)
-    const snap = buildCloudCodeGraphSnapshot(testProjectId, { maxNodes: 3, maxLinks: 20 })
+    const full = buildCloudCodeGraphSnapshot(testProjectId)
+    const capped = buildCloudCodeGraphSnapshot(testProjectId, { maxNodes: 3, maxLinks: 20 })
+    expect(full).not.toBeNull()
+    expect(capped).not.toBeNull()
+    // Default ships the full index (no artificial 400/900 cloud caps)
+    expect(full!.nodes.length).toBeGreaterThanOrEqual(capped!.nodes.length)
+    // Opt-in cap still bounds picked symbols (+ file hubs)
+    expect(capped!.nodes.length).toBeLessThanOrEqual(10)
+    expect(capped!.links.length).toBeLessThanOrEqual(20)
+  })
+
+  it('default snapshot includes every indexed symbol as a node (no drop)', async () => {
+    await indexSymbols(sourceDir, testProjectId)
+    const snap = buildCloudCodeGraphSnapshot(testProjectId)
     expect(snap).not.toBeNull()
-    // File nodes are extra on top of picked symbols — total can be slightly over maxNodes
-    // but should stay bounded (picked ≤ 3 + file hubs ≤ 3)
-    expect(snap!.nodes.length).toBeLessThanOrEqual(10)
+    // symbolCount is the index size; nodes = symbols + File hubs (≥ symbolCount)
+    expect(snap!.nodes.length).toBeGreaterThanOrEqual(snap!.symbolCount)
+    const nonFile = snap!.nodes.filter((n) => n.kind !== 'File')
+    expect(nonFile.length).toBe(snap!.symbolCount)
   })
 })

@@ -1,21 +1,28 @@
 /**
- * Compact structural code-graph snapshot for cloud 3D visualization.
+ * Structural code-graph snapshot for cloud 3D visualization.
  *
  * Same domain as CBM / native symbol index:
  *   nodes = Function | Method | Class | Interface | Type | File | …
  *   links = CALLS | IMPORTS | DEFINES | HANDLES | TESTS
  *
- * NOT knowledge/contribution clusters. Cap size for API JSONB + SPA force-graph.
+ * NOT knowledge/contribution clusters.
+ *
+ * Default: ship the FULL index (every symbol, every structural edge, every
+ * file that holds a symbol). Optional maxNodes/maxLinks are opt-in only for
+ * tests or explicit callers — never applied by default.
  */
 
 import { hasSymbolIndex, listAllSymbols, loadMeta } from '../domain/symbol-graph'
 import prjctDb from '../storage/database'
 import type { CodeSymbolEdge, SymbolEdgeType } from '../types/domain.js'
 
-/** Max nodes shipped to cloud (force-graph stays interactive). */
-export const CLOUD_GRAPH_MAX_NODES = 400
-/** Max directed edges shipped with the node subset. */
-export const CLOUD_GRAPH_MAX_LINKS = 900
+/**
+ * @deprecated No default cloud caps. Kept as Infinity so any leftover import
+ * that treats these as ceilings stays uncapped.
+ */
+export const CLOUD_GRAPH_MAX_NODES = Number.POSITIVE_INFINITY
+/** @deprecated See CLOUD_GRAPH_MAX_NODES — no default link cap. */
+export const CLOUD_GRAPH_MAX_LINKS = Number.POSITIVE_INFINITY
 
 export type CloudGraphNodeKind =
   | 'Function'
@@ -97,9 +104,15 @@ function loadEdges(projectId: string): CodeSymbolEdge[] {
   }
 }
 
+function hasFiniteCap(n: number | undefined): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0
+}
+
 /**
- * Build a compact CBM-style structural graph from the local symbol index.
- * Scores symbols by structural degree (CALLS/IMPORTS) + export + kind weight.
+ * Build a CBM-style structural graph from the local symbol index.
+ *
+ * Default = full index. Pass maxNodes/maxLinks only when you intentionally
+ * want a truncated sample (tests).
  */
 export function buildCloudCodeGraphSnapshot(
   projectId: string,
@@ -107,15 +120,13 @@ export function buildCloudCodeGraphSnapshot(
 ): CloudCodeGraphSnapshot | null {
   if (!hasSymbolIndex(projectId)) return null
 
-  const maxNodes = opts.maxNodes ?? CLOUD_GRAPH_MAX_NODES
-  const maxLinks = opts.maxLinks ?? CLOUD_GRAPH_MAX_LINKS
   const symbols = listAllSymbols(projectId)
   if (symbols.length === 0) return null
 
   const edges = loadEdges(projectId)
   const meta = loadMeta(projectId)
 
-  // Degree from structural edges only
+  // Degree from structural edges only (ordering only — does not drop nodes)
   const degree = new Map<string, number>()
   for (const e of edges) {
     const w = EDGE_PRIORITY[e.edgeType] ?? 1
@@ -148,23 +159,25 @@ export function buildCloudCodeGraphSnapshot(
     })
     .sort((a, b) => b.score - a.score || a.s.name.localeCompare(b.s.name))
 
-  const picked = scored.slice(0, maxNodes).map((x) => x.s)
+  // Full set by default; optional opt-in cap for tests only
+  const picked = hasFiniteCap(opts.maxNodes)
+    ? scored.slice(0, opts.maxNodes).map((x) => x.s)
+    : scored.map((x) => x.s)
   const keep = new Set(picked.map((s) => s.id))
 
-  // File nodes for top files among picked symbols (CBM-style File layer)
+  // File nodes for every file among picked symbols (no "top N" slice)
   const fileCounts = new Map<string, number>()
   for (const s of picked) {
     fileCounts.set(s.file, (fileCounts.get(s.file) ?? 0) + 1)
   }
-  const topFiles = [...fileCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, Math.min(80, Math.floor(maxNodes / 5)))
+  const files = [...fileCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([f]) => f)
 
   const fileNodeId = (file: string) => `file:${file}`
   const nodes: CloudGraphNode[] = []
 
-  for (const file of topFiles) {
+  for (const file of files) {
     const base = file.split('/').pop() || file
     nodes.push({
       id: fileNodeId(file),
@@ -186,11 +199,11 @@ export function buildCloudCodeGraphSnapshot(
     })
   }
 
-  // DEFINES: File → symbol for symbols in top files
+  // DEFINES: File → symbol for every picked symbol that has a file node
   const defineLinks: CloudGraphLink[] = []
-  const topFileSet = new Set(topFiles)
+  const fileSet = new Set(files)
   for (const s of picked) {
-    if (!topFileSet.has(s.file)) continue
+    if (!fileSet.has(s.file)) continue
     defineLinks.push({
       source: fileNodeId(s.file),
       target: s.id,
@@ -198,7 +211,7 @@ export function buildCloudCodeGraphSnapshot(
     })
   }
 
-  // Structural edges between kept symbol nodes
+  // Structural edges between kept symbol nodes (full set by default)
   const edgeCandidates = edges
     .filter((e) => keep.has(e.src) && keep.has(e.dst) && e.src !== e.dst)
     .map((e) => ({
@@ -212,17 +225,18 @@ export function buildCloudCodeGraphSnapshot(
 
   const seen = new Set<string>()
   const links: CloudGraphLink[] = []
+  const linkCap = hasFiniteCap(opts.maxLinks) ? opts.maxLinks : Number.POSITIVE_INFINITY
 
   for (const d of defineLinks) {
+    if (links.length >= linkCap) break
     const key = `${d.source}->${d.target}:${d.type}`
     if (seen.has(key)) continue
     seen.add(key)
     links.push({ source: d.source, target: d.target, type: d.type })
-    if (links.length >= maxLinks) break
   }
 
   for (const e of edgeCandidates) {
-    if (links.length >= maxLinks) break
+    if (links.length >= linkCap) break
     const key = `${e.source}->${e.target}:${e.type}`
     if (seen.has(key)) continue
     seen.add(key)
