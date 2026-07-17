@@ -28,10 +28,16 @@ export interface InstalledLocation {
 
 const HOME = os.homedir()
 
+/**
+ * Global install args always pin the npm registry package name.
+ * Never pass a relative path / `.` / monorepo root — that installs LOCAL source
+ * (user doctrine mem_9174: install from registry only).
+ */
 export const MANAGERS: Record<PkgManagerName, PkgManager> = {
   npm: {
     name: 'npm',
-    installArgs: ['install', '-g', 'prjct-cli@latest'],
+    // --prefer-online: bypass stale local npm cache of old tarballs
+    installArgs: ['install', '-g', 'prjct-cli@latest', '--prefer-online'],
     getInstallRoot: () => {
       try {
         return execFileSync('npm', ['root', '-g'], {
@@ -45,7 +51,7 @@ export const MANAGERS: Record<PkgManagerName, PkgManager> = {
   },
   pnpm: {
     name: 'pnpm',
-    installArgs: ['add', '-g', 'prjct-cli@latest'],
+    installArgs: ['add', '-g', 'prjct-cli@latest', '--prefer-online'],
     getInstallRoot: () => {
       try {
         return execFileSync('pnpm', ['root', '-g'], {
@@ -77,6 +83,20 @@ export const MANAGERS: Record<PkgManagerName, PkgManager> = {
       }
     },
   },
+}
+
+/** Neutral cwd for global installs — never monorepo (avoids npm linking local package). */
+export function registryInstallCwd(): string {
+  return os.tmpdir()
+}
+
+/**
+ * Rewrite install args so the package spec is always the exact npm registry
+ * pin (`prjct-cli@X.Y.Z`). Falls back to `@latest` only when pin is null.
+ */
+export function registryInstallArgs(pm: PkgManager, pinnedSpec: string | null): string[] {
+  const target = pinnedSpec ?? 'prjct-cli@latest'
+  return pm.installArgs.map((a) => (a === 'prjct-cli@latest' || a.startsWith('prjct-cli@') ? target : a))
 }
 
 export function isHomebrewInstall(): boolean {

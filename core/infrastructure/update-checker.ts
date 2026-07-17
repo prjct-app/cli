@@ -53,17 +53,21 @@ class UpdateChecker {
   }
 
   /**
-   * Fetch latest version from npm registry
+   * Fetch latest version from npm registry (never from monorepo / local package.json).
+   * Cache-busting query + no-cache headers so upgrade always sees the published dist-tag.
    */
   async getLatestVersion(): Promise<string> {
     return new Promise((resolve, reject) => {
+      const bust = Date.now()
       const options = {
         hostname: 'registry.npmjs.org',
-        path: `/${this.packageName}/latest`,
+        path: `/${this.packageName}/latest?prjct_bust=${bust}`,
         method: 'GET',
         headers: {
           'User-Agent': 'prjct-cli-update-checker',
           Accept: 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+          Pragma: 'no-cache',
         },
       }
 
@@ -78,7 +82,12 @@ class UpdateChecker {
           try {
             if (res.statusCode === 200) {
               const packageData = JSON.parse(data)
-              resolve(packageData.version)
+              const version = typeof packageData.version === 'string' ? packageData.version.trim() : ''
+              if (!/^\d+\.\d+\.\d+/.test(version)) {
+                reject(new Error(`npm registry returned invalid version: ${version || '(empty)'}`))
+                return
+              }
+              resolve(version)
             } else {
               reject(new Error(`npm registry returned status ${res.statusCode}`))
             }
