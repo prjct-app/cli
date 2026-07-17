@@ -20,15 +20,15 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 - Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.
 - Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.
 - **Verb dispatch:** tasks → `prjct work "…"`. Known cmds (`sync`/`search`/`remember`/`ship`/…) → `prjct <cmd> --md`. **Never** wrap a bin verb as `work "sync"`.
-- **Sync analysis:** `analysis-save-llm` = schema v1 JSON (architecture/patterns/conventions). Markdown = thin notes only — no retry loop.
-- **Pattern supremacy:** style source = THIS repo (neighbor + `search`/`context memory`/Work scope). Sound pattern → **match**. Shit pattern → **propose upgrade**, do not spread garbage or foreign linter taste. Never make the client tutor basics already in the tree.
-- **Skill ≠ project identity.** If skill and cwd disagree, trust cwd + `prjct context --md`.
+- **Sync analysis:** `analysis-save-llm` = schema v1 JSON. Markdown = thin notes only — no retry loop.
+- **Pattern supremacy:** match THIS repo (neighbor + `search`/`context memory`). Shit pattern → propose upgrade, not foreign taste.
+- **Skill ≠ project identity.** cwd + `prjct context --md` win over skill stamps.
 
 ### Cast + file scope (MUST)
 
-- Multi-agent Cast names (explore→Popper · implement→Copernicus · review→McClintock): use as `description` / `prjct claim --as <Name>`.
-- Before Grep/Glob: `prjct work` / `prjct_relevant_files` / `prjct code trace` — no blind tree walk when indexes exist.
-- **Synthesis discipline:** parent never says "based on findings" — hand implementers concrete file:line specs. **Continue** a worker when it already holds the edit files; **spawn fresh** for verify or a wrong approach.
+- Cast names (explore→Popper · implement→Copernicus · review→McClintock): `description` / `prjct claim --as <Name>`.
+- Before Grep/Glob: `prjct work` / `prjct_relevant_files` / `prjct code trace` when indexes exist.
+- **Synthesis:** hand implementers file:line specs. **Continue** a worker with edit files; **spawn fresh** for verify/wrong approach.
 
 ### Core verbs (Tier 1=auto · 2=confirm)
 
@@ -52,8 +52,8 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 
 ### Knowledge
 
-- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; config at `.prjct/prjct.config.json`.
-- Close: `prjct land` (Session close auto hand-off + dream when gates open) or living context via `prjct remember context`. Hygiene: `prjct dream` / `close` / `forget`.
+- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; `.prjct/prjct.config.json`.
+- Close: `prjct land` (Session close) or living context via `prjct remember context`. Hygiene: `dream` / `close` / `forget`.
 
 ### Routing
 
