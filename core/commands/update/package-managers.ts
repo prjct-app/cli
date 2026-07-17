@@ -96,7 +96,9 @@ export function registryInstallCwd(): string {
  */
 export function registryInstallArgs(pm: PkgManager, pinnedSpec: string | null): string[] {
   const target = pinnedSpec ?? 'prjct-cli@latest'
-  return pm.installArgs.map((a) => (a === 'prjct-cli@latest' || a.startsWith('prjct-cli@') ? target : a))
+  return pm.installArgs.map((a) =>
+    a === 'prjct-cli@latest' || a.startsWith('prjct-cli@') ? target : a
+  )
 }
 
 export function isHomebrewInstall(): boolean {

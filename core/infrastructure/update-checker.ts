@@ -82,7 +82,8 @@ class UpdateChecker {
           try {
             if (res.statusCode === 200) {
               const packageData = JSON.parse(data)
-              const version = typeof packageData.version === 'string' ? packageData.version.trim() : ''
+              const version =
+                typeof packageData.version === 'string' ? packageData.version.trim() : ''
               if (!/^\d+\.\d+\.\d+/.test(version)) {
                 reject(new Error(`npm registry returned invalid version: ${version || '(empty)'}`))
                 return
