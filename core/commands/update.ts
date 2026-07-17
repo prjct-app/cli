@@ -17,7 +17,6 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
-import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 import { type CleanupMode, consolidateInstalls } from './update/cleanup-installs'
 import { formatMdOutput, formatTerminalOutput, type PhaseResult } from './update/output'
@@ -27,6 +26,8 @@ import {
   isOnPath,
   type PkgManager,
   redirectToInstalledPackage,
+  registryInstallArgs,
+  registryInstallCwd,
   selectPackageManager,
 } from './update/package-managers'
 
@@ -108,10 +109,12 @@ export class UpdateCommands extends PrjctCommandsBase {
       results.phase3 = await this.phaseDaemonRestart(dryRun)
       if (!md) out.stop()
 
-      // ── Post-update: stamp version + clear cache ──
+      // ── Post-update: stamp INSTALLED (npm) version + clear cache ──
+      // Never stamp the running process VERSION — that can be monorepo source.
       if (!dryRun) {
         try {
-          await editorsConfig.updateVersion(VERSION)
+          const installed = getAllInstalledLocations()[0]?.version
+          if (installed) await editorsConfig.updateVersion(installed)
         } catch {
           // Non-blocking
         }
@@ -191,18 +194,36 @@ export class UpdateCommands extends PrjctCommandsBase {
         targets = [selectPackageManager()]
       }
 
-      // Resolve the TRUE latest from the npm registry and PIN it. `@latest`
-      // is resolved by each PM from its own metadata cache — pnpm's is
-      // frequently stale and silently resolves an OLD version, so a plain
-      // `pnpm add -g prjct-cli@latest` can *downgrade* the install. Pinning
-      // the exact registry version makes the upgrade deterministic.
+      // Source of truth is ALWAYS registry.npmjs.org — never monorepo package.json,
+      // never npm-link, never the running binary's baked VERSION (mem_9174).
+      // Pin exact version so PM metadata caches cannot downgrade the install.
+      let registryVersion: string | null = null
       let pinnedSpec: string | null = null
       try {
         const v = (await new UpdateChecker().getLatestVersion())?.trim()
-        if (v && /^\d+\.\d+\.\d+/.test(v)) pinnedSpec = `prjct-cli@${v}`
-      } catch {
-        // registry unreachable — fall back to each PM's @latest
+        if (v && /^\d+\.\d+\.\d+/.test(v)) {
+          registryVersion = v
+          pinnedSpec = `prjct-cli@${v}`
+        }
+      } catch (err) {
+        result.errors.push(
+          `npm registry unreachable — refuse to install from local tree: ${getErrorMessage(err)}`
+        )
+        result.success = false
+        return result
       }
+
+      if (!pinnedSpec || !registryVersion) {
+        result.success = false
+        result.errors.push('npm registry did not return a valid prjct-cli version')
+        return result
+      }
+
+      result.details.push(`registry.npmjs.org latest = ${registryVersion}`)
+
+      // Neutral cwd: running `npm install -g prjct-cli@…` from inside the monorepo
+      // can resolve the local package instead of the published tarball.
+      const installCwd = registryInstallCwd()
 
       for (const pm of targets) {
         if (!isOnPath(pm.name)) {
@@ -213,19 +234,15 @@ export class UpdateCommands extends PrjctCommandsBase {
           continue
         }
         try {
-          // Pin the exact registry latest (bypasses semver ranges AND each
-          // PM's stale @latest cache — see pinnedSpec above).
-          const args = pinnedSpec
-            ? pm.installArgs.map((a) => (a === 'prjct-cli@latest' ? pinnedSpec : a))
-            : pm.installArgs
-          execFileSync(pm.name, args, { stdio: 'pipe' })
-          result.details.push(`${pm.name} install complete${pinnedSpec ? ` (${pinnedSpec})` : ''}`)
+          const args = registryInstallArgs(pm, pinnedSpec)
+          execFileSync(pm.name, args, { stdio: 'pipe', cwd: installCwd })
+          result.details.push(`${pm.name} install complete (${pinnedSpec} from npm registry)`)
         } catch (err) {
           result.errors.push(`${pm.name}: ${getErrorMessage(err)}`)
         }
       }
 
-      // Per-install version transitions
+      // Per-install version transitions + verify each matches registry
       const installsAfter = getAllInstalledLocations()
       const beforeMap = new Map(installsBefore.map((i) => [i.pm.name, i.version]))
       const transitions: string[] = []
@@ -236,16 +253,23 @@ export class UpdateCommands extends PrjctCommandsBase {
           transitions.push(`${pm.name}: ${before} → ${version}`)
         } else if (!before) {
           transitions.push(`${pm.name}: installed v${version}`)
+        } else {
+          transitions.push(`${pm.name}: v${version} (matches registry)`)
+        }
+        if (version !== registryVersion) {
+          result.errors.push(
+            `${pm.name} install is v${version} but registry latest is ${registryVersion} — ` +
+              `global install did not apply npm package (check PATH / npm root -g)`
+          )
         }
       }
 
-      if (transitions.length > 1) {
-        for (const t of transitions) result.details.push(t)
-      } else if (transitions.length === 1) {
-        result.details.push(transitions[0]!)
-      } else if (installsAfter.length > 0) {
-        result.details.push(`v${installsAfter[0]!.version} (already latest)`)
+      for (const t of transitions) result.details.push(t)
+
+      if (installsAfter.length === 0) {
+        result.errors.push('No global prjct-cli install found after registry install')
       }
+      if (result.errors.length > 0) result.success = false
     } catch (err) {
       result.success = false
       result.errors.push(getErrorMessage(err))
