@@ -17,7 +17,7 @@ import type { LLMAnalysis } from '../../types/llm-analysis'
 import { getTimestamp } from '../../utils/date-helper'
 import { execFileAsync } from '../../utils/exec'
 import { failFromError } from '../../utils/md-aware'
-import { mdDone, mdList, mdOutput, mdSection, mdStats } from '../../utils/md-formatter'
+import { mdDone, mdList, mdOutput, mdSection, mdStats, mdWarn } from '../../utils/md-formatter'
 import { requireProject } from '../guards'
 
 export async function saveLlmAnalysis(
@@ -70,38 +70,58 @@ export async function saveLlmAnalysis(
       /* style recompute is best-effort after analysis save */
     }
 
+    const thinStandalone = isThinLlmAnalysis(analysis) && !mergedNotes
+
     if (options.md) {
-      console.log(
-        mdOutput(
-          mdDone(
-            mergedNotes ? 'LLM Analysis Notes Merged (house style preserved)' : 'LLM Analysis Saved'
-          ),
-          mdStats({
-            Input: resolved.source,
-            Architecture: analysis.architecture.style,
-            Patterns: analysis.patterns.length,
-            'Anti-patterns': analysis.antiPatterns?.length || 0,
-            'Tech debt items': analysis.techDebt?.length || 0,
-            'Risk areas': analysis.riskAreas?.length || 0,
-            Conventions: analysis.conventions?.length || 0,
-            ...(mergedNotes ? { Merge: 'thin notes → existing rich analysis' } : {}),
-          })
+      const title = mergedNotes
+        ? 'LLM Analysis Notes Merged (house style preserved)'
+        : thinStandalone
+          ? 'LLM Analysis Notes Saved (thin — not house style)'
+          : 'LLM Analysis Saved'
+      const sections = [
+        mdDone(title),
+        mdStats({
+          Input: resolved.source,
+          Architecture: analysis.architecture.style,
+          Patterns: analysis.patterns.length,
+          'Anti-patterns': analysis.antiPatterns?.length || 0,
+          'Tech debt items': analysis.techDebt?.length || 0,
+          'Risk areas': analysis.riskAreas?.length || 0,
+          Conventions: analysis.conventions?.length || 0,
+          ...(mergedNotes ? { Merge: 'thin notes → existing rich analysis' } : {}),
+          ...(thinStandalone ? { Kind: 'thin markdown/notes' } : {}),
+        }),
+      ]
+      if (thinStandalone) {
+        sections.push(
+          mdWarn(
+            'Prefer schema v1 JSON (architecture/patterns/conventions) via `prjct analysis-save-llm <file> --md`. Markdown alone leaves patterns empty and burns a retry loop.'
+          )
         )
-      )
+      }
+      console.log(mdOutput(...sections))
     } else {
       console.log(
         JSON.stringify({
           success: true,
           message: mergedNotes
             ? 'LLM analysis notes merged into existing rich analysis'
-            : 'LLM analysis saved',
+            : thinStandalone
+              ? 'LLM analysis thin notes saved (prefer schema v1 JSON for house style)'
+              : 'LLM analysis saved',
           input: resolved.source,
           mergedNotes,
+          thin: thinStandalone,
           stats: {
             patterns: analysis.patterns.length,
             antiPatterns: analysis.antiPatterns?.length || 0,
             techDebt: analysis.techDebt?.length || 0,
           },
+          ...(thinStandalone
+            ? {
+                tip: 'Prefer schema v1 JSON (architecture/patterns/conventions). Markdown alone is thin notes.',
+              }
+            : {}),
         })
       )
     }

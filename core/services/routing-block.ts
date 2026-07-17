@@ -19,9 +19,9 @@ export const ROUTING_END_MARKER = '<!-- /prjct:routing - managed by prjct -->'
  * Pull commands only — no ruleset, no project history. Budget: ≤400 body bytes.
  */
 export const MINIMAL_ROUTING_BODY = `## prjct
-This file holds no rules. Default surface: \`work\` + \`ship\` (user text confirm). Rest is pull-on-demand.
+This file holds no rules. Tasks: \`work\` · ships: \`ship\` (confirm). Rest pull-on-demand; known verbs bare (never work-wrap).
 - work: \`prjct work --md\` · ship: \`prjct ship\`
-- pull: \`search\` / \`remember\` / \`guard\` / \`land\` / \`prime\`
+- pull: \`sync\` / \`search\` / \`remember\` / \`guard\` / \`land\` / \`prime\`
 - deep: \`prjct workflows --md\` · grade: \`prjct harness score --md\``
 
 export interface RoutingWriteResult {

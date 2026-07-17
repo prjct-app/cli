@@ -126,11 +126,13 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('never injected into CLAUDE.md / AGENTS.md')
     })
 
-    it('frames work as the single entrypoint for transparent work-cycle orchestration', async () => {
-      // Lean L0: single-entrypoint contract only. Spec/test-first pipeline
-      // detail stays in workflows.md (not always-on prose).
+    it('frames work as task-cycle entrypoint and forbids bin-verb work-wrap', async () => {
+      // Lean L0: work for tasks only; known CLI verbs run bare. Spec/test-first
+      // pipeline detail stays in workflows.md (not always-on prose).
       const content = await readClaudeSkill()
-      expect(content).toContain('`prjct work` is the single normal entrypoint')
+      expect(content).toContain('`prjct work` is the normal entrypoint **for task cycles only**')
+      expect(content).toContain('Never** wrap a bin verb')
+      expect(content).toContain('schema v1 JSON')
       expect(content).toContain('Full map in `workflows.md`')
       expect(content).not.toContain('**NO spec, NO audit-spec, NO subagents, NO fan-out.**')
       expect(content).not.toContain('Trivial work proceeds directly')
@@ -407,10 +409,11 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('### Core verbs')
       expect(content).toMatch(/you run the verb|never types/)
       expect(content).toContain('| Signal | Verb | T |')
-      expect(content).toContain('`prjct work` is the single normal entrypoint')
+      expect(content).toContain('`prjct work` is the normal entrypoint **for task cycles only**')
       expect(content).toContain('`prjct work')
       expect(content).toContain('`prjct search')
       expect(content).toContain('`prjct ship`')
+      expect(content).toContain('`prjct sync`')
       // Full map (insights variants, context-save, etc.) lives in reference.
       expect(ref).toContain('## Full verb intent map')
       expect(ref).toContain('`prjct insights value --md`')

@@ -62,9 +62,21 @@ describe('analysis-save-llm', () => {
       '- AGENTS.md is the universal agent surface.',
     ].join('\n')
 
-    const result = await saveLlmAnalysis(notes, projectPath, { md: true })
+    const logs: string[] = []
+    const origLog = console.log
+    console.log = (...args: unknown[]) => {
+      logs.push(args.map(String).join(' '))
+    }
+    try {
+      const result = await saveLlmAnalysis(notes, projectPath, { md: true })
+      expect(result.success).toBe(true)
+    } finally {
+      console.log = origLog
+    }
+    const out = logs.join('\n')
+    expect(out).toMatch(/thin/i)
+    expect(out).toMatch(/schema v1 JSON/i)
 
-    expect(result.success).toBe(true)
     const saved = llmAnalysisStorage.getActive(projectId)
     expect(saved?.architecture.style).toBe('unknown')
     expect(saved?.projectInsights).toContain('Commands should route through the manifest.')

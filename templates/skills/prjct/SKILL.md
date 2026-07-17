@@ -19,6 +19,8 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 - prjct remembers project state and shows the path; it does not own the execution.
 - Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.
 - Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.
+- **Verb dispatch:** tasks → `prjct work "…"`. Known cmds (`sync`/`search`/`remember`/`ship`/…) → `prjct <cmd> --md`. **Never** wrap a bin verb as `work "sync"`.
+- **Sync analysis:** `analysis-save-llm` = schema v1 JSON (architecture/patterns/conventions). Markdown = thin notes only — no retry loop.
 - **Pattern supremacy:** style source = THIS repo (neighbor + `search`/`context memory`/Work scope). Sound pattern → **match**. Shit pattern → **propose upgrade**, do not spread garbage or foreign linter taste. Never make the client tutor basics already in the tree.
 - **Skill ≠ project identity.** If skill and cwd disagree, trust cwd + `prjct context --md`.
 
@@ -32,10 +34,11 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 
 | Signal | Verb | T |
 |---|---|---|
-| work (default) | `prjct work "<intent>"` | 2 |
+| work (tasks only) | `prjct work "<intent>"` | 2 |
 | intent | `prjct intent` / `audit` | 2 |
 | recall | `prjct search` / `context memory` | 1 |
 | remember | `prjct remember <type>` | 1 |
+| sync | `prjct sync` | 1 |
 | hygiene | `prjct dream` / `close` / `forget` | 1 |
 | guard | `prjct guard <file>` | 1 |
 | ship | `prjct ship` | 2 |
@@ -45,7 +48,7 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 | tdd/sdd | `prjct tdd` / `sdd` | 1 |
 | workflows | `prjct workflow` / `seed` | 1 |
 
-`prjct work` is the single normal entrypoint. Full map in `workflows.md`.
+`prjct work` is the normal entrypoint **for task cycles only**. Known CLI verbs run bare. Full map in `workflows.md`.
 
 ### Knowledge
 
@@ -54,12 +57,12 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 
 ### Routing
 
-- **Tier 1 — auto-execute.** search, remember, guard, insights, performance. One-line confirm; do not ask permission to save.
+- **Tier 1 — auto-execute.** search, remember, sync, guard, insights, performance. One-line confirm; do not ask permission to save.
 - **Tier 2 — confirm once.** work, intent, ship. Never ship without user OK.
 - **Tier 3 — decision-brief.** prefs / hard forks — see `workflows.md`.
 
 ## Gotchas
 
-- Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.
+- Empty recall ≠ nothing exists. Secrets refused unless `--force`.
 - Worktree: remove only after PR merged, never --force over dirty work.
 

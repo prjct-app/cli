@@ -34,9 +34,10 @@ import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
 
 const ANALYSIS_NOTES_INSTRUCTIONS = [
-  `> Review this project data and save concise notes for future AI agents.`,
-  `> Focus on architecture, conventions, risks, and gotchas. Markdown/text is fine; JSON is optional.`,
-  `> Most compatible save path: write notes to a temp file, then run \`prjct analysis-save-llm <file> --md\`.`,
+  `> Review this project data and save durable notes for future AI agents (architecture, conventions, risks, gotchas).`,
+  `> **Prefer schema v1 JSON** with: architecture{style,insights,domains}, patterns[], antiPatterns[], techDebt[], riskAreas[], refactorSuggestions[], projectInsights[], conventions[], optional stack/commands. See core/schemas/llm-analysis.ts.`,
+  `> Markdown alone saves style=unknown and empty patterns (thin notes) — agents then retry and burn tokens. Use markdown only to append insight bullets when a rich analysis already exists.`,
+  `> Save path: write the JSON file, then \`prjct analysis-save-llm <file> --md\`.`,
 ].join('\n')
 
 export class AnalysisCommands extends PrjctCommandsBase {
