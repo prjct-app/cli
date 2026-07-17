@@ -28,10 +28,64 @@ describe('harness coverage (organic multi-runtime board)', () => {
 
   it('reports absent when no runtimes are wired', async () => {
     const report = await probeHarnessCoverage(home)
-    expect(report.runtimes.length).toBe(5)
+    // Claude, Codex, Gemini, Cursor, Grok, OpenCode, Pi
+    expect(report.runtimes.length).toBe(7)
+    expect(report.runtimes.map((r) => r.id)).toEqual(
+      expect.arrayContaining(['opencode', 'pi', 'claude', 'grok'])
+    )
     // Without CLIs on PATH in a fresh HOME, detected may still be 0
     expect(report.organicPct).toBeGreaterThanOrEqual(0)
     expect(report.grade).toBeGreaterThanOrEqual(1)
+  })
+
+  it('marks OpenCode full when mcp.prjct is present and Pi full when skill is present', async () => {
+    const ocDir = path.join(home, '.prjct-tests', 'opencode')
+    await fs.mkdir(ocDir, { recursive: true })
+    await fs.writeFile(
+      path.join(ocDir, 'opencode.json'),
+      JSON.stringify({
+        mcp: {
+          prjct: {
+            type: 'local',
+            command: ['npx', '-y', 'prjct-cli@latest', 'mcp-server'],
+            enabled: true,
+          },
+        },
+      }),
+      'utf-8'
+    )
+    // Detect via ~/.config/opencode in real path — PRJCT_TEST_MODE uses .prjct-tests.
+    // Create home config dir so detection fires, and ensure MCP path is test path.
+    await fs.mkdir(path.join(home, '.config', 'opencode'), { recursive: true })
+    await fs.writeFile(
+      path.join(home, '.config', 'opencode', 'opencode.json'),
+      JSON.stringify({
+        mcp: {
+          prjct: {
+            type: 'local',
+            command: ['npx', '-y', 'prjct-cli@latest', 'mcp-server'],
+            enabled: true,
+          },
+        },
+      }),
+      'utf-8'
+    )
+
+    const piSkillDir = path.join(home, '.prjct-tests', 'pi', 'agent', 'skills', 'prjct')
+    await fs.mkdir(piSkillDir, { recursive: true })
+    await fs.writeFile(path.join(piSkillDir, 'SKILL.md'), '# prjct\n', 'utf-8')
+    await fs.mkdir(path.join(home, '.pi', 'agent'), { recursive: true })
+
+    const report = await probeHarnessCoverage(home)
+    const oc = report.runtimes.find((r) => r.id === 'opencode')
+    expect(oc?.detected).toBe(true)
+    // Probe reads getOpenCodeConfigPath() which under PRJCT_TEST_MODE is .prjct-tests/opencode
+    expect(oc?.mcpLive).toBe(true)
+    expect(oc?.organic).toBe('full')
+
+    const pi = report.runtimes.find((r) => r.id === 'pi')
+    expect(pi?.detected).toBe(true)
+    expect(pi?.organic).toBe('full')
   })
 
   it('marks Claude full when settings + mcp.json have prjct wire', async () => {
@@ -80,6 +134,8 @@ describe('harness coverage (organic multi-runtime board)', () => {
     expect(md).toContain('Organic multi-runtime board')
     expect(md).toContain('Claude Code')
     expect(md).toContain('Grok Build')
+    expect(md).toContain('OpenCode')
+    expect(md).toContain('Pi')
     expect(md).toContain('Moat')
   })
 

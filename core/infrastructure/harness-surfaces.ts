@@ -283,27 +283,64 @@ export const BENCHMARK_HARNESS_SURFACES: readonly HarnessSurfaceEntry[] = [
     displayName: 'OpenCode',
     product: 'OpenCode (OSS multi-provider)',
     instructions: {
-      files: ['AGENTS.md', 'opencode.json(c)'],
-      loadOrder: 'project agents + AGENTS.md',
+      files: ['AGENTS.md', 'opencode.json(c)', 'CLAUDE.md (compat)'],
+      loadOrder: 'project AGENTS.md → global ~/.config/opencode/AGENTS.md; Claude fallbacks',
       prjct: 'portable',
     },
     mcp: {
-      configPaths: ['opencode.jsonc mcp section'],
-      format: 'JSONC project config',
-      prjct: 'planned',
+      configPaths: [
+        '~/.config/opencode/opencode.json mcp.prjct',
+        '~/.config/opencode/opencode.jsonc',
+        'project opencode.json(c)',
+      ],
+      format: 'JSONC mcp.<name> = { type:local, command:[...], enabled }',
+      prjct: 'native',
+      notes: 'prjct install → ensureOpenCodeMcpServer() upserts mcp.prjct (jsonc-safe merge)',
     },
     skills: {
-      paths: ['plugins / project agents'],
-      prjct: 'portable',
+      paths: ['.opencode/skills/', '~/.claude/skills/ (Claude Code compat)'],
+      prjct: 'inherits-claude',
+      notes: 'Claude skill install covers OpenCode when Claude compat is enabled',
     },
     hooks: {
       configPaths: [],
       events: [],
       format: 'plugin/extension dependent',
       prjct: 'none',
-      contract: 'No Claude-parity hook pack assumed; use MCP + AGENTS.md',
+      contract: 'No Claude-parity hook pack; MCP + AGENTS.md is the organic wire',
     },
-    legibility: 'Portable AGENTS.md + MCP CLI. Prefer model-agnostic tools over Claude-only hooks.',
+    legibility:
+      'Native MCP on prjct install when OpenCode is detected. AGENTS.md portable; Claude skills/CLAUDE.md as fallback.',
+  },
+  {
+    runtimeId: 'pi',
+    displayName: 'Pi',
+    product: 'Pi coding agent (minimal harness)',
+    instructions: {
+      files: ['AGENTS.md', 'CLAUDE.md', '~/.pi/agent/AGENTS.md', 'SYSTEM.md / APPEND_SYSTEM.md'],
+      loadOrder: '~/.pi/agent → parents → cwd',
+      prjct: 'portable',
+    },
+    mcp: {
+      configPaths: [],
+      format: 'none built-in (extension-only)',
+      prjct: 'none',
+      notes: 'Pi intentionally has no native MCP; do not require it for full wire',
+    },
+    skills: {
+      paths: ['~/.pi/agent/skills/prjct/SKILL.md', 'pi packages'],
+      prjct: 'native',
+      notes: 'prjct install → installPiSkill() at ~/.pi/agent/skills/prjct/SKILL.md',
+    },
+    hooks: {
+      configPaths: [],
+      events: [],
+      format: 'extension event hooks only',
+      prjct: 'none',
+      contract: 'Skill + AGENTS.md + prjct CLI --md; no lifecycle hook pack',
+    },
+    legibility:
+      'Native skill on prjct install when Pi is detected. AGENTS.md portable. MCP is optional via community extensions only.',
   },
   {
     runtimeId: 'cursor',

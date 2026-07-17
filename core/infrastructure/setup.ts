@@ -266,6 +266,24 @@ export async function run(): Promise<SetupResults> {
         )
       }
     }
+    const opencodeDetected = runtimes.some((r) => r.runtime.id === 'opencode' && r.detected)
+    if (opencodeDetected) {
+      const { ensureOpenCodeMcpServer } = await import('../utils/opencode-mcp')
+      const oc = await ensureOpenCodeMcpServer()
+      console.log(
+        `   ${chalk.green('✓')} OpenCode MCP ${oc.changed ? 'installed' : 'ready'} → ${oc.path}`
+      )
+    }
+    const piDetected = runtimes.some((r) => r.runtime.id === 'pi' && r.detected)
+    if (piDetected) {
+      const { installPiSkill } = await import('./pi-skill')
+      const pi = await installPiSkill()
+      if (pi.success) {
+        console.log(
+          `   ${chalk.green('✓')} Pi skill ${pi.action ?? 'ready'}${pi.path ? ` → ${pi.path}` : ''}`
+        )
+      }
+    }
   } catch {
     /* best-effort — install.ts is the primary wire path */
   }

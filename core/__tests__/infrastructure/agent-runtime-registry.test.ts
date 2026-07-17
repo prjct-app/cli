@@ -22,6 +22,7 @@ describe('agent runtime registry', () => {
 
     const expectedRuntimes: AgentRuntimeId[] = [
       'opencode',
+      'pi',
       'qwen-code',
       'kimi-cli',
       'grok',
@@ -50,6 +51,23 @@ describe('agent runtime registry', () => {
     const writable = (kimi.mcpTargets ?? []).filter((target) => target.writable)
     expect(writable.length).toBeGreaterThan(0)
     expect(writable[0]?.pathHint).toContain('.kimi/mcp.json')
+  })
+
+  it('exposes a writable OpenCode MCP target and full support for Pi skill path', () => {
+    const opencode = getAgentRuntime('opencode')
+    expect(opencode.supports.mcp).toBe(true)
+    expect(opencode.supports.skills).toBe(true)
+    const writable = (opencode.mcpTargets ?? []).filter((t) => t.writable)
+    expect(writable.length).toBeGreaterThan(0)
+    expect(writable[0]?.pathHint).toContain('opencode')
+
+    const pi = getAgentRuntime('pi')
+    expect(pi.kind).toBe('cli')
+    expect(pi.status).toBe('stable')
+    expect(pi.supports.agentsMd).toBe(true)
+    expect(pi.supports.skills).toBe(true)
+    expect(pi.supports.mcp).toBe(false)
+    expect(pi.detectsBy?.commands).toContain('pi')
   })
 
   it('registers xAI Grok Build with native writable ~/.grok/config.toml MCP', () => {
@@ -98,6 +116,8 @@ describe('agent runtime registry', () => {
       expect(byId.get('aider')?.supportLevel).toBe('baseline')
       expect(byId.get('grok')?.supportLevel).toBe('full')
       expect(byId.get('claude')?.supportLevel).toBe('full')
+      expect(byId.get('opencode')?.supportLevel).toBe('full')
+      expect(byId.get('pi')?.supportLevel).toBe('full')
       expect(byId.get('codex')?.supportLevel).toBe('full')
       expect(byId.get('gemini')?.supportLevel).toBe('full')
       expect(byId.get('opencode')?.supportLevel).toBe('full')
