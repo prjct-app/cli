@@ -36,6 +36,15 @@ describe('multi-editor surfaces generated from one contract', () => {
     }
   })
 
+  it('teaches verb dispatch: known cmds bare, never work-wrap (token-burn fix)', () => {
+    // Compact skills + global configs must carry the anti work-"sync" contract.
+    for (const surface of all) {
+      expect(surface).toContain(CONTRACT.entrypoint)
+      expect(surface.toLowerCase()).toMatch(/never work-wrap|never wrap/)
+      expect(surface).toContain('sync')
+    }
+  })
+
   it('keeps the compact skills under the Codex cap with metadata headroom', () => {
     for (const skill of [codex, antigravitySkill]) {
       expect(Buffer.byteLength(skill, 'utf-8')).toBeLessThanOrEqual(CODEX_CAP - 50)

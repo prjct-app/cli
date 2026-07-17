@@ -82,8 +82,10 @@ describe('e2e: analysis-save-llm from sync --deep', () => {
     const r = await sb.cli(['analysis-save-llm', analysisFile, '--md'])
     const out = (r.stdout + r.stderr).toLowerCase()
     expect(r.code).toBe(0)
-    expect(out).toContain('llm analysis saved')
+    // Markdown notes are thin (not house style); title still reports a successful save.
+    expect(out).toMatch(/llm analysis (notes )?saved/)
     expect(out).toContain('input')
+    expect(out).toMatch(/thin|schema v1 json/)
     expect(out).not.toContain('not configured')
   })
 })

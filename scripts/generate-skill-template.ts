@@ -38,6 +38,9 @@ emit(['skills', 'prjct', 'SKILL.md'], buildPrjctSkill())
 // can never drift from the canonical skill (editor-surfaces.ts).
 emit(['codex', 'SKILL.md'], buildCodexSkill())
 emit(['antigravity', 'SKILL.md'], buildAntigravitySkill())
+// Grok uses the same compact CONTRACT as Codex (Body/Brain); install falls
+// back to codex/SKILL.md if grok/ is missing — emit both so they never drift.
+emit(['grok', 'SKILL.md'], buildCodexSkill())
 emit(['global', 'GEMINI.md'], buildGeminiConfig())
 emit(['global', 'ANTIGRAVITY.md'], buildAntigravityConfig())
 

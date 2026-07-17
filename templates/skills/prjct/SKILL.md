@@ -19,23 +19,26 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 - prjct remembers project state and shows the path; it does not own the execution.
 - Agents decide HOW with native tools and judgment. Treat prjct output as durable signals: work, memory, intents, risks, performance.
 - Persist via `prjct remember` / `work` / `performance` / `ship`. Author every memory in **ENGLISH**.
-- **Pattern supremacy:** style source = THIS repo (neighbor + `search`/`context memory`/Work scope). Sound pattern → **match**. Shit pattern → **propose upgrade**, do not spread garbage or foreign linter taste. Never make the client tutor basics already in the tree.
-- **Skill ≠ project identity.** If skill and cwd disagree, trust cwd + `prjct context --md`.
+- **Verb dispatch:** tasks → `prjct work "…"`. Known cmds (`sync`/`search`/`remember`/`ship`/…) → `prjct <cmd> --md`. **Never** wrap a bin verb as `work "sync"`.
+- **Sync analysis:** `analysis-save-llm` = schema v1 JSON. Markdown = thin notes only — no retry loop.
+- **Pattern supremacy:** match THIS repo (neighbor + `search`/`context memory`). Shit pattern → propose upgrade, not foreign taste.
+- **Skill ≠ project identity.** cwd + `prjct context --md` win over skill stamps.
 
 ### Cast + file scope (MUST)
 
-- Multi-agent Cast names (explore→Popper · implement→Copernicus · review→McClintock): use as `description` / `prjct claim --as <Name>`.
-- Before Grep/Glob: `prjct work` / `prjct_relevant_files` / `prjct code trace` — no blind tree walk when indexes exist.
-- **Synthesis discipline:** parent never says "based on findings" — hand implementers concrete file:line specs. **Continue** a worker when it already holds the edit files; **spawn fresh** for verify or a wrong approach.
+- Cast names (explore→Popper · implement→Copernicus · review→McClintock): `description` / `prjct claim --as <Name>`.
+- Before Grep/Glob: `prjct work` / `prjct_relevant_files` / `prjct code trace` when indexes exist.
+- **Synthesis:** hand implementers file:line specs. **Continue** a worker with edit files; **spawn fresh** for verify/wrong approach.
 
 ### Core verbs (Tier 1=auto · 2=confirm)
 
 | Signal | Verb | T |
 |---|---|---|
-| work (default) | `prjct work "<intent>"` | 2 |
+| work (tasks only) | `prjct work "<intent>"` | 2 |
 | intent | `prjct intent` / `audit` | 2 |
 | recall | `prjct search` / `context memory` | 1 |
 | remember | `prjct remember <type>` | 1 |
+| sync | `prjct sync` | 1 |
 | hygiene | `prjct dream` / `close` / `forget` | 1 |
 | guard | `prjct guard <file>` | 1 |
 | ship | `prjct ship` | 2 |
@@ -45,21 +48,21 @@ Portable L0 — no project stamp. Identity is cwd-scoped (SessionStart / `prjct 
 | tdd/sdd | `prjct tdd` / `sdd` | 1 |
 | workflows | `prjct workflow` / `seed` | 1 |
 
-`prjct work` is the single normal entrypoint. Full map in `workflows.md`.
+`prjct work` is the normal entrypoint **for task cycles only**. Known CLI verbs run bare. Full map in `workflows.md`.
 
 ### Knowledge
 
-- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; config at `.prjct/prjct.config.json`.
-- Close: `prjct land` (Session close auto hand-off + dream when gates open) or living context via `prjct remember context`. Hygiene: `prjct dream` / `close` / `forget`.
+- Types: `decision · learning · gotcha · fact · context · …` plus the **sovereign knowledge base** facets `identity · voice · glossary · framework` — `prjct remember <facet>` / `prjct context memory <facet>`; never injected into CLAUDE.md / AGENTS.md. SQLite SoT; `.prjct/prjct.config.json`.
+- Close: `prjct land` (Session close) or living context via `prjct remember context`. Hygiene: `dream` / `close` / `forget`.
 
 ### Routing
 
-- **Tier 1 — auto-execute.** search, remember, guard, insights, performance. One-line confirm; do not ask permission to save.
+- **Tier 1 — auto-execute.** search, remember, sync, guard, insights, performance. One-line confirm; do not ask permission to save.
 - **Tier 2 — confirm once.** work, intent, ship. Never ship without user OK.
 - **Tier 3 — decision-brief.** prefs / hard forks — see `workflows.md`.
 
 ## Gotchas
 
-- Empty recall ≠ nothing exists. Secrets refused unless `--force`. Do **not** wrap bin verbs (`sync`, `search`, `remember`) as `prjct work "…"`.
+- Empty recall ≠ nothing exists. Secrets refused unless `--force`.
 - Worktree: remove only after PR merged, never --force over dirty work.
 

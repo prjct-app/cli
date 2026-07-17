@@ -29,8 +29,12 @@ const POINTER_END = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
  */
 export const CONTRACT = {
   rag: 'prjct is a RAG-backed project memory harness; do not preload project history.',
+  /**
+   * Verb dispatch — load-bearing. "work = single entrypoint" alone caused hosts to
+   * wrap bin verbs (`prjct work "sync"`). Tasks use work; known commands run bare.
+   */
   entrypoint:
-    '`prjct work "<intent>" --md` is the single entrypoint — recognize intent and run the verb yourself.',
+    'Tasks → `prjct work "…"`. Known cmds (`sync`/`search`/`remember`/…) → `prjct <cmd>` — never work-wrap.',
   pull: 'Pull only what surfaces: `prjct search` / `context memory` / `guard` / MCP — not something to load wholesale.',
   remember:
     'Save synthesized memory in English: `prjct remember <decision|learning|gotcha|context> "<text>"`.',
@@ -87,14 +91,16 @@ export function buildGlobalConfig(rigName: string): string {
     'Skills auto-activate for: work, intent, ship, sync, guard, remember, search, insights, performance',
     'Other commands: run `prjct <command> --md` and follow CLI output',
     '',
-    'Flow: `prjct work` is the single normal entrypoint. Trivial work proceeds',
-    'directly. Substantive implementation work follows the persisted work-cycle',
-    'station from `prjct work --md`: reviewed intent, evidence, tests when',
-    'required, then code.',
+    'Flow: known verbs run as `prjct <cmd> --md` (sync, search, remember, ship, guard, land, prime…).',
+    '`prjct work` is only for task/work cycles — never wrap a bare verb as work "sync".',
+    'Substantive implementation follows the persisted work-cycle station from `prjct work --md`:',
+    'reviewed intent, evidence, tests when required, then code.',
+    'Sync analysis: prefer schema v1 JSON via `prjct analysis-save-llm` (markdown = thin notes only).',
     '',
     'Data:',
     '- Persist everything (memories, context, intents) in ENGLISH, whatever language the user speaks',
     `- ${CONTRACT.rag}`,
+    `- ${CONTRACT.entrypoint}`,
     `- ${CONTRACT.pull}`,
     `- Sovereign knowledge base — ${CONTRACT.kb}`,
     `- ${CONTRACT.remember}`,
