@@ -60,9 +60,9 @@ describe('ensureOpenCodeMcpServer', () => {
     expect(config.$schema).toContain('opencode.ai')
     expect(config.mcp?.prjct?.type).toBe('local')
     expect(config.mcp?.prjct?.enabled).toBe(true)
-    expect(config.mcp?.prjct?.command?.some((c) => c.includes('mcp-server') || c.includes('prjct'))).toBe(
-      true
-    )
+    expect(
+      config.mcp?.prjct?.command?.some((c) => c.includes('mcp-server') || c.includes('prjct'))
+    ).toBe(true)
   })
 
   it('preserves user-defined MCP servers while upserting prjct', async () => {

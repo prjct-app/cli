@@ -29,8 +29,8 @@ import { installGeminiSettings, uninstallGeminiSettings } from '../utils/gemini-
 import { ensureGrokMcpServer } from '../utils/grok-mcp'
 import { installGrokPlugin } from '../utils/grok-plugin'
 import { ensureKimiMcpServer } from '../utils/kimi-mcp'
-import { ensureOpenCodeMcpServer } from '../utils/opencode-mcp'
 import { failFromError, failHard } from '../utils/md-aware'
+import { ensureOpenCodeMcpServer } from '../utils/opencode-mcp'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
