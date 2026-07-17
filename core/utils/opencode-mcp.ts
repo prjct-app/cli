@@ -13,8 +13,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as jsonc from 'jsonc-parser'
-import type { MCPServerConfig } from '../types/utils.js'
 import { resolveUserPath } from '../infrastructure/user-home'
+import type { MCPServerConfig } from '../types/utils.js'
 import { MCP_SERVER_PRESETS } from './mcp-config'
 
 export interface OpenCodeLocalMcp {
@@ -175,7 +175,9 @@ export function hasOpenCodePrjctMcp(raw: string | null | undefined): boolean {
     if (!prjct) return false
     const command = prjct.command
     if (Array.isArray(command)) {
-      return command.some((c) => typeof c === 'string' && (c.includes('prjct') || c.includes('mcp-server')))
+      return command.some(
+        (c) => typeof c === 'string' && (c.includes('prjct') || c.includes('mcp-server'))
+      )
     }
     if (typeof command === 'string') {
       return command.includes('prjct') || command.includes('mcp-server')
