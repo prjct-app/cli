@@ -12,6 +12,7 @@ export type AgentRuntimeId =
   | 'gemini'
   | 'antigravity'
   | 'opencode'
+  | 'pi'
   | 'qwen-code'
   | 'kimi-cli'
   | 'grok'
@@ -227,17 +228,47 @@ export const AGENT_RUNTIME_REGISTRY: readonly AgentRuntimeDefinition[] = [
       commands: ['opencode'],
     },
     contextFiles: ['AGENTS.md', 'opencode.json', 'opencode.jsonc'],
-    mcpTargets: [{ format: 'opencode-json', pathHint: 'opencode.jsonc mcp', writable: false }],
+    mcpTargets: [
+      {
+        format: 'opencode-json',
+        pathHint: '~/.config/opencode/opencode.json mcp.prjct',
+        writable: true,
+      },
+    ],
     supports: {
       agentsMd: true,
       mcp: true,
-      skills: false,
+      // Claude-compat skills (~/.claude/skills) when OPENCODE_DISABLE_CLAUDE_CODE unset.
+      skills: true,
       hooks: false,
       acp: false,
       projectRules: true,
     },
     notes:
-      'Benchmark-tier open-source CLI (2026-07): most-starred multi-provider agent. AGENTS.md + plugins + MCP.',
+      'Benchmark-tier open-source CLI (2026-07): most-starred multi-provider agent. AGENTS.md + prjct install writes mcp.prjct; Claude skill/CLAUDE.md compat.',
+  },
+  {
+    id: 'pi',
+    displayName: 'Pi',
+    kind: 'cli',
+    status: 'stable',
+    detectsBy: {
+      homeDirs: ['.pi', path.join('.pi', 'agent')],
+      projectDirs: ['.pi'],
+      commands: ['pi'],
+    },
+    contextFiles: ['AGENTS.md', 'CLAUDE.md', 'SYSTEM.md', 'APPEND_SYSTEM.md'],
+    supports: {
+      agentsMd: true,
+      // No built-in MCP — skills + CLI --md are the contract (pi.dev design).
+      mcp: false,
+      skills: true,
+      hooks: false,
+      acp: false,
+      projectRules: false,
+    },
+    notes:
+      'Benchmark-tier minimal harness (2026-07): AGENTS.md + prjct skill at ~/.pi/agent/skills/prjct. MCP only via optional extensions — do not require it.',
   },
   {
     id: 'qwen-code',
@@ -729,6 +760,7 @@ const FULL_SUPPORT_RUNTIME_IDS = new Set<AgentRuntimeId>([
   'codex',
   'gemini',
   'opencode',
+  'pi',
   'cursor',
   'cline',
   'grok',

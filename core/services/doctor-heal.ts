@@ -195,6 +195,14 @@ export async function applyDoctorHeal(
           await installGrokSkill()
           await installGrokPlugin()
         }
+        if (detected.some((r) => r.runtime.id === 'opencode')) {
+          const { ensureOpenCodeMcpServer } = await import('../utils/opencode-mcp')
+          await ensureOpenCodeMcpServer()
+        }
+        if (detected.some((r) => r.runtime.id === 'pi')) {
+          const { installPiSkill } = await import('../infrastructure/pi-skill')
+          await installPiSkill()
+        }
         // Always ensure Claude hooks too when multi-runtime runs
         await installHooks()
         applied.push(action.id)

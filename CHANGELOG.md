@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.70.0] - 2026-07-16
+
+### Added
+- OpenCode native MCP installer (`mcp.prjct`) + Pi skill surface on install/doctor
+
 ## [3.69.1] - 2026-07-17
 
 ### Bug Fixes

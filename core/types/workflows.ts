@@ -23,6 +23,7 @@ export type AIAgent =
   | 'codex'
   | 'antigravity'
   | 'opencode'
+  | 'pi'
   | 'qwen-code'
   | 'goose'
   | 'aider'

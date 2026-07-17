@@ -44,6 +44,7 @@ export const AI_AGENTS: { value: AIAgent; title: string; description: string }[]
   { value: 'gemini', title: 'Gemini CLI', description: "Google's Gemini in terminal" },
   { value: 'codex', title: 'OpenAI Codex', description: "OpenAI's coding agent in terminal" },
   { value: 'opencode', title: 'OpenCode', description: 'Open-source terminal coding agent' },
+  { value: 'pi', title: 'Pi', description: 'Minimal terminal coding harness (skills + AGENTS.md)' },
   { value: 'qwen-code', title: 'Qwen Code', description: 'Qwen-family coding runtime' },
   { value: 'goose', title: 'Goose', description: 'Open-source coding agent with extensions' },
   { value: 'aider', title: 'Aider', description: 'Terminal pair-programming agent' },
@@ -113,6 +114,12 @@ export async function detectInstalledAgents(projectPath: string): Promise<AIAgen
     agents.push('antigravity')
   }
   if (await dirExists(path.join(projectPath, '.opencode'))) agents.push('opencode')
+  if (
+    (await dirExists(path.join(projectPath, '.pi'))) ||
+    (await dirExists(path.join(os.homedir(), '.pi')))
+  ) {
+    agents.push('pi')
+  }
   if (await dirExists(path.join(projectPath, '.qwen'))) agents.push('qwen-code')
   if (await dirExists(path.join(projectPath, '.goose'))) agents.push('goose')
   if (

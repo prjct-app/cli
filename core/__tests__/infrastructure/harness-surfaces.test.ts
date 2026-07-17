@@ -14,11 +14,25 @@ describe('harness surfaces matrix', () => {
       'gemini',
       'grok',
       'opencode',
+      'pi',
       'cursor',
       'cline',
     ] as const) {
       expect(ids).toContain(id)
     }
+  })
+
+  it('documents OpenCode MCP as native and Pi skill as native (no MCP)', () => {
+    const opencode = getHarnessSurface('opencode')
+    expect(opencode).toBeDefined()
+    expect(opencode!.mcp.prjct).toBe('native')
+    expect(opencode!.hooks.prjct).toBe('none')
+
+    const pi = getHarnessSurface('pi')
+    expect(pi).toBeDefined()
+    expect(pi!.skills.prjct).toBe('native')
+    expect(pi!.mcp.prjct).toBe('none')
+    expect(pi!.legibility).toMatch(/skill/i)
   })
 
   it('documents Grok as native MCP+skills+plugin with hooks inherits-claude', () => {

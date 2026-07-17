@@ -10,6 +10,7 @@
 import { detectAgentRuntimes } from '../infrastructure/agent-runtime-registry'
 import configManager from '../infrastructure/config-manager'
 import { installGrokSkill } from '../infrastructure/grok-skill'
+import { installPiSkill } from '../infrastructure/pi-skill'
 import { probeHarnessCoverage, renderHarnessCoverageMd } from '../services/harness-coverage'
 import { writeProjectAgentSurfaces } from '../services/project-agent-surfaces'
 import {
@@ -28,6 +29,7 @@ import { installGeminiSettings, uninstallGeminiSettings } from '../utils/gemini-
 import { ensureGrokMcpServer } from '../utils/grok-mcp'
 import { installGrokPlugin } from '../utils/grok-plugin'
 import { ensureKimiMcpServer } from '../utils/kimi-mcp'
+import { ensureOpenCodeMcpServer } from '../utils/opencode-mcp'
 import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
@@ -64,6 +66,10 @@ export class InstallCommands extends PrjctCommandsBase {
       const grokConfig = grokDetected ? await ensureGrokMcpServer() : null
       const grokSkill = grokDetected ? await installGrokSkill() : null
       const grokPlugin = grokDetected ? await installGrokPlugin() : null
+      const opencodeDetected = detected.some((runtime) => runtime.runtime.id === 'opencode')
+      const opencodeConfig = opencodeDetected ? await ensureOpenCodeMcpServer() : null
+      const piDetected = detected.some((runtime) => runtime.runtime.id === 'pi')
+      const piSkill = piDetected ? await installPiSkill() : null
       const coverage = await probeHarnessCoverage(projectPath)
       const total = PRJCT_HOOKS.length
       const prunedNote = result.hooksPruned > 0 ? `, ${result.hooksPruned} retired removed` : ''
@@ -75,6 +81,8 @@ export class InstallCommands extends PrjctCommandsBase {
         cursorHooks ? 'cursor' : null,
         kimiConfig ? 'kimi' : null,
         grokConfig || grokSkill?.success || grokPlugin?.success ? 'grok' : null,
+        opencodeConfig ? 'opencode' : null,
+        piSkill?.success ? 'pi' : null,
         'claude',
       ].filter((x): x is string => Boolean(x))
       let deltaLine: string | null = null
@@ -164,6 +172,16 @@ export class InstallCommands extends PrjctCommandsBase {
                   `- Grok plugin: ${grokPlugin.changed ? `updated (${grokPlugin.files.join(', ') || 'files'})` : 'already ready'} → \`${grokPlugin.path}\``,
                 ]
               : []),
+            ...(opencodeConfig
+              ? [
+                  `- OpenCode MCP: ${opencodeConfig.changed ? 'updated' : 'already ready'} → \`${opencodeConfig.path}\``,
+                ]
+              : []),
+            ...(piSkill?.success
+              ? [
+                  `- Pi skill: ${piSkill.action ?? 'ready'}${piSkill.path ? ` → \`${piSkill.path}\`` : ''}`,
+                ]
+              : []),
             ``,
             `## Claude hooks adapter`,
             `Wrote to \`${result.settingsPath}\`.`,
@@ -180,8 +198,8 @@ export class InstallCommands extends PrjctCommandsBase {
             ``,
             renderHarnessCoverageMd(coverage),
             `> One install · one SQLite brain · every agent surface. That is the moat — not more skills.`,
-            `> Grok: native MCP + skill; hooks still via Claude compat. Codex/Gemini/Cursor get native adapters.`,
-            `> Gaps? \`prjct doctor --fix\`. Only \`_prjctManaged: true\` entries were touched.`,
+            `> OpenCode: native MCP. Pi: native skill (no MCP). Grok: MCP+skill; hooks via Claude compat. Codex/Gemini/Cursor: native adapters.`,
+            `> Gaps? \`prjct doctor --fix\`. Only managed entries were touched.`,
           ].join('\n')
         )
       } else {
@@ -243,6 +261,16 @@ export class InstallCommands extends PrjctCommandsBase {
         if (grokPlugin?.success) {
           out.info(
             `Grok plugin: ${grokPlugin.changed ? 'updated' : 'already ready'} → ${grokPlugin.path}`
+          )
+        }
+        if (opencodeConfig) {
+          out.info(
+            `OpenCode MCP: ${opencodeConfig.changed ? 'updated' : 'already ready'} → ${opencodeConfig.path}`
+          )
+        }
+        if (piSkill?.success) {
+          out.info(
+            `Pi skill: ${piSkill.action ?? 'ready'}${piSkill.path ? ` → ${piSkill.path}` : ''}`
           )
         }
         out.info(

@@ -25,6 +25,7 @@ const KNOWN_AGENTS = new Set([
   'grok',
   'cursor',
   'opencode',
+  'pi',
   'windsurf',
   'antigravity',
   'unknown',
@@ -53,6 +54,12 @@ export function detectRuntimeAgent(): string {
   }
   if (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.GROK_SESSION) {
     return 'grok'
+  }
+  if (process.env.OPENCODE || process.env.OPENCODE_SESSION || process.env.OPENCODE_CONFIG) {
+    return 'opencode'
+  }
+  if (process.env.PI_CODING_AGENT_DIR || process.env.PI_SESSION || process.env.PI_AGENT) {
+    return 'pi'
   }
   return 'unknown'
 }
@@ -83,6 +90,8 @@ export function normalizeAgentName(raw: string): string {
   if (t === 'openai' || t === 'oai') return 'codex'
   if (t === 'google') return 'gemini'
   if (t === 'xai' || t === 'grok-build') return 'grok'
+  if (t === 'opencode-ai' || t === 'open-code') return 'opencode'
+  if (t === 'pi-coding-agent' || t === 'pi-agent') return 'pi'
   return t.slice(0, 32)
 }
 

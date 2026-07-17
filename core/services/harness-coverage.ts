@@ -13,6 +13,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getGrokSkillInstallPath } from '../infrastructure/grok-skill'
+import { getPiSkillInstallPath } from '../infrastructure/pi-skill'
 import { resolveUserHome } from '../infrastructure/user-home'
 import { getCodexHooksJsonPath } from '../utils/codex-hooks'
 import { getCodexConfigTomlPath } from '../utils/codex-mcp'
@@ -20,6 +21,11 @@ import { getCursorHooksJsonPath } from '../utils/cursor-hooks'
 import { getGeminiSettingsPath } from '../utils/gemini-settings'
 import { getGrokConfigTomlPath } from '../utils/grok-mcp'
 import { getGrokPluginRoot } from '../utils/grok-plugin'
+import {
+  getOpenCodeConfigPath,
+  getOpenCodeJsoncConfigPath,
+  hasOpenCodePrjctMcp,
+} from '../utils/opencode-mcp'
 import { commandOnPathAsync } from '../utils/which'
 
 export type OrganicLevel = 'full' | 'partial' | 'inherited' | 'none' | 'absent'
@@ -133,12 +139,22 @@ export async function probeHarnessCoverage(
   const grokSkill = getGrokSkillInstallPath()
   const grokPluginJson = path.join(getGrokPluginRoot(), 'plugin.json')
   const projectCursor = path.join(projectPath, '.cursor')
+  const opencodeJson = getOpenCodeConfigPath()
+  const opencodeJsonc = getOpenCodeJsoncConfigPath()
+  const opencodeHome = path.join(home, '.config', 'opencode')
+  const projectOpencode = path.join(projectPath, '.opencode')
+  const piHome = path.join(home, '.pi')
+  const piAgent = path.join(home, '.pi', 'agent')
+  const piSkill = getPiSkillInstallPath()
+  const projectPi = path.join(projectPath, '.pi')
 
   const [
     claudeCmd,
     codexCmd,
     geminiCmd,
     grokCmd,
+    opencodeCmd,
+    piCmd,
     claudeSettingsText,
     claudeMcpText,
     codexHooksText,
@@ -150,11 +166,21 @@ export async function probeHarnessCoverage(
     grokPluginExists,
     grokDir,
     cursorDir,
+    opencodeJsonText,
+    opencodeJsoncText,
+    opencodeDir,
+    projectOpencodeDir,
+    piDir,
+    piAgentDir,
+    piSkillExists,
+    projectPiDir,
   ] = await Promise.all([
     commandOnPathAsync('claude'),
     commandOnPathAsync('codex'),
     commandOnPathAsync('gemini'),
     commandOnPathAsync('grok'),
+    commandOnPathAsync('opencode'),
+    commandOnPathAsync('pi'),
     readText(claudeSettings),
     readText(claudeMcp),
     readText(codexHooks),
@@ -166,6 +192,14 @@ export async function probeHarnessCoverage(
     fileExists(grokPluginJson),
     fileExists(grokHome),
     fileExists(projectCursor),
+    readText(opencodeJson),
+    readText(opencodeJsonc),
+    fileExists(opencodeHome),
+    fileExists(projectOpencode),
+    fileExists(piHome),
+    fileExists(piAgent),
+    fileExists(piSkill),
+    fileExists(projectPi),
   ])
 
   const claudeDetected = claudeCmd || (await fileExists(path.join(home, '.claude')))
@@ -193,6 +227,13 @@ export async function probeHarnessCoverage(
   // Hooks still fire via Claude-compat settings; MCP can be native and/or Claude.
   const grokHooksLive = Boolean(claudeHooks)
   const grokMcpLive = grokNativeMcp || claudeMcpLive
+
+  const opencodeDetected = Boolean(opencodeCmd || opencodeDir || projectOpencodeDir)
+  const opencodeMcpLive =
+    hasOpenCodePrjctMcp(opencodeJsonText) || hasOpenCodePrjctMcp(opencodeJsoncText)
+
+  const piDetected = Boolean(piCmd || piDir || piAgentDir || projectPiDir)
+  const piSkillLive = Boolean(piSkillExists)
 
   const runtimes: RuntimeCoverage[] = [
     {
@@ -283,6 +324,34 @@ export async function probeHarnessCoverage(
                 : 'detected — run prjct install'
         : 'not installed',
     },
+    {
+      id: 'opencode',
+      displayName: 'OpenCode',
+      detected: opencodeDetected,
+      hooksLive: false, // no Claude-parity hook pack
+      mcpLive: opencodeMcpLive,
+      // MCP-only is full for OpenCode (same model as Cursor hooks-only).
+      organic: !opencodeDetected ? 'absent' : opencodeMcpLive ? 'full' : 'none',
+      evidence: opencodeMcpLive
+        ? '~/.config/opencode/opencode.json mcp.prjct'
+        : opencodeDetected
+          ? 'detected — run prjct install for OpenCode MCP'
+          : 'not installed',
+    },
+    {
+      id: 'pi',
+      displayName: 'Pi',
+      detected: piDetected,
+      hooksLive: false,
+      mcpLive: false, // Pi has no native MCP
+      // Skill-only is full for Pi (anti-MCP-by-default design).
+      organic: !piDetected ? 'absent' : piSkillLive ? 'full' : 'none',
+      evidence: piSkillLive
+        ? '~/.pi/agent/skills/prjct/SKILL.md'
+        : piDetected
+          ? 'detected — run prjct install for Pi skill'
+          : 'not installed',
+    },
   ]
 
   const detected = runtimes.filter((r) => r.detected)
@@ -294,7 +363,7 @@ export async function probeHarnessCoverage(
 
   const summary =
     detectedCount === 0
-      ? 'No benchmark CLI/IDE detected — install Claude, Codex, Gemini, Cursor, or Grok, then `prjct install`.'
+      ? 'No benchmark CLI/IDE detected — install Claude, Codex, Gemini, Cursor, OpenCode, Pi, or Grok, then `prjct install`.'
       : liveCount === detectedCount
         ? `Organic full board: ${liveCount}/${detectedCount} detected runtimes live (${organicPct}%). Same SQLite brain, multi-surface wire.`
         : `Organic board ${liveCount}/${detectedCount} live (${organicPct}%). Run \`prjct install\` to close gaps — one command, all surfaces.`
@@ -321,7 +390,7 @@ export function renderHarnessCoverageMd(report: HarnessCoverageReport): string {
   ]
   for (const r of report.runtimes) {
     lines.push(
-      `| ${r.displayName} | ${r.detected ? 'yes' : '—'} | ${r.hooksLive ? '●' : '○'} | ${r.mcpLive ? '●' : r.id === 'cursor' ? 'IDE' : '○'} | \`${r.organic}\` | ${r.evidence} |`
+      `| ${r.displayName} | ${r.detected ? 'yes' : '—'} | ${r.hooksLive ? '●' : '○'} | ${r.mcpLive ? '●' : r.id === 'cursor' ? 'IDE' : r.id === 'pi' ? 'skill' : '○'} | \`${r.organic}\` | ${r.evidence} |`
     )
   }
   lines.push('', report.summary, '')
