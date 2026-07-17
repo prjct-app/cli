@@ -461,7 +461,7 @@ export const COMMANDS: CommandMeta[] = [
       'Symbol index on sync; 4th work-scope signal; CALLS with enclosing + imports',
       'trace / impact (hunk-level) / architecture / dead one-shots',
       'Per-project cache under ~/.prjct-cli/projects/<id>/ (never in client repo)',
-      'push-graph: compact Function/Class/File + CALLS snapshot → cloud 3D',
+      'push-graph: full Function/Class/File + CALLS/IMPORTS graph → cloud 3D (no node/link caps)',
       'PreToolUse Grep|Glob augment; ship structural risk cue; optional CBM cli',
     ],
   },

@@ -9,7 +9,7 @@
  *   prjct code architecture        → structural overview (one-shot)
  *   prjct code export              → cache under ~/.prjct-cli/projects/<id>/
  *   prjct code import              → restore SQLite from that per-project cache
- *   prjct code push-graph          → upload compact structural graph to cloud 3D
+ *   prjct code push-graph          → upload full structural graph to cloud 3D
  *   prjct code reindex             → rebuild symbol graph now
  *   prjct code dead                → zero-caller symbols (excl. entries)
  *   prjct code cbm [cli <tool> …]  → optional CBM bridge status / execute
@@ -342,7 +342,7 @@ export class CodeCommands extends PrjctCommandsBase {
         options
       )
     }
-    const msg = `Uploaded structural graph · ${res.nodes ?? 0} nodes · ${res.links ?? 0} links (Function/Class/File + CALLS)`
+    const msg = `Uploaded full structural graph · ${res.nodes ?? 0} nodes · ${res.links ?? 0} links (Function/Class/File + CALLS/IMPORTS — uncapped)`
     if (options.md) console.log(mdOutput('## Code graph cloud', `> ${msg}`))
     else out.success(msg)
     return { success: true, ...res }

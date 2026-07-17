@@ -182,7 +182,7 @@ export async function maybeExportAfterIndex(projectId: string): Promise<void> {
   }
 }
 
-/** Build compact structural snapshot and POST to /sync/projects/{id}/code-graph. */
+/** Build full structural snapshot (no node/link caps) and POST to /sync/projects/{id}/code-graph. */
 export async function maybeUploadCodeGraphToCloud(
   projectId: string
 ): Promise<{ uploaded: boolean; nodes?: number; links?: number; reason?: string }> {
