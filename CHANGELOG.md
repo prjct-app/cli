@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [3.69.1] - 2026-07-17
+
+### Bug Fixes
+
+- upgrade installs only npm registry version (never monorepo/local)
+
 ## [3.69.0] - 2026-07-16
 
 ### Added
