@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [3.70.1] - 2026-07-17
+
+### Bug Fixes
+
+- full graph upload — remove 400/900 caps (#587)
+- ship full structural graph to cloud — no caps
+
+
 ## [3.70.0] - 2026-07-16
 
 ### Added
