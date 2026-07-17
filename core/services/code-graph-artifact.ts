@@ -194,7 +194,14 @@ export async function maybeUploadCodeGraphToCloud(
   try {
     const { default: syncClient } = await import('../sync/sync-client')
     const res = await syncClient.uploadCodeGraph(projectId, snap)
-    if (!res.ok) return { uploaded: false, reason: 'upload failed or unauthenticated' }
+    if (!res.ok) {
+      return {
+        uploaded: false,
+        reason: res.reason ?? 'upload failed or unauthenticated',
+        nodes: snap.nodes.length,
+        links: snap.links.length,
+      }
+    }
     return {
       uploaded: true,
       nodes: res.nodes ?? snap.nodes.length,

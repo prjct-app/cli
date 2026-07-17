@@ -210,10 +210,10 @@ class SyncClient {
       }>
       links: Array<{ source: string; target: string; type: string }>
     }
-  ): Promise<{ ok: boolean; nodes?: number; links?: number }> {
+  ): Promise<{ ok: boolean; nodes?: number; links?: number; reason?: string }> {
     try {
       const { apiUrl, apiKey, deviceId } = await this.getAuthHeaders()
-      if (!apiKey) return { ok: false }
+      if (!apiKey) return { ok: false, reason: 'unauthenticated' }
       const response = await this.fetchWithRetry(
         `${apiUrl}/sync/projects/${projectId}/code-graph`,
         {
@@ -225,11 +225,21 @@ class SyncClient {
           body: JSON.stringify(graph),
         }
       )
-      if (!response.ok) return { ok: false }
+      if (!response.ok) {
+        let detail = `${response.status} ${response.statusText}`
+        try {
+          const errBody = (await response.json()) as { detail?: unknown }
+          if (typeof errBody.detail === 'string') detail = errBody.detail
+          else if (errBody.detail != null) detail = JSON.stringify(errBody.detail).slice(0, 300)
+        } catch {
+          /* ignore body parse */
+        }
+        return { ok: false, reason: detail }
+      }
       const body = (await response.json()) as { ok?: boolean; nodes?: number; links?: number }
       return { ok: body.ok !== false, nodes: body.nodes, links: body.links }
-    } catch {
-      return { ok: false }
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) }
     }
   }
 
