@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.69.0] - 2026-07-16
+
+### Added
+- fix agent contract: bin verbs + analysis-save JSON preferred across all surfaces
+
 ## [3.68.0] - 2026-07-16
 
 ### Added
