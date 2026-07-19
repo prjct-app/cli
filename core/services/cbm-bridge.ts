@@ -6,12 +6,9 @@
  * making it a hard dependency.
  */
 
-import { execFile } from 'node:child_process'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
+import { execFileAsync } from '../utils/exec'
 
 export interface CbmStatus {
   available: boolean

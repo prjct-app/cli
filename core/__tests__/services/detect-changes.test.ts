@@ -11,6 +11,7 @@ import { indexSymbols } from '../../domain/symbol-graph'
 import pathManager from '../../infrastructure/path-manager'
 import { detectChanges } from '../../services/detect-changes'
 import prjctDb from '../../storage/database'
+import { GitInfraError } from '../../utils/exec'
 
 describe('detect-changes', () => {
   let testDir: string
@@ -65,5 +66,39 @@ describe('detect-changes', () => {
     })
     expect(result.changes[0]?.risk).toBe('critical')
     expect(result.summary.critical).toBe(1)
+  })
+})
+
+
+/**
+ * PATH-hijack: an empty dir as PATH means `git` resolves nowhere, so spawn
+ * fails with a real ENOENT — exercises the infra-failure path without mocks.
+ */
+async function withBrokenGit<T>(fn: () => Promise<T>): Promise<T> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-no-git-'))
+  const oldPath = process.env.PATH
+  process.env.PATH = dir
+  try {
+    return await fn()
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH
+    else process.env.PATH = oldPath
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+describe('detect-changes — typed git failures (WS1)', () => {
+  it('git infra failure rejects with GitInfraError instead of a fake clean tree', async () => {
+    if (process.platform === 'win32') return
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-dc-nogit-'))
+    try {
+      await withBrokenGit(async () => {
+        await expect(
+          detectChanges(dir, 'test-dc-nogit', { source: 'working-tree' })
+        ).rejects.toBeInstanceOf(GitInfraError)
+      })
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+    }
   })
 })

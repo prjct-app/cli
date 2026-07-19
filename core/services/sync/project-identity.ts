@@ -11,12 +11,9 @@
  * so the caller falls back to a random UUID for those.
  */
 
-import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
-import { promisify } from 'node:util'
+import { execFileAsync } from '../../utils/exec'
 import { parseRemote } from './project-meta'
-
-const execFileAsync = promisify(execFile)
 
 // Fixed namespace for prjct project ids (a constant random UUID). Changing this
 // would re-key every derived id, so it must stay stable forever.

@@ -78,7 +78,7 @@ export async function resolveWorkIntensity(
       }
     }
   } catch {
-    /* no git — intensity from signals only */
+    /* no git / git infra failure — intensity from signals only (advisory) */
   }
   const { intensity } = intensityFromChangeset({ files, loc }, signals)
   return { intensity, files, loc }

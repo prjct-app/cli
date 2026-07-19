@@ -90,3 +90,36 @@ describe('deriveWorkspace', () => {
     expect(ws.isMain).toBe(true)
   })
 })
+
+
+/**
+ * PATH-hijack: an empty dir as PATH means `git` resolves nowhere, so spawn
+ * fails with a real ENOENT — exercises the infra-failure path without mocks.
+ */
+async function withBrokenGit<T>(fn: () => Promise<T>): Promise<T> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-no-git-'))
+  const oldPath = process.env.PATH
+  process.env.PATH = dir
+  try {
+    return await fn()
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH
+    else process.env.PATH = oldPath
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+describe('deriveWorkspace — degraded identity (WS1)', () => {
+  test('git infra failure → main sentinel FLAGGED with gitError (write paths refuse)', async () => {
+    if (process.platform === 'win32') return
+    // Fresh path — deriveWorkspace memoizes per cwd for 5s.
+    const fresh = path.join(wtA, 'fresh-sub')
+    await fs.mkdir(fresh, { recursive: true })
+    await withBrokenGit(async () => {
+      const ws = await deriveWorkspace(fresh)
+      expect(ws.workspaceId).toBe(MAIN_WORKSPACE_ID)
+      expect(ws.isMain).toBe(true)
+      expect(ws.gitError).toBe('spawn')
+    })
+  })
+})

@@ -119,3 +119,33 @@ describe('detectKind — word-aware matching (no mid-word false positives)', () 
     expect(buildTaskHarness('improve the implement flow for exports').kind).toBe('feature')
   })
 })
+
+
+/**
+ * PATH-hijack: an empty dir as PATH means `git` resolves nowhere, so spawn
+ * fails with a real ENOENT — exercises the infra-failure path without mocks.
+ */
+async function withBrokenGit<T>(fn: () => Promise<T>): Promise<T> {
+  const noGitDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-no-git-'))
+  const oldPath = process.env.PATH
+  process.env.PATH = noGitDir
+  try {
+    return await fn()
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH
+    else process.env.PATH = oldPath
+    await fs.rm(noGitDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+describe('evaluateHarnessCompletion — typed git failures (WS1)', () => {
+  test('git infra failure → "evidence unavailable", never a fabricated missing-test warning', async () => {
+    if (process.platform === 'win32') return
+    const task = await currentTask('bug en codex no se instala el statusbar eso es un must')
+    await withBrokenGit(async () => {
+      const result = await evaluateHarnessCompletion(dir, task)
+      expect(result.warnings.some((w) => w.includes('evidence unavailable'))).toBe(true)
+      expect(result.warnings.some((w) => w.includes('no test file changed'))).toBe(false)
+    })
+  })
+})

@@ -1,15 +1,22 @@
 /**
  * Content-bound stamp — pure hash + drift verdict (Dynasty D2).
+ * Plus the ship-safety rule: git infra must not collapse to "unverified → pass".
  */
 
 import { describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import {
   BLOB_MISSING,
   buildTreeHash,
   contentBoundDriftVerdict,
+  currentTreeHashForStamp,
   hashBlobContent,
+  resolveStampPaths,
   stampFromContents,
 } from '../../services/content-bound-stamp'
+import { GitInfraError } from '../../utils/exec'
 
 describe('content-bound-stamp', () => {
   it('hashes blob content deterministically', () => {
@@ -111,5 +118,50 @@ describe('content-bound-stamp', () => {
     })
     expect(u.blocked).toBe(false)
     expect(u.reason).toBe('unverified')
+  })
+})
+
+/**
+ * PATH-hijack: empty dir as PATH → git spawn ENOENT (real infra failure).
+ */
+async function withBrokenGit<T>(fn: () => Promise<T>): Promise<T> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-no-git-'))
+  const oldPath = process.env.PATH
+  process.env.PATH = dir
+  try {
+    return await fn()
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH
+    else process.env.PATH = oldPath
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+describe('content-bound stamp — git infra must not fail-open', () => {
+  it('resolveStampPaths throws GitInfraError when git cannot spawn', async () => {
+    if (process.platform === 'win32') return
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-stamp-'))
+    try {
+      await withBrokenGit(async () => {
+        await expect(resolveStampPaths(dir, null)).rejects.toBeInstanceOf(GitInfraError)
+      })
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+    }
+  })
+
+  it('currentTreeHashForStamp rethrows GitInfraError (empty-path fallback)', async () => {
+    if (process.platform === 'win32') return
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-stamp-'))
+    try {
+      // Empty paths force resolveStampPaths → git. A pure stamp with no
+      // recorded paths is the fail-open footgun if git collapses to null.
+      const stamp = stampFromContents([], { stampedAt: 't0' })
+      await withBrokenGit(async () => {
+        await expect(currentTreeHashForStamp(dir, stamp)).rejects.toBeInstanceOf(GitInfraError)
+      })
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+    }
   })
 })

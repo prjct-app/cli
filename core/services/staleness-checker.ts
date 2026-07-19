@@ -10,7 +10,7 @@
 import { prjctDb } from '../storage/database'
 import { getErrorMessage } from '../types/fs'
 import type { SessionInfo, StalenessConfig, StalenessStatus } from '../types/services.js'
-import { execAsync } from '../utils/exec'
+import { runGit } from '../utils/exec'
 import { sessionTracker } from './session-tracker'
 
 const DEFAULT_CONFIG: StalenessConfig = {
@@ -77,17 +77,18 @@ class StalenessChecker {
       const lastSync = projectJson.lastSync as string
 
       // Get current HEAD commit (bounded)
-      try {
-        const { stdout } = await execAsync('git rev-parse --short HEAD', {
-          cwd: this.projectPath,
-          timeout: 3000,
-        })
-        status.currentCommit = stdout.trim()
-      } catch {
-        // Not a git repo
-        status.reason = 'Not a git repository'
+      const head = await runGit(['rev-parse', '--short', 'HEAD'], {
+        cwd: this.projectPath,
+        timeoutMs: 3000,
+      })
+      if (!head.ok) {
+        // Typed exit = genuinely not a git repo; timeout/spawn = git is
+        // broken — report unknown, never confuse the two.
+        status.reason =
+          head.kind === 'exit' ? 'Not a git repository' : `git ${head.kind} — staleness unknown`
         return status
       }
+      status.currentCommit = head.stdout.trim()
 
       // If no last sync commit, we can't compare
       if (!status.lastSyncCommit) {
@@ -105,19 +106,26 @@ class StalenessChecker {
       // Bounded git (timeouts match land-synthesis ~3s). Count first —
       // name lists only when needed for significant-file detection.
       const cwd = this.projectPath
-      const gitOpts = { cwd, timeout: 3000, maxBuffer: 1024 * 256 }
-      const revListResult = await execAsync(
-        `git rev-list --count ${status.lastSyncCommit}..HEAD`,
+      const gitOpts = { cwd, timeoutMs: 3000, maxBuffer: 1024 * 256 }
+      const revList = await runGit(
+        ['rev-list', '--count', `${status.lastSyncCommit}..HEAD`],
         gitOpts
-      ).catch(() => null)
+      )
 
-      if (!revListResult) {
-        status.isStale = true
-        status.reason = 'Sync commit no longer exists (history changed). Run `prjct sync`.'
+      if (!revList.ok) {
+        if (revList.kind === 'exit') {
+          // Bad revision range = the recorded sync commit is really gone.
+          status.isStale = true
+          status.reason = 'Sync commit no longer exists (history changed). Run `prjct sync`.'
+        } else {
+          // A git timeout/spawn is NOT a history rewrite — never report
+          // staleness from an infra failure.
+          status.reason = `git ${revList.kind} reading history — staleness unknown. Retry shortly.`
+        }
         return status
       }
 
-      status.commitsSinceSync = parseInt(revListResult.stdout.trim(), 10) || 0
+      status.commitsSinceSync = parseInt(revList.stdout.trim(), 10) || 0
 
       // Calculate days since sync
       if (lastSync) {
@@ -134,14 +142,11 @@ class StalenessChecker {
       const needNames =
         status.commitsSinceSync > 0 && status.commitsSinceSync < this.config.commitThreshold
       if (needNames) {
-        const diffResult = await execAsync(
-          `git diff --name-only ${status.lastSyncCommit}..HEAD`,
-          gitOpts
-        ).catch(() => null)
+        const diff = await runGit(['diff', '--name-only', `${status.lastSyncCommit}..HEAD`], gitOpts)
         // Cap name list so a huge range cannot blow SessionStart memory.
-        const names = diffResult
-          ? diffResult.stdout.trim().split('\n').filter(Boolean).slice(0, 200)
-          : []
+        // Any failure (exit or infra) degrades to an empty list — the
+        // count-based verdict above already stands on its own.
+        const names = diff.ok ? diff.stdout.trim().split('\n').filter(Boolean).slice(0, 200) : []
         status.changedFiles = names
         status.significantChanges = names.filter((file) =>
           this.config.significantFiles.some((sig) => file.endsWith(sig) || file.includes(sig))

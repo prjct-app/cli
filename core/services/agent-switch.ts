@@ -199,6 +199,13 @@ async function rebindTaskOwner(
   }
 ): Promise<void> {
   const ws = await deriveWorkspace(projectPath)
+  if (ws.gitError) {
+    // Degraded identity — writing task fields keyed on the main fallback
+    // could corrupt another workspace's cycle. Refuse loudly.
+    throw new Error(
+      `git ${ws.gitError}: workspace identity unknown — refusing to update task fields on the main fallback.`
+    )
+  }
   // null → delete key inside updateCurrentTask / updateWorkspaceTask
   const patch = fields as Partial<import('../schemas/state').CurrentTask> & Record<string, unknown>
 
@@ -237,6 +244,12 @@ export async function switchAgent(
   const fromIdentity = task.ownerIdentity || caller.identity
 
   const ws = await deriveWorkspace(projectPath)
+  if (ws.gitError) {
+    return {
+      ok: false,
+      error: `git ${ws.gitError}: workspace identity unknown — refusing to switch agents on the main fallback. Re-run when git is healthy.`,
+    }
+  }
   const cfg = await configManager.readConfig(projectPath).catch(() => null)
   const evidence = await buildEvidence(projectId, projectPath, task.id, task.startedAt)
   const reason = composeReason(options.reason, evidence, task.description)

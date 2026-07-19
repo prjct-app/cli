@@ -23,14 +23,11 @@
  *     precision over recall.
  */
 
-import { execFile } from 'node:child_process'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
 import type { LocalConfig } from '../types/config'
-
-const execFileP = promisify(execFile)
+import { exitCodeMeans, runGit, throwProc } from '../utils/exec'
 
 const HOT_FILE_PATTERN_TAG = 'hot-file'
 const HOT_FILE_SOURCE_TAG = 'pattern-detector-auto'
@@ -228,14 +225,19 @@ async function detectHotFiles(projectPath: string): Promise<HotFile[]> {
   // -z: NUL-separate paths inside each commit; --name-only without
   //   --diff-filter so we count any change (add/modify/rename).
   // --pretty=format:: empty so each commit emits only its file list.
-  const { stdout } = await execFileP(
-    'git',
+  // Typed chokepoint: timeout/spawn throw into the outer try (Stop stays
+  // best-effort); typed exit → empty list (no history), never a hang.
+  const res = await runGit(
     ['log', `--since=${WINDOW_DAYS}.days.ago`, '--name-only', '--pretty=format:', '-z'],
-    { cwd: projectPath, maxBuffer: 16 * 1024 * 1024 }
+    { cwd: projectPath, maxBuffer: 16 * 1024 * 1024, timeoutMs: 15_000 }
   )
+  if (!res.ok) {
+    if (res.kind === 'exit') return []
+    throwProc(res)
+  }
 
   const counts = new Map<string, number>()
-  for (const raw of stdout.split('\0')) {
+  for (const raw of res.stdout.split('\0')) {
     const file = raw.trim()
     if (!file) continue
     if (isIgnored(file)) continue
@@ -333,26 +335,24 @@ interface DebtSnapshot {
  * comparison meaningful turn-over-turn.
  */
 async function measureTechDebt(projectPath: string): Promise<DebtSnapshot> {
-  try {
-    const { stdout } = await execFileP('git', ['grep', '-cE', '\\b(TODO|FIXME|XXX)\\b'], {
-      cwd: projectPath,
-      maxBuffer: 16 * 1024 * 1024,
-    })
-    let total = 0
-    for (const line of stdout.split('\n')) {
-      // git grep -c emits "<file>:<count>" per file
-      const idx = line.lastIndexOf(':')
-      if (idx <= 0) continue
-      const num = Number.parseInt(line.slice(idx + 1), 10)
-      if (Number.isFinite(num)) total += num
-    }
-    return { totalCount: total }
-  } catch (err) {
-    // git grep exits non-zero when no matches — treat as 0
-    const code = (err as { code?: number }).code
-    if (code === 1) return { totalCount: 0 }
-    throw err
+  const res = await runGit(['grep', '-cE', '\\b(TODO|FIXME|XXX)\\b'], {
+    cwd: projectPath,
+    maxBuffer: 16 * 1024 * 1024,
+  })
+  if (!res.ok) {
+    // git grep exit 1 = no matches — the one legitimate domain negative.
+    if (exitCodeMeans(res, 1)) return { totalCount: 0 }
+    throwProc(res)
   }
+  let total = 0
+  for (const line of res.stdout.split('\n')) {
+    // git grep -c emits "<file>:<count>" per file
+    const idx = line.lastIndexOf(':')
+    if (idx <= 0) continue
+    const num = Number.parseInt(line.slice(idx + 1), 10)
+    if (Number.isFinite(num)) total += num
+  }
+  return { totalCount: total }
 }
 
 interface DebtMemoryRow {

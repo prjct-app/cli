@@ -4,9 +4,13 @@
  * answer "who touched this / what changed during that task?" WITHOUT making the
  * agent read all of `git blame`. All best-effort: a non-repo or a missing piece
  * just omits that field.
+ *
+ * Uses the typed chokepoint for bounded timeout (no hang) and no shell.
+ * Best-effort semantics: infra and typed exit both omit the field — these
+ * tags must never block remember/ship.
  */
 
-import { execFileAsync } from '../utils/exec'
+import { runGit } from '../utils/exec'
 
 export interface GitContext {
   /** Short HEAD sha at capture time. */
@@ -17,13 +21,12 @@ export interface GitContext {
   files?: string[]
 }
 
+const GIT_CTX_TIMEOUT_MS = 5_000
+
 async function git(cwd: string, args: string[]): Promise<string | undefined> {
-  try {
-    const { stdout } = await execFileAsync('git', args, { cwd })
-    return stdout.trim() || undefined
-  } catch {
-    return undefined
-  }
+  const res = await runGit(args, { cwd, timeoutMs: GIT_CTX_TIMEOUT_MS })
+  if (!res.ok) return undefined
+  return res.stdout.trim() || undefined
 }
 
 export async function deriveGitContext(projectPath: string): Promise<GitContext> {

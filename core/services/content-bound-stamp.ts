@@ -10,7 +10,7 @@
 import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { execFileAsync } from '../utils/exec'
+import { GitInfraError, gitStdout } from '../utils/exec'
 
 /** Missing / deleted path sentinel — still contributes to treeHash. */
 export const BLOB_MISSING = 'missing' as const
@@ -163,13 +163,13 @@ export function shortHash(h: string): string {
   return h.slice(0, 12)
 }
 
+/**
+ * Git for stamp path resolution. Typed exit → null (domain: no paths / no
+ * HEAD). Infra (timeout/spawn) throws GitInfraError — never collapse to null,
+ * or ship would treat an unevaluable tree as "unverified → pass".
+ */
 async function safeGit(projectPath: string, args: string[]): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync('git', args, { cwd: projectPath })
-    return stdout.trim()
-  } catch {
-    return null
-  }
+  return gitStdout(projectPath, args, { timeoutMs: 5_000 })
 }
 
 /**
@@ -259,7 +259,10 @@ export async function currentTreeHashForStamp(
       headSha: stamp.headSha,
     })
     return next.treeHash
-  } catch {
+  } catch (err) {
+    // IO / parse failures → null (unverified advisory). Git infra must
+    // propagate so code-strict ship can refuse instead of fail-open.
+    if (err instanceof GitInfraError) throw err
     return null
   }
 }

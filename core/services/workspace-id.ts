@@ -22,7 +22,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { execFileAsync } from '../utils/exec'
+import { runGit } from '../utils/exec'
 import { sha256Short } from '../utils/hash'
 
 /** Sentinel id for the main worktree (and any non-worktree path). */
@@ -41,6 +41,13 @@ export interface WorkspaceContext {
   isMain: boolean
   /** Output-contract label, e.g. `fdf22d · feat/foo` or `main · trunk`. */
   label: string
+  /**
+   * Set when git itself failed (timeout/spawn/overflow) and the identity above
+   * is a DEGRADED main-sentinel fallback, not a verified main worktree. Write
+   * paths MUST refuse to key state on it — a transient git error must never
+   * bleed a linked worktree's task state into main.
+   */
+  gitError?: 'timeout' | 'spawn' | 'overflow'
 }
 
 /** Realpath a path, falling back to the input when it can't be resolved. */
@@ -74,7 +81,9 @@ const CACHE_TTL_MS = 5000
 /**
  * Derive the workspace context for a given path (cwd or an MCP `projectPath`).
  * Never throws — degrades to the main sentinel on any git/fs failure so the
- * caller can always fall back to singular behavior.
+ * caller can always fall back to singular behavior. When git ITSELF failed
+ * (timeout/spawn) the degraded fallback carries `gitError`: write paths must
+ * refuse it (see WorkspaceContext.gitError), read-only paths may degrade.
  *
  * Uses a SINGLE `git rev-parse` invocation (multiple flags → multiple output
  * lines) instead of several sequential forks, to stay cheap on the hot path.
@@ -90,24 +99,17 @@ export async function deriveWorkspace(cwd: string): Promise<WorkspaceContext> {
 }
 
 async function computeWorkspace(cwd: string): Promise<WorkspaceContext> {
-  let toplevel = ''
-  let gitDir = ''
-  let commonDir = ''
-  let branch: string | undefined
-  try {
-    // One fork: rev-parse prints one line per flag, in order.
-    const { stdout } = await execFileAsync(
-      'git',
-      ['rev-parse', '--show-toplevel', '--git-dir', '--git-common-dir', '--abbrev-ref', 'HEAD'],
-      { cwd }
-    )
-    const [tl = '', gd = '', cd = '', br = ''] = stdout.trim().split('\n')
-    toplevel = tl.trim()
-    gitDir = gd.trim()
-    commonDir = cd.trim()
-    branch = br.trim() && br.trim() !== 'HEAD' ? br.trim() : undefined
-  } catch {
-    // Not a git repo / git missing → main sentinel on the raw path.
+  // One fork: rev-parse prints one line per flag, in order.
+  const result = await runGit(
+    ['rev-parse', '--show-toplevel', '--git-dir', '--git-common-dir', '--abbrev-ref', 'HEAD'],
+    { cwd }
+  )
+
+  if (!result.ok) {
+    // Typed exit = genuinely not a git repo → main sentinel on the raw path
+    // (normal, documented behavior). timeout/spawn = git is broken: the
+    // sentinel is then a DEGRADED guess — flag it so write paths refuse to
+    // key task state on an identity that could belong to a linked worktree.
     const worktreePath = await safeRealpath(cwd)
     return {
       workspaceId: MAIN_WORKSPACE_ID,
@@ -115,8 +117,19 @@ async function computeWorkspace(cwd: string): Promise<WorkspaceContext> {
       shortId: MAIN_WORKSPACE_ID,
       isMain: true,
       label: buildLabel(MAIN_WORKSPACE_ID),
+      ...(result.kind === 'exit' ? {} : { gitError: result.kind }),
     }
   }
+
+  let toplevel = ''
+  let gitDir = ''
+  let commonDir = ''
+  let branch: string | undefined
+  const [tl = '', gd = '', cd = '', br = ''] = result.stdout.trim().split('\n')
+  toplevel = tl.trim()
+  gitDir = gd.trim()
+  commonDir = cd.trim()
+  branch = br.trim() && br.trim() !== 'HEAD' ? br.trim() : undefined
 
   // A child worktree has a per-worktree git-dir distinct from the shared
   // common-dir; in the main worktree they resolve to the same directory.

@@ -8,7 +8,7 @@ import type {
   TaskHarness,
 } from '../schemas/state'
 import { getTimestamp } from '../utils/date-helper'
-import { execFileAsync } from '../utils/exec'
+import { GitInfraError, runGit, throwProc } from '../utils/exec'
 
 const PUBLIC_SURFACE_TERMS = [
   'cli',
@@ -101,9 +101,29 @@ export async function evaluateHarnessCompletion(
     return { changedFiles: [], observedEvidence: [], warnings: [], diffSize: 0 }
   }
 
-  const changedFiles = await readChangedFiles(projectPath)
+  // Evidence is advisory. A typed git EXIT is a valid answer ("no diff");
+  // a git INFRA failure (timeout/spawn) must not fabricate "0 files / no
+  // tests changed" — it surfaces as its own warning instead.
+  let changedFiles: string[] = []
+  let diffSize = 0
+  let gitUnavailable: GitInfraError | null = null
+  try {
+    changedFiles = await readChangedFiles(projectPath)
+    diffSize = await readDiffSize(projectPath)
+  } catch (err) {
+    if (err instanceof GitInfraError) gitUnavailable = err
+    else throw err
+  }
+
   const observedEvidence = observedEvidenceFromFiles(changedFiles)
   const warnings: string[] = []
+
+  if (gitUnavailable) {
+    warnings.push(
+      `git ${gitUnavailable.kind}: change evidence unavailable — completion checks skipped, not failed.`
+    )
+    return { changedFiles, observedEvidence, warnings, diffSize }
+  }
 
   if (
     harness.expectedEvidence.includes('regression-test') &&
@@ -120,7 +140,6 @@ export async function evaluateHarnessCompletion(
     warnings.push('Public-facing files changed; no README/docs/changelog file changed.')
   }
 
-  const diffSize = await readDiffSize(projectPath)
   if (diffSize > 400) {
     warnings.push(`Diff is ${diffSize} changed lines; consider splitting or justify the scope.`)
   }
@@ -306,40 +325,38 @@ function touchesPublicSurface(files: string[]): boolean {
 
 async function readChangedFiles(projectPath: string): Promise<string[]> {
   const files = new Set<string>()
-  try {
-    const { stdout } = await execFileAsync('git', ['diff', '--name-only', 'HEAD'], {
-      cwd: projectPath,
-    })
-    for (const line of stdout.split('\n')) {
+  const diff = await runGit(['diff', '--name-only', 'HEAD'], { cwd: projectPath })
+  if (diff.ok) {
+    for (const line of diff.stdout.split('\n')) {
       const value = line.trim()
       if (value) files.add(value)
     }
-  } catch {
-    return []
+  } else if (diff.kind !== 'exit') {
+    // Typed exit → no diff answer; still collect untracked below.
+    throwProc(diff)
   }
-  try {
-    const { stdout } = await execFileAsync('git', ['ls-files', '--others', '--exclude-standard'], {
-      cwd: projectPath,
-    })
-    for (const line of stdout.split('\n')) {
+  const untracked = await runGit(['ls-files', '--others', '--exclude-standard'], {
+    cwd: projectPath,
+  })
+  if (untracked.ok) {
+    for (const line of untracked.stdout.split('\n')) {
       const value = line.trim()
       if (value) files.add(value)
     }
-  } catch {
-    // ignore untracked lookup failure
+  } else if (untracked.kind !== 'exit') {
+    throwProc(untracked)
   }
   return [...files].sort()
 }
 
 async function readDiffSize(projectPath: string): Promise<number> {
-  try {
-    const { stdout } = await execFileAsync('git', ['diff', '--shortstat', 'HEAD'], {
-      cwd: projectPath,
-    })
-    const insertions = Number.parseInt(stdout.match(/(\d+) insertions?/)?.[1] ?? '0', 10)
-    const deletions = Number.parseInt(stdout.match(/(\d+) deletions?/)?.[1] ?? '0', 10)
-    return insertions + deletions
-  } catch {
-    return 0
+  const res = await runGit(['diff', '--shortstat', 'HEAD'], { cwd: projectPath })
+  if (!res.ok) {
+    // Typed exit = no diff info (fresh repo) → 0; infra failure propagates.
+    if (res.kind === 'exit') return 0
+    throwProc(res)
   }
+  const insertions = Number.parseInt(res.stdout.match(/(\d+) insertions?/)?.[1] ?? '0', 10)
+  const deletions = Number.parseInt(res.stdout.match(/(\d+) deletions?/)?.[1] ?? '0', 10)
+  return insertions + deletions
 }
