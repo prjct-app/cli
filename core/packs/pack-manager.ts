@@ -49,6 +49,69 @@ export async function detectSuggestedPacks(projectPath: string): Promise<string[
   return [...out]
 }
 
+export type AnticipationEnsureResult = {
+  healed: boolean
+  activated: string[]
+  reason:
+    | 'no-config'
+    | 'conflictMode-off'
+    | 'already-coding-pack'
+    | 'conflictMode-healed'
+    | 'not-code-repo'
+    | 'activated-code'
+    | 'noop'
+}
+
+/**
+ * Product default for world-class build loop: coding repos get pack `code`
+ * (conflictMode advisory + land strict) without a second `prjct pack add`.
+ *
+ * Heals projects that only have projectId/cloud (pre-pack era) so anticipation
+ * is ON by default. Idempotent. Never overrides explicit `conflictMode: off`.
+ */
+export async function ensureCodingAnticipationDefaults(
+  projectPath: string
+): Promise<AnticipationEnsureResult> {
+  const existing = await configManager.readConfig(projectPath)
+  if (!existing) {
+    return { healed: false, activated: [], reason: 'no-config' }
+  }
+
+  // Explicit opt-out — quiet mode stays quiet.
+  if (existing.judgment?.conflictMode === 'off') {
+    return { healed: false, activated: [], reason: 'conflictMode-off' }
+  }
+
+  const packs = existing.persona?.packs ?? []
+  const hasCodePack = packs.includes('code') || packs.includes('code-strict')
+
+  if (hasCodePack) {
+    // Pack present but conflictMode never stamped (legacy activate path).
+    if (!existing.judgment?.conflictMode && packs.includes('code')) {
+      await configManager.writeConfig(projectPath, {
+        ...existing,
+        judgment: {
+          ...existing.judgment,
+          conflictMode: 'advisory',
+        },
+      })
+      return { healed: true, activated: [], reason: 'conflictMode-healed' }
+    }
+    return { healed: false, activated: [], reason: 'already-coding-pack' }
+  }
+
+  const suggested = await detectSuggestedPacks(projectPath)
+  if (!suggested.includes('code')) {
+    return { healed: false, activated: [], reason: 'not-code-repo' }
+  }
+
+  const result = await activatePacks(projectPath, ['code'], { suggestPersona: true })
+  if (result.activated.includes('code')) {
+    return { healed: true, activated: result.activated, reason: 'activated-code' }
+  }
+  return { healed: false, activated: [], reason: 'noop' }
+}
+
 export async function activatePacks(
   projectPath: string,
   packNames: string[],

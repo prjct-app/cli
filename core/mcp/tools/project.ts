@@ -13,7 +13,12 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { formatLikelyFileForAgent } from '../../services/file-cue'
 import { collectActiveTasks } from '../../services/task-overview'
-import { formatRelatedContextForAgent, setTaskStatus, startTask } from '../../services/task-service'
+import {
+  formatRelatedContextForAgent,
+  formatRiskForAgent,
+  setTaskStatus,
+  startTask,
+} from '../../services/task-service'
 import { recordTaskTokenUsage } from '../../services/work-cost-service'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
@@ -116,7 +121,7 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
 
   s.tool(
     'prjct_task_start',
-    'Start a work cycle. Fires before/after workflow gates and memory logging through the compatibility task backend; a gate may block the start. Pass linked_spec_id only when a durable intent/spec brief is required. Use when the user begins concrete work.',
+    'Start a work cycle. Fires before/after workflow gates and memory logging through the compatibility task backend; a gate may block the start. Surfaces predictive risks (preventive memory on likely files) — same class as CLI `prjct work` — so MCP agents read traps before editing. Pass linked_spec_id only when a durable intent/spec brief is required. Use when the user begins concrete work.',
     {
       projectPath: optionalProjectPath,
       description: z.string().describe('What the work cycle is — a short intent phrase'),
@@ -165,6 +170,12 @@ export function registerProjectTools(server: McpServer, options: { extended?: bo
         if (outcome.instructions && outcome.instructions.length > 0) {
           lines.push('', 'Agent instructions:')
           for (const i of outcome.instructions) lines.push(`- ${i}`)
+        }
+        // Predictive risk FIRST (CLI parity): traps before related context / file map.
+        const risks = outcome.risks ?? []
+        if (risks.length > 0) {
+          lines.push('', '⚠ Risk — what bit us in this area before (read before you edit):')
+          for (const r of risks) lines.push(`- ${formatRiskForAgent(r)}`)
         }
         if (outcome.relatedContext && outcome.relatedContext.length > 0) {
           lines.push('', 'Related second-brain context (pull full bodies with prjct_search):')

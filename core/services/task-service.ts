@@ -181,6 +181,14 @@ export function formatRelatedContextForAgent(hit: RelatedContextHit): string {
 }
 
 /**
+ * Compact predictive-risk line for work start (CLI + MCP parity).
+ * Same shape agents already see from `prjct work`: label, title, file, id.
+ */
+export function formatRiskForAgent(risk: RiskHit): string {
+  return `[${risk.label}] ${risk.title} — \`${risk.file}\`  \`${risk.id}\``
+}
+
+/**
  * Start a work cycle: run before/after workflow rules, persist state, link a spec
  * if requested, and log the `task_started` event. Returns structured data;
  * the caller prints. Mirrors the side-effects of `workflow.now`.
@@ -224,6 +232,23 @@ export async function startTask(
   }
 
   const cfg = await configManager.readConfig(projectPath).catch(() => null)
+
+  // Product default: coding repos heal onto pack `code` (conflictMode advisory)
+  // so MCP/CLI agents get predictive risk + pre-edit anticipation without a
+  // second `prjct pack add`. Best-effort; never blocks work start.
+  try {
+    const { ensureCodingAnticipationDefaults } = await import('../packs/pack-manager')
+    const heal = await ensureCodingAnticipationDefaults(projectPath)
+    if (heal.healed && heal.reason === 'activated-code') {
+      console.log(
+        'ℹ Anticipation ON: activated pack `code` (conflictMode advisory) — traps surface before edit'
+      )
+    } else if (heal.healed && heal.reason === 'conflictMode-healed') {
+      console.log('ℹ Anticipation ON: conflictMode → advisory for pack code')
+    }
+  } catch {
+    /* pack heal never blocks a start */
+  }
 
   // Discuss-lock + SDD gate (dominance vs GSD discuss-before-plan):
   //   - strict: every work cycle needs a REVIEWED intent/spec

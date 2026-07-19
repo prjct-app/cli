@@ -18,7 +18,11 @@
 import { safeTruncate } from '../hooks/_shared'
 import { formatLikelyFileForAgent } from '../services/file-cue'
 import { collectActiveTasks } from '../services/task-overview'
-import { formatRelatedContextForAgent, startTask } from '../services/task-service'
+import {
+  formatRelatedContextForAgent,
+  formatRiskForAgent,
+  startTask,
+} from '../services/task-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
@@ -129,7 +133,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // Predictive risk — the preventive memory for the area this cycle touches,
       // surfaced BEFORE the edit. Higher priority than the file map, so it leads.
       const risks = outcome.risks ?? []
-      const riskLines = risks.map((r) => `[${r.label}] ${r.title} — \`${r.file}\`  \`${r.id}\``)
+      const riskLines = risks.map(formatRiskForAgent)
 
       // Project pattern supremacy: match house style; upgrade only real anti-patterns.
       // Prefer durable project style model (recomputed every sync), then related hits.

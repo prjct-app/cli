@@ -20,6 +20,7 @@ import {
   activatePacks,
   deactivatePacks,
   detectSuggestedPacks,
+  ensureCodingAnticipationDefaults,
   listActivePacks,
 } from '../../packs/pack-manager'
 
@@ -85,6 +86,8 @@ describe('pack-manager', () => {
     expect(config?.deliveryGeometry?.mode).toBe('advisory')
     // Dominance P2: code pack forces land (session-close not optional).
     expect(config?.land?.mode).toBe('strict')
+    // World-class product: anticipation ON (conflictMode advisory).
+    expect(config?.judgment?.conflictMode).toBe('advisory')
 
     await configManager.writeConfig(projectPath, {
       ...config!,
@@ -107,6 +110,7 @@ describe('pack-manager', () => {
     expect(config?.tdd?.mode).toBe('strict')
     expect(config?.deliveryGeometry?.mode).toBe('strict')
     expect(config?.land?.mode).toBe('strict')
+    expect(config?.judgment?.conflictMode).toBe('strict')
   })
 
   test('activatePacks never overwrites an explicit persona role', async () => {
@@ -161,6 +165,64 @@ describe('pack-manager', () => {
   test('detectSuggestedPacks returns only daily when no code signals exist', async () => {
     const suggested = await detectSuggestedPacks(projectPath)
     expect(suggested).toEqual(['daily'])
+  })
+
+  test('ensureCodingAnticipationDefaults activates code pack on package.json repo', async () => {
+    await fs.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'test', version: '1.0.0' }),
+      'utf-8'
+    )
+    const result = await ensureCodingAnticipationDefaults(projectPath)
+    expect(result.healed).toBe(true)
+    expect(result.reason).toBe('activated-code')
+    expect(result.activated).toContain('code')
+
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.persona?.packs).toContain('code')
+    expect(config?.judgment?.conflictMode).toBe('advisory')
+
+    const again = await ensureCodingAnticipationDefaults(projectPath)
+    expect(again.healed).toBe(false)
+    expect(again.reason).toBe('already-coding-pack')
+  })
+
+  test('ensureCodingAnticipationDefaults respects conflictMode off opt-out', async () => {
+    await fs.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'test', version: '1.0.0' }),
+      'utf-8'
+    )
+    const existing = await configManager.readConfig(projectPath)
+    await configManager.writeConfig(projectPath, {
+      ...existing!,
+      judgment: { conflictMode: 'off' },
+    })
+    const result = await ensureCodingAnticipationDefaults(projectPath)
+    expect(result.healed).toBe(false)
+    expect(result.reason).toBe('conflictMode-off')
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.persona?.packs ?? []).not.toContain('code')
+  })
+
+  test('ensureCodingAnticipationDefaults no-ops on non-code repo', async () => {
+    const result = await ensureCodingAnticipationDefaults(projectPath)
+    expect(result.healed).toBe(false)
+    expect(result.reason).toBe('not-code-repo')
+  })
+
+  test('ensureCodingAnticipationDefaults heals missing conflictMode when code pack present', async () => {
+    const existing = await configManager.readConfig(projectPath)
+    await configManager.writeConfig(projectPath, {
+      ...existing!,
+      persona: { role: 'DEV', packs: ['code'] },
+      // no judgment.conflictMode
+    })
+    const result = await ensureCodingAnticipationDefaults(projectPath)
+    expect(result.healed).toBe(true)
+    expect(result.reason).toBe('conflictMode-healed')
+    const config = await configManager.readConfig(projectPath)
+    expect(config?.judgment?.conflictMode).toBe('advisory')
   })
 
   test('manifests expose all declared packs', () => {
