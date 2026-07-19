@@ -17,13 +17,10 @@
  *   - Conservative: only flags growth >= threshold, never on first run.
  */
 
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
 import type { LocalConfig } from '../types/config'
-
-const execFileP = promisify(execFile)
+import { exitCodeMeans, runGit, throwProc } from '../utils/exec'
 
 const LEAN_DEBT_SOURCE_TAG = 'lean-detector'
 const LEAN_DEBT_PATTERN_TAG = 'lean-debt-growth'
@@ -113,25 +110,24 @@ export async function detectAndPersistLeanDebt(
  * comparison stays meaningful turn-over-turn.
  */
 async function measureLeanMarkers(projectPath: string): Promise<number> {
-  try {
-    const { stdout } = await execFileP('git', ['grep', '-cI', '-e', 'lean:'], {
-      cwd: projectPath,
-      maxBuffer: 16 * 1024 * 1024,
-    })
-    let total = 0
-    for (const line of stdout.split('\n')) {
-      // `git grep -c` emits "<file>:<count>" per file.
-      const idx = line.lastIndexOf(':')
-      if (idx <= 0) continue
-      const num = Number.parseInt(line.slice(idx + 1), 10)
-      if (Number.isFinite(num)) total += num
-    }
-    return total
-  } catch (err) {
-    // git grep exits 1 when there are no matches — treat as zero.
-    if ((err as { code?: number }).code === 1) return 0
-    throw err
+  const res = await runGit(['grep', '-cI', '-e', 'lean:'], {
+    cwd: projectPath,
+    maxBuffer: 16 * 1024 * 1024,
+  })
+  if (!res.ok) {
+    // git grep exit 1 = no matches — the one legitimate domain negative.
+    if (exitCodeMeans(res, 1)) return 0
+    throwProc(res)
   }
+  let total = 0
+  for (const line of res.stdout.split('\n')) {
+    // `git grep -c` emits "<file>:<count>" per file.
+    const idx = line.lastIndexOf(':')
+    if (idx <= 0) continue
+    const num = Number.parseInt(line.slice(idx + 1), 10)
+    if (Number.isFinite(num)) total += num
+  }
+  return total
 }
 
 interface DebtMemoryRow {

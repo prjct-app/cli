@@ -27,6 +27,7 @@ import { getGitBranch } from '../session/git-helpers'
 import { stateStorage } from '../storage/state-storage'
 import { upsertTaskPipelineState } from '../storage/task-pipeline-storage'
 import * as dateHelper from '../utils/date-helper'
+import { GitInfraError } from '../utils/exec'
 import { executeWorkflowRules } from '../workflow-engine/workflow-engine'
 import { type LikelyFileHit, rankLikelyFiles } from './file-cue'
 import { buildLivingContextPrompt, parseLivingContextFields } from './living-context-contract'
@@ -322,8 +323,17 @@ export async function startTask(
         return { ok: false, blocked: ig.message ?? 'Delivery geometry required at intent.' }
       }
       if (ig.message) console.log(ig.message)
-    } catch {
-      /* geometry is best-effort — never block on git errors */
+    } catch (err) {
+      /* geometry is best-effort — never block on git errors …
+         …EXCEPT in strict mode: there the gate is a hard contract, and a
+         git infra failure makes it unevaluable — block with the cause
+         instead of failing open. */
+      if (err instanceof GitInfraError && mode === 'strict') {
+        return {
+          ok: false,
+          blocked: `Delivery geometry gate unevaluable: ${err.message}. Re-run when git is healthy, or pass \`--geometry\` explicitly.`,
+        }
+      }
     }
   }
 
@@ -415,6 +425,14 @@ export async function startTask(
   }
 
   const ws = await deriveWorkspace(effectivePath)
+  if (ws.gitError) {
+    // Degraded identity (git timeout/spawn): keying a new task on the main
+    // sentinel could bleed a linked worktree's state into main — refuse.
+    return {
+      ok: false,
+      blocked: `git ${ws.gitError}: workspace identity unknown — refusing to start work on the main fallback. Re-run when git is healthy.`,
+    }
+  }
   const workspaceId = ws.isMain ? MAIN_WORKSPACE_ID : ws.workspaceId
   const taskFields = {
     id: taskId,
@@ -737,6 +755,15 @@ export async function setTaskStatus(
   // task in activeTasks[], isolated from other worktrees. The main worktree
   // keeps the singular currentTask path below.
   const ws = await deriveWorkspace(projectPath)
+  if (ws.gitError) {
+    // Degraded identity — a status write keyed on the main fallback could
+    // hit the wrong workspace's task. Refuse with the cause.
+    return {
+      ok: false,
+      reason: 'unsupported',
+      message: `git ${ws.gitError}: workspace identity unknown — refusing to change task status on the main fallback. Re-run when git is healthy.`,
+    }
+  }
   if (!ws.isMain) {
     const wsTask = await stateStorage.getCurrentTaskForWorkspace(projectId, ws.workspaceId)
     if (!wsTask) return { ok: false, reason: 'no-active-task' }
@@ -875,6 +902,9 @@ export async function resolveActiveTask(
   projectPath: string
 ): Promise<CurrentTask | null> {
   const ws = await deriveWorkspace(projectPath)
+  // Degraded identity: returning main's task could bleed another worktree's
+  // operations into main's cycle — "no active task" is the safe answer.
+  if (ws.gitError) return null
   if (ws.isMain) return stateStorage.getCurrentTask(projectId)
   return stateStorage.getCurrentTaskForWorkspace(projectId, ws.workspaceId)
 }
@@ -925,6 +955,9 @@ export async function completeActiveTask(
   feedback?: TaskFeedback
 ): Promise<CurrentTask | null> {
   const ws = await deriveWorkspace(projectPath)
+  // Degraded identity: never complete MAIN's task from what might be a
+  // linked worktree with a sick git.
+  if (ws.gitError) return null
   if (ws.isMain) return stateStorage.completeTask(projectId, feedback)
   return stateStorage.completeTaskInWorkspace(projectId, ws.workspaceId, feedback)
 }

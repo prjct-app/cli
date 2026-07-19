@@ -3,7 +3,7 @@
  * Shared by `prjct review-risk` (advisory) and work-start gates (strict packs).
  */
 
-import { execFileAsync } from '../utils/exec'
+import { gitStdout } from '../utils/exec'
 
 export type DeliveryTier = 'trivial' | 'normal' | 'large'
 export type DeliveryGeometry = 'direct' | 'single' | 'split'
@@ -35,13 +35,12 @@ export function geometryOf(tier: DeliveryTier): DeliveryGeometry {
   return 'split'
 }
 
+// Typed chokepoint: exit codes stay domain negatives (null — e.g. no default
+// branch, no merge-base); git timeout/spawn throws GitInfraError so a strict
+// geometry gate can refuse instead of silently passing (callers catch and
+// decide the polarity of their gate).
 async function safeGit(projectPath: string, args: string[]): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync('git', args, { cwd: projectPath })
-    return stdout.trim()
-  } catch {
-    return null
-  }
+  return gitStdout(projectPath, args)
 }
 
 function parseShortstat(shortstat: string): { files: number; loc: number } {

@@ -7,15 +7,13 @@
 import { loadGraph } from '../domain/import-graph'
 import { fileFanIn, filesCallingInto, hasSymbolIndex, symbolsInFile } from '../domain/symbol-graph'
 import type { ChangeRisk, DetectChangesResult, DetectedChange } from '../types/domain.js'
-import { execFileAsync } from '../utils/exec'
+import { gitStdout } from '../utils/exec'
 
+// Typed chokepoint: exit codes stay domain negatives (null — e.g. missing ref,
+// not a repo); git timeout/spawn throws GitInfraError so a broken git can
+// never masquerade as "no changes" on the ship path.
 async function safeGit(projectPath: string, args: string[]): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync('git', args, { cwd: projectPath })
-    return stdout.trim()
-  } catch {
-    return null
-  }
+  return gitStdout(projectPath, args)
 }
 
 async function listWorkingTreeFiles(projectPath: string): Promise<string[]> {

@@ -17,7 +17,7 @@
 
 import path from 'node:path'
 import type { VersionInfo } from '../types/services/extracted'
-import { execAsync, execFileAsync } from '../utils/exec'
+import { execFileAsync, runGit, throwProc } from '../utils/exec'
 import * as fileHelper from '../utils/file-helper'
 
 // VersionService
@@ -89,16 +89,22 @@ export class VersionService {
   /**
    * Read the version of `file` as it exists at `git HEAD`. Returns null
    * when the file is untracked, the repo is fresh, or git is unavailable.
+   * Throws GitInfraError on git timeout/spawn — a transient git failure
+   * must NOT be read as "fresh", or a version bump could reset the version.
    */
   private async readVersionFromGitHead(
     file: string,
     format: VersionInfo['format']
   ): Promise<string | null> {
+    const relPath = path.relative(this.projectPath, file)
+    const res = await runGit(['show', `HEAD:${relPath}`], { cwd: this.projectPath })
+    if (!res.ok) {
+      // Typed exit = file not in HEAD / not a git repo → treat as fresh.
+      if (res.kind === 'exit') return null
+      throwProc(res)
+    }
     try {
-      const relPath = path.relative(this.projectPath, file)
-      const { stdout } = await execFileAsync('git', ['show', `HEAD:${relPath}`], {
-        cwd: this.projectPath,
-      })
+      const stdout = res.stdout
       if (format === 'json') {
         const parsed = JSON.parse(stdout) as { version?: string }
         return parsed.version ?? null
@@ -115,7 +121,7 @@ export class VersionService {
       }
       return null
     } catch {
-      // file not in HEAD, not a git repo, or git missing — treat as fresh
+      // HEAD content exists but doesn't parse as the expected format.
       return null
     }
   }
@@ -218,25 +224,25 @@ export class VersionService {
   }
 
   private async fromGitTag(): Promise<VersionInfo | null> {
-    try {
-      const { stdout } = await execAsync('git tag --sort=-v:refname', {
-        cwd: this.projectPath,
-      })
+    const res = await runGit(['tag', '--sort=-v:refname'], { cwd: this.projectPath })
+    if (!res.ok) {
+      // Typed exit = not a git repo / no tags → next detector. Infra
+      // failure (timeout/spawn) throws — never skip detectors silently.
+      if (res.kind === 'exit') return null
+      throwProc(res)
+    }
 
-      const tags = stdout.trim().split('\n')
-      for (const tag of tags) {
-        const cleaned = tag.trim().replace(/^v/, '')
-        if (isSemver(cleaned)) {
-          return {
-            current: cleaned,
-            next: bumpPatch(cleaned),
-            file: null,
-            format: 'git-tag',
-          }
+    const tags = res.stdout.trim().split('\n')
+    for (const tag of tags) {
+      const cleaned = tag.trim().replace(/^v/, '')
+      if (isSemver(cleaned)) {
+        return {
+          current: cleaned,
+          next: bumpPatch(cleaned),
+          file: null,
+          format: 'git-tag',
         }
       }
-    } catch {
-      // Not a git repo or git not available
     }
 
     return null

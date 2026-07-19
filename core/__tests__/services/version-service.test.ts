@@ -164,3 +164,54 @@ describe('VersionService.bump (idempotency)', () => {
     expect(next).toBe('0.1.1')
   })
 })
+
+
+/**
+ * PATH-hijack: an empty dir as PATH means `git` resolves nowhere, so spawn
+ * fails with a real ENOENT — exercises the infra-failure path without mocks.
+ */
+async function withBrokenGit<T>(fn: () => Promise<T>): Promise<T> {
+  const noGitDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-no-git-'))
+  const oldPath = process.env.PATH
+  process.env.PATH = noGitDir
+  try {
+    return await fn()
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH
+    else process.env.PATH = oldPath
+    await fs.rm(noGitDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+describe('VersionService — typed git failures (WS1)', () => {
+  let dir: string
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-version-nogit-'))
+    await execFileAsync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
+    await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir })
+    await execFileAsync('git', ['config', 'user.name', 'Test'], { cwd: dir })
+    await execFileAsync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir })
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+  })
+
+  it('bump rejects on git infra failure instead of treating the tree as fresh', async () => {
+    if (process.platform === 'win32') return
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ version: '1.2.3' }))
+    await execFileAsync('git', ['add', 'package.json'], { cwd: dir })
+    await execFileAsync('git', ['commit', '-q', '-m', 'v1.2.3'], { cwd: dir })
+
+    await withBrokenGit(async () => {
+      await expect(new VersionService(dir).bump()).rejects.toThrow(/git (timeout|spawn) failure/)
+    })
+
+    // The transient failure must NOT have touched the version.
+    const pkg = JSON.parse(await fs.readFile(path.join(dir, 'package.json'), 'utf-8')) as {
+      version: string
+    }
+    expect(pkg.version).toBe('1.2.3')
+  })
+})

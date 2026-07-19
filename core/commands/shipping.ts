@@ -25,6 +25,7 @@ import { getErrorMessage } from '../types/fs'
 import type { WorkflowRule } from '../types/storage/extended'
 import type { WorkflowRunContext } from '../types/workflow.js'
 import * as dateHelper from '../utils/date-helper'
+import { GitInfraError } from '../utils/exec'
 import { failFromError } from '../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
@@ -176,12 +177,12 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
 
       // Delivery geometry at ship — large committed diffs need an explicit strategy.
+      const geomMode = shipConfig?.deliveryGeometry?.mode ?? 'off'
       try {
         const { computeCommittedChangeset, shipGeometryVerdict } = await import(
           '../services/delivery-geometry'
         )
         const cs = await computeCommittedChangeset(projectPath)
-        const geomMode = shipConfig?.deliveryGeometry?.mode ?? 'off'
         const gv = shipGeometryVerdict({
           changeset: cs,
           mode: geomMode,
@@ -192,7 +193,16 @@ export class ShippingCommands extends PrjctCommandsBase {
           return { success: false, error: gv.message ?? 'Delivery geometry gate blocked ship.' }
         }
         if (gv.message) console.log(gv.message)
-      } catch {
+      } catch (err) {
+        // Strict mode must not fail open when the changeset is unevaluable:
+        // a git infra failure blocks with the cause instead of silently
+        // passing the gate. Advisory/off stay best-effort.
+        if (geomMode === 'strict' && err instanceof GitInfraError) {
+          return {
+            success: false,
+            error: `Delivery geometry gate unevaluable: ${err.message}. Re-run when git is healthy, or ship with explicit \`--geometry\`.`,
+          }
+        }
         /* geometry best-effort */
       }
 
@@ -222,7 +232,12 @@ export class ShippingCommands extends PrjctCommandsBase {
             }
           }
         }
-      } catch {
+      } catch (err) {
+        // Advisory cue stays fail-open, but a git infra failure is surfaced
+        // — never a silent "no structural risk" on a sick git.
+        if (err instanceof GitInfraError) {
+          console.log(`⚠️  Structural risk cue unavailable: ${err.message}`)
+        }
         /* structural risk best-effort */
       }
 
@@ -230,6 +245,8 @@ export class ShippingCommands extends PrjctCommandsBase {
       // auto-ship). Intensity standard|full hard-blocks without ledger.approved.
       // Override: --no-judgment-gate only (consent-scoped; not --no-spec-gate).
       // code-strict pack forces dual-blind (full) intensity when quality applies.
+      const packs = shipConfig?.persona?.packs ?? []
+      const isCodeStrictPack = packs.includes('code-strict')
       try {
         const { intensityFromChangeset, judgmentShipVerdict } = await import(
           '../services/precision-judgment'
@@ -246,8 +263,6 @@ export class ShippingCommands extends PrjctCommandsBase {
           { files: cs?.files ?? 0, loc: cs?.loc ?? 0 },
           signals
         )
-        const packs = shipConfig?.persona?.packs ?? []
-        const isCodeStrictPack = packs.includes('code-strict')
         // SUPERIOR: code-strict ALWAYS dual-blind (full) — even trivial diffs.
         // Ship-grade packs never skip the judgment ledger.
         if (isCodeStrictPack) {
@@ -285,11 +300,28 @@ export class ShippingCommands extends PrjctCommandsBase {
               return { success: false, error: cv.message }
             }
             if (cv.message) console.log(cv.message)
-          } catch {
-            /* content-bound best-effort */
+          } catch (err) {
+            // Git infra must not fail-open the content-bound gate under
+            // code-strict packs (null treeHash used to mean "unverified → pass").
+            if (codeStrict && err instanceof GitInfraError) {
+              return {
+                success: false,
+                error: `Content-bound stamp unevaluable: ${err.message}. Re-run when git is healthy, or override with \`--no-judgment-gate\`.`,
+              }
+            }
+            /* non-strict / non-infra: best-effort */
           }
         }
-      } catch {
+      } catch (err) {
+        // A hard judgment gate (code-strict pack) must not fail open when
+        // the changeset is unevaluable — block with the cause. Everything
+        // else stays best-effort and never crashes ship on lookup.
+        if (isCodeStrictPack && err instanceof GitInfraError) {
+          return {
+            success: false,
+            error: `Judgment ship gate unevaluable: ${err.message}. Re-run when git is healthy, or override with \`--no-judgment-gate\`.`,
+          }
+        }
         /* judgment gate is best-effort — never crash ship on lookup */
       }
 

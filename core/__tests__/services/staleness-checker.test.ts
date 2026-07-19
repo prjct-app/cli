@@ -190,3 +190,51 @@ describe('StalenessChecker', () => {
     })
   })
 })
+
+
+/**
+ * PATH-hijack: an empty dir as PATH means `git` resolves nowhere, so spawn
+ * fails with a real ENOENT — exercises the infra-failure path without mocks.
+ */
+async function withBrokenGit<T>(fn: () => Promise<T>): Promise<T> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-no-git-'))
+  const oldPath = process.env.PATH
+  process.env.PATH = dir
+  try {
+    return await fn()
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH
+    else process.env.PATH = oldPath
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+describe('typed git failures (WS1)', () => {
+  it('reports "history changed" ONLY on a typed exit (sync commit really gone)', async () => {
+    prjctDb.setDoc(testProjectId, 'project', {
+      lastSyncCommit: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      lastSync: new Date().toISOString(),
+    })
+
+    const checker = createStalenessChecker(process.cwd())
+    const status = await checker.check(testProjectId)
+
+    expect(status.isStale).toBe(true)
+    expect(status.reason).toContain('history changed')
+  })
+
+  it('git infra failure (spawn) → staleness unknown, NEVER "history changed"', async () => {
+    if (process.platform === 'win32') return
+    prjctDb.setDoc(testProjectId, 'project', {
+      lastSyncCommit: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      lastSync: new Date().toISOString(),
+    })
+
+    await withBrokenGit(async () => {
+      const status = await createStalenessChecker(process.cwd()).check(testProjectId)
+      expect(status.isStale).toBe(false)
+      expect(status.reason).toContain('unknown')
+      expect(status.reason).not.toContain('history changed')
+    })
+  })
+})

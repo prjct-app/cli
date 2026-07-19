@@ -25,7 +25,7 @@ import type { SqliteBindings } from '../storage/database/sqlite-compat'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { execFileAsync } from '../utils/exec'
+import { runGit, throwProc } from '../utils/exec'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
@@ -818,27 +818,26 @@ async function buildGuardrails(projectId: string, projectPath: string) {
 
 async function changedFiles(projectPath: string): Promise<string[]> {
   const names = new Set<string>()
-  try {
-    const { stdout } = await execFileAsync('git', ['diff', '--name-only', 'HEAD'], {
-      cwd: projectPath,
-    })
-    for (const line of stdout.split('\n')) {
+  const diff = await runGit(['diff', '--name-only', 'HEAD'], { cwd: projectPath })
+  if (diff.ok) {
+    for (const line of diff.stdout.split('\n')) {
       const value = line.trim()
       if (value) names.add(value)
     }
-  } catch {
-    return []
+  } else if (diff.kind !== 'exit') {
+    // Typed exit → no diff answer; still collect untracked below.
+    throwProc(diff)
   }
-  try {
-    const { stdout } = await execFileAsync('git', ['ls-files', '--others', '--exclude-standard'], {
-      cwd: projectPath,
-    })
-    for (const line of stdout.split('\n')) {
+  const untracked = await runGit(['ls-files', '--others', '--exclude-standard'], {
+    cwd: projectPath,
+  })
+  if (untracked.ok) {
+    for (const line of untracked.stdout.split('\n')) {
       const value = line.trim()
       if (value) names.add(value)
     }
-  } catch {
-    // ignore untracked lookup failure
+  } else if (untracked.kind !== 'exit') {
+    throwProc(untracked)
   }
   return [...names].sort()
 }

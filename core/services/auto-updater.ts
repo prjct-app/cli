@@ -9,16 +9,14 @@
  * remote installer script in the background.
  */
 
-import { execFile, execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { resolveCliHome } from '../infrastructure/cli-home'
 import { compareSemver } from '../schemas/model'
+import { execFileAsync } from '../utils/exec'
 import { getConfig, setConfig } from './global-config'
 import { fetchLatestVersion } from './update-checker'
-
-const execFileP = promisify(execFile)
 
 // Per call — honors PRJCT_CLI_HOME (see cli-home.ts).
 const stateDir = (): string => path.join(resolveCliHome(), 'state')
@@ -122,13 +120,13 @@ async function applyUpgrade(source: InstallSource, _targetVersion: string): Prom
     return
   }
   if (source === 'bun') {
-    await execFileP('bun', ['install', '-g', 'prjct-cli@latest'], {
+    await execFileAsync('bun', ['install', '-g', 'prjct-cli@latest'], {
       timeout: 120_000,
     })
     return
   }
   if (source === 'npm' || source === 'unknown') {
-    await execFileP('npm', ['install', '-g', 'prjct-cli@latest'], {
+    await execFileAsync('npm', ['install', '-g', 'prjct-cli@latest'], {
       timeout: 120_000,
     })
     return

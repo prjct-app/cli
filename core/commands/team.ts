@@ -23,10 +23,8 @@
  * with deterministic file writes only.
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
 import {
@@ -36,14 +34,13 @@ import {
 } from '../storage/team-enrollment-storage'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { execAsync } from '../utils/exec'
 import { writeFileAtomic } from '../utils/file-helper'
 import { failHard, failWith } from '../utils/md-aware'
 import { mdOutput, mdSection } from '../utils/md-formatter'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
-
-const execP = promisify(exec)
 
 const CLAUDE_MD_START = '<!-- prjct-team:start - DO NOT REMOVE THIS MARKER -->'
 const CLAUDE_MD_END = '<!-- prjct-team:end - DO NOT REMOVE THIS MARKER -->'
@@ -148,7 +145,7 @@ export class TeamCommands extends PrjctCommandsBase {
       let staged = false
       const stagedPaths = [teamPath, claudeMdPath]
       try {
-        await execP('git rev-parse --show-toplevel', { cwd: projectPath })
+        await execAsync('git rev-parse --show-toplevel', { cwd: projectPath })
 
         // 4a. Optional: install pre-commit hook that blocks commits
         // when team.json says required:true and prjct isn't on PATH.
@@ -161,11 +158,11 @@ export class TeamCommands extends PrjctCommandsBase {
           await fs.mkdir(path.dirname(hookPath), { recursive: true })
           await fs.writeFile(hookPath, PRE_COMMIT_HOOK_BODY, 'utf-8')
           await fs.chmod(hookPath, 0o755)
-          await execP('git config core.hooksPath .githooks', { cwd: projectPath })
+          await execAsync('git config core.hooksPath .githooks', { cwd: projectPath })
           stagedPaths.push(hookPath)
         }
 
-        await execP(`git add ${stagedPaths.map((p) => JSON.stringify(p)).join(' ')}`, {
+        await execAsync(`git add ${stagedPaths.map((p) => JSON.stringify(p)).join(' ')}`, {
           cwd: projectPath,
         })
         staged = true

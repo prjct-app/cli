@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.71.0] - 2026-07-19
+
+### Added
+- WS1 chokepoint superiority: close gaps vs gentle-ai typed process errors
+
 ## [3.70.2] - 2026-07-17
 
 ### Bug Fixes
@@ -9,14 +14,12 @@
 - real upload error details (#588)
 - surface real upload error (not fake unauthenticated)
 
-
 ## [3.70.1] - 2026-07-17
 
 ### Bug Fixes
 
 - full graph upload — remove 400/900 caps (#587)
 - ship full structural graph to cloud — no caps
-
 
 ## [3.70.0] - 2026-07-16
 
