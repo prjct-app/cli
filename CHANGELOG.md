@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.72.0] - 2026-07-19
+
+### Added
+- Build-loop anticipation: MCP risks, code defaults, ship compound, auto-infer file on remember
+
 ## [3.71.0] - 2026-07-19
 
 ### Added

@@ -6,5 +6,30 @@
     "paused": false,
     "linkedAt": "2026-06-26T13:45:21.570Z"
   },
-  "maxTokensPerCycle": 1500000
+  "maxTokensPerCycle": 1500000,
+  "persona": {
+    "role": "DEV",
+    "packs": [
+      "code"
+    ],
+    "mcps": [
+      "github"
+    ]
+  },
+  "sdd": {
+    "mode": "advisory"
+  },
+  "tdd": {
+    "mode": "assist"
+  },
+  "maxTurnsPerCycle": 25,
+  "deliveryGeometry": {
+    "mode": "advisory"
+  },
+  "land": {
+    "mode": "strict"
+  },
+  "judgment": {
+    "conflictMode": "advisory"
+  }
 }
