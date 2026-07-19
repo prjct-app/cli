@@ -128,7 +128,7 @@ async function loadHunkLines(
   if (source !== 'committed') {
     staged = (await safeGit(projectPath, ['diff', '-U0', '--cached', '--', ...files])) ?? ''
   }
-  const map = parseChangedLinesFromUnifiedDiff(diff + '\n' + staged)
+  const map = parseChangedLinesFromUnifiedDiff(`${diff}\n${staged}`)
   return map
 }
 

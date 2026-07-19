@@ -668,7 +668,7 @@ function applyTsPath(specifier: string, tsPaths: TsPathMap): string[] {
     if (pattern.endsWith('/*')) {
       const prefix = pattern.slice(0, -1) // keep trailing path start
       const pre = pattern.slice(0, -2)
-      if (specifier === pre || specifier.startsWith(pre + '/')) {
+      if (specifier === pre || specifier.startsWith(`${pre}/`)) {
         const rest = specifier.slice(pre.length).replace(/^\//, '')
         for (const t of targets) {
           const base = t.endsWith('/*') ? t.slice(0, -1) : t
