@@ -367,6 +367,44 @@ export const projectMemory = {
       }
     }
 
+    // Anticipation bind: if the agent omitted `file:`, infer a repo-relative
+    // path from content / files tag / cycle scope so guard + work risks fire.
+    // Explicit tags.file always wins. Never blocks a capture on inference.
+    if (!tags.file) {
+      try {
+        const { inferMemoryFileTag } = await import('./infer-memory-file')
+        let cycleFiles: string[] | null = null
+        if (projectId) {
+          try {
+            const { stateStorage } = await import('../storage/state-storage')
+            const task = await stateStorage.getCurrentTask(projectId)
+            // Work-scope paths stamped when present (likelyFiles on some hosts).
+            const raw = (task as { likelyFiles?: Array<{ path?: string } | string> } | null)
+              ?.likelyFiles
+            if (Array.isArray(raw)) {
+              cycleFiles = raw
+                .map((f) => (typeof f === 'string' ? f : f?.path))
+                .filter((p): p is string => typeof p === 'string' && p.length > 0)
+            }
+          } catch {
+            cycleFiles = null
+          }
+        }
+        const inferred = inferMemoryFileTag({
+          content: args.content,
+          tags,
+          projectPath,
+          cycleFiles,
+        })
+        if (inferred) {
+          tags.file = inferred
+          tags.file_source = 'inferred'
+        }
+      } catch {
+        /* inference is best-effort */
+      }
+    }
+
     // Dedup net: a verbatim re-capture of the same (type, content) adds no
     // knowledge — it only dilutes recall and burns slots in the fixed-size
     // injection budget. Skip it. This is the universal guard behind EVERY

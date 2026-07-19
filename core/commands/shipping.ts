@@ -529,29 +529,6 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       const stepsRun = beforeResult.stepsRun.length + afterResult.stepsRun.length
 
-      if (options.md) {
-        const steps = getNextSteps('ship', true)
-        const md = mdOutput(
-          mdDone(`Shipped: ${featureName}`, `Version: ${newVersion}`),
-          mdSection(
-            'Results',
-            mdList([
-              `Version: ${newVersion}`,
-              `Workflow steps run: ${stepsRun > 0 ? [...beforeResult.stepsRun, ...afterResult.stepsRun].join(', ') : 'none'}`,
-              `Hooks failed (non-blocking): ${beforeResult.hooksFailed.length + afterResult.hooksFailed.length}`,
-            ])
-          ),
-          allInstructions.length > 0
-            ? mdSection('Agent Instructions', mdList(allInstructions))
-            : null,
-          mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
-        )
-        console.log(md)
-      } else {
-        out.done(`v${newVersion} shipped`)
-        showNextSteps('ship')
-      }
-
       // Ship-success reinforcement: every memory surfaced during this task
       // just fed work that actually shipped — give it the strong usefulness
       // credit so it ranks higher in future recall. Best-effort; a completed
@@ -563,6 +540,58 @@ export class ShippingCommands extends PrjctCommandsBase {
         } catch {
           /* best-effort */
         }
+      }
+
+      // Compound after ship: judgment receipt so closed-loop metrics move on
+      // the ship path (not only land/Stop). Dynasty receipts were 0 when users
+      // shipped without land — product gap. Best-effort; never block ship.
+      let receiptSummary: string | null = null
+      try {
+        const { synthesizeJudgmentReceipt } = await import('../services/judgment-receipt')
+        const receipt = await synthesizeJudgmentReceipt({
+          projectId,
+          projectPath,
+          cycleDescription: currentTask?.description ?? featureName,
+          cycleId: currentTask?.id ?? null,
+        })
+        if (receipt.wrote) {
+          receiptSummary = receipt.summary ?? 'Judgment receipt written'
+        }
+      } catch {
+        /* never block ship on receipt */
+      }
+
+      if (options.md) {
+        const steps = getNextSteps('ship', true)
+        const md = mdOutput(
+          mdDone(`Shipped: ${featureName}`, `Version: ${newVersion}`),
+          mdSection(
+            'Results',
+            mdList(
+              [
+                `Version: ${newVersion}`,
+                `Workflow steps run: ${stepsRun > 0 ? [...beforeResult.stepsRun, ...afterResult.stepsRun].join(', ') : 'none'}`,
+                `Hooks failed (non-blocking): ${beforeResult.hooksFailed.length + afterResult.hooksFailed.length}`,
+                receiptSummary ? `Compound judgment: ${receiptSummary}` : null,
+              ].filter((s): s is string => s !== null)
+            )
+          ),
+          allInstructions.length > 0
+            ? mdSection('Agent Instructions', mdList(allInstructions))
+            : null,
+          mdNextSteps([
+            ...steps.map((s) => ({ label: s.desc, command: s.cmd })),
+            {
+              label: 'Capture non-obvious learning (compounds next session)',
+              command: 'prjct remember learning "…"',
+            },
+          ])
+        )
+        console.log(md)
+      } else {
+        out.done(`v${newVersion} shipped`)
+        if (receiptSummary) out.info(`Compound: ${receiptSummary}`)
+        showNextSteps('ship')
       }
 
       // Cloud sync (opt-in): push this ship + pull remote in the background.

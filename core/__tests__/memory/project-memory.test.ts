@@ -708,6 +708,48 @@ describe('predictive risk briefing — recallRisksForFiles (planning-time)', () 
   })
 })
 
+describe('projectMemory.remember — auto-infer tags.file for anticipation', () => {
+  beforeEach(async () => {
+    await fs.mkdir(path.join(tmpRoot, '.prjct'), { recursive: true })
+    await fs.writeFile(
+      path.join(tmpRoot, '.prjct', 'prjct.config.json'),
+      JSON.stringify({ projectId })
+    )
+  })
+
+  it('infers file from content path so recallForFile / risks work without explicit tags', async () => {
+    await projectMemory.remember(tmpRoot, {
+      type: 'gotcha',
+      content:
+        'MutationCache onError always fires with mutation onError — set meta.skipGlobalError in src/lib/api.ts',
+      projectId,
+      requireWrite: true,
+    })
+    const hits = projectMemory.recallForFile(projectId, 'src/lib/api.ts', 3, {
+      preventiveOnly: true,
+    })
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.some((h) => h.type === 'gotcha' && h.content.includes('MutationCache'))).toBe(true)
+    expect(hits[0]?.tags?.file).toBe('src/lib/api.ts')
+    expect(hits[0]?.tags?.file_source).toBe('inferred')
+  })
+
+  it('does not override an explicit file tag', async () => {
+    await projectMemory.remember(tmpRoot, {
+      type: 'gotcha',
+      content: 'mentions src/other.ts but explicit wins',
+      tags: { file: 'src/explicit.ts' },
+      projectId,
+      requireWrite: true,
+    })
+    const hits = projectMemory.recallForFile(projectId, 'src/explicit.ts', 3, {
+      preventiveOnly: true,
+    })
+    expect(hits.some((h) => h.tags?.file === 'src/explicit.ts')).toBe(true)
+    expect(hits[0]?.tags?.file_source).toBeUndefined()
+  })
+})
+
 describe('projectMemory.remember — topic-key UPSERT (write-side supersession)', () => {
   // remember() resolves the project from the path's config — give tmpRoot one.
   beforeEach(async () => {
