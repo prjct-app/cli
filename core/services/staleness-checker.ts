@@ -142,7 +142,10 @@ class StalenessChecker {
       const needNames =
         status.commitsSinceSync > 0 && status.commitsSinceSync < this.config.commitThreshold
       if (needNames) {
-        const diff = await runGit(['diff', '--name-only', `${status.lastSyncCommit}..HEAD`], gitOpts)
+        const diff = await runGit(
+          ['diff', '--name-only', `${status.lastSyncCommit}..HEAD`],
+          gitOpts
+        )
         // Cap name list so a huge range cannot blow SessionStart memory.
         // Any failure (exit or infra) degrades to an empty list — the
         // count-based verdict above already stands on its own.

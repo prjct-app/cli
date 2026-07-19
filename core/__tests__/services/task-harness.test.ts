@@ -120,7 +120,6 @@ describe('detectKind — word-aware matching (no mid-word false positives)', () 
   })
 })
 
-
 /**
  * PATH-hijack: an empty dir as PATH means `git` resolves nowhere, so spawn
  * fails with a real ENOENT — exercises the infra-failure path without mocks.
