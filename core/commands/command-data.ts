@@ -1056,25 +1056,22 @@ export const COMMANDS: CommandMeta[] = [
       booleans: ['weak', 'all'],
     },
     description:
-      'Configure machine-local LLM brain profiles for the owned agent loop — cloud subscriptions and/or local (Ollama). Partial set merges; clear requires name or --all. Never requires local models if a subscription key is set. Guest hosts unchanged.',
+      'OPT-IN (default OFF): machine-local LLM brain profiles for a future owned agent loop. Does not change guest mode. enable|disable|set|use|status|test|clear.',
     usage: {
       claude: 'p. llm status',
       terminal:
-        'prjct llm <set|use|status|test|clear> [--name <n>] [--key <K>] [--model <M>] [--base-url <U>] [--wire openai-compatible|anthropic] [--weak] [--all]',
+        'prjct llm <enable|disable|set|use|status|test|clear> [--name <n>] [--key <K>] [--model <M>] [--base-url <U>] [--wire openai-compatible|anthropic] [--weak] [--all]',
     },
-    params: '[set|use|status|test|clear]',
+    params: '[enable|disable|set|use|status|test|clear]',
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
     features: [
-      'Multi-profile brains per machine: Anthropic / OpenAI / xAI / OpenRouter / Ollama / LM Studio',
-      'Subscriptions first-class; local Ollama optional (never required)',
-      'Partial set merges onto existing profile (model/key only updates safe)',
-      'prjct llm use <name> + PRJCT_LLM_PROFILE env override',
-      'Keys in Keychain/0600 files; clear <name> and clear --all wipe keys (no orphans)',
-      'Honest probe: empty content fails test (thinking-model safe)',
-      'Timeouts on all HTTP; OpenAI-compat + Anthropic Messages wires',
-      'Guest mode unchanged: prjct install + Claude/Grok/Codex',
+      'Default OFF — zero impact on guest harnesses until prjct llm enable (or PRJCT_OWNED_LLM=1)',
+      'Does not alter embeddings setup gate or existing verbs',
+      'Multi-profile brains: Anthropic / OpenAI / xAI / OpenRouter / Ollama / LM Studio',
+      'Partial set merges; clear <name> or clear --all (keys wiped, no orphans)',
+      'Honest probe + HTTP timeouts; no agent loop yet',
     ],
   },
   {

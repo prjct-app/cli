@@ -527,7 +527,7 @@ async function main(): Promise<void> {
     const configPath = path.join(pathManager.globalConfigDir, 'installed-editors.json')
     const routersInstalled = await checkRoutersInstalled()
 
-    // Commands that work without full setup (no guest AI host required)
+    // Commands that work without full setup
     const noSetupRequired = new Set([
       'auth',
       'login',
@@ -535,8 +535,8 @@ async function main(): Promise<void> {
       'init',
       'eval',
       'analysis-save-llm',
-      // BYOT brain + embeddings: usable before prjct start (owned loop / local Ollama)
-      'embeddings',
+      // Opt-in owned-loop brain config only (default OFF; does not change guest flow).
+      // Intentionally does NOT include embeddings — preserve pre-existing setup gate.
       'llm',
     ])
 

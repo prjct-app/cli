@@ -16,6 +16,13 @@ export {
   normalizeChatModelForBaseUrl,
   slugifyProfileName,
 } from './detect'
+export {
+  isOwnedLlmEnabled,
+  OWNED_LLM_CONFIG_KEY,
+  OWNED_LLM_ENV,
+  ownedLlmEnableHint,
+  setOwnedLlmEnabled,
+} from './enabled'
 export { fetchJson, LlmHttpError, normalizeMessageContent } from './http'
 export { openaiCompatibleChat, parseOpenAiChatResponse } from './openai-compat'
 export {

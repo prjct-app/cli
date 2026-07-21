@@ -17,12 +17,14 @@ import {
   getActiveLlmProfile,
   getLlmKey,
   getLlmProfile,
+  isOwnedLlmEnabled,
   isUsableCompletion,
   LLM_API_KEY_ENV,
   LLM_PROFILE_ENV,
   LOCAL_DUMMY_KEY,
   listLlmProfiles,
   normalizeMessageContent,
+  OWNED_LLM_ENV,
   ProfileLlmProvider,
   parseAnthropicResponse,
   parseOpenAiChatResponse,
@@ -32,6 +34,7 @@ import {
   resetLlmKeyCache,
   setActiveLlmProfile,
   setLlmKey,
+  setOwnedLlmEnabled,
   toAnthropicMessages,
   upsertLlmProfile,
 } from '../../llm'
@@ -42,12 +45,15 @@ async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
   const origTest = process.env.PRJCT_TEST_MODE
   const origKey = process.env[LLM_API_KEY_ENV]
   const origProf = process.env[LLM_PROFILE_ENV]
+  const origOwned = process.env[OWNED_LLM_ENV]
   process.env.PRJCT_CLI_HOME = tmp
   process.env.PRJCT_TEST_MODE = '1'
   delete process.env[LLM_API_KEY_ENV]
   delete process.env[LLM_PROFILE_ENV]
+  delete process.env[OWNED_LLM_ENV]
   resetLlmKeyCache()
   clearAllLlmProfiles()
+  setOwnedLlmEnabled(true) // tests exercise the enabled surface
   try {
     return await fn(tmp)
   } finally {
@@ -59,7 +65,8 @@ async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
     else process.env[LLM_API_KEY_ENV] = origKey
     if (origProf === undefined) delete process.env[LLM_PROFILE_ENV]
     else process.env[LLM_PROFILE_ENV] = origProf
-    // clear any per-profile envs we might set in tests
+    if (origOwned === undefined) delete process.env[OWNED_LLM_ENV]
+    else process.env[OWNED_LLM_ENV] = origOwned
     for (const k of Object.keys(process.env)) {
       if (k.startsWith(`${LLM_API_KEY_ENV}_`)) delete process.env[k]
     }
@@ -330,6 +337,52 @@ describe('ProfileLlmProvider', () => {
   })
 })
 
+describe('opt-in gate (default OFF = zero guest impact)', () => {
+  test('default disabled; set blocked; enable unlocks; disable locks', async () => {
+    await withTempHome(async (home) => {
+      setOwnedLlmEnabled(false)
+      delete process.env[OWNED_LLM_ENV]
+      expect(isOwnedLlmEnabled()).toBe(false)
+
+      const cmd = new LlmCommands()
+      const blocked = await cmd.llm(
+        'set --name x --base-url http://localhost:11434/v1 --model m',
+        home,
+        {}
+      )
+      expect(blocked.success).toBe(false)
+
+      const st = await cmd.llm('status', home, {})
+      expect(st.success).toBe(true)
+      expect(st.enabled).toBe(false)
+
+      const en = await cmd.llm('enable', home, {})
+      expect(en.success).toBe(true)
+      expect(isOwnedLlmEnabled()).toBe(true)
+
+      const ok = await cmd.llm(
+        'set --name ollama --base-url http://localhost:11434/v1 --model qwen3.5:4b',
+        home,
+        {}
+      )
+      expect(ok.success).toBe(true)
+
+      await cmd.llm('disable', home, {})
+      expect(isOwnedLlmEnabled()).toBe(false)
+      const blockedAgain = await cmd.llm('set --name ollama --model other', home, {})
+      expect(blockedAgain.success).toBe(false)
+    })
+  })
+
+  test('PRJCT_OWNED_LLM=0 forces off even if config on', async () => {
+    await withTempHome(async () => {
+      setOwnedLlmEnabled(true)
+      process.env[OWNED_LLM_ENV] = '0'
+      expect(isOwnedLlmEnabled()).toBe(false)
+    })
+  })
+})
+
 describe('LlmCommands CLI', () => {
   test('set partial + clear requires --all + clear --all wipes keys', async () => {
     await withTempHome(async (home) => {
@@ -368,8 +421,6 @@ describe('LlmCommands CLI', () => {
         home,
         {}
       )
-      // Monkey-patch resolve path via generate is hard; unit-level isUsable covers the gate.
-      // Integration: provider with empty mock through command needs DI — covered by isUsableCompletion.
       expect(isUsableCompletion({ content: '', tool_calls: [], model: 'm' })).toBe(false)
     })
   })

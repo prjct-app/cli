@@ -1,18 +1,15 @@
 /**
- * `prjct llm` — machine-local brain profiles for the owned agent loop.
+ * `prjct llm` — opt-in machine-local brain profiles (owned agent loop foundation).
  *
- * Multi-brain: cloud subscriptions (Anthropic/OpenAI/xAI/OpenRouter) AND local
- * (Ollama/LM Studio). Ollama is never required.
+ * DEFAULT OFF. Guest mode is completely unchanged until the user enables this.
+ * Enabling only unlocks profile config — no agent loop / tools yet.
  *
- * Guest mode (Claude Code / Grok / Codex / …) is unchanged — use `prjct install`.
+ * Multi-brain when enabled: subscription APIs + optional local (Ollama/LM Studio).
  * Embeddings remain on `prjct embeddings` (separate secrets).
  *
  * Subcommands:
- *   set    [--name n] [--key K] [--model M] [--base-url U] …  (merge/partial)
- *   use    <name>
- *   status | list
- *   test   [--name n]
- *   clear  <name> | --all
+ *   enable | disable
+ *   set | use | status | test | clear   (require enable)
  */
 
 import {
@@ -25,6 +22,7 @@ import {
   getLlmKeyLocation,
   getLlmProfile,
   isLocalBaseUrl,
+  isOwnedLlmEnabled,
   isUsableCompletion,
   LLM_PROBE_MAX_TOKENS,
   LLM_PROBE_MAX_TOKENS_LOCAL,
@@ -34,11 +32,13 @@ import {
   type LlmWireKind,
   LOCAL_DUMMY_KEY,
   listLlmProfiles,
+  ownedLlmEnableHint,
   profileImpliesWeakMode,
   removeLlmProfile,
   resolveLlmProvider,
   setActiveLlmProfile,
   setLlmKey,
+  setOwnedLlmEnabled,
   slugifyProfileName,
   upsertLlmProfile,
 } from '../llm'
@@ -108,6 +108,20 @@ export class LlmCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     const parts = (input ?? '').trim().split(/\s+/).filter(Boolean)
     const sub = parts[0] ?? 'status'
+
+    // Always-safe verbs (no network, no secrets write except enable flag).
+    if (sub === 'enable') return this.enable(options)
+    if (sub === 'disable') return this.disable(options)
+
+    // status when disabled: explain opt-in only — zero side effects.
+    if ((sub === 'status' || sub === 'list') && !isOwnedLlmEnabled()) {
+      return this.statusDisabled(options)
+    }
+
+    if (!isOwnedLlmEnabled()) {
+      return failHard(ownedLlmEnableHint(), options)
+    }
+
     switch (sub) {
       case 'set':
         return this.set(parts.slice(1), options)
@@ -122,10 +136,65 @@ export class LlmCommands extends PrjctCommandsBase {
         return this.clear(parts.slice(1), options)
       default:
         return failHard(
-          `Unknown subcommand '${sub}'. Use: set | use <name> | status | test | clear <name|--all>`,
+          `Unknown subcommand '${sub}'. Use: enable | disable | set | use <name> | status | test | clear <name|--all>`,
           options
         )
     }
+  }
+
+  private async enable(options: LlmOptions): Promise<CommandResult> {
+    setOwnedLlmEnabled(true)
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdSection(
+            'Owned LLM enabled',
+            'Brain profile config is ON for this machine. Guest harnesses (Claude/Grok/Codex/…) are unchanged. There is no agent loop yet — only `prjct llm set|use|test|…`.'
+          ),
+          mdSection('Next', '`prjct llm set --name … --key …` then `prjct llm test --md`')
+        )
+      )
+      return { success: true, enabled: true }
+    }
+    out.done('Owned LLM enabled (opt-in). Guest mode unchanged.')
+    out.info('Configure a brain: prjct llm set --name <n> --key <K>')
+    out.info('Disable anytime:   prjct llm disable')
+    return { success: true, enabled: true }
+  }
+
+  private async disable(options: LlmOptions): Promise<CommandResult> {
+    setOwnedLlmEnabled(false)
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdSection(
+            'Owned LLM disabled',
+            'Profile config verbs are locked. Existing profiles/keys on disk are left intact (run `prjct llm clear --all` after enable if you want them removed).'
+          )
+        )
+      )
+      return { success: true, enabled: false }
+    }
+    out.done('Owned LLM disabled. Guest mode unchanged.')
+    return { success: true, enabled: false }
+  }
+
+  private async statusDisabled(options: LlmOptions): Promise<CommandResult> {
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdSection(
+            'Owned LLM',
+            '**OFF** (default). No guest behavior changed. Enable only if you want machine-local brain profiles for the future owned agent loop.'
+          ),
+          mdSection('Enable', '`prjct llm enable` · or `PRJCT_OWNED_LLM=1`')
+        )
+      )
+      return { success: true, enabled: false, configured: false }
+    }
+    out.info('Owned LLM: OFF (opt-in). Guest harnesses unchanged.')
+    out.info('Enable: prjct llm enable')
+    return { success: true, enabled: false, configured: false }
   }
 
   private async set(parts: string[], options: LlmOptions): Promise<CommandResult> {
