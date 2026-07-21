@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.73.0] - 2026-07-21
+
+### Features
+
+- multi-brain profiles for owned agent loop foundation (#592)
+
+
 ## [3.72.0] - 2026-07-19
 
 ### Added
