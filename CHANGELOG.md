@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.75.0] - 2026-07-21
+
+### Features
+
+- prjct body tools + guard prefix on edit/write (#594)
+
+
 ## [3.74.0] - 2026-07-21
 
 ### Features
