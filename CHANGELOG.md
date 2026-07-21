@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.74.0] - 2026-07-21
+
+### Features
+
+- owned print-mode agent loop with root-scoped tools (#593)
+
+
 ## [3.73.0] - 2026-07-21
 
 ### Features
