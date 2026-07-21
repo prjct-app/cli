@@ -61,6 +61,7 @@ afterEach(async () => {
 })
 
 describe('eval-service', () => {
+  // CI core-b: this suite does real git + multi-scenario eval; 5s default is tight on busy runners.
   test('runs deterministic evals and stores portable artifacts', async () => {
     await createHealthyProject()
 
@@ -81,7 +82,7 @@ describe('eval-service', () => {
     const report = await fs.readFile(run.artifacts?.reportPath ?? '', 'utf-8')
     expect(json).toContain(run.runId)
     expect(report).toContain('## Actionables')
-  })
+  }, 20_000)
 
   test('detects stale user-facing command guidance with concrete files', async () => {
     await createHealthyProject()
