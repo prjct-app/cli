@@ -27,7 +27,11 @@ interface AgentOptions {
 }
 
 export class AgentCommands extends PrjctCommandsBase {
-  async agent(
+  /**
+   * Handler for `prjct agent` (method name is `run` because base class
+   * already exposes a getter `agent` for host agent detection).
+   */
+  async run(
     intent: string | null = null,
     projectPath: string = process.cwd(),
     options: AgentOptions = {}

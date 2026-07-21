@@ -1079,7 +1079,7 @@ export const COMMANDS: CommandMeta[] = [
     name: 'agent',
     group: 'setup',
     surface: 'support',
-    routing: { group: 'agent', method: 'agent' },
+    routing: { group: 'agent', method: 'run' },
     optionSchema: {
       numbers: ['maxSteps'],
       booleans: ['quiet'],
