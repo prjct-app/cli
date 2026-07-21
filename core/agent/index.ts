@@ -5,6 +5,7 @@
 
 export { buildSystemPrompt, runAgent } from './loop'
 export { PathDeniedError, resolveSafePath } from './paths'
+export { fetchGuardHits, guardTool, prjctBodyTools, rememberTool, searchTool } from './prjct-tools'
 export {
   bashTool,
   defaultTools,

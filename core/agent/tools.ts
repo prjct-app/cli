@@ -6,7 +6,8 @@
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import { promisify } from 'node:util'
-import { ensureParentDir, fileExists, PathDeniedError, resolveSafePath } from './paths'
+import { ensureParentDir, fileExists, resolveSafePath } from './paths'
+import { prjctBodyTools, withGuardPrefix } from './prjct-tools'
 import type { AgentTool, AgentToolResult } from './types'
 
 const execFileAsync = promisify(execFile)
@@ -73,7 +74,7 @@ export const writeTool: AgentTool = {
       const abs = resolveSafePath(ctx.root, rel)
       ensureParentDir(abs)
       fs.writeFileSync(abs, content, 'utf-8')
-      return ok(`Wrote ${rel} (${content.length} chars)`)
+      return withGuardPrefix(ctx, rel, ok(`Wrote ${rel} (${content.length} chars)`))
     } catch (e) {
       return fail(e instanceof Error ? e.message : String(e))
     }
@@ -83,7 +84,7 @@ export const writeTool: AgentTool = {
 export const editTool: AgentTool = {
   name: 'edit',
   description:
-    'Replace an exact substring in a file once. Fails if old_string is missing or not unique.',
+    'Replace an exact substring in a file once. Fails if old_string is missing or not unique. Surfaces preventive memory for the file when present.',
   parameters: {
     type: 'object',
     properties: {
@@ -106,7 +107,7 @@ export const editTool: AgentTool = {
       if (count === 0) return fail(`old_string not found in ${rel}`)
       if (count > 1) return fail(`old_string not unique in ${rel} (${count} matches)`)
       fs.writeFileSync(abs, text.replace(oldStr, newStr), 'utf-8')
-      return ok(`Edited ${rel}`)
+      return withGuardPrefix(ctx, rel, ok(`Edited ${rel}`))
     } catch (e) {
       return fail(e instanceof Error ? e.message : String(e))
     }
@@ -167,11 +168,9 @@ export const bashTool: AgentTool = {
 }
 
 export function defaultTools(): AgentTool[] {
-  return [readTool, writeTool, editTool, bashTool]
+  return [readTool, writeTool, editTool, bashTool, ...prjctBodyTools()]
 }
 
 export function getToolMap(tools: AgentTool[]): Map<string, AgentTool> {
   return new Map(tools.map((t) => [t.name, t]))
 }
-
-export { PathDeniedError }
