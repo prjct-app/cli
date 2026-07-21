@@ -1047,6 +1047,37 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'llm',
+    group: 'setup',
+    surface: 'support',
+    routing: { group: 'llm', method: 'llm' },
+    optionSchema: {
+      strings: ['name', 'key', 'model', 'baseUrl', 'wire', 'provider', 'authHeader', 'authScheme'],
+      booleans: ['weak', 'all'],
+    },
+    description:
+      'Configure machine-local LLM brain profiles for the owned agent loop — cloud subscriptions and/or local (Ollama). Partial set merges; clear requires name or --all. Never requires local models if a subscription key is set. Guest hosts unchanged.',
+    usage: {
+      claude: 'p. llm status',
+      terminal:
+        'prjct llm <set|use|status|test|clear> [--name <n>] [--key <K>] [--model <M>] [--base-url <U>] [--wire openai-compatible|anthropic] [--weak] [--all]',
+    },
+    params: '[set|use|status|test|clear]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Multi-profile brains per machine: Anthropic / OpenAI / xAI / OpenRouter / Ollama / LM Studio',
+      'Subscriptions first-class; local Ollama optional (never required)',
+      'Partial set merges onto existing profile (model/key only updates safe)',
+      'prjct llm use <name> + PRJCT_LLM_PROFILE env override',
+      'Keys in Keychain/0600 files; clear <name> and clear --all wipe keys (no orphans)',
+      'Honest probe: empty content fails test (thinking-model safe)',
+      'Timeouts on all HTTP; OpenAI-compat + Anthropic Messages wires',
+      'Guest mode unchanged: prjct install + Claude/Grok/Codex',
+    ],
+  },
+  {
     name: 'log',
     group: 'ceremonies',
     surface: 'ai-agile',

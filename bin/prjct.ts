@@ -527,7 +527,7 @@ async function main(): Promise<void> {
     const configPath = path.join(pathManager.globalConfigDir, 'installed-editors.json')
     const routersInstalled = await checkRoutersInstalled()
 
-    // Commands that work without full setup
+    // Commands that work without full setup (no guest AI host required)
     const noSetupRequired = new Set([
       'auth',
       'login',
@@ -535,6 +535,9 @@ async function main(): Promise<void> {
       'init',
       'eval',
       'analysis-save-llm',
+      // BYOT brain + embeddings: usable before prjct start (owned loop / local Ollama)
+      'embeddings',
+      'llm',
     ])
 
     if (!noSetupRequired.has(args[0]) && (!(await fileExists(configPath)) || !routersInstalled)) {
