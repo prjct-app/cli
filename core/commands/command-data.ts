@@ -1071,7 +1071,34 @@ export const COMMANDS: CommandMeta[] = [
       'Does not alter embeddings setup gate or existing verbs',
       'Multi-profile brains: Anthropic / OpenAI / xAI / OpenRouter / Ollama / LM Studio',
       'Partial set merges; clear <name> or clear --all (keys wiped, no orphans)',
-      'Honest probe + HTTP timeouts; no agent loop yet',
+      'Honest probe + HTTP timeouts',
+      'Pairs with prjct agent (print mode) when enabled',
+    ],
+  },
+  {
+    name: 'agent',
+    group: 'setup',
+    surface: 'support',
+    routing: { group: 'agent', method: 'run' },
+    optionSchema: {
+      numbers: ['maxSteps'],
+      booleans: ['quiet'],
+    },
+    description:
+      'OPT-IN owned print-mode agent (one-shot). Requires prjct llm enable + brain profile. Tools: read/write/edit/bash under project root. Guest hosts unchanged.',
+    usage: {
+      claude: null,
+      terminal: 'prjct agent "<intent>" [--max-steps N] [--quiet] [--md]',
+    },
+    params: '"<intent>"',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Blocked unless prjct llm enable (or PRJCT_OWNED_LLM=1) and a brain profile is set',
+      'Print/one-shot only — no interactive TUI yet',
+      'Tools scoped to project root; secret-like paths denied',
+      'Does not replace Claude Code / Grok / Codex guest mode',
     ],
   },
   {

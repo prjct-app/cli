@@ -352,6 +352,7 @@ export type CommandRoutingGroup =
   | 'spec'
   | 'embeddings'
   | 'llm'
+  | 'agent'
   | 'guard'
   | 'lean'
   | 'cloud'
