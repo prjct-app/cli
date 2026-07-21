@@ -151,8 +151,53 @@ export const rememberTool: AgentTool = {
   },
 }
 
+export const workTool: AgentTool = {
+  name: 'prjct_work',
+  description:
+    'Start a tracked prjct work cycle for an intent (same gates as `prjct work`). Prefer once at the beginning if none is active. Pass a real task description, not a bare CLI verb.',
+  parameters: {
+    type: 'object',
+    properties: {
+      description: {
+        type: 'string',
+        description: 'Work intent (e.g. "fix null guard in auth login")',
+      },
+    },
+    required: ['description'],
+  },
+  async execute(args, ctx) {
+    try {
+      const description = asString(args.description, 'description')
+      const projectId = await resolveProjectId(ctx.root)
+      if (!projectId) return fail('Not a prjct project — cannot start work')
+      const { startTask } = await import('../services/task-service')
+      const outcome = await startTask(projectId, ctx.root, description, {})
+      if (!outcome.ok) {
+        return fail(outcome.blocked ?? 'Work start blocked')
+      }
+      const lines = [
+        `Work started: ${outcome.taskId}`,
+        outcome.description ? `Description: ${outcome.description}` : '',
+        outcome.branch ? `Branch: ${outcome.branch}` : '',
+        outcome.isolation?.worktreePath
+          ? `Worktree: ${outcome.isolation.worktreePath} (cd there for further edits)`
+          : '',
+      ].filter(Boolean)
+      if (outcome.risks?.length) {
+        lines.push('Risks:')
+        for (const r of outcome.risks.slice(0, 5)) {
+          lines.push(`- [${r.file}] ${r.title}`)
+        }
+      }
+      return ok(lines.join('\n'))
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : String(e))
+    }
+  },
+}
+
 export function prjctBodyTools(): AgentTool[] {
-  return [searchTool, guardTool, rememberTool]
+  return [searchTool, guardTool, rememberTool, workTool]
 }
 
 /** Prefix edit/write results with guard hits when present (anticipation). */

@@ -5,7 +5,14 @@
 
 export { buildSystemPrompt, runAgent } from './loop'
 export { PathDeniedError, resolveSafePath } from './paths'
-export { fetchGuardHits, guardTool, prjctBodyTools, rememberTool, searchTool } from './prjct-tools'
+export {
+  fetchGuardHits,
+  guardTool,
+  prjctBodyTools,
+  rememberTool,
+  searchTool,
+  workTool,
+} from './prjct-tools'
 export {
   bashTool,
   defaultTools,
@@ -23,3 +30,8 @@ export type {
   AgentToolResult,
 } from './types'
 export { toolsToChatDefs } from './types'
+export {
+  type OwnedAgentWorkContext,
+  prepareOwnedAgentWorkContext,
+  weakModelAppend,
+} from './work-context'

@@ -1082,13 +1082,13 @@ export const COMMANDS: CommandMeta[] = [
     routing: { group: 'agent', method: 'run' },
     optionSchema: {
       numbers: ['maxSteps'],
-      booleans: ['quiet'],
+      booleans: ['quiet', 'noWork'],
     },
     description:
-      'OPT-IN owned print-mode agent (one-shot). Requires prjct llm enable + brain profile. Tools: read/write/edit/bash under project root. Guest hosts unchanged.',
+      'OPT-IN owned print-mode agent (one-shot). Requires prjct llm enable + brain. Starts a work cycle by default (risks + file map injected). Tools: FS + prjct_search/guard/remember/work. Guest unchanged.',
     usage: {
       claude: null,
-      terminal: 'prjct agent "<intent>" [--max-steps N] [--quiet] [--md]',
+      terminal: 'prjct agent "<intent>" [--max-steps N] [--no-work] [--quiet] [--md]',
     },
     params: '"<intent>"',
     implemented: true,
@@ -1096,6 +1096,7 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: false,
     features: [
       'Blocked unless prjct llm enable (or PRJCT_OWNED_LLM=1) and a brain profile is set',
+      'Binds to prjct work cycle (startTask) unless --no-work; attaches if one is already open',
       'Print/one-shot only — no interactive TUI yet',
       'Tools scoped to project root; secret-like paths denied',
       'Does not replace Claude Code / Grok / Codex guest mode',

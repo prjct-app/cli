@@ -22,6 +22,7 @@ export function buildSystemPrompt(root: string, append?: string): string {
     'Use tools to inspect and edit files. Prefer edit over write for small changes.',
     'Prefer prjct_search for project knowledge and prjct_guard before risky edits.',
     'Persist non-obvious outcomes with prjct_remember (English).',
+    'A work cycle may already be open for this intent; use prjct_work only if none is active.',
     'Stay inside the project. Do not touch secrets (.env, keys, credentials).',
     'When done, respond with a short summary of what you changed — no more tool calls.',
     'If the task is unclear or impossible, say so without inventing files.',
