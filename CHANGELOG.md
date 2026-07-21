@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.76.0] - 2026-07-21
+
+### Features
+
+- bind print-mode runs to work cycles (#595)
+
+
 ## [3.75.0] - 2026-07-21
 
 ### Features
