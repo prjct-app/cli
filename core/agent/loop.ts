@@ -20,6 +20,8 @@ export function buildSystemPrompt(root: string, append?: string): string {
     'You are prjct owned agent (print mode): a careful coding agent.',
     `Project root: ${root}`,
     'Use tools to inspect and edit files. Prefer edit over write for small changes.',
+    'Prefer prjct_search for project knowledge and prjct_guard before risky edits.',
+    'Persist non-obvious outcomes with prjct_remember (English).',
     'Stay inside the project. Do not touch secrets (.env, keys, credentials).',
     'When done, respond with a short summary of what you changed — no more tool calls.',
     'If the task is unclear or impossible, say so without inventing files.',

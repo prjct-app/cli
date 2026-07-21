@@ -139,7 +139,19 @@ describe('runAgent', () => {
     }
   })
 
-  test('system prompt includes root', () => {
-    expect(buildSystemPrompt('/tmp/proj')).toContain('/tmp/proj')
+  test('system prompt includes root and prjct tools guidance', () => {
+    const p = buildSystemPrompt('/tmp/proj')
+    expect(p).toContain('/tmp/proj')
+    expect(p).toContain('prjct_search')
+    expect(p).toContain('prjct_guard')
+  })
+
+  test('default tools include prjct body tools', async () => {
+    const { defaultTools } = await import('../../agent')
+    const names = defaultTools().map((t) => t.name)
+    expect(names).toContain('read')
+    expect(names).toContain('prjct_search')
+    expect(names).toContain('prjct_guard')
+    expect(names).toContain('prjct_remember')
   })
 })
