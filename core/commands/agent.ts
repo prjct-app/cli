@@ -2,11 +2,17 @@
  * `prjct agent` — owned print-mode agent (one-shot).
  *
  * Requires: prjct llm enable + brain profile (set/use/test).
- * Guest mode (Claude/Grok/Codex) is unchanged.
+ * Starts a work cycle by default (same startTask as CLI/MCP) so owned runs
+ * compound project memory. Guest mode unchanged.
  */
 
 import path from 'node:path'
-import { type AgentStepEvent, runAgent } from '../agent'
+import {
+  type AgentStepEvent,
+  type OwnedAgentWorkContext,
+  prepareOwnedAgentWorkContext,
+  runAgent,
+} from '../agent'
 import {
   getActiveLlmProfile,
   isOwnedLlmEnabled,
@@ -24,6 +30,8 @@ interface AgentOptions {
   md?: boolean
   maxSteps?: number
   quiet?: boolean
+  /** Skip startTask / work-cycle bind (still runs tools). */
+  noWork?: boolean
 }
 
 export class AgentCommands extends PrjctCommandsBase {
@@ -46,7 +54,8 @@ export class AgentCommands extends PrjctCommandsBase {
     const text = (intent ?? '').trim()
     if (!text) {
       return failHard(
-        'Usage: prjct agent "<intent>"\nExample: prjct agent "add a hello() function to src/hi.ts"',
+        'Usage: prjct agent "<intent>" [--no-work] [--max-steps N]\n' +
+          'Example: prjct agent "add a hello() function to src/hi.ts"',
         options
       )
     }
@@ -64,14 +73,36 @@ export class AgentCommands extends PrjctCommandsBase {
       return failHard('Could not resolve LLM provider for the active profile.', options)
     }
 
-    const root = path.resolve(projectPath)
+    const requestedRoot = path.resolve(projectPath)
     const maxSteps =
       typeof options.maxSteps === 'number' && options.maxSteps > 0
         ? Math.min(options.maxSteps, 40)
         : 12
 
+    let workCtx: OwnedAgentWorkContext
+    try {
+      workCtx = await prepareOwnedAgentWorkContext({
+        root: requestedRoot,
+        intent: text,
+        profile,
+        noWork: options.noWork === true,
+      })
+    } catch (e) {
+      return failHard(`Work context failed: ${getErrorMessage(e)}`, options)
+    }
+
+    const root = workCtx.root
+
     if (!options.md && !options.quiet) {
       out.info(`Owned agent · ${profile.name} · ${profile.model} · maxSteps=${maxSteps} · ${root}`)
+      if (workCtx.workStarted && workCtx.taskId) {
+        out.info(`Work cycle: ${workCtx.taskId}`)
+      } else if (workCtx.blocked) {
+        out.info(`Work not started: ${workCtx.blocked}`)
+      }
+      if (workCtx.isolationPath) {
+        out.info(`Isolated worktree: ${workCtx.isolationPath}`)
+      }
     }
 
     const onStep = options.quiet
@@ -80,8 +111,6 @@ export class AgentCommands extends PrjctCommandsBase {
           if (options.md) return
           if (ev.type === 'tool') {
             out.info(`  tool ${ev.name} ${ev.ok ? 'ok' : 'fail'}: ${ev.preview.slice(0, 80)}`)
-          } else if (ev.type === 'assistant' && ev.tool_calls.length === 0 && ev.content) {
-            // final text printed after run
           }
         }
 
@@ -92,6 +121,7 @@ export class AgentCommands extends PrjctCommandsBase {
         provider,
         maxSteps,
         onStep,
+        systemAppend: workCtx.systemAppend || undefined,
       })
 
       if (!result.success) {
@@ -109,6 +139,7 @@ export class AgentCommands extends PrjctCommandsBase {
               model: result.model,
               steps: result.steps,
               'tool calls': result.toolCalls,
+              work: workCtx.taskId ?? (workCtx.workStarted ? 'started' : 'none'),
               root,
             })
           )
@@ -118,16 +149,20 @@ export class AgentCommands extends PrjctCommandsBase {
           content: summary,
           steps: result.steps,
           toolCalls: result.toolCalls,
+          taskId: workCtx.taskId,
         }
       }
 
       out.done(`Agent finished · ${result.steps} step(s) · ${result.toolCalls} tool call(s)`)
+      if (workCtx.taskId)
+        out.info(`Work cycle still open: ${workCtx.taskId} (prjct done when ready)`)
       console.log(summary)
       return {
         success: true,
         content: summary,
         steps: result.steps,
         toolCalls: result.toolCalls,
+        taskId: workCtx.taskId,
       }
     } catch (e) {
       return failHard(getErrorMessage(e), options)

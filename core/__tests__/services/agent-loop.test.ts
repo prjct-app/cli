@@ -153,5 +153,47 @@ describe('runAgent', () => {
     expect(names).toContain('prjct_search')
     expect(names).toContain('prjct_guard')
     expect(names).toContain('prjct_remember')
+    expect(names).toContain('prjct_work')
+  })
+
+  test('weakModelAppend only for weak profiles', async () => {
+    const { weakModelAppend } = await import('../../agent')
+    expect(
+      weakModelAppend({
+        name: 'o',
+        wire: 'openai-compatible',
+        providerLabel: 'Ollama',
+        baseUrl: 'http://localhost:11434/v1',
+        model: 'qwen',
+      })
+    ).toContain('Weak-model')
+    expect(
+      weakModelAppend({
+        name: 'a',
+        wire: 'anthropic',
+        providerLabel: 'Anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-sonnet',
+        weak: false,
+      })
+    ).toBe('')
+  })
+
+  test('prepareOwnedAgentWorkContext noWork skips start', async () => {
+    const { prepareOwnedAgentWorkContext } = await import('../../agent')
+    const ctx = await prepareOwnedAgentWorkContext({
+      root: '/tmp/not-a-prjct-project-xyz',
+      intent: 'do something',
+      profile: {
+        name: 'm',
+        wire: 'openai-compatible',
+        providerLabel: 'Mock',
+        baseUrl: 'http://x',
+        model: 'm',
+      },
+      noWork: true,
+    })
+    expect(ctx.workStarted).toBe(false)
+    expect(ctx.root).toBe('/tmp/not-a-prjct-project-xyz')
   })
 })
