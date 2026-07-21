@@ -535,6 +535,9 @@ async function main(): Promise<void> {
       'init',
       'eval',
       'analysis-save-llm',
+      // Opt-in owned-loop brain config only (default OFF; does not change guest flow).
+      // Intentionally does NOT include embeddings — preserve pre-existing setup gate.
+      'llm',
     ])
 
     if (!noSetupRequired.has(args[0]) && (!(await fileExists(configPath)) || !routersInstalled)) {

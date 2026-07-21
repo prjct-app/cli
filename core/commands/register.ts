@@ -66,6 +66,7 @@ export const groupLoaders: Record<CommandRoutingGroup, () => Promise<object>> = 
   update: lazy(async () => new (await import('./update')).UpdateCommands()),
   spec: lazy(async () => new (await import('./spec')).SpecCommands()),
   embeddings: lazy(async () => new (await import('./embeddings')).EmbeddingsCommands()),
+  llm: lazy(async () => new (await import('./llm')).LlmCommands()),
   guard: lazy(async () => new (await import('./guard')).GuardCommands()),
   memoryExport: lazy(async () => new (await import('./memory-export')).MemoryExportCommands()),
   workflowsReference: lazy(

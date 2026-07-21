@@ -1047,6 +1047,34 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'llm',
+    group: 'setup',
+    surface: 'support',
+    routing: { group: 'llm', method: 'llm' },
+    optionSchema: {
+      strings: ['name', 'key', 'model', 'baseUrl', 'wire', 'provider', 'authHeader', 'authScheme'],
+      booleans: ['weak', 'all'],
+    },
+    description:
+      'OPT-IN (default OFF): machine-local LLM brain profiles for a future owned agent loop. Does not change guest mode. enable|disable|set|use|status|test|clear.',
+    usage: {
+      claude: 'p. llm status',
+      terminal:
+        'prjct llm <enable|disable|set|use|status|test|clear> [--name <n>] [--key <K>] [--model <M>] [--base-url <U>] [--wire openai-compatible|anthropic] [--weak] [--all]',
+    },
+    params: '[enable|disable|set|use|status|test|clear]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Default OFF — zero impact on guest harnesses until prjct llm enable (or PRJCT_OWNED_LLM=1)',
+      'Does not alter embeddings setup gate or existing verbs',
+      'Multi-profile brains: Anthropic / OpenAI / xAI / OpenRouter / Ollama / LM Studio',
+      'Partial set merges; clear <name> or clear --all (keys wiped, no orphans)',
+      'Honest probe + HTTP timeouts; no agent loop yet',
+    ],
+  },
+  {
     name: 'log',
     group: 'ceremonies',
     surface: 'ai-agile',
