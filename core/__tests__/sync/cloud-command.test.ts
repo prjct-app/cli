@@ -61,7 +61,7 @@ describe('prjct cloud command', () => {
       syncStatus: 'active',
       billingState: 'active',
       billingInterval: 'monthly',
-      billingUrl: 'https://cli.prjct.app/billing',
+      billingUrl: 'https://prjct.app/billing',
       message: 'Cloud sync is active for this repo.',
     })) as never
   })
@@ -104,7 +104,7 @@ describe('prjct cloud command', () => {
       syncStatus: 'payment_required',
       billingState: 'free',
       billingInterval: null,
-      billingUrl: 'https://cli.prjct.app/billing',
+      billingUrl: 'https://prjct.app/billing',
       message: 'Repo linked. Subscribe to activate Cloud sync.',
     })) as never
 

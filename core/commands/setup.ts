@@ -9,7 +9,7 @@ import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import authConfig from '../sync/auth-config'
+import authConfig, { DEFAULT_API_URL, DEFAULT_WEB_URL } from '../sync/auth-config'
 import {
   buildCliLoginSearchParams,
   buildExchangeBody,
@@ -105,8 +105,8 @@ export class SetupCommands extends PrjctCommandsBase {
       }
     }
 
-    const webUrl = process.env.PRJCT_WEB_URL || 'https://cli.prjct.app'
-    const apiUrl = process.env.PRJCT_API_URL || 'https://cli-api.prjct.app'
+    const webUrl = process.env.PRJCT_WEB_URL || DEFAULT_WEB_URL
+    const apiUrl = process.env.PRJCT_API_URL || DEFAULT_API_URL
     // Verifier/state only in this process for the lifetime of one login.
     const pkce = generatePkceMaterial()
     let settled = false

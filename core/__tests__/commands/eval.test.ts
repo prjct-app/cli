@@ -124,6 +124,6 @@ describe('prjct eval command', () => {
     expect(published.dryRun).toBe(true)
     expect(published.target).toBe('cloud')
     expect(published.projectId).toBe('eval-command')
-    expect(published.endpoint).toBe('https://cli-api.prjct.app/benchmarks/evals')
+    expect(published.endpoint).toBe('https://api.prjct.app/benchmarks/evals')
   })
 })

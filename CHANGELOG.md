@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [3.76.1] - 2026-07-22
+
+### Fixed
+
+- login and cloud API defaults: `cli.prjct.app` → `prjct.app`, `cli-api.prjct.app` → `api.prjct.app` (with legacy apiUrl migration)
+
 ## [3.76.0] - 2026-07-21
 
 ### Features
