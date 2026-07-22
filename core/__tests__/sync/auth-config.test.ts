@@ -56,7 +56,7 @@ describe('AuthConfig', () => {
     it('returns defaults when file does not exist', async () => {
       const cfg = await authConfig.read()
       expect(cfg.apiKey).toBeNull()
-      expect(cfg.apiUrl).toBe('https://cli-api.prjct.app')
+      expect(cfg.apiUrl).toBe('https://api.prjct.app')
       expect(cfg.userId).toBeNull()
       expect(cfg.email).toBeNull()
       expect(cfg.lastAuth).toBeNull()
@@ -86,11 +86,17 @@ describe('AuthConfig', () => {
       )
 
       const cfg = await authConfig.read()
-      const raw = JSON.parse(await fs.readFile(tmpPath, 'utf-8')) as { apiKey: string | null }
+      const raw = JSON.parse(await fs.readFile(tmpPath, 'utf-8')) as {
+        apiKey: string | null
+        apiUrl: string
+      }
 
       expect(cfg.apiKey).toBe('legacy-key')
       expect(storedToken).toBe('legacy-key')
       expect(raw.apiKey).toBeNull()
+      // Legacy API host rewritten + persisted on read.
+      expect(cfg.apiUrl).toBe('https://api.prjct.app')
+      expect(raw.apiUrl).toBe('https://api.prjct.app')
     })
 
     it('refreshes auth when another process writes the secure token after an unauthenticated read', async () => {
@@ -176,7 +182,23 @@ describe('AuthConfig', () => {
     })
 
     it('returns default api url when unset', async () => {
-      expect(await authConfig.getApiUrl()).toBe('https://cli-api.prjct.app')
+      expect(await authConfig.getApiUrl()).toBe('https://api.prjct.app')
+    })
+
+    it('rewrites legacy cli-api.prjct.app to api.prjct.app', async () => {
+      await fs.mkdir(path.dirname(tmpPath), { recursive: true })
+      await fs.writeFile(
+        tmpPath,
+        JSON.stringify({
+          apiKey: null,
+          apiUrl: 'https://cli-api.prjct.app',
+          userId: 'u',
+          email: 'e@x',
+          lastAuth: null,
+        })
+      )
+
+      expect(await authConfig.getApiUrl()).toBe('https://api.prjct.app')
     })
   })
 

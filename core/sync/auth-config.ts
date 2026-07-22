@@ -15,7 +15,14 @@ import type { AuthConfig } from '../types/sync'
 import * as fileHelper from '../utils/file-helper'
 import { clearAuthToken, getAuthToken, setAuthToken } from './secure-auth-token'
 
-const DEFAULT_API_URL = 'https://cli-api.prjct.app'
+/** Canonical cloud API base (login exchange, sync, evals, realtime). */
+export const DEFAULT_API_URL = 'https://api.prjct.app'
+
+/** Canonical web SPA (device login /auth/cli, billing). */
+export const DEFAULT_WEB_URL = 'https://prjct.app'
+
+/** Retired hosts — rewrite stored auth.json so existing logins keep working. */
+const LEGACY_API_URLS = new Set(['https://cli-api.prjct.app'])
 
 const DEFAULT_CONFIG: AuthConfig = {
   apiKey: null,
@@ -98,8 +105,13 @@ class AuthConfigManager {
       merged.hostname = os.hostname()
       mutated = true
     }
+    // Retired hosts (cli-api.prjct.app) → canonical api.prjct.app.
+    if (merged.apiUrl && LEGACY_API_URLS.has(merged.apiUrl)) {
+      merged.apiUrl = DEFAULT_API_URL
+      mutated = true
+    }
     this.cachedConfig = merged
-    // Lazy persist of deviceId/hostname only if we have an existing
+    // Lazy persist of deviceId/hostname/url only if we have an existing
     // file (don't write a fresh auth.json on a CLI that's never been
     // logged in — that would just create empty config files).
     if (mutated && config) {
