@@ -30,6 +30,7 @@ import { projectMemory } from '../memory/project-memory'
 import { buildAlignmentCard } from '../services/alignment-card'
 import { contextPressureVerdict } from '../services/context-pressure'
 import { buildRepositoryAlignmentCard } from '../services/file-cue'
+import { type PolicyConfig, resolvePolicy } from '../services/harness-policy'
 import {
   buildDeliveryGuidance,
   classifyDeliveryIntent,
@@ -44,11 +45,14 @@ import {
 } from '../services/private-skill-router'
 import { detectRepositoryWorkflowState } from '../services/repository-workflow-state'
 import {
+  advanceSessionTurn,
   beginPromptTurn,
   gateDelivery,
   markRepositoryContextDeliveredThisTurn,
   normalizeStateForMaterialChange,
 } from '../services/session-context-cache'
+import { sessionRolloverLimit, sessionRolloverVerdict } from '../services/session-rollover'
+import { classifyTurn } from '../services/task-class'
 import { buildTaskHarness } from '../services/task-harness'
 import { renderDelegationTrigger } from '../services/task-orchestration'
 import { collectActiveTasks } from '../services/task-overview'
@@ -147,6 +151,8 @@ interface HookInput {
 export interface StateEvent {
   key: string
   text: string
+  /** Lifecycle events reserve the first lane under the prompt budget. */
+  required?: boolean
 }
 
 export interface ProjectStateParts {
@@ -174,7 +180,7 @@ export interface ProjectStateParts {
 export async function buildProjectStateParts(
   projectPath: string,
   preloaded?: LocalConfig | null,
-  opts: { skipHandoff?: boolean } = {}
+  opts: { skipHandoff?: boolean; sessionTurns?: number | null } = {}
 ): Promise<ProjectStateParts | null> {
   const config = preloaded !== undefined ? preloaded : await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
@@ -186,6 +192,14 @@ export async function buildProjectStateParts(
 
   const lines: string[] = ['# prjct: project state']
   const events: StateEvent[] = []
+  const rollover = sessionRolloverVerdict(config, opts.sessionTurns)
+  if (rollover.cue) {
+    events.push({
+      key: `session-rollover:${rollover.level}`,
+      text: rollover.cue,
+      required: true,
+    })
+  }
   const scope = { id: null as string | null, description: null as string | null }
   // Active work — most useful single fact. Resolved PER worktree so a parallel
   // agent sees its own work, not a sibling's. Falls back to singular outside a
@@ -298,7 +312,7 @@ export async function buildProjectStateParts(
         if (pressure.unknownModel) {
           events.push({
             key: `budget-unknown-model:${pressure.unknownModel}`,
-            text: `# prjct: token budget unavailable\nThis cycle ran on \`${pressure.unknownModel}\`, whose context window prjct does not know, so no budget is being tracked. Set \`maxTokensPerCycle\` in \`.prjct/prjct.config.json\` to track one, or upgrade prjct if this model is newer than your install.`,
+            text: `# prjct: token budget unavailable\nThis cycle ran on \`${pressure.unknownModel}\`, whose context window prjct does not know, so no budget is being tracked. Set \`maxTokensPerCycle\` in the global project settings to track one, or upgrade prjct if this model is newer than your install.`,
           })
         }
       } catch {
@@ -807,44 +821,33 @@ async function readPersistedPromptAfterEmit(
 
 async function captureGitUncached(projectPath: string): Promise<GitSnapshot> {
   const empty: GitSnapshot = { branch: '', modified: 0, staged: 0, untracked: 0, ahead: 0 }
-  const safe = async (args: string[]): Promise<string> => {
-    try {
-      const r = await execFileAsync('git', args, { cwd: projectPath, timeout: 2000 })
-      return r.stdout.trim()
-    } catch {
-      return ''
-    }
-  }
-
-  // Hook fires on every prompt; 3 sequential git forks cost ~15-45ms.
-  // Running them in parallel collapses to a single round-trip (~5-15ms).
-  // `@{u}` returns empty when no upstream is set; treat as 0 unpushed.
-  const [branch, status, aheadStr] = await Promise.all([
-    safe(['branch', '--show-current']),
-    safe(['status', '--porcelain']),
-    safe(['rev-list', '--count', '@{u}..HEAD']),
-  ])
-  if (!branch) return empty
-
-  const { modified, staged, untracked } = status
-    .split('\n')
-    .filter(Boolean)
-    .reduce(
-      (counts, line) => {
-        const code = line.slice(0, 2)
-        if (code.startsWith('??')) counts.untracked++
-        else {
-          if (code[0] !== ' ' && code[0] !== '?') counts.staged++
-          if (code[1] !== ' ') counts.modified++
-        }
-        return counts
-      },
-      { modified: 0, staged: 0, untracked: 0 }
+  try {
+    // One porcelain snapshot contains branch, ahead count and both status
+    // columns. Avoid optional index refreshes that invalidate our TTL cache.
+    const { stdout } = await execFileAsync(
+      'git',
+      ['--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--ahead-behind'],
+      { cwd: projectPath, timeout: 2000 }
     )
-
-  const ahead = Number.parseInt(aheadStr, 10) || 0
-
-  return { branch, modified, staged, untracked, ahead }
+    const snapshot = { ...empty }
+    for (const line of stdout.split('\n')) {
+      if (line.startsWith('# branch.head ')) {
+        const branch = line.slice('# branch.head '.length)
+        snapshot.branch = branch === '(detached)' ? '' : branch
+      } else if (line.startsWith('# branch.ab ')) {
+        snapshot.ahead = Number.parseInt(line.slice('# branch.ab '.length), 10) || 0
+      } else if (line.startsWith('? ')) {
+        snapshot.untracked++
+      } else if (/^[12u] /.test(line)) {
+        const code = line.slice(2, 4)
+        if (code[0] !== '.') snapshot.staged++
+        if (code[1] !== '.') snapshot.modified++
+      }
+    }
+    return snapshot.branch ? snapshot : empty
+  } catch {
+    return empty
+  }
 }
 
 // Coarse buckets on purpose: minute/hour-level strings ("47m ago",
@@ -862,7 +865,19 @@ function formatRelative(isoTimestamp: string): string {
   return `${Math.floor(days / 30)}mo ago`
 }
 
+interface PromptGuidanceSources {
+  cueResult: TopicalCueResult | null
+  repositoryAlignment: string | null | undefined
+  delivery: string | null
+  guidance: SelectiveGuidanceResult | null
+  deliveryIntent: DeliveryIntent | null
+  privateGuidance: string | null
+  privateGuidanceKey: string | null
+}
+
 interface PromptGuidanceComputation {
+  /** Request-local inputs: repacking must never repeat retrieval or routing. */
+  sources: PromptGuidanceSources
   prioritized: string
   /** Baseline cue payload without private model guidance. Keeping this
    *  independent prevents a route from changing/stamp-churning other cues. */
@@ -895,9 +910,22 @@ function computePromptGuidance(
   tddMode?: 'off' | 'assist' | 'strict',
   hasMergeConflicts = false,
   repositoryAlignmentOverride?: string | null,
-  privateGuidanceOverride?: string | null
+  policyConfig?: PolicyConfig
 ): PromptGuidanceComputation {
-  const cueResult = buildTopicalCueResult(projectId, prompt)
+  // Turn router: on a SELF_CONTAINED turn (the prompt names the file/symbol to
+  // touch) the agent alone is fastest, so the OPTIONAL lane stays silent — the
+  // Δ evidence's "silence where the agent wins". The required repository
+  // alignment below is deliberately task-class-independent and still fires.
+  // `harness.policy` (project config) overrides the class defaults last.
+  const turn = classifyTurn(prompt)
+  const policy = resolvePolicy('', turn.cls, policyConfig)
+  const silentOptional = policy.promptLane === 'silent'
+  const capOptional = (text: string | null): string | null =>
+    text && policy.maxInjectChars > 0 && text.length > policy.maxInjectChars
+      ? safeTruncate(text, policy.maxInjectChars, undefined, Math.floor(policy.maxInjectChars / 4))
+      : text
+  const rawCue = silentOptional ? null : buildTopicalCueResult(projectId, prompt)
+  const cueResult = rawCue ? { ...rawCue, cue: capOptional(rawCue.cue) ?? rawCue.cue } : null
   const harness = buildTaskHarness(prompt)
   // Provider- and task-classification-independent. An unknown/terse prompt is
   // not permission to ignore the repository; the same source-first contract
@@ -909,8 +937,23 @@ function computePromptGuidance(
     repositoryAlignmentOverride === undefined
       ? buildRepositoryAlignmentCard(projectId, prompt, `${prompt}\n${state}`)?.content
       : repositoryAlignmentOverride
-  const delivery = buildDeliveryGuidance(prompt)
-  const guidance = buildSelectiveGuidance(projectId, prompt)
+  const delivery = silentOptional ? null : capOptional(buildDeliveryGuidance(prompt))
+  // VERIFY class: the proof-carrying contract rides the optional lane when no
+  // authored guidance claimed it — a fix is a measurement, not a claim.
+  const verifyCue =
+    turn.cls === 'VERIFY' && policy.verifyContract
+      ? 'Verify contract: record the failure first (`prjct verify repro "<cmd>"`), edit, then prove the flip (`prjct verify fix "<cmd>"`) — the same command must pass on a changed tree.'
+      : null
+  // The verify cue is a property of VERIFY turns, not a fallback: it rides
+  // alongside any authored guidance, and the whole text is capped together.
+  const selective = silentOptional ? null : buildSelectiveGuidance(projectId, prompt)
+  const guidanceText = [selective?.text, verifyCue]
+    .filter((t): t is string => Boolean(t))
+    .join('\n')
+  const guidance: SelectiveGuidanceResult | null =
+    silentOptional || !guidanceText
+      ? null
+      : { memoryIds: selective?.memoryIds ?? [], text: capOptional(guidanceText) ?? guidanceText }
   const deliveryIntent = classifyDeliveryIntent(prompt)
   const routingInput = {
     intent: prompt,
@@ -922,10 +965,32 @@ function computePromptGuidance(
     ...(deliveryIntent === 'review' ? { purpose: 'review' as const } : {}),
   }
   const route = routePrivateSkills(routingInput)
-  const privateGuidance =
-    privateGuidanceOverride === undefined
-      ? formatPrivateSkillPointers(route)
-      : privateGuidanceOverride
+  const privateGuidance = formatPrivateSkillPointers(route)
+  return packPromptGuidance(
+    {
+      cueResult,
+      repositoryAlignment,
+      delivery,
+      guidance,
+      deliveryIntent,
+      privateGuidance,
+      privateGuidanceKey: privateGuidance
+        ? `private-guidance:${route.workflow?.id ?? 'none'}:${route.reference?.id ?? 'none'}`
+        : null,
+    },
+    state,
+    budget
+  )
+}
+
+/** Pure budget packing over the inputs already resolved for this request. */
+function packPromptGuidance(
+  sources: PromptGuidanceSources,
+  state: string,
+  budget: number
+): PromptGuidanceComputation {
+  const { cueResult, repositoryAlignment, delivery, guidance, deliveryIntent, privateGuidance } =
+    sources
   // Repository alignment is required whenever the code index has a concrete
   // implementation to inspect. It must coexist with routed workflows: the old
   // either/or branch dropped file scope exactly on bug/TDD/review turns.
@@ -949,17 +1014,16 @@ function computePromptGuidance(
   )
   const cueOnly = cueSections.filter((section) => prioritized.includes(section)).join('\n\n')
   const modelGuidanceIncluded = Boolean(modelGuidance && prioritized.includes(modelGuidance))
-  const privateGuidanceKey = privateGuidance
-    ? `private-guidance:${route.workflow?.id ?? 'none'}:${route.reference?.id ?? 'none'}`
-    : null
+  const privateGuidanceKey = privateGuidance ? sources.privateGuidanceKey : null
   const guidanceIncluded = Boolean(guidance?.text && prioritized.includes(guidance.text))
   const deliveryIncluded = Boolean(delivery && prioritized.includes(delivery))
   const guidanceRuleId = deliveryIncluded
-    ? `delivery:${classifyDeliveryIntent(prompt) ?? 'unknown'}`
+    ? `delivery:${deliveryIntent ?? 'unknown'}`
     : guidanceIncluded
       ? (guidance?.memoryIds[0] ?? null)
       : null
   return {
+    sources,
     prioritized,
     cuePrioritized,
     modelGuidance,
@@ -986,6 +1050,16 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
         if (!config?.projectId) return null
         const sessionId = input.session_id ?? input.conversation_id
         const deliverySessionId = sessionId ?? 'sessionless'
+        const rolloverLimit = sessionRolloverLimit(config)
+        const sessionTurns =
+          rolloverLimit > 0
+            ? await advanceSessionTurn({
+                projectId: config.projectId,
+                projectPath: p,
+                sessionId,
+                maxCount: rolloverLimit,
+              })
+            : null
         const promptTurnId = await beginPromptTurn({
           projectId: config.projectId,
           projectPath: p,
@@ -1013,6 +1087,7 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
         // block flows through the delivery gate; a silent turn emits nothing.
         const parts = await buildProjectStateParts(p, config, {
           skipHandoff: Boolean(kimiInjection),
+          sessionTurns,
         })
         const sessionContext = kimiInjection
           ? kimiInjection === 'reanchor'
@@ -1067,9 +1142,16 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
           // it cannot loop. Stamping truncated-away content would suppress
           // it for the whole session without the model ever seeing it.
           const standingFresh = Boolean(parts?.standing) && standingGate?.suppressed === false
+          const requiredEvents = freshEvents.filter((event) => event.required)
+          const optionalEvents = freshEvents.filter((event) => !event.required)
           const stateCandidates: Array<{ key?: string; text: string; standing: boolean }> = [
+            ...requiredEvents.map((event) => ({
+              key: `event:${event.key}`,
+              text: event.text,
+              standing: false,
+            })),
             ...(standingFresh && parts?.standing ? [{ text: parts.standing, standing: true }] : []),
-            ...freshEvents.map((event) => ({
+            ...optionalEvents.map((event) => ({
               key: `event:${event.key}`,
               text: event.text,
               standing: false,
@@ -1147,7 +1229,8 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
             budget,
             config.tdd?.mode,
             hasMergeConflicts,
-            repositoryFresh ? repositoryAlignment?.content : null
+            repositoryFresh ? repositoryAlignment?.content : null,
+            config
           )
           const privateGuidanceGate =
             preview.privateGuidance && preview.privateGuidanceKey
@@ -1161,18 +1244,10 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
                 })
               : null
           const privateGuidanceFresh = privateGuidanceGate?.suppressed === false
-          const computed = privateGuidanceFresh
-            ? preview
-            : computePromptGuidance(
-                config.projectId,
-                prompt,
-                base,
-                budget,
-                config.tdd?.mode,
-                hasMergeConflicts,
-                repositoryFresh ? repositoryAlignment?.content : null,
-                null
-              )
+          const computed =
+            privateGuidanceFresh || !preview.privateGuidance
+              ? preview
+              : packPromptGuidance({ ...preview.sources, privateGuidance: null }, base, budget)
           const {
             prioritized,
             cuePrioritized,
@@ -1339,7 +1414,8 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
           budget,
           config.tdd?.mode,
           hasMergeConflicts,
-          repositoryFresh ? repositoryAlignment?.content : null
+          repositoryFresh ? repositoryAlignment?.content : null,
+          config
         )
         const privateGuidanceGate =
           preview.privateGuidance && preview.privateGuidanceKey
@@ -1354,18 +1430,10 @@ export function runPromptHook(projectPath: string = process.cwd(), io?: HookIo):
               })
             : null
         const privateGuidanceFresh = privateGuidanceGate?.suppressed === false
-        const computed = privateGuidanceFresh
-          ? preview
-          : computePromptGuidance(
-              config.projectId,
-              prompt,
-              base,
-              budget,
-              config.tdd?.mode,
-              hasMergeConflicts,
-              repositoryFresh ? repositoryAlignment?.content : null,
-              null
-            )
+        const computed =
+          privateGuidanceFresh || !preview.privateGuidance
+            ? preview
+            : packPromptGuidance({ ...preview.sources, privateGuidance: null }, base, budget)
         const {
           prioritized,
           cueResult,
@@ -1510,7 +1578,9 @@ async function rebuildPromptAfterEmit(
     state ?? '',
     STATE_BUDGET,
     config.tdd?.mode,
-    detectRepositoryWorkflowState(projectPath).hasMergeConflicts
+    detectRepositoryWorkflowState(projectPath).hasMergeConflicts,
+    undefined,
+    config
   )
   return {
     projectId: config.projectId,

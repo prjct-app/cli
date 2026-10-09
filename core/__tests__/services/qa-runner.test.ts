@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import configManager from '../../infrastructure/config-manager'
 import { getQaPlan, upsertQaPlan } from '../../services/qa-plan'
 import {
   detectQaCandidates,
@@ -14,6 +15,7 @@ import {
 } from '../../services/qa-runner'
 import prjctDb from '../../storage/database'
 import type { LocalConfig } from '../../types/config'
+import { execFileAsync } from '../../utils/exec'
 import { patchPathManager, restorePathManager } from '../_setup/path-manager-mock'
 
 const fixture: { tmpRoot: string; projectDir: string; projectId: string } = {
@@ -38,6 +40,23 @@ beforeEach(async () => {
   patchPathManager(fixture.tmpRoot)
   prjctDb.run(fixture.projectId, 'SELECT 1 WHERE 1=0')
   await writeConfig()
+  await execFileAsync('git', ['init', '-q'], { cwd: fixture.projectDir })
+  await execFileAsync(
+    'git',
+    [
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '--allow-empty',
+      '-qm',
+      'seed',
+    ],
+    { cwd: fixture.projectDir }
+  )
 })
 
 afterEach(async () => {
@@ -156,9 +175,7 @@ describe('config helpers', () => {
   it('setQaValue writes app.* and extra commands; bootstrap cue only when an app is unreachable', async () => {
     expect((await setQaValue(fixture.projectDir, 'app.start', 'node server.js')).ok).toBe(true)
     expect((await setQaValue(fixture.projectDir, 'app.readyTimeoutMs', 'abc')).ok).toBe(false)
-    const raw = JSON.parse(
-      await fs.readFile(path.join(fixture.projectDir, '.prjct', 'prjct.config.json'), 'utf8')
-    ) as LocalConfig
+    const raw = (await configManager.readConfig(fixture.projectDir))!
     expect(raw.qa?.app?.start).toBe('node server.js')
 
     await fs.writeFile(

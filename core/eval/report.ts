@@ -3,20 +3,23 @@
  * `prjct harness retrieval` verb, the `scripts/eval-retrieval.mjs` script, and
  * the CI baseline test. Scores the retrievers prjct actually serves (BM25 over
  * the real FTS5 index; the local hashing embedder) over a project's own
- * author-declared ledger pairs, with a leak-free temporal split. No LLM, no API
- * tokens.
- *
- * Phase 0 scores the LEGS. Scoring the blended `enrichedRecall` pipeline needs a
- * side-effect-free recall (it records fetches today) — that lands in Phase 2
- * alongside the RRF fusion this baseline exists to gate.
+ * distinct queries. The served pipeline disables attribution; comparison gates
+ * use explicit references only. Date cohorts rank the current frozen corpus,
+ * not a historical replay. A configured HTTP embedder may consume provider tokens.
  */
 
+import configManager from '../infrastructure/config-manager'
+import { enrichedRecall } from '../memory/enriched-recall'
 import type { MemoryEntry } from '../memory/entries'
+import { hashBlobContent } from '../services/content-bound-stamp'
+import type { EmbeddingProvider } from '../services/embeddings'
 import { LocalSubwordEmbeddingProvider } from '../services/embeddings'
+import prjctDb from '../storage/database'
 import { exportLedgerPairs, type LabeledPair, temporalSplit } from './ledger-pairs'
 import { evalBm25, evalFused, evalProvider } from './retrieval-eval'
 import {
   type AggregateMetrics,
+  aggregate,
   evaluateImprovementGate,
   type ImprovementGateResult,
 } from './retrieval-metrics'
@@ -33,6 +36,15 @@ export interface RetrievalLeg {
 }
 
 export interface RetrievalReport {
+  snapshotHash: string
+  served: {
+    all: AggregateMetrics
+    explicit: AggregateMetrics
+    proxy: AggregateMetrics
+    heldOutExplicit: AggregateMetrics
+  }
+  servedCost: 'local' | 'configured-provider'
+
   projectId: string
   k: number
   corpusSize: number
@@ -41,9 +53,9 @@ export interface RetrievalReport {
   cutoff: string
   trainSize: number
   evalSize: number
-  /** All labeled pairs — more signal at low volume. */
+  /** All distinct explicit-reference queries; proxies never qualify a swap. */
   all: RetrievalLeg | null
-  /** Held-out newest 20% — the honest, leak-free number. */
+  /** Newest 20% of explicit queries against the current frozen corpus. */
   heldOut: RetrievalLeg | null
 }
 
@@ -51,10 +63,10 @@ async function scoreLeg(
   projectId: string,
   entries: MemoryEntry[],
   pairs: LabeledPair[],
-  k: number
+  k: number,
+  provider: EmbeddingProvider
 ): Promise<RetrievalLeg | null> {
   if (pairs.length === 0) return null
-  const provider = new LocalSubwordEmbeddingProvider()
   const bm25 = evalBm25(projectId, pairs, k)
   const hashing = await evalProvider(entries, pairs, provider, k)
   const fused = await evalFused(projectId, entries, pairs, provider, k)
@@ -67,15 +79,71 @@ async function scoreLeg(
   }
 }
 
-export async function buildRetrievalReport(projectId: string, k = 10): Promise<RetrievalReport> {
+export async function buildRetrievalReport(
+  projectId: string,
+  k = 10,
+  projectPath = process.cwd()
+): Promise<RetrievalReport> {
   const { entries, pairs } = exportLedgerPairs(projectId)
-  const split = temporalSplit(pairs, 0.2)
+  const explicitPairs = pairs.filter((pair) => pair.source !== 'ship-surfaced')
+  const split = temporalSplit(explicitPairs, 0.2)
   const labelSources = pairs.reduce<Record<string, number>>((acc, pair) => {
     const source = pair.source ?? 'reference-edge'
     acc[source] = (acc[source] ?? 0) + 1
     return acc
   }, {})
-  return {
+  const config = await configManager.readConfig(projectPath)
+  const usefulness = () =>
+    JSON.stringify(prjctDb.query(projectId, 'SELECT * FROM memory_usefulness ORDER BY memory_id'))
+  const semanticIndex = () =>
+    prjctDb.query(
+      projectId,
+      'SELECT rowid, memory_id, hex(vector) AS vector, model, dims, norm, created_at FROM memory_embeddings ORDER BY rowid'
+    )
+  const before = JSON.stringify({
+    entries,
+    pairs,
+    usefulness: usefulness(),
+    config,
+    semanticIndex: semanticIndex(),
+  })
+  const allowedIds = new Set(entries.map((e) => e.id))
+  const nowMs = Date.now()
+  const servedCases: Array<{ pair: LabeledPair; ranked: string[]; relevant: Set<string> }> = []
+  for (const pair of pairs) {
+    const recalled = await enrichedRecall(projectPath, projectId, {
+      topic: pair.queryText,
+      limit: k,
+      recordAttribution: false,
+      excludeIds: [pair.anchorId, ...(pair.excludeIds ?? [])],
+      allowedIds,
+      nowMs,
+      configSnapshot: config,
+    })
+    servedCases.push({ pair, ranked: recalled.map((e) => e.id), relevant: new Set(pair.positives) })
+  }
+  const explicit = servedCases.filter((c) => c.pair.source !== 'ship-surfaced')
+  const heldOutAnchors = new Set(
+    temporalSplit(
+      explicit.map((c) => c.pair),
+      0.2
+    ).evalSet.map((p) => p.anchorId)
+  )
+  const local = new LocalSubwordEmbeddingProvider()
+  const cache = new Map<string, number[]>()
+  const provider: EmbeddingProvider = {
+    model: local.model,
+    isLocal: true,
+    embed: async (texts) => {
+      const missing = [...new Set(texts.filter((text) => !cache.has(text)))]
+      const vectors = await local.embed(missing)
+      missing.forEach((text, i) => {
+        cache.set(text, vectors[i]!)
+      })
+      return texts.map((text) => cache.get(text)!)
+    },
+  }
+  const report: RetrievalReport = {
     projectId,
     k,
     corpusSize: entries.length,
@@ -84,9 +152,39 @@ export async function buildRetrievalReport(projectId: string, k = 10): Promise<R
     cutoff: split.cutoff,
     trainSize: split.train.length,
     evalSize: split.evalSet.length,
-    all: await scoreLeg(projectId, entries, pairs, k),
-    heldOut: await scoreLeg(projectId, entries, split.evalSet, k),
+    all: await scoreLeg(projectId, entries, explicitPairs, k, provider),
+    heldOut: await scoreLeg(projectId, entries, split.evalSet, k, provider),
+    snapshotHash: hashBlobContent(before),
+    servedCost:
+      config?.embeddings?.provider === 'openai-compatible' ? 'configured-provider' : 'local',
+    served: {
+      all: aggregate(servedCases, k),
+      explicit: aggregate(explicit, k),
+      proxy: aggregate(
+        servedCases.filter((c) => c.pair.source === 'ship-surfaced'),
+        k
+      ),
+      heldOutExplicit: aggregate(
+        explicit.filter((c) => heldOutAnchors.has(c.pair.anchorId)),
+        k
+      ),
+    },
   }
+  const after = exportLedgerPairs(projectId)
+  if (
+    before !==
+    JSON.stringify({
+      entries: after.entries,
+      pairs: after.pairs,
+      usefulness: usefulness(),
+      config: await configManager.readConfig(projectPath),
+      semanticIndex: semanticIndex(),
+    })
+  )
+    throw new Error(
+      'Retrieval corpus, configuration or usefulness changed during evaluation; discard this run and retry on a stable snapshot.'
+    )
+  return report
 }
 
 const pct = (x: number): string => `${(x * 100).toFixed(1)}%`
@@ -111,7 +209,7 @@ export function renderRetrievalReportMd(report: RetrievalReport): string {
     Object.entries(report.labelSources)
       .map(([source, n]) => `${source}=${n}`)
       .join(', ') || 'none'
-  const rows = [['ALL', report.all] as const, ['held-out', report.heldOut] as const]
+  const rows = [['explicit', report.all] as const, ['held-out explicit', report.heldOut] as const]
     .filter(([, leg]) => leg !== null)
     .flatMap(([label, leg]) => {
       const l = leg as RetrievalLeg
@@ -126,20 +224,33 @@ export function renderRetrievalReportMd(report: RetrievalReport): string {
     `## Retrieval baseline — project ${report.projectId}`,
     '',
     `- corpus (model-worthy): ${report.corpusSize} entries`,
-    `- labeled pairs: ${report.pairCount} (${sources})`,
-    `- temporal split @ ${report.cutoff || 'n/a'} — train ${report.trainSize} / held-out ${report.evalSize}`,
-    '- cost: local CPU + SQLite; no LLM/API tokens',
+    `- distinct labeled queries: ${report.pairCount} (${sources})`,
+    `- explicit date split @ ${report.cutoff || 'n/a'} — train ${report.trainSize} / held-out ${report.evalSize}`,
+    '- Date cohorts use the current frozen corpus; this is not a historical replay.',
+    `- served retrieval cost: ${report.servedCost === 'local' ? 'local CPU + SQLite' : 'configured embedding provider; provider usage is not measured here'}`,
+    `- frozen inputs: ${report.snapshotHash}; evaluation attribution disabled`,
+    '- Ship-surfaced labels are proxy relevance, not explicit usage evidence.',
+    '- Comparison gates use distinct explicit-reference queries only; proxy counts cannot satisfy their sample threshold.',
+    '',
+    `| served pipeline label set | queries | Recall@${report.k} | MRR | nDCG |`,
+    '|---|---:|---:|---:|---:|',
+    ...Object.entries(report.served).map(
+      ([name, m]) =>
+        `| ${name} | ${m.queries} | ${pct(m.recallAtK)} | ${pct(m.mrr)} | ${pct(m.ndcgAtK)} |`
+    ),
     '',
     report.pairCount === 0
       ? '_No labeled pairs yet — reference an older `mem_N` when you capture, or ship work that surfaces memory._'
-      : [
-          `| set | retriever | Recall@${report.k} | MRR | nDCG@${report.k} |`,
-          '|---|---|---|---|---|',
-          ...rows,
-          '',
-          `Swap gate (hashing vs BM25): ${gate ? gateLine(gate) : 'n/a'}`,
-          `**Fusion gate (RRF vs BM25): ${gate ? gateLine((report.heldOut ?? report.all)?.fusionGate ?? gate) : 'n/a'}**`,
-        ].join('\n'),
+      : !report.all
+        ? '_No explicit-reference queries; proxy diagnostics cannot qualify a comparison gate._'
+        : [
+            `| set | retriever | Recall@${report.k} | MRR | nDCG@${report.k} |`,
+            '|---|---|---|---|---|',
+            ...rows,
+            '',
+            `Swap gate (hashing vs BM25): ${gate ? gateLine(gate) : 'n/a'}`,
+            `**Fusion gate (RRF vs BM25): ${gate ? gateLine((report.heldOut ?? report.all)?.fusionGate ?? gate) : 'n/a'}**`,
+          ].join('\n'),
     '',
   ].join('\n')
 }
@@ -149,11 +260,13 @@ export function renderRetrievalReportText(report: RetrievalReport): string {
     `Recall@${report.k}=${pct(m.recallAtK)}  MRR=${pct(m.mrr)}  nDCG@${report.k}=${pct(m.ndcgAtK)}`
   const lines = [
     `Retrieval baseline · project ${report.projectId}`,
-    `  corpus ${report.corpusSize} · pairs ${report.pairCount} · split @ ${report.cutoff || 'n/a'} (train ${report.trainSize}, held-out ${report.evalSize})`,
+    `  served explicit n=${report.served.explicit.queries}; proxy n=${report.served.proxy.queries}; snapshot=${report.snapshotHash}`,
+    `  corpus ${report.corpusSize} · distinct queries ${report.pairCount} · explicit split @ ${report.cutoff || 'n/a'} (train ${report.trainSize}, held-out ${report.evalSize})`,
+    '  Comparison gates exclude proxies. Date cohorts use the current frozen corpus, not historical replay.',
   ]
   for (const [label, leg] of [
-    ['ALL', report.all],
-    ['held-out', report.heldOut],
+    ['explicit', report.all],
+    ['held-out explicit', report.heldOut],
   ] as const) {
     if (!leg) continue
     lines.push(`  ${label}`)

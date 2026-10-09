@@ -93,33 +93,38 @@ async function untrackedLoc(projectPath: string, files: readonly string[]): Prom
 
 export async function resolveReviewPayloadBase(projectPath: string): Promise<string | null> {
   const originHead = await safeGit(projectPath, ['rev-parse', '--abbrev-ref', 'origin/HEAD'])
-  const defaultRef =
-    originHead && originHead !== 'origin/HEAD'
-      ? originHead
-      : await (async () => {
-          for (const candidate of ['main', 'master']) {
-            if (
-              (await safeGit(projectPath, ['rev-parse', '--verify', '--quiet', candidate])) !== null
-            ) {
-              return candidate
-            }
-          }
-          return ''
-        })()
-  if (!defaultRef) return null
-  const [base, headSha] = await Promise.all([
-    safeGit(projectPath, ['merge-base', defaultRef, 'HEAD']),
-    safeGit(projectPath, ['rev-parse', 'HEAD']),
+  if (originHead && originHead !== 'origin/HEAD') {
+    const originBase = await safeGit(projectPath, ['merge-base', originHead, 'HEAD'])
+    if (originBase) return originBase
+  }
+
+  const configured = await safeGit(projectPath, ['config', '--get', 'init.defaultBranch'])
+  for (const candidate of [configured, 'main', 'master'].filter(Boolean) as string[]) {
+    if ((await safeGit(projectPath, ['rev-parse', '--verify', '--quiet', candidate])) === null)
+      continue
+    const base = await safeGit(projectPath, ['merge-base', candidate, 'HEAD'])
+    if (!base) continue
+    const [headSha, currentBranch] = await Promise.all([
+      safeGit(projectPath, ['rev-parse', 'HEAD']),
+      safeGit(projectPath, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
+    ])
+    if (base === headSha && candidate === currentBranch) {
+      const roots = await safeGit(projectPath, ['rev-list', '--max-parents=0', 'HEAD'])
+      return roots?.split('\n').find(Boolean) ?? base
+    }
+    return base
+  }
+
+  // No branch ref is authoritative here: every remaining ref may point inside
+  // the feature history. The first-parent root is conservative (it can review
+  // extra history) but cannot truncate an earlier feature commit.
+  const roots = await safeGit(projectPath, [
+    'rev-list',
+    '--first-parent',
+    '--max-parents=0',
+    'HEAD',
   ])
-  if (!base || !headSha || base !== headSha || defaultRef.startsWith('origin/')) return base
-
-  const currentBranch = await safeGit(projectPath, ['symbolic-ref', '--quiet', '--short', 'HEAD'])
-  if (currentBranch !== defaultRef) return base
-
-  // With no remote and while working directly on local main/master, using HEAD
-  // as its own base would hide every local commit. Fall back to the root commit.
-  const roots = await safeGit(projectPath, ['rev-list', '--max-parents=0', 'HEAD'])
-  return roots?.split('\n').find(Boolean) ?? base
+  return roots?.split('\n').find(Boolean) ?? null
 }
 
 export async function resolveReviewPayloadPaths(projectPath: string): Promise<string[]> {

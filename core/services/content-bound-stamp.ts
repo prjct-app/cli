@@ -76,7 +76,8 @@ export function buildTreeHash(entries: ReadonlyArray<{ path: string; blobHash: s
 }
 
 export function normalizeStampPath(p: string): string {
-  return p.replace(/\\/g, '/').replace(/^\.\//, '').trim()
+  const separatorsNormalized = process.platform === 'win32' ? p.replace(/\\/g, '/') : p
+  return separatorsNormalized.replace(/^\.\//, '')
 }
 
 /**
@@ -225,7 +226,11 @@ function hashIdentity(kind: string, mode: string, value: string | Buffer): strin
   )
 }
 
-async function hashProjectPath(projectPath: string, relativePath: string): Promise<string> {
+async function hashProjectPath(
+  projectPath: string,
+  relativePath: string,
+  strict = false
+): Promise<string> {
   const root = path.resolve(projectPath)
   const abs = path.resolve(root, relativePath)
   if (abs === root || !abs.startsWith(`${root}${path.sep}`)) return BLOB_MISSING
@@ -245,6 +250,7 @@ async function hashProjectPath(projectPath: string, relativePath: string): Promi
     return hashIdentity('blob', mode, await fs.readFile(abs))
   } catch (error) {
     if (error instanceof GitInfraError) throw error
+    if (strict && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     return BLOB_MISSING
   }
 }
@@ -253,13 +259,19 @@ async function hashProjectPath(projectPath: string, relativePath: string): Promi
 export async function stampProjectPaths(
   projectPath: string,
   paths: readonly string[],
-  opts: { stampedAt: string; headSha?: string; baseSha?: string; payloadBound?: boolean }
+  opts: {
+    stampedAt: string
+    headSha?: string
+    baseSha?: string
+    payloadBound?: boolean
+    strict?: boolean
+  }
 ): Promise<ContentBoundStamp> {
   const entries: ContentBoundPathStamp[] = []
   for (const p of paths) {
     const norm = normalizeStampPath(p)
     if (!norm) continue
-    entries.push({ path: norm, blobHash: await hashProjectPath(projectPath, norm) })
+    entries.push({ path: norm, blobHash: await hashProjectPath(projectPath, norm, opts.strict) })
   }
   const byPath = new Map(entries.map((entry) => [entry.path, entry.blobHash]))
   const all = [...byPath.entries()]
@@ -281,10 +293,14 @@ export async function stampProjectPaths(
 /** Full approve-time stamp: resolve paths + hash + optional HEAD. */
 export async function stampForApprove(
   projectPath: string,
-  scopePaths: readonly string[] | undefined,
+  _scopePaths: readonly string[] | undefined,
   stampedAt: string
 ): Promise<ContentBoundStamp> {
-  const paths = await resolveStampPaths(projectPath, scopePaths)
+  // Approval binds the exact final delivery manifest. Frozen review scope can
+  // contain a path reverted during fixes, while the fix itself can add a new
+  // regression test. Hashing the live payload here makes approve and ship use
+  // the same set and still catches every post-approval addition or edit.
+  const paths = await resolveReviewPayloadPaths(projectPath)
   const [headSha, baseSha] = await Promise.all([
     safeGit(projectPath, ['rev-parse', 'HEAD']),
     resolveReviewPayloadBase(projectPath),

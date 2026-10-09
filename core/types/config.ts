@@ -25,8 +25,8 @@ export interface ProjectPersona {
 }
 
 /**
- * Local config - stored in .prjct/prjct.config.json
- * Minimal config that points to global storage
+ * Effective per-project config. Mutable fields are stored in prjct's global
+ * project store; `.prjct/prjct.config.json` contains only the stable locator.
  */
 export interface LocalConfig {
   projectId: string
@@ -106,6 +106,13 @@ export interface LocalConfig {
    */
   maxTurnsPerCycle?: number
   /**
+   * Hard boundary for one host conversation across any number of work cycles.
+   * Warns once at 80%, then stops project tools at the limit until the user
+   * lands and starts a fresh (non-resumed) session. Code packs default to
+   * 100; an explicit zero disables that pack default.
+   */
+  maxTurnsPerSession?: number
+  /**
    * Soft token budget per work cycle. When set, the per-turn state block
    * warns at 80% and calls for a split/check-in at 100% — measurement-backed
    * loop discipline (tokens, not just turns). Advisory: never blocks edits.
@@ -178,10 +185,16 @@ export interface LocalConfig {
    */
   enforce?: {
     /**
-     * Deny a Grep/Glob whose token prjct already holds recorded judgment about
-     * (once per token per session), pointing at `prjct search` instead.
+     * How to handle a Grep/Glob whose token prjct already holds recorded
+     * judgment (decisions/gotchas) about — knowledge no grep can recover:
+     *   - `'inject'` (default): allow the search AND attach the recorded
+     *     judgment inline as additionalContext (once per token/session). No
+     *     dependence on the model choosing to run a lookup.
+     *   - `'deny'` / `true`: block the call once, pointing at `prjct search`
+     *     (the pre-inject enforcement behaviour).
+     *   - `false`: off.
      */
-    knowledgeFirst?: boolean
+    knowledgeFirst?: boolean | 'inject' | 'deny'
   }
   /**
    * Machine gauntlet. Detection covers the common ecosystems; declaring
@@ -191,6 +204,25 @@ export interface LocalConfig {
    */
   gauntlet?: {
     commands?: Array<{ kind: 'typecheck' | 'lint' | 'test'; command: string }>
+  }
+  /**
+   * Harness tuning. `mcpTier` documents the intended MCP tool tier (the live
+   * default is set in code — see DEFAULT_MCP_TOOL_TIER); `policy` overrides the
+   * per-task-class prompt-hook behaviour by class name (SELF_CONTAINED,
+   * PROJECT_KNOWLEDGE, EXPLORATION, VERIFY, UNKNOWN — see
+   * core/services/harness-policy). Pre-search judgment injection is governed by
+   * `enforce.knowledgeFirst`, not here.
+   */
+  harness?: {
+    mcpTier?: 'micro' | 'lean' | 'core' | 'standard' | 'all'
+    policy?: Record<
+      string,
+      {
+        promptLane?: 'silent' | 'inject' | 'ranked'
+        maxInjectChars?: number
+        verifyContract?: boolean
+      }
+    >
   }
   /**
    * QA phase — per-cycle acceptance criteria + flows, verified without any

@@ -246,6 +246,9 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
                     // — both used to default to 'cli' and silently clobber each
                     // other via the token_usage upsert (ON CONFLICT(event_key)).
                     source: `${runtime}-transcript`,
+                    observationId: input.session_id ? `${runtime}:${input.session_id}` : undefined,
+                    usageKind: 'total',
+                    runtime,
                   }
                 )
                 // Per-model breakdown: one token_usage row per model this
@@ -268,6 +271,11 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
                         model,
                         agent: runtime,
                         source: `${runtime}-transcript:${model}`,
+                        observationId: input.session_id
+                          ? `${runtime}:${input.session_id}`
+                          : undefined,
+                        usageKind: 'model',
+                        runtime,
                       }
                     )
                   }
@@ -322,6 +330,16 @@ export function runStopHook(projectPath: string = process.cwd(), io?: HookIo): P
             await detectAndPersistPatterns(p, config)
           } catch {
             // Git failure / non-repo → swallow; nothing to do here.
+          }
+
+          // Anchor staleness sweep (memory/anchors.ts): re-check the file /
+          // symbol anchors of recent captures against HEAD and mark the ones
+          // that no longer resolve, so recall demotes them and renders a cue.
+          try {
+            const { markStaleMemoryAnchors } = await import('../memory/anchors')
+            await markStaleMemoryAnchors(config.projectId, p)
+          } catch {
+            // best-effort — a git/index failure must not affect session close
           }
 
           // Lean-debt growth (opt-in via config.lean.mode): flag when `lean:`

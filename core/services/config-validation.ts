@@ -24,6 +24,7 @@ export const KNOWN_CONFIG_KEYS: readonly string[] = [
   'tdd',
   'sdd',
   'maxTurnsPerCycle',
+  'maxTurnsPerSession',
   'maxTokensPerCycle',
   'contextPressure',
   'delivery',
@@ -32,6 +33,9 @@ export const KNOWN_CONFIG_KEYS: readonly string[] = [
   'judgment',
   'qa',
   'notify',
+  'enforce',
+  'gauntlet',
+  'harness',
   'retention',
   'multiAgent',
   'embeddings',
@@ -96,8 +100,8 @@ export function unknownConfigKeysMessage(config: unknown): string | null {
       : `  \`${key}\` is ignored — not a prjct config key.`
   )
   return [
-    `${unknown.length} unrecognised key${unknown.length === 1 ? '' : 's'} in \`.prjct/prjct.config.json\`:`,
+    `${unknown.length} unrecognised project setting${unknown.length === 1 ? '' : 's'}:`,
     ...lines,
-    `An ignored key looks exactly like a feature that does not work. Remove it or fix the spelling.`,
+    `Fix it in prjct's global project settings; the client locator is not configuration.`,
   ].join('\n')
 }

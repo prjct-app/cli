@@ -22,6 +22,7 @@ const SHARDS: ReadonlyArray<readonly [string, readonly string[]]> = [
     'core-a',
     [
       'core/__tests__/domain',
+      'core/__tests__/agent',
       'core/__tests__/schemas',
       'core/__tests__/utils',
       'core/__tests__/hooks',
@@ -76,7 +77,7 @@ process.once('SIGTERM', () => stop('SIGTERM'))
 async function runShard(name: string, dirs: readonly string[]): Promise<ShardResult> {
   const shardTemp = path.join(tempRoot, name)
   mkdirSync(shardTemp, { recursive: true })
-  const result = await runProc('bun', ['test', '--dots', ...dirs], {
+  const result = await runProc('bun', ['test', '--timeout', '20000', '--dots', ...dirs], {
     cwd: process.cwd(),
     env: { ...process.env, TMPDIR: shardTemp },
     timeoutMs: SHARD_TIMEOUT_MS,

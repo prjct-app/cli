@@ -48,7 +48,7 @@ export interface EmbeddingProvider {
    * batched backfill. Remote/HTTP providers leave this falsy.
    */
   readonly isLocal?: boolean
-  embed(texts: string[]): Promise<number[][]>
+  embed(texts: string[], options?: { signal?: AbortSignal }): Promise<number[][]>
 }
 
 /**
@@ -77,6 +77,8 @@ export function resolveProvider(config: LocalConfig | null | undefined): Embeddi
  * All optional; the defaults are exactly the OpenAI/OpenRouter/Ollama shape.
  */
 export interface HttpAuthOptions {
+  /** Whole request deadline, including response body; default 10 seconds. */
+  timeoutMs?: number
   /** Header that carries the API key. Default `authorization`. */
   authHeader?: string
   /** Scheme/prefix before the key, e.g. `Bearer`. Empty string = raw key
@@ -132,16 +134,52 @@ export class HttpEmbeddingProvider implements EmbeddingProvider {
     private readonly auth: HttpAuthOptions = {}
   ) {}
 
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], options: { signal?: AbortSignal } = {}): Promise<number[][]> {
     if (texts.length === 0) return []
-    const key = await getEmbeddingsKey()
-    const { url, init } = buildEmbeddingsRequest(this.baseUrl, this.model, texts, key, this.auth)
-    const res = await fetch(url, init)
-    if (!res.ok) {
-      throw new Error(`embeddings endpoint ${res.status}: ${await res.text().catch(() => '')}`)
+    const configured = this.auth.timeoutMs ?? 10_000
+    if (!Number.isFinite(configured) || configured < 1 || configured > 120_000)
+      throw new Error('Embedding deadline must be between 1 and 120000ms')
+    const controller = new AbortController()
+    const abort = () => controller.abort(options.signal?.reason)
+    options.signal?.addEventListener('abort', abort, { once: true })
+    if (options.signal?.aborted) abort()
+    const timer = setTimeout(
+      () => controller.abort(new Error('Embedding deadline exceeded')),
+      configured
+    )
+    try {
+      controller.signal.throwIfAborted()
+      const key = await getEmbeddingsKey({ signal: controller.signal })
+      controller.signal.throwIfAborted()
+      const { url, init } = buildEmbeddingsRequest(this.baseUrl, this.model, texts, key, this.auth)
+      const res = await fetch(url, { ...init, signal: controller.signal })
+      if (!res.ok) throw new Error(`embeddings endpoint ${res.status}`)
+      const json = (await res.json()) as { data?: Array<{ embedding: number[]; index?: number }> }
+      controller.signal.throwIfAborted()
+      const data = json.data
+      if (!Array.isArray(data) || data.length !== texts.length)
+        throw new Error('Embedding response count mismatch')
+      const ordered = data.every((d) => d.index !== undefined)
+        ? [...data].sort((a, b) => a.index! - b.index!)
+        : data
+      if (ordered.some((d, i) => d.index !== undefined && d.index !== i))
+        throw new Error('Embedding response index mismatch')
+      const dimension = ordered[0]?.embedding?.length
+      if (
+        !dimension ||
+        ordered.some(
+          (d) =>
+            !Array.isArray(d.embedding) ||
+            d.embedding.length !== dimension ||
+            d.embedding.some((n) => !Number.isFinite(n))
+        )
+      )
+        throw new Error('Invalid embedding vectors')
+      return ordered.map((d) => d.embedding)
+    } finally {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', abort)
     }
-    const json = (await res.json()) as { data?: Array<{ embedding: number[] }> }
-    return (json.data ?? []).map((d) => d.embedding)
   }
 }
 
@@ -500,18 +538,12 @@ export const embeddingService = {
     query: string,
     config: LocalConfig,
     limit = 10,
-    provider?: EmbeddingProvider
+    provider?: EmbeddingProvider,
+    accept?: (entry: MemoryEntry) => boolean
   ): Promise<MemoryEntry[]> {
     const p = provider ?? resolveActiveProvider(config)
-    if (!query.trim()) return []
-    const qv = await (async (): Promise<number[] | undefined> => {
-      try {
-        return (await p.embed([query]))[0]
-      } catch {
-        return undefined
-      }
-    })()
-    if (!qv || qv.length === 0) return []
+    if (!query.trim() || !Number.isFinite(limit) || limit < 1) return []
+    const resultLimit = Math.min(Math.floor(limit), SEMANTIC_SCAN_MAX_ROWS)
 
     const rows = (() => {
       try {
@@ -526,7 +558,15 @@ export const embeddingService = {
         return null
       }
     })()
-    if (!rows) return []
+    if (!rows?.length) return []
+    const qv = await (async (): Promise<number[] | undefined> => {
+      try {
+        return (await p.embed([query]))[0]
+      } catch {
+        return undefined
+      }
+    })()
+    if (!qv || qv.length === 0) return []
 
     // Stored norms (migration 28) turn per-row cosine into a dot product +
     // one multiply; rows lacking a norm (edge: written mid-migration) fall
@@ -540,12 +580,19 @@ export const embeddingService = {
         return { id: r.memory_id, score: denom === 0 ? 0 : dot(qv, v) / denom }
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
 
-    // One batched resolve in rank order (was: one getById per winner).
-    return projectMemory.getByIds(
-      projectId,
-      ranked.map((r) => r.id)
-    )
+    // Resolve bounded batches in rank order until eligible results fill the budget.
+    const hits: MemoryEntry[] = []
+    const batchSize = Math.max(10, resultLimit)
+    const cursor = { offset: 0 }
+    while (cursor.offset < ranked.length && hits.length < resultLimit) {
+      const entries = projectMemory.getByIds(
+        projectId,
+        ranked.slice(cursor.offset, cursor.offset + batchSize).map((r) => r.id)
+      )
+      hits.push(...entries.filter(accept ?? (() => true)))
+      cursor.offset += batchSize
+    }
+    return hits.slice(0, resultLimit)
   },
 }

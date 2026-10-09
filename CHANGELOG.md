@@ -2,6 +2,47 @@
 
 ## [Unreleased]
 
+## [4.25.1] - 2026-09-06
+
+### Added
+
+- fix: preserve Pi hooks when the daemon is unavailable
+
+## [4.25.0] - 2026-09-06
+
+### Added
+- Harness v2 improvements and complete native Pi compatibility
+
+## [4.24.0] - 2026-09-05
+
+### Added
+- harness v2 phase0
+
+## [4.23.0] - 2026-09-04
+
+### Added
+- Prevent native mutation replay and eliminate wasted retrieval work, round 3
+
+## [4.22.0] - 2026-09-04
+
+### Added
+- Deduplicate retrieval evaluation queries and qualify gates with explicit evidence (round 2 of 3)
+
+## [4.21.0] - 2026-09-04
+
+### Added
+- Bind verification to executed content, reconcile token observations, and enforce honest harness evidence (round 1 of 3)
+
+## [4.20.0] - 2026-09-04
+
+### Added
+- session rollover guard
+
+## [4.19.0] - 2026-09-04
+
+### Added
+- move project settings global and preserve daemon cache
+
 ## [4.18.5] - 2026-09-03
 
 ### Bug Fixes

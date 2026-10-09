@@ -6,7 +6,7 @@
  * prjct describes; the host runs LLM work and persists via prjct verbs.
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import {
@@ -107,7 +107,7 @@ export class HarnessCommands extends PrjctCommandsBase {
       }
       const { buildRetrievalReport, renderRetrievalReportMd, renderRetrievalReportText } =
         await import('../eval/report')
-      const report = await buildRetrievalReport(projectId)
+      const report = await buildRetrievalReport(projectId, 10, projectPath)
       console.log(options.md ? renderRetrievalReportMd(report) : renderRetrievalReportText(report))
       return {
         success: true,
@@ -146,7 +146,37 @@ export class HarnessCommands extends PrjctCommandsBase {
       // is advisory: laptop install state must not tank programDone. Adapter
       // presence is gated by weak-model-bench, not ~/.claude probes on runners.
       const coverage = await probeHarnessCoverage(projectPath)
-      const report = computeHarnessScore()
+      const evidencePath = path.join(projectPath, '.prjct', 'evaluations', 'paired-outcomes.json')
+      const pairedRuns: unknown = existsSync(evidencePath)
+        ? JSON.parse(readFileSync(evidencePath, 'utf8'))
+        : undefined
+      const report = computeHarnessScore({ pairedRuns })
+      // Live A/B (measurement is the product): a provisional Δ from the same
+      // paired-outcomes file, model- and class-aware. Never gates release —
+      // surfaced so a small live sample is visible, not hidden.
+      const { evaluateLiveOutcome } = await import('../services/outcome-evidence')
+      const live = evaluateLiveOutcome(pairedRuns)
+      const liveMd =
+        live.status === 'missing'
+          ? ''
+          : [
+              `## Live A/B (${live.status})`,
+              '',
+              live.summary,
+              '',
+              ...(live.byClass.length
+                ? [
+                    '| class | pairs | baseline acc | harness acc | Δ acc |',
+                    '|---|---:|---:|---:|---:|',
+                    ...live.byClass.map(
+                      (s) =>
+                        `| ${s.key} | ${s.pairs} | ${s.baselineAccuracy.toFixed(2)} | ${s.harnessAccuracy.toFixed(2)} | ${s.deltaAccuracy >= 0 ? '+' : ''}${s.deltaAccuracy.toFixed(2)} |`
+                    ),
+                    '',
+                  ]
+                : []),
+              `_Grader disagreements: ${live.disagreements}._`,
+            ].join('\n')
       const delta = computeHarnessDelta()
       const { outcomesMd, outcomesLine, weakLine } = await (async () => {
         try {
@@ -175,7 +205,7 @@ export class HarnessCommands extends PrjctCommandsBase {
           deltaMd: renderHarnessDeltaMd(delta),
           outcomesMd: outcomesMd ?? undefined,
         })
-        const extras = [weakLine ? `## Weak-model mode\n\n${weakLine}` : '']
+        const extras = [liveMd, weakLine ? `## Weak-model mode\n\n${weakLine}` : '']
           .filter(Boolean)
           .join('\n\n')
         console.log(extras ? `${md}\n\n${extras}\n` : md)

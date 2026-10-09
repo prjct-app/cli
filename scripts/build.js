@@ -264,26 +264,34 @@ const SHIM_EXTRA_SKIP = [
  */
 function deriveShimSkipSet() {
   const esbuild = require('esbuild')
-  const result = esbuild.buildSync({
-    entryPoints: [path.join(ROOT, 'core/commands/command-data.ts')],
-    bundle: true,
-    format: 'cjs',
-    platform: 'node',
-    write: false,
-  })
-  const mod = { exports: {} }
-  new Function('module', 'exports', 'require', result.outputFiles[0].text)(
-    mod,
-    mod.exports,
-    require
+  const os = require('node:os')
+  // Bundle the pure-data manifest to a temp CJS file and `require` it, rather
+  // than executing bundled text through `new Function` (SEC-15). The input is
+  // first-party source, but require-of-a-file keeps the build free of any
+  // dynamic code-evaluation construct.
+  const tmpFile = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'prjct-manifest-')),
+    'command-data.cjs'
   )
-  const derived = [
-    ...mod.exports.BIN_ONLY_COMMANDS,
-    ...mod.exports.COMMANDS.filter((command) => command.routingMode === 'cold-only').map(
-      (command) => command.name
-    ),
-  ]
-  return [...new Set([...derived, ...SHIM_EXTRA_SKIP])]
+  try {
+    esbuild.buildSync({
+      entryPoints: [path.join(ROOT, 'core/commands/command-data.ts')],
+      bundle: true,
+      format: 'cjs',
+      platform: 'node',
+      outfile: tmpFile,
+    })
+    const mod = require(tmpFile)
+    const derived = [
+      ...mod.BIN_ONLY_COMMANDS,
+      ...mod.COMMANDS.filter((command) => command.routingMode === 'cold-only').map(
+        (command) => command.name
+      ),
+    ]
+    return [...new Set([...derived, ...SHIM_EXTRA_SKIP])]
+  } finally {
+    fs.rmSync(path.dirname(tmpFile), { recursive: true, force: true })
+  }
 }
 
 /**
@@ -361,9 +369,8 @@ function generateDaemonShim() {
   //   - On a `retry` response (daemon refused because its CODE IS STALE — the
   //     request did NOT execute, so there are zero side effects): the generic
   //     path re-runs DIRECTLY in-process (set PRJCT_NO_DAEMON=1 so the imported
-  //     core skips the dying daemon) on the fresh code; the hook path re-spills
-  //     the payload to the run dir and punts (exit 89, no output) so the next
-  //     `||` chain stage re-runs the hook from the spill — see
+  //     core skips the dying daemon) on the fresh code; the hook path preserves
+  //     the payload and imports the dedicated cold-hook entry itself — see
   //     core/hooks/stdin-spill.ts. This is the definitive fix for the recurring
   //     stale-daemon trap — output is never served from an outdated build.
   //
@@ -404,23 +411,30 @@ function isSafeRetry(e){const c=e&&e.code||"",m=e&&e.message||"";return c==="ECO
 const fnv1a=(s)=>Buffer.from(s,"utf8").reduce((a,b)=>Math.imul(a^b,16777619)>>>0,2166136261).toString(16).padStart(8,"0");
 const spillPath=(sub)=>{const s=(sub||"").toLowerCase().replace(/[^a-z0-9-]/g,"");return s?join(cliHome,"run","hook-stdin-"+fnv1a(process.cwd())+"-"+s+".json"):null};
 const readSpill=(sub)=>{const p=spillPath(sub);if(!p)return null;try{const st=statSync(p);if(Date.now()-st.mtimeMs>3e4){unlinkSync(p);return null}const d=readFileSync(p,"utf8");unlinkSync(p);return d}catch{return null}};
-const writeSpill=(sub,data)=>{const p=spillPath(sub);if(!p)return;try{mkdirSync(dirname(p),{recursive:true});writeFileSync(p,data)}catch{}};
+const writeSpill=(sub,data)=>{const p=spillPath(sub);if(!p)return;try{mkdirSync(dirname(p),{recursive:true,mode:0o700});writeFileSync(p,data,{mode:0o600})}catch{}};
+// Daemon auth token (mirrors core/daemon/auth.ts): read per request from the
+// owner-only run dir. Missing/malformed → send none; the daemon answers
+// retry+unauthenticated and the request runs directly instead.
+const authToken=()=>{try{const t=readFileSync(join(cliHome,"run","daemon.token"),"utf8").trim();return /^[0-9a-f]{64}$/.test(t)?t:""}catch{return""}};
+const withAuth=(o)=>{const a=authToken();return a?{...o,auth:a}:o};
 // Hook fast path: forward the event (stdin, or the spill an earlier chain
 // stage left behind) to the warm daemon and write its response raw. Hooks
 // must never disturb the host session, so ANY failure (connect error,
-// timeout, closed socket, stale-code retry) RE-SPILLS the payload and punts
-// (exit 89, no output) — the next || chain stage re-runs the hook from the
-// spill. Invoked outside a chain (manual "prjct hook X"), exit 89 + empty
-// stdout is the same host-visible no-op the old {} emit was.
+// timeout, closed socket, stale-code retry) preserves the payload and runs
+// the dedicated cold hook here. Pi and direct CLI callers have no shell
+// fallback chain: exit 89 is an error that otherwise blocks their tools.
 const hookCompletion=new AbortController();
 function sendHook(sub,data){
   if(hookCompletion.signal.aborted)return;hookCompletion.abort();
-  const msg=JSON.stringify({id:randomUUID(),command:"hook",args:sub?[sub]:[],options:{},cwd:process.cwd(),stdin:data,...(process.env.PRJCT_HOOK_HOST?{hookHost:process.env.PRJCT_HOOK_HOST}:{})})+"\\n";
+  const msg=JSON.stringify(withAuth({id:randomUUID(),command:"hook",args:sub?[sub]:[],options:{},cwd:process.cwd(),stdin:data,...(process.env.PRJCT_HOOK_HOST?{hookHost:process.env.PRJCT_HOOK_HOST}:{})}))+"\\n";
   const sock=connect(sockPath);const chunks=[],completion=new AbortController();
-  const soft=()=>{if(!completion.signal.aborted){completion.abort();clearTimeout(t);sock.destroy();writeSpill(sub,data);process.exit(89)}};
+  const soft=()=>cold();
+  // Preserve hook decisions and original stdin in the dedicated hook bundle.
+  // Generic mutating commands retain their separate no-replay policy.
+  const cold=()=>{if(!completion.signal.aborted){completion.abort();clearTimeout(t);sock.destroy();writeSpill(sub,data);process.env.PRJCT_NO_DAEMON="1";import("./prjct-hooks.mjs").catch(()=>{process.stdout.write("{}\\n");process.exit(0)})}};
   const t=setTimeout(soft,800);
   sock.on("connect",()=>sock.write(msg));
-  sock.on("data",c=>{chunks.push(c.toString());const buf=chunks.join("");const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));if(r.retry){soft();return}completion.abort();clearTimeout(t);sock.end();if(r.stdout)process.stdout.write(r.stdout);process.exit(r.exitCode!=null?r.exitCode:0)}});
+  sock.on("data",c=>{if(completion.signal.aborted)return;chunks.push(c.toString());const buf=chunks.join("");if(buf.length>1048576){soft();return}const n=buf.indexOf("\\n");if(n!==-1){try{const r=JSON.parse(buf.slice(0,n));if(!r||typeof r!=="object"||Array.isArray(r)||r.unauthenticated||r.retry||r.success!==true||r.exitCode!==0||typeof r.stdout!=="string"){soft();return}completion.abort();clearTimeout(t);sock.end();if(r.stdout)process.stdout.write(r.stdout);process.exit(0)}catch{soft()}}});
   sock.on("error",soft);
   sock.on("close",soft);
 }
@@ -451,18 +465,19 @@ if(cmd==="hook"){
 }else if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&hasEndpoint()){
   const cArgs=[],cOpts={};
   const consumed=new Set();for(const [i,a] of args.entries()){if(consumed.has(i))continue;if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[i+1];consumed.add(i+1)}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
-  const msg=JSON.stringify({id:randomUUID(),command:cmd,args:cArgs,options:cOpts,cwd:process.cwd()})+"\\n";
+  const operationId=cOpts["operation-id"]||randomUUID();
+  const msg=JSON.stringify(withAuth({id:operationId,command:cmd,args:cArgs,options:cOpts,cwd:process.cwd()}))+"\\n";
   const sock=connect(sockPath);const chunks=[],completion=new AbortController();
   // Long verbs (ship/sync/…) need 10min; everything else stays at 30s.
-  const LONG=new Set(["ship","sync","dream","update","upgrade","analyze","init","cloud"]);
+  const LONG=new Set(["ship","sync","dream","update","upgrade","analyze","init","cloud","qa","gauntlet"]);
   const waitMs=LONG.has(cmd)?600000:30000;
-  const t=setTimeout(()=>{if(!completion.signal.aborted){completion.abort();sock.destroy();refuse("timed out")}},waitMs);
+  const t=setTimeout(()=>{if(!completion.signal.aborted){completion.abort();sock.destroy();refuse("timed out; operation "+operationId+". Resume the same command with --operation-id="+operationId+"; add --operation-status to inspect")}},waitMs);
   sock.on("connect",()=>sock.write(msg));
-  sock.on("data",c=>{chunks.push(c.toString());const buf=chunks.join("");const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));completion.abort();clearTimeout(t);sock.end();if(r.retry){process.env.PRJCT_NO_DAEMON="1";fallback();return}if(r.stdout)console.log(r.stdout);if(r.stderr)console.error(r.stderr);process.exit(r.exitCode)}});
-  sock.on("error",e=>{if(!completion.signal.aborted){completion.abort();clearTimeout(t);if(isSafeRetry(e))fallback();else refuse(e&&e.message||String(e))}});
-  sock.on("close",()=>{if(!completion.signal.aborted){completion.abort();clearTimeout(t);refuse("Connection closed before response")}});
+  sock.on("data",c=>{chunks.push(c.toString());const buf=chunks.join("");const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));completion.abort();clearTimeout(t);sock.end();if(r.retry){if(cOpts["operation-id"]){refuse("Resume requires a ready daemon; retry the same operation id after restart");return}process.env.PRJCT_NO_DAEMON="1";fallback();return}if(r.stdout)console.log(r.stdout);if(r.stderr)console.error(r.stderr);process.exit(r.exitCode)}});
+  sock.on("error",e=>{if(!completion.signal.aborted){completion.abort();clearTimeout(t);if(isSafeRetry(e)&&!cOpts["operation-id"])fallback();else refuse((e&&e.message||String(e))+"; resume with --operation-id="+operationId)}});
+  sock.on("close",()=>{if(!completion.signal.aborted){completion.abort();clearTimeout(t);refuse("Connection closed before response; resume with --operation-id="+operationId)}});
 }else{fallback()}
-async function fallback(){await import("./prjct-core.mjs")}
+async function fallback(){if(args.some(a=>a==="--operation-id"||a.startsWith("--operation-id="))){refuse("Resume requires the daemon; start it and repeat the same operation id");return}await import("./prjct-core.mjs")}
 `
 }
 

@@ -18,7 +18,10 @@ import { runPreEditHook } from '../../hooks/pre-edit'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { projectMemory } from '../../memory/project-memory'
-import { _resetDeliveredLedgerForTests } from '../../services/session-context-cache'
+import {
+  _resetDeliveredLedgerForTests,
+  advanceSessionTurn,
+} from '../../services/session-context-cache'
 import {
   markSourceInspected,
   repoRelativeFile,
@@ -97,6 +100,38 @@ afterEach(async () => {
 })
 
 describe('pre-edit hook', () => {
+  test('cuts edits at the host session limit without leaking the stop to a fresh identity', async () => {
+    await configManager.writeConfig(fixture.projectPath, {
+      projectId: fixture.projectId,
+      dataPath: path.join(fixture.projectPath, '.prjct-data'),
+      maxTurnsPerSession: 2,
+    } as Parameters<typeof configManager.writeConfig>[1])
+    const stopped = {
+      projectId: fixture.projectId,
+      projectPath: fixture.projectPath,
+      sessionId: 'marathon-session',
+    }
+    await advanceSessionTurn(stopped)
+    await advanceSessionTurn(stopped)
+
+    const blocked = await runWith(
+      { file_path: path.join(fixture.projectPath, 'core', 'state.ts') },
+      stopped.sessionId
+    )
+    expect(blocked).toContain('SESSION ROLLOVER REQUIRED')
+    expect(blocked).toContain('permissionDecision')
+    expect(blocked).toContain('deny')
+
+    const fresh = await runWith(
+      { file_path: path.join(fixture.projectPath, 'core', 'state.ts') },
+      'fresh-session'
+    )
+    expect(fresh).not.toContain('SESSION ROLLOVER REQUIRED')
+    expect(
+      await runWith({ file_path: path.join(fixture.projectPath, 'core', 'state.ts') })
+    ).not.toContain('SESSION ROLLOVER REQUIRED')
+  })
+
   test('canonicalizes filesystem aliases before deciding whether a target is in-repo', async () => {
     if (process.platform === 'win32') return
     const realRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-real-root-'))
@@ -195,18 +230,12 @@ describe('pre-edit hook', () => {
       filePath: file,
     })
     expect(token).not.toBeNull()
-    const previous = process.env.PRJCT_SOURCE_INSPECTION
-    process.env.PRJCT_SOURCE_INSPECTION = token!
-    try {
-      const result = await new GuardCommands().guard('core/state.ts', fixture.projectPath, {
-        md: true,
-      })
-      expect(result.success).toBe(true)
-      expect((await runWith({ file_path: file }, 'guard-session')).trim()).toBe('{}')
-    } finally {
-      if (previous === undefined) delete process.env.PRJCT_SOURCE_INSPECTION
-      else process.env.PRJCT_SOURCE_INSPECTION = previous
-    }
+    const result = await new GuardCommands().guard('core/state.ts', fixture.projectPath, {
+      md: true,
+      sourceInspectionToken: token!,
+    })
+    expect(result.success).toBe(true)
+    expect((await runWith({ file_path: file }, 'guard-session')).trim()).toBe('{}')
   })
 
   test('sessionless hosts use a durable guard handshake instead of bricking or failing open', async () => {

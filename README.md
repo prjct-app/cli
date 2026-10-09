@@ -11,9 +11,8 @@ harness is owned. prjct-cli gives Claude Code, Codex, Gemini, Cursor, OpenCode
   (npm/yarn/pnpm/bun · Cargo · Go · Python · Maven · Gradle · Ruby · PHP ·
   .NET · Elixir · Makefile targets) — and for anything else, declare them:
 
-  ```jsonc
-  // .prjct/prjct.config.json
-  { "gauntlet": { "commands": [{ "kind": "test", "command": "swift test" }] } }
+  ```bash
+  prjct gauntlet set test "swift test"
   ```
 - **Lookup that beats re-deriving.** Bounded, ranked project context (RRF over
   BM25 + semantic, quality measured by `prjct harness retrieval`) instead of an
@@ -164,11 +163,12 @@ State is the source of truth. New knowledge enters via `prjct remember <type>`, 
 
 ### Where data actually lives
 
-Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Two tiers:
+Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Three tiers:
 
 | Tier | Location | Commit it? |
 |---|---|---|
-| Config / identity | `<repo>/.prjct/prjct.config.json` (`projectId`, persona) | **Yes** — small, machine-independent |
+| Project locator | `<repo>/.prjct/prjct.config.json` (`projectId`, `dataPath` only) | Optional — immutable pointer |
+| Project settings | `~/.prjct-cli/projects/<projectId>/config.json` | No — prjct-managed |
 | State (source of truth) | `~/.prjct-cli/projects/<projectId>/prjct.db` (SQLite) | No — per-device |
 
 Find a project's data: read `projectId` from `.prjct/prjct.config.json`, then the
@@ -315,7 +315,7 @@ Cursor uses its installed prjct hooks/router file; other agents use a native ski
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct agents doctor` | Show the auditable compatibility matrix for local and project agent runtimes. |
 | `prjct review-risk` | Advisory change-size + delivery-geometry signal for the branch (read-only; never gates, never splits). |
-| `prjct prime` / `prjct land` | Open / close a session: restore full work state · persist hand-off + trigger memory consolidation. |
+| `prjct prime` / `prjct land` | Open / close a session: restore full work state · persist hand-off + trigger memory consolidation. Code packs warn at 80 turns and stop project tools at 100 unless `maxTurnsPerSession` overrides the global project policy. |
 | `prjct dream` | Consolidate memory: orient / gather / consolidate / prune. |
 | `prjct ready` / `claim` / `depend` / `phases` | Multi-agent work graph: ready frontier, race-free claim, dependency edges, topological phases. |
 | `prjct crew` | Multi-subagent crew flow: leader / implementers / reviewer. |
@@ -330,7 +330,8 @@ the product surface.
 
 ## Personas & Packs
 
-`.prjct/prjct.config.json` declares the persona. Hooks inject it every session.
+The global project settings declare the persona. Hooks inject it once per session
+through a byte-stable SessionStart block; ordinary prompt turns receive only deltas.
 
 ```json
 {
@@ -360,7 +361,7 @@ Slots ship **empty** — the human or the agent fills them on demand.
 
 ## Hooks Adapter (opt-in) — Claude Code + Kimi Code CLI
 
-`prjct install` writes the Claude Code hooks adapter to `~/.claude/settings.json`, writes the native Kimi Code CLI hooks adapter as `[[hooks]]` entries in `~/.kimi-code/config.toml` (marked with a `# prjct-managed` comment each — TOML forbids extra entry fields, and user entries or other tools' blocks stay byte-identical), and repairs detected Codex config in `~/.codex/config.toml` (prjct MCP + TUI `status_line`). prjct never writes `AGENTS.md`, `CLAUDE.md`, `PRJCT.md`, or IDE rule files into the client repository. Most of the 13 hook subcommands inject `additionalContext` (plain stdout text under Kimi, which appends it to context); two guard: the credential guard denies tool calls that would leak secrets, and the package guard denies unknown installs under strict packs. Kimi applies hook config on the next session (or after `/reload`). Other agents use the support level shown by `prjct agents doctor`.
+`prjct install` writes the Claude Code hooks adapter to `~/.claude/settings.json`, writes the native Kimi Code CLI hooks adapter as `[[hooks]]` entries in `~/.kimi-code/config.toml` (marked with a `# prjct-managed` comment each — TOML forbids extra entry fields, and user entries or other tools' blocks stay byte-identical), and installs native Codex hooks in `~/.codex/hooks.json` plus prjct MCP and TUI status line configuration in `~/.codex/config.toml`. prjct never writes `AGENTS.md`, `CLAUDE.md`, `PRJCT.md`, or IDE rule files into the client repository. Most hook subcommands inject `additionalContext`; the credential, package, source-first, loop, and session-rollover gates can deny supported tool calls. Kimi applies hook config on the next session (or after `/reload`); Codex asks the user to trust newly installed hooks once through `/hooks`. Other agents use the support level shown by `prjct agents doctor`.
 
 | Event | Does | Kimi |
 |---|---|---|
@@ -424,9 +425,12 @@ applies every known safe repair (project setup, Context7, managed hooks/adapters
 and heavy Kimi MCP configuration), then exits non-zero if a required error is
 still present. Heavy third-party Kimi MCP entries are preserved and set to
 `enabled: false`; prjct itself is pinned to the micro tool tier. Doctor never
-deletes an integration or kills an active agent session, so host-boundary fixes
-such as reloading Kimi or starting a fresh Codex session remain explicit
-`ACTION REQUIRED` errors until they are actually resolved.
+deletes an integration or kills an active agent session. Code packs instead
+prevent marathons prospectively: the prompt hook emits one rollover warning at
+80 turns and project Edit/Bash/Search hooks stop at 100. Run `prjct land --md`,
+start a fresh host session without resuming the old one, then run
+`prjct prime --md`. Set global project `maxTurnsPerSession` to override the
+limit (`0` disables it); normal turns emit no extra bytes.
 
 ## Memory
 
@@ -566,8 +570,8 @@ prjct-cli/
 
 **How do I initialize / register a new project?**
 In any git repo, run `prjct sync` (it auto-runs on the first `prjct` command) or
-`prjct init`. This creates `.prjct/prjct.config.json` with a `projectId` and
-builds the SQLite store at `~/.prjct-cli/projects/<projectId>/`.
+`prjct init`. This creates a stable project locator and builds the settings +
+SQLite store at `~/.prjct-cli/projects/<projectId>/`.
 
 **How do I start a work cycle?**
 Run `prjct work "<intent>"` from the repo. It registers the work cycle in
@@ -644,12 +648,13 @@ non-interactive/non-TTY, so prjct-cli emits the same static, prompt-free status
 line as any agent; add `--md` for fully markdown-structured output.
 
 **What does Codex get from prjct?**
-Three global surfaces, all installed/healed automatically: a compact skill at
+Four global surfaces, all installed/healed automatically: a compact skill at
 `~/.codex/skills/prjct/SKILL.md` (kept under Codex's ~1KB skill cap), the
 prjct MCP server wired into `~/.codex/config.toml` (`prjct_*` tools), and a
-Codex TUI `status_line` in that same config unless the user already set one.
-Codex has no lifecycle hooks, so the skill + MCP are its session-start context
-and live tool surface. prjct never writes an `AGENTS.md` into the project.
+Codex TUI `status_line` in that same config unless the user already set one,
+plus native lifecycle/tool hooks in `~/.codex/hooks.json`. The hooks require a
+one-time trust decision through Codex `/hooks`. prjct never writes an
+`AGENTS.md` into the project.
 
 **How do I quickly find the local `.prjct/` directory?**
 It's in your **project repo root** (created by `prjct init` / first `prjct`
@@ -657,16 +662,15 @@ command) and is `.gitignore`d — that's why `git status` never shows it. Find i
 
 ```bash
 ls -la .prjct/                                    # from the repo root
-cat .prjct/prjct.config.json                      # projectId + persona
+cat .prjct/prjct.config.json                      # stable project locator only
 ls -la "$(git rev-parse --show-toplevel)/.prjct/" # from any subdirectory
 git check-ignore -v .prjct                         # why git ignores it
 ```
 
-The path is always `<repoRoot>/.prjct/` (strictly relative to the project — no
-env var, no global lookup). Read `projectId` from `prjct.config.json` to reach
-the state tier: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`
-(`PRJCT_CLI_HOME` overrides the global base). The in-repo `.prjct/` holds only
-config, not state — full detail in
+The locator path is `<repoRoot>/.prjct/`. Read `projectId` from it to reach the
+global settings at `~/.prjct-cli/projects/<projectId>/config.json` and state at
+`~/.prjct-cli/projects/<projectId>/prjct.db` (`PRJCT_CLI_HOME` overrides the
+global base). Mutable settings never live in the repo — full detail in
 [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
 **How does prjct-cli detect its environment with no configuration?**
@@ -677,8 +681,8 @@ prjct-cli reads those ambient facts (precedence in
 anything.
 
 **Is all project data really in a local `.prjct/` directory? Team/VCS implications?**
-No — only `.prjct/prjct.config.json` (small, **committable** identity) is in the
-repo. State is per-device SQLite under `~/.prjct-cli` (never committed).
+No — only `.prjct/prjct.config.json` (a stable locator) may be in the repo.
+Mutable settings and state live under `~/.prjct-cli` and are never committed.
 Teams coordinate via optional cloud sync, not git. Full
 tradeoffs: [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 

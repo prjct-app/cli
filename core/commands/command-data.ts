@@ -230,6 +230,58 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'ab',
+    group: 'optional',
+    surface: 'support',
+    routing: { group: 'ab', method: 'ab' },
+    // cold-only: a live sweep spawns `claude` for minutes and must not tie up
+    // the daemon's request lanes.
+    routingMode: 'cold-only',
+    optionSchema: {
+      strings: ['models', 'tasks', 'reps', 'out', 'grader', 'budget-usd'],
+    },
+    description:
+      'Live with/without-harness A/B per model and task class (the harness measures itself)',
+    usage: {
+      claude: 'p. ab report',
+      terminal:
+        'prjct ab <run|report|import> [--models haiku,sonnet] [--tasks T1-lookup,...] [--reps 3] [--out <path>]',
+    },
+    params: '[run|report|import]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    requiresLlm: false,
+    features: [
+      'run: sweeps evals/ab/tasks through the model in both arms (spawns claude)',
+      'import: folds a results.jsonl into .prjct/evaluations/paired-outcomes.json',
+      'report: provisional Δ per class and per model, with visible grader disagreements',
+    ],
+  },
+  {
+    name: 'verify',
+    group: 'optional',
+    surface: 'support',
+    routing: { group: 'verify', method: 'verify' },
+    routingMode: 'cold-only',
+    optionSchema: { strings: ['timeoutMs'] },
+    description: 'Proof-carrying verification: one-shot check, or the repro→fix red→green contract',
+    usage: {
+      claude: 'p. verify "<cmd>"',
+      terminal: 'prjct verify "<cmd>" | auto | repro "<cmd>" | fix "<cmd>"',
+    },
+    params: '["<cmd>" | auto | repro <cmd> | fix <cmd>]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    requiresLlm: false,
+    features: [
+      'One-shot Stop-Slop check (pass/fail with tail)',
+      'repro: records a reproduction bound to the git tree (must fail)',
+      'fix: requires the same command to pass across a real tree change (must differ)',
+    ],
+  },
+  {
     name: 'status',
     group: 'legacy',
     surface: 'legacy',
@@ -1504,7 +1556,11 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     surface: 'ai-agile',
     routing: { group: 'guard', method: 'guard' },
-    optionSchema: { numbers: ['limit'], strings: ['diff'], booleans: ['strict'] },
+    optionSchema: {
+      numbers: ['limit'],
+      strings: ['diff', 'sourceInspectionToken'],
+      booleans: ['strict'],
+    },
     description:
       'Surface preventive memory (gotchas, anti-patterns, recurring-bugs) recorded against a file BEFORE you edit it — anticipation, provider-agnostic.',
     usage: {
@@ -1534,9 +1590,9 @@ export const COMMANDS: CommandMeta[] = [
     description: 'Read/write global prjct config — auto-update opt-in, suggestions toggle, etc.',
     usage: {
       claude: 'p. config list',
-      terminal: 'prjct config <list|get|set|unset> [key] [value]',
+      terminal: 'prjct config <list|get|set|unset|migrate-project-settings> [key|confirm] [value]',
     },
-    params: '<list|get|set|unset> [key] [value]',
+    params: '<list|get|set|unset|migrate-project-settings> [key|confirm] [value]',
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
@@ -1545,6 +1601,7 @@ export const COMMANDS: CommandMeta[] = [
       'Opt into silent auto-update: prjct config set auto-update on',
       'Toggle proactive suggestions: prjct config set suggestions off',
       'Booleans accept on/off/true/false; numbers parsed automatically',
+      'Legacy project settings recovered from Git require preview + explicit confirm',
     ],
   },
   // ===== SDD: spec-driven development primitives =====

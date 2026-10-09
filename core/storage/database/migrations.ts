@@ -2736,6 +2736,33 @@ export const migrations: Migration[] = [
       )
     },
   },
+  {
+    version: 66,
+    name: 'usage-observation-identity',
+    up: (db: SqliteDatabase) => {
+      db.run('ALTER TABLE token_usage ADD COLUMN observation_id TEXT')
+      db.run(
+        "ALTER TABLE token_usage ADD COLUMN usage_kind TEXT CHECK (usage_kind IN ('total', 'model', 'context'))"
+      )
+      db.run('ALTER TABLE token_usage ADD COLUMN runtime TEXT')
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_token_usage_observation ON token_usage(work_cycle_id, observation_id)'
+      )
+    },
+  },
+  {
+    version: 67,
+    name: 'memory-anchors-stale-at',
+    up: (db: SqliteDatabase) => {
+      // Write-time anchors (commit / symbol) ride memory_entry_tags through the
+      // existing events trigger; only the sweep's verdict needs a column so
+      // recall can order on it and the audit can count it without scanning tags.
+      db.run('ALTER TABLE memory_entries ADD COLUMN stale_at INTEGER')
+      db.run(
+        'CREATE INDEX IF NOT EXISTS ix_memory_entries_stale ON memory_entries(project_id, stale_at) WHERE stale_at IS NOT NULL'
+      )
+    },
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1]?.version ?? 0

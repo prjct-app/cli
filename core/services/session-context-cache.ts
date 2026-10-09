@@ -125,8 +125,8 @@ export function condenseDelivered<T extends DeliverableEntry>(
 
 /**
  * Single-blob variant of the ledger for MCP tool results: an unchanged
- * repeat collapses the whole result to a one-line pointer that carries the
- * re-fetch instruction. Session-scoped by process lifetime (stdio MCP).
+ * repeat uses a one-line re-fetch pointer only when shorter than the body.
+ * Session-scoped by process lifetime (stdio MCP).
  */
 export function condenseResult(
   scope: string,
@@ -139,8 +139,9 @@ export function condenseResult(
   const repeated = !opts.full && deliveredLedger.get(key) === hash
   ledgerSet(deliveredLedger, key, hash, DELIVERED_LEDGER_MAX)
   if (!repeated) return { text: content, repeated, hash }
+  const pointer = `_${id} unchanged since last delivery this session (hash ${hash.slice(0, 8)}) — pass full:true to re-fetch._`
   return {
-    text: `_${id} unchanged since last delivery this session (hash ${hash.slice(0, 8)}) — pass full:true to re-fetch._`,
+    text: pointer.length < content.length ? pointer : content,
     repeated,
     hash,
   }
@@ -168,6 +169,8 @@ export type DeliverySurface =
   | 'pre-search'
   /** Knowledge-first deny: one block per grepped token per session. */
   | 'pre-search-knowledge-gate'
+  /** Knowledge-first inject: judgment inlined per grepped token per session. */
+  | 'pre-search-knowledge-inject'
   | 'pre-edit'
   | 'source-inspection'
   | 'post-edit'
@@ -216,6 +219,7 @@ const GATE_STAMP_PREFIX = 'scc-'
 const GATE_L1_MAX = 256
 const GATE_KEYED_MAX_ENTRIES = 200
 const TURN_CONTEXT_PREFIX = 'turn-context-'
+const SESSION_TURN_PREFIX = 'session-turns-'
 
 /** In-process fast path over the disk stamps (warm daemon). */
 const gateL1 = new Map<string, string>()
@@ -234,6 +238,60 @@ interface TurnContextStamp {
 function turnContextPath(projectId: string, projectPath: string, sessionId: string): string {
   const key = sessionStampKey(projectId, projectPath, sessionId)
   return path.join(DAEMON_PATHS.runDir(), `${TURN_CONTEXT_PREFIX}${key}.json`)
+}
+
+function sessionTurnPath(projectId: string, projectPath: string, sessionId: string): string {
+  const key = sessionStampKey(projectId, projectPath, sessionId)
+  return path.join(DAEMON_PATHS.runDir(), `${SESSION_TURN_PREFIX}${key}.count`)
+}
+
+/**
+ * Count one host prompt without parsing its ever-growing transcript.
+ *
+ * Each prompt appends one byte with O_APPEND, so concurrent daemon requests
+ * cannot overwrite each other. `maxCount` saturates the file at the configured
+ * rollover limit, making storage constant-size even when a host ignores the
+ * stop. The stamp is swept after 24h of inactivity.
+ */
+export async function advanceSessionTurn(input: {
+  projectId: string
+  projectPath: string
+  sessionId: string | undefined
+  maxCount?: number
+}): Promise<number | null> {
+  if (!input.sessionId) return null
+  const target = sessionTurnPath(input.projectId, input.projectPath, input.sessionId)
+  try {
+    await fs.mkdir(DAEMON_PATHS.runDir(), { recursive: true })
+    if (input.maxCount && input.maxCount > 0) {
+      const current = await fs.stat(target).catch(() => null)
+      if (current && current.size >= input.maxCount) return input.maxCount
+    }
+    await fs.appendFile(target, '1')
+    const size = (await fs.stat(target)).size
+    if (input.maxCount && input.maxCount > 0 && size > input.maxCount) {
+      await fs.truncate(target, input.maxCount)
+      return input.maxCount
+    }
+    return size
+  } catch {
+    return null
+  }
+}
+
+/** Read-only seam shared by project tool gates. Missing identity/state fails open. */
+export async function readSessionTurnCount(input: {
+  projectId: string
+  projectPath: string
+  sessionId: string | undefined
+}): Promise<number | null> {
+  if (!input.sessionId) return null
+  try {
+    return (await fs.stat(sessionTurnPath(input.projectId, input.projectPath, input.sessionId)))
+      .size
+  } catch {
+    return null
+  }
 }
 
 /** Start a new host prompt turn, clearing cross-hook delivery for that turn. */
@@ -373,13 +431,14 @@ export async function gateDelivery(req: GateRequest): Promise<GateResult> {
     const expired = ttlMs !== null && entry !== undefined && now - entry.t > ttlMs
     const suppress = !req.full && !fresh && !expired
 
-    // TTL entries refresh ONLY on emit — refreshing on suppression turns the
-    // TTL into a sliding window that never expires under steady access, which
-    // would let sessionless suppression outlive its bound indefinitely.
-    if (!req.probe && !(suppress && ttlMs !== null)) {
-      delete stored[subKey]
-      stored[subKey] = { h: hash, t: now } // re-insert last: insertion-order eviction keeps hot keys
-      await writeGateFile(target, stored)
+    // An unchanged cold-process hit needs no disk rewrite. TTL timestamps
+    // likewise refresh only on emission, keeping expiry a hard bound.
+    if (!req.probe) {
+      if (!suppress) {
+        delete stored[subKey]
+        stored[subKey] = { h: hash, t: now }
+        await writeGateFile(target, stored)
+      }
       if (ttlMs === null) ledgerSet(gateL1, l1Key, hash, GATE_L1_MAX)
     }
 

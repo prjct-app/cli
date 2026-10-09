@@ -14,6 +14,7 @@ import { connect } from 'node:net'
 import path from 'node:path'
 import type { DaemonRequest, DaemonResponse, DaemonStatus } from '../types/daemon'
 import { isBunAvailable } from '../utils/runtime'
+import { readDaemonToken } from './auth'
 import { commandRequestTimeoutMs, DAEMON_PATHS, encodeMessage, isDaemonNamedPipe } from './protocol'
 import { releaseSpawnLock, tryAcquireSpawnLock } from './startup-lock'
 
@@ -84,13 +85,16 @@ export async function getDaemonStatus(): Promise<DaemonStatus> {
   }
 
   try {
-    const response = await sendRequest({
-      id: crypto.randomUUID(),
-      command: 'daemon',
-      args: ['status'],
-      options: {},
-      cwd: process.cwd(),
-    })
+    const response = await sendRequest(
+      {
+        id: crypto.randomUUID(),
+        command: 'daemon',
+        args: ['status'],
+        options: {},
+        cwd: process.cwd(),
+      },
+      { timeoutMs: 1_000 }
+    )
 
     if (response.success && response.result) {
       return response.result as DaemonStatus
@@ -137,12 +141,18 @@ export function sendRequest(
       if (!completion.signal.aborted) {
         completion.abort()
         socket.destroy()
-        reject(new Error('Daemon request timed out'))
+        reject(
+          new Error(
+            `Daemon request timed out; operation ${request.id}. Resume the same command with --operation-id=${request.id}; add --operation-status to inspect.`
+          )
+        )
       }
     }, timeoutMs)
 
     socket.on('connect', () => {
-      socket.write(encodeMessage(request))
+      // Read per request, never cached: a restarted daemon rotates it.
+      const auth = request.auth ?? readDaemonToken() ?? undefined
+      socket.write(encodeMessage(auth ? { ...request, auth } : request))
     })
 
     socket.on('data', (chunk) => {
@@ -220,6 +230,15 @@ export async function executeViaDaemon(
   const namedPipe = isDaemonNamedPipe(socketPath)
 
   if (!namedPipe && !fs.existsSync(socketPath)) {
+    if (options['operation-id']) {
+      if (autoStart) await spawnDaemon().catch(() => {})
+      return {
+        id: String(options['operation-id']),
+        success: false,
+        exitCode: 1,
+        stderr: 'Resume requires a running daemon. Start it and repeat the same operation id.',
+      }
+    }
     if (autoStart) {
       // Spawn daemon in background for future commands
       spawnDaemon().catch(() => {})
@@ -227,13 +246,15 @@ export async function executeViaDaemon(
     return null // Daemon not running — fall back for this command
   }
 
+  const operationId =
+    typeof options['operation-id'] === 'string' ? options['operation-id'] : crypto.randomUUID()
   try {
     // Caller identity resolves HERE (client inherits the agent's env); the
     // daemon's env is frozen at spawn and must never be consulted for it.
     const { resolveCallerIdentity } = await import('../services/agent-identity')
     const caller = resolveCallerIdentity(command)
     return await sendRequest({
-      id: crypto.randomUUID(),
+      id: operationId,
       command,
       args,
       options,
@@ -245,7 +266,15 @@ export async function executeViaDaemon(
         identity: caller.identity,
       },
     })
-  } catch {
+  } catch (error) {
+    if (!shouldUnlinkDaemonSocket(error) || options['operation-id']) {
+      return {
+        id: operationId,
+        success: false,
+        exitCode: 1,
+        stderr: `Daemon operation ${operationId} has an uncertain outcome: ${error instanceof Error ? error.message : String(error)}. Resume with --operation-id=${operationId}; execution was not replayed.`,
+      }
+    }
     if (autoStart) {
       // Named pipes need a connect attempt to discover absence; spawn for next command.
       spawnDaemon().catch(() => {})

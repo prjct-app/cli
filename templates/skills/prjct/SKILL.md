@@ -15,7 +15,7 @@ Project memory, work cycles, ships, guardrails, or performance. **You run the ve
 - prjct remembers project state and shows the path; it does not own execution. Agents decide HOW with native tools and judgment. Treat prjct output as durable signals.
 - Persist outcomes via `prjct remember` / `work` / `ship` — every memory in **ENGLISH**. Close: `prjct land` (Session close) or living context via `prjct remember context`.
 - **Dispatch:** tasks → `prjct work "…"`. Known cmds (`sync`/`search`/`remember`/`ship`/…) run bare with `--md`. **Never** wrap a bin verb as `work "sync"`.
-- Before Grep/Glob: `prjct work` / `prjct_relevant_files` / `prjct code trace` when indexes exist.
+- Search freely — the harness injects prior decisions and file traps inline; `prjct search`/`code trace` go deeper, never a precondition.
 - **Pattern supremacy:** match THIS repo. **Skill ≠ project identity** (portable L0) — cwd + `prjct context --md` win.
 - **Sync analysis:** `analysis-save-llm` = schema v1 JSON; markdown = thin notes only — no retry loop.
 
@@ -48,5 +48,5 @@ Project memory, work cycles, ships, guardrails, or performance. **You run the ve
 ## Gotchas
 
 - Empty recall ≠ nothing exists. Secrets refused unless `--force`. Worktrees: remove only after PR merged, never --force.
-- SQLite is SoT (use CLI/MCP, never read it directly); project config: `.prjct/prjct.config.json`.
+- SQLite is SoT (use CLI/MCP, never read it directly); mutable project settings live globally under `~/.prjct-cli/projects/{projectId}/`, while `.prjct/prjct.config.json` is only the stable locator.
 
