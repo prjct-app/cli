@@ -563,7 +563,7 @@ prjct-cli/
 
 ## Requirements
 
-- Node.js 22.5+ (ships `node:sqlite`) or Bun 1.0+
+- Node.js 22.23.4+ (October 2026 security release; `node:sqlite` since 22.5) or Bun 1.0+
 - One of: Claude Code, OpenAI Codex, Gemini CLI, Cursor, OpenCode, Cline, Grok Build, Pi, Kimi Code CLI, or Antigravity
 
 ## Common questions
