@@ -133,8 +133,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # Node 22: npm@11+ trusted publishing, and avoids GHA Node 20 deprecation.
-          node-version: '22'
+          # Node 22.23.4: October 2026 security release (engines.node >=22.23.4).
+          # A bare `22` can resolve below that floor. npm@11+ trusted publishing;
+          # avoids GHA Node 20 deprecation.
+          node-version: '22.23.4'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -217,8 +219,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # Node 22: npm@11+ trusted publishing, and avoids GHA Node 20 deprecation.
-          node-version: '22'
+          # Node 22.23.4: October 2026 security release (engines.node >=22.23.4).
+          # A bare `22` can resolve below that floor. npm@11+ trusted publishing;
+          # avoids GHA Node 20 deprecation.
+          node-version: '22.23.4'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
